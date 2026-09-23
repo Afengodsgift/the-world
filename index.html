@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>The World</title>
+<style>
+:root{--ink:#eef2ff;--deep:#0d1533;--sky:#7fb2ff;--glow:#ffd27a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--deep);color:var(--ink);font-family:Georgia,'Times New Roman',serif;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
+canvas{display:block}
+#lobby{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;background:radial-gradient(120% 80% at 50% 110%,#ff9a6b 0,#5a4a9e 35%,var(--deep) 75%)}
+#lobby h1{font-size:44px;font-weight:400;font-style:italic;margin:0 0 4px;letter-spacing:.02em}
+#lobby p{margin:0 0 14px;opacity:.75;font-size:16px}
+input,button{font:inherit;font-size:18px;padding:14px 16px;border-radius:14px;border:0;width:min(320px,100%)}
+input{background:#ffffff1f;color:var(--ink);text-align:center;outline:1px solid #ffffff33}
+input::placeholder{color:#ffffff88}
+button{background:var(--glow);color:#2a1c00;font-weight:700}
+button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
+#msg{min-height:1.4em;font-size:15px;color:#ffd0d0}
+#hud{position:fixed;z-index:5;top:calc(env(safe-area-inset-top,0px) + 10px);left:12px;right:12px;display:none;justify-content:space-between;align-items:flex-start;font-size:15px;text-shadow:0 1px 4px #000;pointer-events:none}
+#hud button{pointer-events:auto;width:auto;padding:8px 14px;font-size:14px;background:#00000066;color:var(--ink);font-weight:400}
+#stick{position:fixed;z-index:5;left:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 36px);width:128px;height:128px;border-radius:50%;background:#ffffff1a;outline:1px solid #ffffff33;display:none}
+#knob{position:absolute;left:44px;top:44px;width:40px;height:40px;border-radius:50%;background:#ffffffaa}
+#jump{position:fixed;z-index:5;right:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 52px);width:88px;height:88px;border-radius:50%;padding:0;display:none;background:#ffd27acc}
+</style>
+</head>
+<body>
+<div id="lobby">
+  <h1>The World</h1>
+  <p>A world for two.</p>
+  <input id="name" placeholder="Your name" maxlength="16" autocomplete="off">
+  <button id="create">Create a world</button>
+  <input id="code" placeholder="Room code (KAMI-7X4P)" maxlength="9" autocomplete="off" style="text-transform:uppercase">
+  <button id="join" class="alt">Join with code</button>
+  <div id="msg"></div>
+</div>
+<div id="hud"><div id="info"></div><button id="share">Invite</button></div>
+<div id="stick"><div id="knob"></div></div>
+<button id="jump">Jump</button>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='https://lzqnxawxehmqgswuzpyn.supabase.co';
+const SUPABASE_KEY='sb_publishable_bAm2KsLV8__Y4nWSFesZeQ_38-Ly6DE';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+const $=id=>document.getElementById(id);
+const msg=t=>$('msg').textContent=t||'';
+const ALPHA='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const genCode=()=>{let s='';for(let i=0;i<8;i++)s+=ALPHA[Math.random()*ALPHA.length|0];return s.slice(0,4)+'-'+s.slice(4)};
+const normCode=v=>{const c=v.toUpperCase().replace(/[^A-Z0-9]/g,'');return c.length===8?c.slice(0,4)+'-'+c.slice(4):null};
+const myId=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2));
+const COLORS=['#ff6b8b','#ffb454','#6bd6ff','#8dff9a','#c08bff','#ffe66b'];
+const myColor=COLORS[Math.random()*COLORS.length|0];
+
+const pre=new URLSearchParams(location.search).get('room');
+if(pre)$('code').value=pre;
+
+$('create').onclick=()=>enter(genCode());
+$('join').onclick=()=>{const c=normCode($('code').value);if(!c)return msg('Enter a code like KAMI-7X4P');enter(c)};
+
+let chan,roomCode,myName,entered=false;
+const others=new Map(); // id -> {group,tx,ty,tz,tr,meta}
+
+async function enter(code){
+  myName=($('name').value.trim()||'Player').slice(0,16);
+  roomCode=code;msg('Connecting…');
+  chan=sb.channel('world:'+code,{config:{broadcast:{self:false},presence:{key:myId}}});
+  chan.on('broadcast',{event:'s'},({payload})=>onState(payload));
+  chan.on('presence',{event:'sync'},syncPresence);
+  chan.subscribe(async status=>{
+    if(status==='SUBSCRIBED'&&!entered){
+      await new Promise(r=>setTimeout(r,700));
+      if(Object.keys(chan.presenceState()).length>=2){msg('This world is full (2 players max).');sb.removeChannel(chan);return}
+      entered=true;
+      await chan.track({name:myName,color:myColor});
+      startGame();
+    }else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){msg('Could not connect. Check your connection and try again.')}
+  });
+}
+
+function syncPresence(){
+  if(!entered)return;
+  const st=chan.presenceState();
+  for(const id of Object.keys(st)){
+    if(id===myId||others.has(id))continue;
+    const m=st[id][0];addOther(id,m.name,m.color);
+  }
+  for(const id of [...others.keys()])if(!st[id])removeOther(id);
+  updateHud();
+}
+function updateHud(){
+  $('info').textContent=roomCode+'  ·  '+(others.size?'Together':'Waiting for your partner…');
+}
+
+// ---------- three ----------
+let renderer,scene,camera,me,rng;
+function hashSeed(s){let h=1779033703;for(let i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),3432918353);h=h<<13|h>>>19}return h>>>0}
+function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+function label(text){
+  const c=document.createElement('canvas');c.width=256;c.height=64;const x=c.getContext('2d');
+  x.font='bold 32px Georgia';x.textAlign='center';x.lineWidth=6;x.strokeStyle='#000a';x.fillStyle='#fff';
+  x.strokeText(text,128,44);x.fillText(text,128,44);
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false,transparent:true}));
+  s.scale.set(2.4,.6,1);s.position.y=2.3;s.renderOrder=10;return s;
+}
+function makeAvatar(name,color){
+  const g=new THREE.Group();
+  const mat=new THREE.MeshStandardMaterial({color,roughness:.55});
+  const body=new THREE.Mesh(new THREE.CapsuleGeometry(.4,.9,4,12),mat);body.position.y=.85;g.add(body);
+  const visor=new THREE.Mesh(new THREE.BoxGeometry(.5,.18,.2),new THREE.MeshStandardMaterial({color:'#1a1f3a'}));
+  visor.position.set(0,1.35,.36);g.add(visor);
+  g.add(label(name));
+  return g;
+}
+
+function buildWorld(code){
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color('#9cc7ff');
+  scene.fog=new THREE.Fog('#9cc7ff',40,170);
+  scene.add(new THREE.HemisphereLight('#ffffff','#5b7a4a',.9));
+  const sun=new THREE.DirectionalLight('#fff1cf',.9);sun.position.set(30,50,20);scene.add(sun);
+  const ground=new THREE.Mesh(new THREE.CircleGeometry(110,64),new THREE.MeshStandardMaterial({color:'#6fae5c',roughness:1}));
+  ground.rotation.x=-Math.PI/2;scene.add(ground);
+  const sea=new THREE.Mesh(new THREE.RingGeometry(110,400,64),new THREE.MeshStandardMaterial({color:'#3f7fd0'}));
+  sea.rotation.x=-Math.PI/2;sea.position.y=-.2;scene.add(sea);
+  rng=mulberry(hashSeed(code));
+  const trunk=new THREE.MeshStandardMaterial({color:'#6b4a2f'}),leaf=new THREE.MeshStandardMaterial({color:'#2f7d4a'}),rock=new THREE.MeshStandardMaterial({color:'#8d93a0'});
+  for(let i=0;i<70;i++){
+    const a=rng()*Math.PI*2,r=8+rng()*95,x=Math.cos(a)*r,z=Math.sin(a)*r,s=.8+rng()*1.2;
+    const t=new THREE.Group();
+    const tr=new THREE.Mesh(new THREE.CylinderGeometry(.2*s,.3*s,1.6*s,6),trunk);tr.position.y=.8*s;t.add(tr);
+    const lf=new THREE.Mesh(new THREE.ConeGeometry(1.2*s,3*s,7),leaf);lf.position.y=2.6*s;t.add(lf);
+    t.position.set(x,0,z);scene.add(t);
+  }
+  for(let i=0;i<25;i++){
+    const a=rng()*Math.PI*2,r=6+rng()*90,s=.6+rng()*1.6;
+    const m=new THREE.Mesh(new THREE.DodecahedronGeometry(s,0),rock);m.position.set(Math.cos(a)*r,s*.5,Math.sin(a)*r);m.rotation.set(rng()*3,rng()*3,0);scene.add(m);
+  }
+  // spawn marker
+  const ring=new THREE.Mesh(new THREE.RingGeometry(1.6,2,32),new THREE.MeshBasicMaterial({color:'#ffd27a',side:THREE.DoubleSide}));
+  ring.rotation.x=-Math.PI/2;ring.position.y=.02;scene.add(ring);
+}
+
+const S={x:0,y:0,z:0,vy:0,rot:0,yaw:0,pitch:.35,grounded:true,state:'idle'};
+
+function startGame(){
+  $('lobby').style.display='none';
+  ['hud','stick'].forEach(i=>$(i).style.display=i==='hud'?'flex':'block');$('jump').style.display='block';
+  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);
+  document.body.appendChild(renderer.domElement);
+  camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,600);
+  buildWorld(roomCode);
+  me=makeAvatar(myName,myColor);scene.add(me);
+  // spawn: slot by join order (offset so partners don't overlap)
+  S.x=(Math.random()-.5)*5;S.z=(Math.random()-.5)*5;
+  addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()});
+  bindInput();syncPresence();updateHud();
+  history.replaceState(null,'','?room='+roomCode);
+  requestAnimationFrame(tick);
+  setInterval(send,100);
+}
+
+function addOther(id,name,color){
+  const g=makeAvatar(name||'Partner',color||'#fff');scene.add(g);
+  others.set(id,{group:g,tx:0,ty:0,tz:0,tr:0});
+}
+function removeOther(id){const o=others.get(id);if(o){scene.remove(o.group);others.delete(id)}updateHud()}
+function onState(p){
+  let o=others.get(p.id);
+  if(!o){const m=(chan.presenceState()[p.id]||[{}])[0];addOther(p.id,m.name,m.color);o=others.get(p.id);o.group.position.set(p.x,p.y,p.z)}
+  o.tx=p.x;o.ty=p.y;o.tz=p.z;o.tr=p.r;
+}
+function send(){
+  if(!chan||!entered)return;
+  chan.send({type:'broadcast',event:'s',payload:{id:myId,x:+S.x.toFixed(2),y:+S.y.toFixed(2),z:+S.z.toFixed(2),r:+S.rot.toFixed(2),st:S.state}});
+}
+
+// ---------- input ----------
+const keys={};let stickV={x:0,y:0},jumpQ=false;
+function bindInput(){
+  addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Space')jumpQ=true});
+  addEventListener('keyup',e=>keys[e.code]=false);
+  const stick=$('stick'),knob=$('knob');let sid=null;
+  const setStick=e=>{const r=stick.getBoundingClientRect();let dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);const m=Math.hypot(dx,dy),max=r.width/2;if(m>max){dx*=max/m;dy*=max/m}
+    knob.style.left=(44+dx)+'px';knob.style.top=(44+dy)+'px';stickV={x:dx/max,y:dy/max}};
+  stick.addEventListener('pointerdown',e=>{sid=e.pointerId;stick.setPointerCapture(sid);setStick(e)});
+  stick.addEventListener('pointermove',e=>{if(e.pointerId===sid)setStick(e)});
+  const endStick=e=>{if(e.pointerId===sid){sid=null;stickV={x:0,y:0};knob.style.left='44px';knob.style.top='44px'}};
+  stick.addEventListener('pointerup',endStick);stick.addEventListener('pointercancel',endStick);
+  $('jump').addEventListener('pointerdown',e=>{jumpQ=true;e.preventDefault()});
+  // look
+  let lid=null,lx=0,ly=0;const cv=renderer.domElement;
+  cv.addEventListener('pointerdown',e=>{lid=e.pointerId;lx=e.clientX;ly=e.clientY;cv.setPointerCapture(lid)});
+  cv.addEventListener('pointermove',e=>{if(e.pointerId!==lid)return;S.yaw-=(e.clientX-lx)*.006;S.pitch=Math.max(.05,Math.min(1.2,S.pitch+(e.clientY-ly)*.005));lx=e.clientX;ly=e.clientY});
+  const endLook=e=>{if(e.pointerId===lid)lid=null};cv.addEventListener('pointerup',endLook);cv.addEventListener('pointercancel',endLook);
+  $('share').onclick=async()=>{
+    const url=location.origin+location.pathname+'?room='+roomCode;
+    try{if(navigator.share)await navigator.share({title:'The World',text:'Join me. Code: '+roomCode,url});else{await navigator.clipboard.writeText(url);$('share').textContent='Copied'}}catch(e){}
+  };
+}
+
+// ---------- loop ----------
+let last=performance.now();
+const lerpAngle=(a,b,t)=>{let d=((b-a+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI;return a+d*t};
+function tick(t){
+  const dt=Math.min(.05,(t-last)/1000);last=t;
+  let ix=stickV.x,iy=stickV.y;
+  if(keys.KeyA||keys.ArrowLeft)ix-=1;if(keys.KeyD||keys.ArrowRight)ix+=1;
+  if(keys.KeyW||keys.ArrowUp)iy-=1;if(keys.KeyS||keys.ArrowDown)iy+=1;
+  const len=Math.hypot(ix,iy);if(len>1){ix/=len;iy/=len}
+  const sprint=keys.ShiftLeft||len>.9;
+  const speed=(sprint?9:5.5)*Math.min(1,len);
+  const sy=Math.sin(S.yaw),cy=Math.cos(S.yaw);
+  const dx=cy*ix+sy*iy,dz=-sy*ix+cy*iy;
+  if(len>.05){S.x+=dx*speed*dt;S.z+=dz*speed*dt;S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt))}
+  const r=Math.hypot(S.x,S.z);if(r>105){S.x*=105/r;S.z*=105/r}
+  if(jumpQ&&S.grounded){S.vy=9;S.grounded=false}jumpQ=false;
+  S.vy-=25*dt;S.y+=S.vy*dt;
+  if(S.y<=0){S.y=0;S.vy=0;S.grounded=true}
+  S.state=!S.grounded?(S.vy>0?'jump':'fall'):len>.05?(sprint?'run':'walk'):'idle';
+  me.position.set(S.x,S.y,S.z);me.rotation.y=S.rot;
+  const k=1-Math.exp(-12*dt);
+  for(const o of others.values()){
+    const p=o.group.position;p.x+=(o.tx-p.x)*k;p.y+=(o.ty-p.y)*k;p.z+=(o.tz-p.z)*k;
+    o.group.rotation.y=lerpAngle(o.group.rotation.y,o.tr,k);
+  }
+  const d=9,cp=Math.cos(S.pitch);
+  camera.position.set(S.x+Math.sin(S.yaw)*d*cp,S.y+1.6+Math.sin(S.pitch)*d,S.z+Math.cos(S.yaw)*d*cp);
+  camera.lookAt(S.x,S.y+1.4,S.z);
+  renderer.render(scene,camera);
+  requestAnimationFrame(tick);
+}
+</script>
+</body>
+</html>
