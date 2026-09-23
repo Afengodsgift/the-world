@@ -107,14 +107,33 @@ function label(text){
   const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false,transparent:true}));
   s.scale.set(2.4,.6,1);s.position.y=2.3;s.renderOrder=10;return s;
 }
+const solids=[];
 function makeAvatar(name,color){
-  const g=new THREE.Group();
-  const mat=new THREE.MeshStandardMaterial({color,roughness:.55});
-  const body=new THREE.Mesh(new THREE.CapsuleGeometry(.4,.9,4,12),mat);body.position.y=.85;g.add(body);
-  const visor=new THREE.Mesh(new THREE.BoxGeometry(.5,.18,.2),new THREE.MeshStandardMaterial({color:'#1a1f3a'}));
-  visor.position.set(0,1.35,.36);g.add(visor);
+  const g=new THREE.Group(),rig=new THREE.Group();g.add(rig);
+  const M=c=>new THREE.MeshStandardMaterial({color:c,roughness:.6}),cm=M(color),sk=M('#f1c9a5'),dk=M('#2a2f4a');
+  const part=(geo,mat,x,y,z)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);rig.add(m);return m};
+  part(new THREE.CapsuleGeometry(.32,.5,4,10),cm,0,1.15,0);
+  part(new THREE.SphereGeometry(.28,14,12),sk,0,1.75,0);
+  part(new THREE.BoxGeometry(.4,.14,.16),dk,0,1.78,.2);
+  const limb=(x,y,mat,len,r)=>{const p=new THREE.Group();p.position.set(x,y,0);rig.add(p);
+    const m=new THREE.Mesh(new THREE.CapsuleGeometry(r,len,3,8),mat);m.position.y=-(len/2+r);p.add(m);return p};
+  const arms=[limb(-.42,1.4,cm,.5,.11),limb(.42,1.4,cm,.5,.11)];
+  const legs=[limb(-.16,.78,dk,.5,.13),limb(.16,.78,dk,.5,.13)];
   g.add(label(name));
+  g.userData={rig,arms,legs,ph:0,land:0};
   return g;
+}
+function animate(g,dt,st){
+  const u=g.userData,air=st==='jump'||st==='fall',w=st==='run'?1:st==='walk'?.6:0;
+  u.ph+=dt*(st==='run'?13:9);const s=Math.sin(u.ph),k=Math.min(1,dt*18);
+  const to=(p,v)=>p.rotation.x+=(v-p.rotation.x)*k;
+  to(u.legs[0],air?(st==='jump'?-.5:.3):s*w*.9);to(u.legs[1],air?(st==='jump'?.4:-.3):-s*w*.9);
+  to(u.arms[0],air?-2.3:-s*w*.8);to(u.arms[1],air?-2.3:s*w*.8);
+  const lean=st==='run'?.25:st==='walk'?.08:0;
+  u.rig.rotation.x+=(lean-u.rig.rotation.x)*Math.min(1,dt*10);
+  u.land=Math.max(0,u.land-dt);
+  u.rig.position.y=(st==='idle'?Math.sin(performance.now()/500)*.015:Math.abs(s)*w*.06);
+  u.rig.scale.set(1+u.land*.3,1-u.land*.6,1+u.land*.3);
 }
 
 function buildWorld(code){
@@ -134,11 +153,11 @@ function buildWorld(code){
     const t=new THREE.Group();
     const tr=new THREE.Mesh(new THREE.CylinderGeometry(.2*s,.3*s,1.6*s,6),trunk);tr.position.y=.8*s;t.add(tr);
     const lf=new THREE.Mesh(new THREE.ConeGeometry(1.2*s,3*s,7),leaf);lf.position.y=2.6*s;t.add(lf);
-    t.position.set(x,0,z);scene.add(t);
+    t.position.set(x,0,z);scene.add(t);solids.push({x,z,r:.3*s});
   }
   for(let i=0;i<25;i++){
     const a=rng()*Math.PI*2,r=6+rng()*90,s=.6+rng()*1.6;
-    const m=new THREE.Mesh(new THREE.DodecahedronGeometry(s,0),rock);m.position.set(Math.cos(a)*r,s*.5,Math.sin(a)*r);m.rotation.set(rng()*3,rng()*3,0);scene.add(m);
+    const m=new THREE.Mesh(new THREE.DodecahedronGeometry(s,0),rock);const rx=Math.cos(a)*r,rz=Math.sin(a)*r;m.position.set(rx,s*.1,rz);solids.push({x:rx,z:rz,r:s*.8,h:1.1*s});m.rotation.set(rng()*3,rng()*3,0);scene.add(m);
   }
   // spawn marker
   const ring=new THREE.Mesh(new THREE.RingGeometry(1.6,2,32),new THREE.MeshBasicMaterial({color:'#ffd27a',side:THREE.DoubleSide}));
@@ -167,13 +186,14 @@ function startGame(){
 
 function addOther(id,name,color){
   const g=makeAvatar(name||'Partner',color||'#fff');scene.add(g);
-  others.set(id,{group:g,tx:0,ty:0,tz:0,tr:0});
+  others.set(id,{group:g,tx:0,ty:0,tz:0,tr:0,st:'idle'});
 }
 function removeOther(id){const o=others.get(id);if(o){scene.remove(o.group);others.delete(id)}updateHud()}
 function onState(p){
   let o=others.get(p.id);
   if(!o){const m=(chan.presenceState()[p.id]||[{}])[0];addOther(p.id,m.name,m.color);o=others.get(p.id);o.group.position.set(p.x,p.y,p.z)}
   o.tx=p.x;o.ty=p.y;o.tz=p.z;o.tr=p.r;
+  if(o.st==='fall'&&p.st!=='fall'&&p.st!=='jump')o.group.userData.land=.15;o.st=p.st||'idle';
 }
 function send(){
   if(!chan||!entered)return;
@@ -205,7 +225,7 @@ function bindInput(){
 }
 
 // ---------- loop ----------
-let last=performance.now();
+let last=performance.now(),camY=0;
 const lerpAngle=(a,b,t)=>{let d=((b-a+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI;return a+d*t};
 function tick(t){
   const dt=Math.min(.05,(t-last)/1000);last=t;
@@ -219,19 +239,24 @@ function tick(t){
   const dx=cy*ix+sy*iy,dz=-sy*ix+cy*iy;
   if(len>.05){S.x+=dx*speed*dt;S.z+=dz*speed*dt;S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt))}
   const r=Math.hypot(S.x,S.z);if(r>105){S.x*=105/r;S.z*=105/r}
-  if(jumpQ&&S.grounded){S.vy=9;S.grounded=false}jumpQ=false;
-  S.vy-=25*dt;S.y+=S.vy*dt;
-  if(S.y<=0){S.y=0;S.vy=0;S.grounded=true}
+  let gY=0;
+  for(const c of solids){const ax=S.x-c.x,az=S.z-c.z,dd=Math.hypot(ax,az),R=c.r+.4;
+    if(dd<R){if(c.h&&S.y>=c.h-.15)gY=Math.max(gY,c.h);else if(dd>1e-4){S.x=c.x+ax/dd*R;S.z=c.z+az/dd*R}}}
+  const wasG=S.grounded;
+  if(jumpQ&&wasG)S.vy=9;jumpQ=false;
+  S.vy-=25*dt;const imp=-S.vy;S.y+=S.vy*dt;
+  if(S.y<=gY){S.y=gY;S.vy=0;S.grounded=true;if(!wasG&&imp>5)me.userData.land=Math.min(.18,imp*.014)}else S.grounded=false;
   S.state=!S.grounded?(S.vy>0?'jump':'fall'):len>.05?(sprint?'run':'walk'):'idle';
-  me.position.set(S.x,S.y,S.z);me.rotation.y=S.rot;
+  me.position.set(S.x,S.y,S.z);me.rotation.y=S.rot;animate(me,dt,S.state);
   const k=1-Math.exp(-12*dt);
   for(const o of others.values()){
     const p=o.group.position;p.x+=(o.tx-p.x)*k;p.y+=(o.ty-p.y)*k;p.z+=(o.tz-p.z)*k;
-    o.group.rotation.y=lerpAngle(o.group.rotation.y,o.tr,k);
+    o.group.rotation.y=lerpAngle(o.group.rotation.y,o.tr,k);animate(o.group,dt,o.st);
   }
+  camY+=(S.y-camY)*(1-Math.exp(-6*dt));
   const d=9,cp=Math.cos(S.pitch);
-  camera.position.set(S.x+Math.sin(S.yaw)*d*cp,S.y+1.6+Math.sin(S.pitch)*d,S.z+Math.cos(S.yaw)*d*cp);
-  camera.lookAt(S.x,S.y+1.4,S.z);
+  camera.position.set(S.x+Math.sin(S.yaw)*d*cp,Math.max(.4,camY+1.6+Math.sin(S.pitch)*d),S.z+Math.cos(S.yaw)*d*cp);
+  camera.lookAt(S.x,camY+1.4,S.z);
   renderer.render(scene,camera);
   requestAnimationFrame(tick);
 }
