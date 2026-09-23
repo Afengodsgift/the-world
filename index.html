@@ -23,6 +23,8 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 #stick{position:fixed;z-index:5;left:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 36px);width:128px;height:128px;border-radius:50%;background:#ffffff1a;outline:1px solid #ffffff33;display:none}
 #knob{position:absolute;left:44px;top:44px;width:40px;height:40px;border-radius:50%;background:#ffffffaa}
 #jump{position:fixed;z-index:5;right:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 52px);width:88px;height:88px;border-radius:50%;padding:0;display:none;background:#ffd27acc}
+#banner{position:fixed;z-index:6;top:22%;left:0;right:0;text-align:center;font-size:26px;font-style:italic;text-shadow:0 2px 10px #000;opacity:0;transition:opacity .6s;pointer-events:none}#banner small{font-size:12px;letter-spacing:.25em;font-style:normal;opacity:.8}
+#use{position:fixed;z-index:5;right:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 156px);display:none;width:auto;padding:12px 22px;background:#ffffffdd;color:#1a1f3a}
 </style>
 </head>
 <body>
@@ -38,6 +40,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <div id="hud"><div id="info"></div><button id="share">Invite</button></div>
 <div id="stick"><div id="knob"></div></div>
 <button id="jump">Jump</button>
+<div id="banner"></div><button id="use">Use</button>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -70,6 +73,8 @@ async function enter(code){
   chan=sb.channel('world:'+code,{config:{broadcast:{self:false},presence:{key:myId}}});
   chan.on('broadcast',{event:'s'},({payload})=>onState(payload));
   chan.on('presence',{event:'sync'},syncPresence);
+  chan.on('broadcast',{event:'c'},({payload})=>take(payload.i,false));
+  chan.on('broadcast',{event:'u'},()=>{pulse=1.5;chime()});
   chan.subscribe(async status=>{
     if(status==='SUBSCRIBED'&&!entered){
       await new Promise(r=>setTimeout(r,700));
@@ -92,7 +97,7 @@ function syncPresence(){
   updateHud();
 }
 function updateHud(){
-  $('info').textContent=roomCode+'  ·  '+(others.size?'Together':'Waiting for your partner…');
+  $('info').innerHTML=roomCode+'  ·  '+(others.size?'Together':'Waiting for your partner…')+'<br>✦ '+got+'/'+orbs.length+'  ·  📍 '+disc.size+'/'+LOCS.length;
 }
 
 // ---------- three ----------
@@ -124,12 +129,12 @@ function makeAvatar(name,color){
   return g;
 }
 function animate(g,dt,st){
-  const u=g.userData,air=st==='jump'||st==='fall',w=st==='run'?1:st==='walk'?.6:0;
+  const u=g.userData,air=st==='jump'||st==='fall',w=st==='run'?1:st==='walk'?.6:st==='swim'?.7:0;
   u.ph+=dt*(st==='run'?13:9);const s=Math.sin(u.ph),k=Math.min(1,dt*18);
   const to=(p,v)=>p.rotation.x+=(v-p.rotation.x)*k;
   to(u.legs[0],air?(st==='jump'?-.5:.3):s*w*.9);to(u.legs[1],air?(st==='jump'?.4:-.3):-s*w*.9);
-  to(u.arms[0],air?-2.3:-s*w*.8);to(u.arms[1],air?-2.3:s*w*.8);
-  const lean=st==='run'?.25:st==='walk'?.08:0;
+  to(u.arms[0],air?-2.3:st==='swim'?-1.7-s*1.1:-s*w*.8);to(u.arms[1],air?-2.3:st==='swim'?-1.7+s*1.1:s*w*.8);
+  const lean=st==='swim'?.9:st==='run'?.25:st==='walk'?.08:0;
   u.rig.rotation.x+=(lean-u.rig.rotation.x)*Math.min(1,dt*10);
   u.land=Math.max(0,u.land-dt);
   u.rig.position.y=(st==='idle'?Math.sin(performance.now()/500)*.015:Math.abs(s)*w*.06);
@@ -182,7 +187,7 @@ function buildWorld(code){
   }
   // town: plaza, pillar, 7 houses facing the plaza
   const plaza=new THREE.Mesh(new THREE.CylinderGeometry(6,6,.2,24),new THREE.MeshStandardMaterial({color:'#b9b4a8'}));plaza.position.set(TOWN.x,1.55,TOWN.z);scene.add(plaza);
-  const pil=new THREE.Mesh(new THREE.CylinderGeometry(.5,.6,3,10),new THREE.MeshStandardMaterial({color:'#ffd27a'}));pil.position.set(TOWN.x,3,TOWN.z);scene.add(pil);solids.push({x:TOWN.x,z:TOWN.z,r:.6});
+  pil=new THREE.Mesh(new THREE.CylinderGeometry(.5,.6,3,10),new THREE.MeshStandardMaterial({color:'#ffd27a',emissive:'#000000'}));pil.position.set(TOWN.x,3,TOWN.z);scene.add(pil);solids.push({x:TOWN.x,z:TOWN.z,r:.6});
   const wall=['#e8d5b7','#d9b99b','#b5c9d6','#e0b0a0'],roofM=new THREE.MeshStandardMaterial({color:'#a8483a'}),doorM=new THREE.MeshStandardMaterial({color:'#3a2a1f'});
   for(let i=0;i<7;i++){
     const a=i/7*6.283+.3,hx=TOWN.x+Math.cos(a)*13,hz=TOWN.z+Math.sin(a)*13,g=new THREE.Group();
@@ -198,6 +203,11 @@ function buildWorld(code){
   const lin=new THREE.Mesh(new THREE.BoxGeometry(6.4,1.3,1.8),stone);lin.position.y=4.3;cg.add(lin);
   const dk=new THREE.Mesh(new THREE.BoxGeometry(3.6,4.2,.4),new THREE.MeshBasicMaterial({color:'#05060c'}));dk.position.set(0,1.9,-.6);cg.add(dk);
   solids.push({x:cx,z:cz-1,r:1.6});scene.add(cg);
+  // collectible star shards (2 by the peak/cave, 3 out in the water, rest on land)
+  const om=new THREE.MeshStandardMaterial({color:'#ffe08a',emissive:'#ffb020',emissiveIntensity:.9}),pts=[[0,-55],[8,-29]];
+  for(let i=0;i<3;i++){const a=rng()*6.283;pts.push([Math.cos(a)*91,Math.sin(a)*91])}
+  while(pts.length<24){const a=rng()*6.283,r=5+rng()*78,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<22&&dist(x,z)>20)pts.push([x,z])}
+  for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.4),om),y=Math.max(H(x,z),-.8)+1.1;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
 }
 
 const S={x:0,y:0,z:0,vy:0,rot:0,yaw:0,pitch:.35,grounded:true,state:'idle'};
@@ -209,7 +219,7 @@ function startGame(){
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);
   document.body.appendChild(renderer.domElement);
   camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,600);
-  buildWorld(roomCode);
+  buildWorld(roomCode);load();
   me=makeAvatar(myName,myColor);scene.add(me);
   // spawn: slot by join order (offset so partners don't overlap)
   S.x=TOWN.x+(Math.random()-.5)*4;S.z=TOWN.z+7+(Math.random()-.5)*2;S.y=H(S.x,S.z)+.1;
@@ -239,7 +249,7 @@ function send(){
 // ---------- input ----------
 const keys={};let stickV={x:0,y:0},jumpQ=false;
 function bindInput(){
-  addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Space')jumpQ=true});
+  addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Space')jumpQ=true;if(e.code==='KeyE')doUse()});
   addEventListener('keyup',e=>keys[e.code]=false);
   const stick=$('stick'),knob=$('knob');let sid=null;
   const setStick=e=>{const r=stick.getBoundingClientRect();let dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);const m=Math.hypot(dx,dy),max=r.width/2;if(m>max){dx*=max/m;dy*=max/m}
@@ -249,6 +259,7 @@ function bindInput(){
   const endStick=e=>{if(e.pointerId===sid){sid=null;stickV={x:0,y:0};knob.style.left='44px';knob.style.top='44px'}};
   stick.addEventListener('pointerup',endStick);stick.addEventListener('pointercancel',endStick);
   $('jump').addEventListener('pointerdown',e=>{jumpQ=true;e.preventDefault()});
+  $('use').addEventListener('pointerdown',e=>{doUse();e.preventDefault()});
   // look
   let lid=null,lx=0,ly=0;const cv=renderer.domElement;
   cv.addEventListener('pointerdown',e=>{lid=e.pointerId;lx=e.clientX;ly=e.clientY;cv.setPointerCapture(lid)});
@@ -258,6 +269,23 @@ function bindInput(){
     const url=location.origin+location.pathname+'?room='+roomCode;
     try{if(navigator.share)await navigator.share({title:'The World',text:'Join me. Code: '+roomCode,url});else{await navigator.clipboard.writeText(url);$('share').textContent='Copied'}}catch(e){}
   };
+}
+
+// ---------- exploration ----------
+const LOCS=[{n:'Town Square',x:10,z:25,r:9},{n:'Whispering Forest',x:-45,z:15,r:18},{n:'Shell Beach',x:0,z:72,r:12},{n:'Sky Peak',x:0,z:-55,r:9,y:20},{n:'The Cave',x:8,z:-30,r:5}];
+let disc=new Set(),orbs=[],got=0,pil,pulse=0,nearP=false;
+function save(){try{localStorage.setItem('w:'+roomCode,JSON.stringify({d:[...disc],o:orbs.map((o,i)=>o.on?-1:i).filter(i=>i>=0)}))}catch(e){}}
+function load(){try{const v=JSON.parse(localStorage.getItem('w:'+roomCode)||'{}');disc=new Set(v.d||[]);for(const i of v.o||[])if(orbs[i]){orbs[i].on=false;orbs[i].m.visible=false;got++}}catch(e){}}
+function banner(t){const b=$('banner');b.innerHTML='<small>NEW LOCATION DISCOVERED</small><br>'+t;b.style.opacity=1;clearTimeout(banner.t);banner.t=setTimeout(()=>b.style.opacity=0,3200)}
+function take(i,local){const o=orbs[i];if(!o||!o.on)return;o.on=false;o.m.visible=false;got++;save();updateHud();if(local&&chan)chan.send({type:'broadcast',event:'c',payload:{i}})}
+function chime(){try{const a=new(window.AudioContext||webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.frequency.value=660;o.connect(g);g.connect(a.destination);g.gain.setValueAtTime(.2,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+1.4);o.start();o.stop(a.currentTime+1.4)}catch(e){}}
+function doUse(){if(!nearP)return;pulse=1.5;chime();if(chan)chan.send({type:'broadcast',event:'u',payload:{}})}
+function explore(dt,t){
+  for(const L of LOCS)if(!disc.has(L.n)&&Math.hypot(S.x-L.x,S.z-L.z)<L.r&&(!L.y||S.y>L.y)){disc.add(L.n);banner(L.n);save();updateHud()}
+  orbs.forEach((o,i)=>{if(!o.on)return;o.m.rotation.y+=dt*2;o.m.position.y=o.y+Math.sin(t/400+i)*.15;
+    if(Math.hypot(S.x-o.x,S.z-o.z)<1.6&&Math.abs(S.y+1-o.y)<2.2)take(i,true)});
+  const n=Math.hypot(S.x-TOWN.x,S.z-TOWN.z)<3.4;if(n!==nearP){nearP=n;$('use').style.display=n?'block':'none'}
+  if(pulse>0){pulse=Math.max(0,pulse-dt);pil.material.emissive.setRGB(pulse*.6,pulse*.45,pulse*.1)}
 }
 
 // ---------- loop ----------
@@ -270,20 +298,20 @@ function tick(t){
   if(keys.KeyW||keys.ArrowUp)iy-=1;if(keys.KeyS||keys.ArrowDown)iy+=1;
   const len=Math.hypot(ix,iy);if(len>1){ix/=len;iy/=len}
   const sprint=keys.ShiftLeft||len>.9;
-  const speed=(sprint?9:5.5)*Math.min(1,len);
+  const speed=(sprint?9:5.5)*Math.min(1,len)*(H(S.x,S.z)<-.5?.5:1);
   const sy=Math.sin(S.yaw),cy=Math.cos(S.yaw),px=S.x,pz=S.z;
   const dx=cy*ix+sy*iy,dz=-sy*ix+cy*iy;
   if(len>.05){S.x+=dx*speed*dt;S.z+=dz*speed*dt;S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt))}
-  if(H(S.x,S.z)<-.8){S.x=px;S.z=pz}
-  let gY=H(S.x,S.z);
+  const rr=Math.hypot(S.x,S.z);if(rr>100){S.x*=100/rr;S.z*=100/rr}
+  let gY=H(S.x,S.z);const wat=gY<-.5;if(wat)gY=-.8;
   for(const c of solids){const ax=S.x-c.x,az=S.z-c.z,dd=Math.hypot(ax,az),R=c.r+.4;
     if(dd<R){if(c.h&&S.y>=c.h-.15)gY=Math.max(gY,c.h);else if(dd>1e-4){S.x=c.x+ax/dd*R;S.z=c.z+az/dd*R}}}
   const wasG=S.grounded;
-  if(jumpQ&&wasG)S.vy=9;jumpQ=false;
+  if(jumpQ&&wasG)S.vy=wat?6:9;jumpQ=false;
   S.vy-=25*dt;const imp=-S.vy;S.y+=S.vy*dt;
   if(S.y<=gY||(wasG&&S.vy<=0&&S.y-gY<.35)){S.y=gY;S.vy=0;S.grounded=true;if(!wasG&&imp>5)me.userData.land=Math.min(.18,imp*.014)}else S.grounded=false;
-  S.state=!S.grounded?(S.vy>0?'jump':'fall'):len>.05?(sprint?'run':'walk'):'idle';
-  me.position.set(S.x,S.y,S.z);me.rotation.y=S.rot;animate(me,dt,S.state);
+  S.state=!S.grounded?(S.vy>0?'jump':'fall'):wat?'swim':len>.05?(sprint?'run':'walk'):'idle';
+  me.position.set(S.x,S.y,S.z);me.rotation.y=S.rot;animate(me,dt,S.state);explore(dt,t);
   const k=1-Math.exp(-12*dt);
   for(const o of others.values()){
     const p=o.group.position;p.x+=(o.tx-p.x)*k;p.y+=(o.ty-p.y)*k;p.z+=(o.tz-p.z)*k;
