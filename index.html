@@ -133,15 +133,32 @@ function makeAvatar(name,color){
   g.userData={rig,arms,legs,ph:0,land:0};
   return g;
 }
+const _v1=new THREE.Vector3(),_v2=new THREE.Vector3(),_qa=new THREE.Quaternion(),_qb=new THREE.Quaternion(),_qm=new THREE.Quaternion(),_qw=new THREE.Quaternion();
+function aim(b,c,dir){
+  b.updateWorldMatrix(true,false);c.updateWorldMatrix(true,false);
+  b.getWorldPosition(_v1);c.getWorldPosition(_v2);_v2.sub(_v1).normalize();
+  _qa.setFromUnitVectors(_v2,dir);b.getWorldQuaternion(_qb);_qb.premultiply(_qa);
+  b.parent.getWorldQuaternion(_qm).invert();b.quaternion.copy(_qm.multiply(_qb));b.updateMatrixWorld(true);
+}
+function pose(q,st,dt){
+  const B=q.bones;q.model.updateMatrixWorld(true);q.model.getWorldQuaternion(_qw);
+  const D=(x,y,z)=>new THREE.Vector3(x,y,z).normalize().applyQuaternion(_qw);
+  q.ph+=dt*(st==='swim'?5:3);
+  for(const s of [1,-1]){const n=s===1?'Left':'Right',off=s===1?0:Math.PI;let ad,ld;
+    if(st==='fly'){ad=D(s*.08,1,0);ld=D(s*.05,-1,.06*Math.sin(q.ph*2+off))}
+    else{const phi=q.ph+off;ad=D(s*.15,Math.cos(phi),Math.sin(phi));ld=D(s*.06,-1,.35*Math.sin(q.ph*2+off))}
+    aim(B[n+'Arm'],B[n+'ForeArm'],ad);aim(B[n+'ForeArm'],B[n+'Hand'],ad);aim(B[n+'UpLeg'],B[n+'Leg'],ld);aim(B[n+'Leg'],B[n+'Foot'],ld);
+  }
+}
 function animate(g,dt,st){
   const q=g.userData;
   if(q.mixer){
     const want=(st==='idle'||st==='fly')?'idle':(st==='jump'||st==='fall')?'jump':'run';
     if(q.cur!==want){q.act[want].reset().fadeIn(.15).play();if(q.cur)q.act[q.cur].fadeOut(.15);q.cur=want}
     q.act.run.timeScale=st==='walk'?.7:st==='swim'?1.2:1.15;
-    q.land=Math.max(0,q.land-dt);q.model.rotation.x+=((st==='swim'?.9:st==='fly'?1.25:0)-q.model.rotation.x)*Math.min(1,dt*10);
-    q.model.position.set(0,.9*(1-Math.cos(q.model.rotation.x)),-.9*Math.sin(q.model.rotation.x));
-    q.model.scale.set(.5*(1+q.land*.3),.5*(1-q.land*.6),.5*(1+q.land*.3));q.mixer.update(dt);return;
+    q.land=Math.max(0,q.land-dt);q.model.rotation.x+=((st==='swim'?1.45:st==='fly'?1.4:0)-q.model.rotation.x)*Math.min(1,dt*10);
+    q.model.position.set(0,.65*(1-Math.cos(q.model.rotation.x)),-.65*Math.sin(q.model.rotation.x));
+    q.model.scale.set(.5*(1+q.land*.3),.5*(1-q.land*.6),.5*(1+q.land*.3));q.mixer.update(dt);if(st==='fly'||st==='swim')pose(q,st,dt);return;
   }
   const u=g.userData,air=st==='jump'||st==='fall',w=st==='run'?1:st==='walk'?.6:st==='swim'?.7:0;
   u.ph+=dt*(st==='run'?13:9);const s=Math.sin(u.ph),k=Math.min(1,dt*18);
@@ -178,23 +195,35 @@ function loadChar(){
 }
 function dress(g,skin){
   loadChar().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(charBuf.slice(0),AURL,res,rej))).then(r=>{
-    const m=r.scene;m.scale.setScalar(.5);
-    m.traverse(o=>{if(o.isSkinnedMesh){o.frustumCulled=false;o.material=new THREE.MeshStandardMaterial({map:skinT[skin%skinT.length],roughness:.85,metalness:0})}});
+    const m=r.scene,bones={};m.scale.setScalar(.5);
+    m.traverse(o=>{if(o.isSkinnedMesh){o.skeleton.bones.forEach(b=>bones[b.name]=b);o.frustumCulled=false;o.material=new THREE.MeshStandardMaterial({map:skinT[skin%skinT.length],roughness:.85,metalness:0})}});
     const mx=new THREE.AnimationMixer(m),act={};for(const n in clips)act[n]=mx.clipAction(clips[n]);
     act.jump.setLoop(THREE.LoopOnce,1);act.jump.clampWhenFinished=true;
-    const u=g.userData;u.rig.visible=false;g.add(m);Object.assign(u,{mixer:mx,act,model:m,cur:null});
+    const u=g.userData;u.rig.visible=false;g.add(m);Object.assign(u,{mixer:mx,act,model:m,bones,cur:null,ph:0});
   }).catch(()=>{});
 }
 loadAssets();loadChar().catch(()=>{});
 
 const sstep=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t)};
 const TOWN={x:25,z:62};
+const ISL=[{n:'Ember Isle',x:-720,z:-420,R:135,pk:30,c:'#ff6a3d'},{n:'Sunken Isle',x:640,z:-200,R:110,pk:8,c:'#3dd6ff'},{n:'Palm Atoll',x:380,z:720,R:95,pk:0,c:'#ffe066'},{n:'Frost Isle',x:-480,z:740,R:125,pk:34,c:'#d9f0ff'},{n:'Far Reef',x:980,z:520,R:105,pk:12,c:'#b06bff'}];
 function H(x,z){
   const d=Math.hypot(x,z);
   let h=Math.max(-3,(1-(d/(85*K))**2)*3.5-.6)+Math.sin(x*.11/K)*Math.cos(z*.13/K)*.8;
   h+=40*Math.exp(-(x*x+(z+55*K)**2)/4050);
   const t=1-sstep(30,55,Math.hypot(x-TOWN.x,z-TOWN.z));
-  return h*(1-t)+1.6*t;
+  h=h*(1-t)+1.6*t;
+  for(const I of ISL){const dx=x-I.x,dz=z-I.z,dd=Math.hypot(dx,dz);if(dd>I.R*1.6)continue;
+    const v=Math.max(-3,(1-(dd/I.R)**2)*4-.6)+Math.sin(x*.09)*Math.cos(z*.11)*.7+I.pk*Math.exp(-dd*dd/(2*(I.R*.35)**2));
+    if(v>h)h=v}
+  return h;
+}
+function terrain(cx,cz,size,seg){
+  const geo=new THREE.PlaneGeometry(size,size,seg,seg);geo.rotateX(-Math.PI/2);
+  const pos=geo.attributes.position,cols=new Float32Array(pos.count*3),c=new THREE.Color();
+  for(let i=0;i<pos.count;i++){const x=pos.getX(i)+cx,z=pos.getZ(i)+cz,h=H(x,z);pos.setY(i,h);terrainColor(h,x,z,c);cols.set([c.r,c.g,c.b],i*3)}
+  geo.setAttribute('color',new THREE.BufferAttribute(cols,3));geo.computeVertexNormals();
+  const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));m.position.set(cx,0,cz);scene.add(m);
 }
 function terrainColor(h,x,z,c){
   if(h<.35)c.set('#e6d3a1');else if(h<12){c.set('#6fae5c');c.offsetHSL(0,0,Math.sin(x*.3+z*.2)*.03)}else if(h<28)c.set('#8d93a0');else c.set('#dfe5f2');
@@ -229,15 +258,14 @@ function house(hx,hz,ry,w,d){
 function buildWorld(code){
   scene=new THREE.Scene();
   scene.background=new THREE.Color('#9cc7ff');
-  scene.fog=new THREE.Fog('#9cc7ff',80,420);
+  scene.fog=new THREE.Fog('#9cc7ff',120,1100);
   scene.add(new THREE.HemisphereLight('#ffffff','#8aa070',1.0));scene.add(new THREE.AmbientLight('#ffffff',.3));
   const sun=new THREE.DirectionalLight('#fff1cf',.85);sun.position.set(60,100,40);scene.add(sun);
-  const geo=new THREE.PlaneGeometry(600,600,200,200);geo.rotateX(-Math.PI/2);
-  const pos=geo.attributes.position,cols=new Float32Array(pos.count*3),c=new THREE.Color();
-  for(let i=0;i<pos.count;i++){const x=pos.getX(i),z=pos.getZ(i),h=H(x,z);pos.setY(i,h);terrainColor(h,x,z,c);cols.set([c.r,c.g,c.b],i*3)}
-  geo.setAttribute('color',new THREE.BufferAttribute(cols,3));geo.computeVertexNormals();
-  scene.add(new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1})));
-  const sea=new THREE.Mesh(new THREE.CircleGeometry(1500,48),new THREE.MeshStandardMaterial({color:'#3f7fd0',roughness:.3,transparent:true,opacity:.9}));
+  terrain(0,0,600,200);
+  for(const I of ISL){terrain(I.x,I.z,I.R*2.6,90);
+    const bm=new THREE.Mesh(new THREE.CylinderGeometry(2,2,140,8,1,true),new THREE.MeshBasicMaterial({color:I.c,transparent:true,opacity:.4,fog:false,side:THREE.DoubleSide}));
+    bm.position.set(I.x,H(I.x,I.z)+70,I.z);scene.add(bm)}
+  const sea=new THREE.Mesh(new THREE.CircleGeometry(4000,48),new THREE.MeshStandardMaterial({color:'#3f7fd0',roughness:.3,transparent:true,opacity:.9}));
   sea.rotation.x=-Math.PI/2;sea.position.y=-.3;scene.add(sea);
   rng=mulberry(hashSeed(code));
   if(AM.plant_bushLarge)AM.plant_bushLarge.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.material.side=THREE.DoubleSide;o.material.emissive=new THREE.Color('#2a6a30')}});
@@ -255,6 +283,11 @@ function buildWorld(code){
     if(h<.6||h>26||dist(x,z)<40)continue;add('plant_bushLarge',x,z,.7+rng()*.7);n++}
   for(let i=0,n=0;i<900&&n<60;i++){const a=rng()*6.283,r=15+rng()*200,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);
     if(h<-.2||dist(x,z)<40)continue;add(rng()<.5?'stone_largeA':'rock_tallB',x,z,.5+rng()*.9);n++}
+  for(const I of ISL){const palm=I.pk<15;
+    for(let i=0,n=0;i<600&&n<50;i++){const a=rng()*6.283,r=rng()*I.R*.95,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r,h=H(x,z);
+      if(h<(palm?.4:1.2)||h>16)continue;add(palm?'tree_palmTall':kinds[rng()*4|0],x,z,.8+rng()*.5);n++}
+    for(let i=0,n=0;i<300&&n<10;i++){const a=rng()*6.283,r=rng()*I.R*.9,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;
+      if(H(x,z)<-.2)continue;add(rng()<.5?'stone_largeA':'rock_tallB',x,z,.5+rng()*.9);n++}}
   const TH={tree_pineDefaultA:9,tree_pineRoundA:8,tree_oak:7,tree_fat:6.5,tree_palmTall:8,plant_bushLarge:.9,stone_largeA:.9,rock_tallB:2.6};
   for(const nm in P){const f=scatter(nm,TH[nm],P[nm]);if(!f)continue;
     for(const p of P[nm]){
@@ -280,6 +313,7 @@ function buildWorld(code){
   const om=new THREE.MeshStandardMaterial({color:'#ffe08a',emissive:'#ffb020',emissiveIntensity:.9}),pts=[[0,-137],[18,-83]];
   for(let i=0;i<3;i++){const a=rng()*6.283;pts.push([Math.cos(a)*235,Math.sin(a)*235])}
   while(pts.length<40){const a=rng()*6.283,r=12+rng()*195,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<40&&dist(x,z)>45)pts.push([x,z])}
+  for(const I of ISL)for(let i=0;i<4;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
 }
 
@@ -291,7 +325,7 @@ async function startGame(){
   renderer=new THREE.WebGLRenderer({antialias:true});renderer.outputEncoding=THREE.sRGBEncoding;
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);
   document.body.appendChild(renderer.domElement);
-  camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,1200);
+  camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,3000);
   boot('Loading world…');
   try{await Promise.race([Promise.all([loadAssets(),loadChar().catch(e=>showErr('char: '+e))]),new Promise(r=>setTimeout(r,20000))])}catch(e){showErr(e)}
   try{buildWorld(roomCode);load()}catch(e){showErr(e);throw e}
@@ -305,6 +339,7 @@ async function startGame(){
   requestAnimationFrame(tick);
   setInterval(send,100);
   setTimeout(()=>banner('Jump, then tap Jump again in the air to fly','TIP'),6000);
+  setTimeout(()=>banner('Glowing beams on the horizon are new islands','TIP'),40000);
 }
 
 function addOther(id,name,color,skin){
@@ -349,10 +384,10 @@ function bindInput(){
 }
 
 // ---------- exploration ----------
-const LOCS=[{n:'Town Square',x:25,z:62,r:16},{n:'Whispering Forest',x:-110,z:40,r:45},{n:'Shell Beach',x:0,z:182,r:26},{n:'Sky Peak',x:0,z:-137,r:22,y:32},{n:'The Cave',x:18,z:-88,r:9}];
+const LOCS=[{n:'Town Square',x:25,z:62,r:16},{n:'Whispering Forest',x:-110,z:40,r:45},{n:'Shell Beach',x:0,z:182,r:26},{n:'Sky Peak',x:0,z:-137,r:22,y:32},{n:'The Cave',x:18,z:-88,r:9}].concat(ISL.map(I=>({n:I.n,x:I.x,z:I.z,r:I.R*.7})));
 let disc=new Set(),orbs=[],got=0,pil,pulse=0,nearP=false;
-function save(){try{localStorage.setItem('w2:'+roomCode,JSON.stringify({d:[...disc],o:orbs.map((o,i)=>o.on?-1:i).filter(i=>i>=0)}))}catch(e){}}
-function load(){try{const v=JSON.parse(localStorage.getItem('w2:'+roomCode)||'{}');disc=new Set(v.d||[]);for(const i of v.o||[])if(orbs[i]){orbs[i].on=false;orbs[i].m.visible=false;got++}}catch(e){}}
+function save(){try{localStorage.setItem('w3:'+roomCode,JSON.stringify({d:[...disc],o:orbs.map((o,i)=>o.on?-1:i).filter(i=>i>=0)}))}catch(e){}}
+function load(){try{const v=JSON.parse(localStorage.getItem('w3:'+roomCode)||'{}');disc=new Set(v.d||[]);for(const i of v.o||[])if(orbs[i]){orbs[i].on=false;orbs[i].m.visible=false;got++}}catch(e){}}
 function banner(t,l){const b=$('banner');b.innerHTML='<small>'+(l||'NEW LOCATION DISCOVERED')+'</small><br>'+t;b.style.opacity=1;clearTimeout(banner.t);banner.t=setTimeout(()=>b.style.opacity=0,3200)}
 function take(i,local){const o=orbs[i];if(!o||!o.on)return;o.on=false;o.m.visible=false;got++;save();updateHud();if(local&&chan)chan.send({type:'broadcast',event:'c',payload:{i}})}
 function chime(){try{const a=new(window.AudioContext||webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.frequency.value=660;o.connect(g);g.connect(a.destination);g.gain.setValueAtTime(.2,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+1.4);o.start();o.stop(a.currentTime+1.4)}catch(e){}}
@@ -375,12 +410,12 @@ function tick(t){
   if(keys.KeyW||keys.ArrowUp)iy-=1;if(keys.KeyS||keys.ArrowDown)iy+=1;
   const len=Math.hypot(ix,iy);if(len>1){ix/=len;iy/=len}
   const sprint=keys.ShiftLeft||len>.9;
-  const speed=S.flying?24*Math.min(1,len):(sprint?12:6)*Math.min(1,len)*(H(S.x,S.z)<-.5?.5:1);
+  const speed=S.flying?24*Math.min(1,len):(H(S.x,S.z)<-.5?(sprint?16:9):(sprint?12:6))*Math.min(1,len);
   const sy=Math.sin(S.yaw),cy=Math.cos(S.yaw),px=S.x,pz=S.z;
   const dx=cy*ix+sy*iy,dz=-sy*ix+cy*iy;
   if(len>.05){S.x+=dx*speed*dt;S.z+=dz*speed*dt;S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt))}
-  const rr=Math.hypot(S.x,S.z);const RB=S.flying?520:260;if(rr>RB){S.x*=RB/rr;S.z*=RB/rr}
-  let gY=H(S.x,S.z);const wat=gY<-.5;if(wat)gY=-.8;
+  const rr=Math.hypot(S.x,S.z);const RB=1300;if(rr>RB){S.x*=RB/rr;S.z*=RB/rr}
+  let gY=H(S.x,S.z);const wat=gY<-.5;if(wat)gY=-1;
   const hi=S.flying&&S.y>gY+14;
   for(const c of solids){if(hi)break;const ax=S.x-c.x,az=S.z-c.z,dd=Math.hypot(ax,az),R=c.r+.4;
     if(dd<R){if(c.h&&S.y>=c.h-.15)gY=Math.max(gY,c.h);else if(dd>1e-4){S.x=c.x+ax/dd*R;S.z=c.z+az/dd*R}}}
