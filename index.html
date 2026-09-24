@@ -281,6 +281,8 @@ function buildWorld(code){
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
 }
 
+const S={x:0,y:0,z:0,vy:0,rot:0,yaw:0,pitch:.35,grounded:true,state:'idle'};
+
 async function startGame(){
   $('lobby').style.display='none';
   ['hud','stick'].forEach(i=>$(i).style.display=i==='hud'?'flex':'block');$('jump').style.display='block';
