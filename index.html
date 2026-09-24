@@ -240,6 +240,7 @@ function buildWorld(code){
   const sea=new THREE.Mesh(new THREE.CircleGeometry(1500,48),new THREE.MeshStandardMaterial({color:'#3f7fd0',roughness:.3,transparent:true,opacity:.9}));
   sea.rotation.x=-Math.PI/2;sea.position.y=-.3;scene.add(sea);
   rng=mulberry(hashSeed(code));
+  if(AM.plant_bushLarge)AM.plant_bushLarge.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.material.side=THREE.DoubleSide;o.material.emissive=new THREE.Color('#2a6a30')}});
   const dist=(x,z)=>Math.hypot(x-TOWN.x,z-TOWN.z),P={};
   const add=(n,x,z,s)=>{(P[n]=P[n]||[]).push({x,y:H(x,z),z,ry:rng()*6.283,s})};
   // forest (west), scattered trees, beach palms, bushes, rocks
@@ -254,7 +255,7 @@ function buildWorld(code){
     if(h<.6||h>26||dist(x,z)<40)continue;add('plant_bushLarge',x,z,.7+rng()*.7);n++}
   for(let i=0,n=0;i<900&&n<60;i++){const a=rng()*6.283,r=15+rng()*200,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);
     if(h<-.2||dist(x,z)<40)continue;add(rng()<.5?'stone_largeA':'rock_tallB',x,z,.5+rng()*.9);n++}
-  const TH={tree_pineDefaultA:9,tree_pineRoundA:8,tree_oak:7,tree_fat:6.5,tree_palmTall:8,plant_bushLarge:1.4,stone_largeA:.9,rock_tallB:2.6};
+  const TH={tree_pineDefaultA:9,tree_pineRoundA:8,tree_oak:7,tree_fat:6.5,tree_palmTall:8,plant_bushLarge:.9,stone_largeA:.9,rock_tallB:2.6};
   for(const nm in P){const f=scatter(nm,TH[nm],P[nm]);if(!f)continue;
     for(const p of P[nm]){
       if(nm.startsWith('tree_'))solids.push({x:p.x,z:p.z,r:f.w*p.s*(nm==='tree_palmTall'?.05:.12)});
