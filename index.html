@@ -42,8 +42,8 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <button id="jump">Jump</button>
 <div id="banner"></div><button id="use">Use</button>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const SUPABASE_URL='https://lzqnxawxehmqgswuzpyn.supabase.co';
@@ -56,7 +56,7 @@ const ALPHA='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const genCode=()=>{let s='';for(let i=0;i<8;i++)s+=ALPHA[Math.random()*ALPHA.length|0];return s.slice(0,4)+'-'+s.slice(4)};
 const normCode=v=>{const c=v.toUpperCase().replace(/[^A-Z0-9]/g,'');return c.length===8?c.slice(0,4)+'-'+c.slice(4):null};
 const myId=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2));
-THREE.ColorManagement.legacyMode=false;
+if(THREE.ColorManagement)THREE.ColorManagement.legacyMode=false;
 const COLORS=['#ff6b8b','#ffb454','#6bd6ff','#8dff9a','#c08bff','#ffe66b'];
 const myColor=COLORS[Math.random()*COLORS.length|0],mySkin=Math.random()*4|0;
 
@@ -156,12 +156,14 @@ const AURL='assets/',AM={};
 const ALIST=['tree_pineDefaultA','tree_pineRoundA','tree_oak','tree_fat','tree_palmTall','plant_bushLarge','stone_largeA','rock_tallB','wall-wood','wall-wood-door','wall-wood-window-small','roof-gable','roof-gable-end','fountain-round','lantern','stall-red','stall-green','cart'];
 let assetsP,charP,charBuf,clips={},skinT=[];
 function loadAssets(){
+  if(!assetsP&&!THREE.GLTFLoader)assetsP=Promise.resolve();
   if(!assetsP){const gl=new THREE.GLTFLoader();
     assetsP=Promise.all(ALIST.map(n=>new Promise(r=>gl.load(AURL+n+'.glb',g=>{AM[n]=g.scene;r()},undefined,()=>r()))))}
   return assetsP;
 }
 function loadChar(){
   if(!charP)charP=(async()=>{
+    if(!THREE.GLTFLoader)throw new Error('no GLTFLoader');
     const gl=new THREE.GLTFLoader(),tl=new THREE.TextureLoader(),buf=async n=>(await fetch(AURL+n)).arrayBuffer();
     const parse=b=>new Promise((res,rej)=>gl.parse(b,AURL,res,rej));
     charBuf=await buf('char.glb');
