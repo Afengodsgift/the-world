@@ -136,10 +136,11 @@ function makeAvatar(name,color){
 function animate(g,dt,st){
   const q=g.userData;
   if(q.mixer){
-    const want=st==='idle'?'idle':(st==='jump'||st==='fall')?'jump':'run';
+    const want=(st==='idle'||st==='fly')?'idle':(st==='jump'||st==='fall')?'jump':'run';
     if(q.cur!==want){q.act[want].reset().fadeIn(.15).play();if(q.cur)q.act[q.cur].fadeOut(.15);q.cur=want}
     q.act.run.timeScale=st==='walk'?.7:st==='swim'?1.2:1.15;
-    q.land=Math.max(0,q.land-dt);q.model.rotation.x+=((st==='swim'?.9:0)-q.model.rotation.x)*Math.min(1,dt*10);
+    q.land=Math.max(0,q.land-dt);q.model.rotation.x+=((st==='swim'?.9:st==='fly'?1.25:0)-q.model.rotation.x)*Math.min(1,dt*10);
+    q.model.position.set(0,.9*(1-Math.cos(q.model.rotation.x)),-.9*Math.sin(q.model.rotation.x));
     q.model.scale.set(.5*(1+q.land*.3),.5*(1-q.land*.6),.5*(1+q.land*.3));q.mixer.update(dt);return;
   }
   const u=g.userData,air=st==='jump'||st==='fall',w=st==='run'?1:st==='walk'?.6:st==='swim'?.7:0;
@@ -281,7 +282,7 @@ function buildWorld(code){
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
 }
 
-const S={x:0,y:0,z:0,vy:0,rot:0,yaw:0,pitch:.35,grounded:true,state:'idle'};
+const S={x:0,y:0,z:0,vy:0,rot:0,yaw:0,pitch:.35,grounded:true,state:'idle',flying:false};
 
 async function startGame(){
   $('lobby').style.display='none';
@@ -302,6 +303,7 @@ async function startGame(){
   history.replaceState(null,'','?room='+roomCode);
   requestAnimationFrame(tick);
   setInterval(send,100);
+  setTimeout(()=>banner('Jump, then tap Jump again in the air to fly','TIP'),6000);
 }
 
 function addOther(id,name,color,skin){
@@ -350,7 +352,7 @@ const LOCS=[{n:'Town Square',x:25,z:62,r:16},{n:'Whispering Forest',x:-110,z:40,
 let disc=new Set(),orbs=[],got=0,pil,pulse=0,nearP=false;
 function save(){try{localStorage.setItem('w2:'+roomCode,JSON.stringify({d:[...disc],o:orbs.map((o,i)=>o.on?-1:i).filter(i=>i>=0)}))}catch(e){}}
 function load(){try{const v=JSON.parse(localStorage.getItem('w2:'+roomCode)||'{}');disc=new Set(v.d||[]);for(const i of v.o||[])if(orbs[i]){orbs[i].on=false;orbs[i].m.visible=false;got++}}catch(e){}}
-function banner(t){const b=$('banner');b.innerHTML='<small>NEW LOCATION DISCOVERED</small><br>'+t;b.style.opacity=1;clearTimeout(banner.t);banner.t=setTimeout(()=>b.style.opacity=0,3200)}
+function banner(t,l){const b=$('banner');b.innerHTML='<small>'+(l||'NEW LOCATION DISCOVERED')+'</small><br>'+t;b.style.opacity=1;clearTimeout(banner.t);banner.t=setTimeout(()=>b.style.opacity=0,3200)}
 function take(i,local){const o=orbs[i];if(!o||!o.on)return;o.on=false;o.m.visible=false;got++;save();updateHud();if(local&&chan)chan.send({type:'broadcast',event:'c',payload:{i}})}
 function chime(){try{const a=new(window.AudioContext||webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.frequency.value=660;o.connect(g);g.connect(a.destination);g.gain.setValueAtTime(.2,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+1.4);o.start();o.stop(a.currentTime+1.4)}catch(e){}}
 function doUse(){if(!nearP)return;pulse=1.5;chime();if(chan)chan.send({type:'broadcast',event:'u',payload:{}})}
@@ -372,19 +374,22 @@ function tick(t){
   if(keys.KeyW||keys.ArrowUp)iy-=1;if(keys.KeyS||keys.ArrowDown)iy+=1;
   const len=Math.hypot(ix,iy);if(len>1){ix/=len;iy/=len}
   const sprint=keys.ShiftLeft||len>.9;
-  const speed=(sprint?12:6)*Math.min(1,len)*(H(S.x,S.z)<-.5?.5:1);
+  const speed=S.flying?24*Math.min(1,len):(sprint?12:6)*Math.min(1,len)*(H(S.x,S.z)<-.5?.5:1);
   const sy=Math.sin(S.yaw),cy=Math.cos(S.yaw),px=S.x,pz=S.z;
   const dx=cy*ix+sy*iy,dz=-sy*ix+cy*iy;
   if(len>.05){S.x+=dx*speed*dt;S.z+=dz*speed*dt;S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt))}
-  const rr=Math.hypot(S.x,S.z);if(rr>260){S.x*=260/rr;S.z*=260/rr}
+  const rr=Math.hypot(S.x,S.z);const RB=S.flying?520:260;if(rr>RB){S.x*=RB/rr;S.z*=RB/rr}
   let gY=H(S.x,S.z);const wat=gY<-.5;if(wat)gY=-.8;
-  for(const c of solids){const ax=S.x-c.x,az=S.z-c.z,dd=Math.hypot(ax,az),R=c.r+.4;
+  const hi=S.flying&&S.y>gY+14;
+  for(const c of solids){if(hi)break;const ax=S.x-c.x,az=S.z-c.z,dd=Math.hypot(ax,az),R=c.r+.4;
     if(dd<R){if(c.h&&S.y>=c.h-.15)gY=Math.max(gY,c.h);else if(dd>1e-4){S.x=c.x+ax/dd*R;S.z=c.z+az/dd*R}}}
   const wasG=S.grounded;
-  if(jumpQ&&wasG)S.vy=wat?6:9;jumpQ=false;
-  S.vy-=25*dt;const imp=-S.vy;S.y+=S.vy*dt;
+  if(jumpQ){if(wasG&&!S.flying)S.vy=wat?6:9;else{S.flying=!S.flying;if(S.flying&&!S.tipped){S.tipped=1;banner('Drag up to climb · drag down to dive','FLYING')}}}jumpQ=false;
+  if(S.flying)S.vy+=((len>.05?Math.max(-20,Math.min(14,(.4-S.pitch)*40)):0)-S.vy)*Math.min(1,dt*6);else S.vy-=25*dt;
+  const imp=-S.vy;S.y+=S.vy*dt;if(S.flying)S.y=Math.min(S.y,260);
+  if(S.flying&&S.y<=gY)S.flying=false;
   if(S.y<=gY||(wasG&&S.vy<=0&&S.y-gY<.35)){S.y=gY;S.vy=0;S.grounded=true;if(!wasG&&imp>5)me.userData.land=Math.min(.18,imp*.014)}else S.grounded=false;
-  S.state=!S.grounded?(S.vy>0?'jump':'fall'):wat?'swim':len>.05?(sprint?'run':'walk'):'idle';
+  S.state=S.flying?'fly':!S.grounded?(S.vy>0?'jump':'fall'):wat?'swim':len>.05?(sprint?'run':'walk'):'idle';
   me.position.set(S.x,S.y,S.z);me.rotation.y=S.rot;animate(me,dt,S.state);explore(dt,t);
   const k=1-Math.exp(-12*dt);
   for(const o of others.values()){
@@ -396,6 +401,7 @@ function tick(t){
   const cx=S.x+Math.sin(S.yaw)*d*cp,cz=S.z+Math.cos(S.yaw)*d*cp;
   camera.position.set(cx,Math.max(H(cx,cz)+.8,camY+1.6+Math.sin(S.pitch)*d),cz);
   camera.lookAt(S.x,camY+1.4,S.z);
+  const tf=S.flying?80:65;if(Math.abs(camera.fov-tf)>.1){camera.fov+=(tf-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix()}
   renderer.render(scene,camera);
   requestAnimationFrame(tick);
 }
