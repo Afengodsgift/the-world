@@ -58,7 +58,7 @@ const genCode=()=>{let s='';for(let i=0;i<8;i++)s+=ALPHA[Math.random()*ALPHA.len
 const normCode=v=>{const c=v.toUpperCase().replace(/[^A-Z0-9]/g,'');return c.length===8?c.slice(0,4)+'-'+c.slice(4):null};
 const myId=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2));
 if(THREE.ColorManagement)THREE.ColorManagement.legacyMode=false;
-function showErr(e){let d=document.getElementById('err');if(!d){d=document.createElement('div');d.id='err';d.style.cssText='position:fixed;z-index:99;left:8px;right:8px;top:110px;padding:10px;background:#5a0d0dcc;color:#fff;font:12px monospace;white-space:pre-wrap;word-break:break-all;pointer-events:none';document.body.appendChild(d)}d.textContent+=String(e&&(e.stack||e.message)||e).slice(0,450)+'\n'}
+function showErr(e){let d=document.getElementById('err');if(!d){d=document.createElement('div');d.id='err';d.style.cssText='position:fixed;z-index:99;left:8px;right:8px;top:110px;padding:10px;background:#5a0d0dcc;color:#fff;font:12px monospace;white-space:pre-wrap;word-break:break-all;pointer-events:none';document.body.appendChild(d)}const t=String(e&&(e.stack||e.message)||e).slice(0,300);if(!d.textContent.includes(t))d.textContent+=t+'\n';clearTimeout(d._t);d._t=setTimeout(()=>d.remove(),8000)}
 addEventListener('error',ev=>showErr(ev.error||ev.message));addEventListener('unhandledrejection',ev=>showErr(ev.reason));
 function boot(t){let d=document.getElementById('boot');if(!t){d&&d.remove();return}if(!d){d=document.createElement('div');d.id='boot';d.style.cssText='position:fixed;z-index:9;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px;font-style:italic;pointer-events:none;color:#fff';document.body.appendChild(d)}d.textContent=t}
 const COLORS=['#ff6b8b','#ffb454','#6bd6ff','#8dff9a','#c08bff','#ffe66b'];
@@ -98,7 +98,7 @@ async function enter(code){
 }
 
 function syncPresence(){
-  if(!entered)return;
+  if(!entered||!scene||!me)return;
   const st=chan.presenceState();
   for(const id of Object.keys(st)){
     if(id===myId||others.has(id))continue;
@@ -350,13 +350,15 @@ async function startGame(){
 }
 
 function addOther(id,name,color,skin){
+  if(!scene||!me)return;
   const g=makeAvatar(name||'Partner',color||'#fff');scene.add(g);dress(g,skin||0);
   others.set(id,{group:g,tx:0,ty:0,tz:0,tr:0,st:'idle'});
 }
 function removeOther(id){const o=others.get(id);if(o){scene.remove(o.group);others.delete(id)}updateHud()}
 function onState(p){
+  if(!scene||!me)return;
   let o=others.get(p.id);
-  if(!o){const m=(chan.presenceState()[p.id]||[{}])[0];addOther(p.id,m.name,m.color);o=others.get(p.id);o.group.position.set(p.x,p.y,p.z)}
+  if(!o){const m=(chan.presenceState()[p.id]||[{}])[0];addOther(p.id,m.name,m.color,m.skin);o=others.get(p.id);if(!o)return;o.group.position.set(p.x,p.y,p.z)}
   o.tx=p.x;o.ty=p.y;o.tz=p.z;o.tr=p.r;
   if(o.st==='fall'&&p.st!=='fall'&&p.st!=='jump')o.group.userData.land=.15;o.st=p.st||'idle';
 }
@@ -435,6 +437,7 @@ function paint(){race.rings.forEach((r,i)=>{const on=race.on,act=on&&i===race.i;
   r.m.material.color.set(act?'#ffd24a':'#7fd0ff');r.m.material.opacity=act?1:on?.5:.45;r.m.scale.setScalar(act?1.15:1)});
   if(race.beam){const a=race.rings[race.i];race.beam.visible=race.on&&!!a;if(a)race.beam.position.set(a.x,a.y,a.z)}}
 function startRace(local){
+  if(!race.rings.length)return;
   race.on=true;race.i=0;race.pi=0;race.t0=performance.now()+3000;paint();
   if(local&&chan)chan.send({type:'broadcast',event:'rs',payload:{}});
 }
@@ -481,6 +484,7 @@ function pickTarget(n){
   return {x:-110,z:40,y:H(-110,40)};
 }
 function startHunt(local,n){
+  if(!hunt.chest)return;
   hunt.n=n!==undefined?n:hunt.n+1;Object.assign(hunt,pickTarget(hunt.n),{on:true,open:0});
   hunt.chest.visible=false;hunt.chest.userData.lid.rotation.x=0;hunt.beam.position.set(hunt.x,hunt.y+45,hunt.z);hunt.beam.visible=false;
   banner('Something is buried out there. Follow the marker and dig it up!','TREASURE HUNT');
