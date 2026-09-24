@@ -196,7 +196,7 @@ function H(x,z){
   return h*(1-t)+1.6*t;
 }
 function terrainColor(h,x,z,c){
-  if(h<.35)c.set('#e6d3a1');else if(h<12){c.set('#6fae5c');c.offsetHSL(0,0,Math.sin(x*.3+z*.2)*.03)}else if(h<28)c.set('#8d93a0');else c.set('#f2f5ff');
+  if(h<.35)c.set('#e6d3a1');else if(h<12){c.set('#6fae5c');c.offsetHSL(0,0,Math.sin(x*.3+z*.2)*.03)}else if(h<28)c.set('#8d93a0');else c.set('#dfe5f2');
 }
 function scatter(name,th,pl){
   const m=AM[name];if(!m||!pl.length)return null;
@@ -229,7 +229,7 @@ function buildWorld(code){
   scene=new THREE.Scene();
   scene.background=new THREE.Color('#9cc7ff');
   scene.fog=new THREE.Fog('#9cc7ff',80,420);
-  scene.add(new THREE.HemisphereLight('#ffffff','#5b7a4a',.6));
+  scene.add(new THREE.HemisphereLight('#ffffff','#8aa070',1.0));scene.add(new THREE.AmbientLight('#ffffff',.3));
   const sun=new THREE.DirectionalLight('#fff1cf',.85);sun.position.set(60,100,40);scene.add(sun);
   const geo=new THREE.PlaneGeometry(600,600,200,200);geo.rotateX(-Math.PI/2);
   const pos=geo.attributes.position,cols=new Float32Array(pos.count*3),c=new THREE.Color();
