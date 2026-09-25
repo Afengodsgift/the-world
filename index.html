@@ -193,6 +193,7 @@ function animate(g,dt,st){
   u.rig.scale.set(1+u.land*.3,1-u.land*.6,1+u.land*.3);
 }
 
+const PAN_ENABLED=false;
 const K=2.5,SKINS=['skaterMaleA','skaterFemaleA','criminalMaleA','cyborgFemaleA'];
 const AURL='assets/',AM={};
 const ALIST=['tree_pineDefaultA','tree_pineRoundA','tree_oak','tree_fat','tree_palmTall','plant_bushLarge','stone_largeA','rock_tallB','wall-wood','wall-wood-door','wall-wood-window-small','roof-gable','roof-gable-end','fountain-round','lantern','stall-red','stall-green','cart'];
@@ -225,7 +226,7 @@ function dress(g,skin){
     const mx=new THREE.AnimationMixer(m),act={};for(const n in clips)act[n]=mx.clipAction(clips[n]);
     act.jump.setLoop(THREE.LoopOnce,1);act.jump.clampWhenFinished=true;
     const u=g.userData;u.rig.visible=false;m.traverse(c=>{if(c.isMesh){c.castShadow=true}});g.add(m);Object.assign(u,{mixer:mx,act,model:m,bones,cur:null,ph:0,swing:0});
-    if(bones.RightHand)loadPan().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(panBuf.slice(0),AURL,res,rej))).then(pr=>{
+    if(PAN_ENABLED&&bones.RightHand)loadPan().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(panBuf.slice(0),AURL,res,rej))).then(pr=>{
       const piv=new THREE.Group(),pn=pr.scene;pn.traverse(c=>{if(c.isMesh)c.castShadow=true});
       pn.position.set(.346,-18.64,31.046);piv.add(pn);piv.scale.setScalar((.36/5.915)/50);piv.rotation.set(0,0,-Math.PI/2.15);
       bones.RightHand.add(piv);u.pan=piv;
@@ -593,24 +594,23 @@ function mkFish(color,len){
 }
 function buildSeaLife(){
   const FCOL=['#ff9d3c','#3cd6ff','#ffe066','#7fff9d','#ff6ec7'];
-  for(const I of [{x:0,z:0,R:150},...ISL]){
-    for(let s=0;s<3;s++){
-      const a0=rng()*6.283,r0=I.R*(.55+rng()*.5),cx=I.x+Math.cos(a0)*r0,cz=I.z+Math.sin(a0)*r0;
-      if(H(cx,cz)>-.6)continue;
-      const col=FCOL[rng()*FCOL.length|0],n=4+(rng()*5|0),school={cx,cz,cy:-1.5-rng()*3,rad:3+rng()*4,speed:.5+rng()*.4,ph:rng()*6.283,fish:[]};
+  const findWater=(I,deep)=>{for(let i=0;i<50;i++){const a=rng()*6.283,r=I.R*(.85+rng()*.9),x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r,h=H(x,z);
+    if(h<(deep?-2:-.3)&&h>-4)return {x,z}}return null};
+  for(const I of [{x:0,z:0,R:180},...ISL]){
+    for(let s=0;s<6;s++){
+      const pt=findWater(I,false);if(!pt)continue;
+      const col=FCOL[rng()*FCOL.length|0],n=5+(rng()*6|0),school={cx:pt.x,cz:pt.z,cy:-1+H(pt.x,pt.z)*.4-rng()*1.5,rad:3+rng()*4,speed:.5+rng()*.4,ph:rng()*6.283,fish:[]};
       for(let i=0;i<n;i++){const f=mkFish(col,.4+rng()*.35);f.userData.off=rng()*6.283;f.userData.rOff=.7+rng()*.6;f.userData.yOff=(rng()-.5)*1.4;scene.add(f);school.fish.push(f)}
       fishSchools.push(school);
     }
   }
   loadShark().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(sharkBuf.slice(0),AURL,res,rej))).then(r=>{
     sharkClip=r.animations[0];
-    for(const I of [{x:0,z:0,R:150},...ISL]){
-      if(rng()>.6)continue;
-      const a0=rng()*6.283,r0=I.R*(.8+rng()*.5),cx=I.x+Math.cos(a0)*r0,cz=I.z+Math.sin(a0)*r0;
-      if(H(cx,cz)>-2)continue;
+    for(const I of [{x:0,z:0,R:180},...ISL]){
+      const pt=findWater(I,true);if(!pt)continue;
       const m=r.scene.clone(true);m.scale.setScalar(.7+rng()*.5);m.traverse(c=>{if(c.isMesh)c.castShadow=true});scene.add(m);
       const mx=new THREE.AnimationMixer(m),act=mx.clipAction(sharkClip);act.play();
-      sharks.push({m,mx,act,cx,cz,cy:-2-rng()*2,rad:10+rng()*10,ang:rng()*6.283,speed:.35,state:'patrol',bitAt:-9999});
+      sharks.push({m,mx,act,cx:pt.x,cz:pt.z,cy:H(pt.x,pt.z)-2-rng()*2,rad:10+rng()*10,ang:rng()*6.283,speed:.35,state:'patrol',bitAt:-9999});
     }
   }).catch(()=>{});
 }
@@ -681,8 +681,8 @@ function tick(t){
     fpsA=fpsA*.97+dt*.03;if(sun.castShadow&&++fpsN>240&&fpsA>.034){sun.castShadow=false;scene.traverse(o=>{if(o.material)o.material.needsUpdate=true})}}
   S.burst=Math.max(0,(S.burst||0)-dt);if(!S.flying)S.boost=false;
   if(S.flying!==bvis){bvis=S.flying;$('boost').style.display=bvis?'block':'none';if(!bvis){$('boost').textContent='Boost';$('boost').style.opacity=.75}
-    $('smack').style.display=(!bvis&&others.size)?'block':'none'}
-  else if(!bvis)$('smack').style.display=others.size?'block':'none';
+    $('smack').style.display=(PAN_ENABLED&&!bvis&&others.size)?'block':'none'}
+  else if(!bvis)$('smack').style.display=(PAN_ENABLED&&others.size)?'block':'none';
   const tf=S.flying?(bst()?95:80):65;if(Math.abs(camera.fov-tf)>.1){camera.fov+=(tf-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix()}
   smackTick(dt);
   renderer.render(scene,camera);
