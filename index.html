@@ -594,23 +594,26 @@ function mkFish(color,len){
 }
 function buildSeaLife(){
   const FCOL=['#ff9d3c','#3cd6ff','#ffe066','#7fff9d','#ff6ec7'];
-  const findWater=(I,deep)=>{for(let i=0;i<50;i++){const a=rng()*6.283,r=I.R*(.85+rng()*.9),x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r,h=H(x,z);
-    if(h<(deep?-2:-.3)&&h>-4)return {x,z}}return null};
+  const findWater=(I,deep)=>{for(let i=0;i<60;i++){const a=rng()*6.283,r=I.R*(.75+rng()*.7),x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r,h=H(x,z);
+    if(h<(deep?-1.6:-.15)&&h>-3.2)return {x,z}}return null};
+  const spawnSchool=(pt)=>{const col=FCOL[rng()*FCOL.length|0],n=6+(rng()*6|0),cy=Math.max(-2.6,H(pt.x,pt.z)*.4-.6-rng()*.9),
+    school={cx:pt.x,cz:pt.z,cy,rad:3+rng()*4,speed:.5+rng()*.4,ph:rng()*6.283,fish:[]};
+    for(let i=0;i<n;i++){const f=mkFish(col,.4+rng()*.35);f.userData.off=rng()*6.283;f.userData.rOff=.7+rng()*.6;f.userData.yOff=(rng()-.5)*1.1;scene.add(f);school.fish.push(f)}
+    fishSchools.push(school)};
+  // guaranteed cluster just off the main beach, close to spawn
+  for(let a=0;a<10;a++){const ang=a/10*6.283,r=45+rng()*70,x=Math.cos(ang)*r,z=185+Math.sin(ang)*r*.4,h=H(x,z);
+    if(h<-.15&&h>-3.2)spawnSchool({x,z})}
   for(const I of [{x:0,z:0,R:180},...ISL]){
-    for(let s=0;s<6;s++){
-      const pt=findWater(I,false);if(!pt)continue;
-      const col=FCOL[rng()*FCOL.length|0],n=5+(rng()*6|0),school={cx:pt.x,cz:pt.z,cy:-1+H(pt.x,pt.z)*.4-rng()*1.5,rad:3+rng()*4,speed:.5+rng()*.4,ph:rng()*6.283,fish:[]};
-      for(let i=0;i<n;i++){const f=mkFish(col,.4+rng()*.35);f.userData.off=rng()*6.283;f.userData.rOff=.7+rng()*.6;f.userData.yOff=(rng()-.5)*1.4;scene.add(f);school.fish.push(f)}
-      fishSchools.push(school);
-    }
+    for(let s=0;s<12;s++){const pt=findWater(I,false);if(pt)spawnSchool(pt)}
   }
   loadShark().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(sharkBuf.slice(0),AURL,res,rej))).then(r=>{
     sharkClip=r.animations[0];
     for(const I of [{x:0,z:0,R:180},...ISL]){
-      const pt=findWater(I,true);if(!pt)continue;
-      const m=r.scene.clone(true);m.scale.setScalar(.7+rng()*.5);m.traverse(c=>{if(c.isMesh)c.castShadow=true});scene.add(m);
-      const mx=new THREE.AnimationMixer(m),act=mx.clipAction(sharkClip);act.play();
-      sharks.push({m,mx,act,cx:pt.x,cz:pt.z,cy:H(pt.x,pt.z)-2-rng()*2,rad:10+rng()*10,ang:rng()*6.283,speed:.35,state:'patrol',bitAt:-9999});
+      for(let tries=0;tries<2;tries++){const pt=findWater(I,true);if(!pt)continue;
+        const m=r.scene.clone(true);m.scale.setScalar(.7+rng()*.5);m.traverse(c=>{if(c.isMesh)c.castShadow=true});scene.add(m);
+        const mx=new THREE.AnimationMixer(m),act=mx.clipAction(sharkClip);act.play();
+        sharks.push({m,mx,act,cx:pt.x,cz:pt.z,cy:H(pt.x,pt.z)-1.5-rng()*1.5,rad:10+rng()*10,ang:rng()*6.283,speed:.35,state:'patrol',bitAt:-9999});
+      }
     }
   }).catch(()=>{});
 }
