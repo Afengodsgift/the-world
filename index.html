@@ -176,7 +176,7 @@ function animate(g,dt,st){
     const want=(st==='idle'||st==='fly')?'idle':(st==='jump'||st==='fall')?'jump':'run';
     if(q.cur!==want){q.act[want].reset().fadeIn(.15).play();if(q.cur)q.act[q.cur].fadeOut(.15);q.cur=want}
     q.act.run.timeScale=st==='walk'?.7:st==='swim'?1.2:1.15;
-    if(q.pan){q.swing=Math.max(0,(q.swing||0)-dt*3.4);q.pan.rotation.z=-Math.PI/2.1+Math.sin(Math.min(1,q.swing)*Math.PI)*1.9*(q.swing>0?1:0)}
+    if(q.pan){q.swing=Math.max(0,(q.swing||0)-dt*3.4);q.pan.rotation.z=-Math.PI/2.15+Math.sin(Math.min(1,q.swing)*Math.PI)*1.9*(q.swing>0?1:0)}
     q.land=Math.max(0,q.land-dt);q.model.rotation.x+=((st==='swim'?1.45:st==='fly'?1.4:0)-q.model.rotation.x)*Math.min(1,dt*10);
     q.model.position.set(0,.65*(1-Math.cos(q.model.rotation.x)),-.65*Math.sin(q.model.rotation.x));
     q.model.scale.set(.5*(1+q.land*.3),.5*(1-q.land*.6),.5*(1+q.land*.3));q.mixer.update(dt);if(st==='fly'||st==='swim')pose(q,st,dt);return;
@@ -227,7 +227,7 @@ function dress(g,skin){
     const u=g.userData;u.rig.visible=false;m.traverse(c=>{if(c.isMesh){c.castShadow=true}});g.add(m);Object.assign(u,{mixer:mx,act,model:m,bones,cur:null,ph:0,swing:0});
     if(bones.RightHand)loadPan().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(panBuf.slice(0),AURL,res,rej))).then(pr=>{
       const piv=new THREE.Group(),pn=pr.scene;pn.traverse(c=>{if(c.isMesh)c.castShadow=true});
-      pn.position.set(.95,-31.8,32.95);piv.add(pn);piv.scale.setScalar(.055);piv.rotation.set(0,0,-Math.PI/2.1);piv.position.set(.06,-.02,.02);
+      pn.position.set(.346,-18.64,31.046);piv.add(pn);piv.scale.setScalar((.36/5.915)/50);piv.rotation.set(0,0,-Math.PI/2.15);
       bones.RightHand.add(piv);u.pan=piv;
     }).catch(()=>{});
   }).catch(()=>{});
@@ -363,7 +363,7 @@ function buildWorld(code){
   while(pts.length<40){const a=rng()*6.283,r=12+rng()*195,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<40&&dist(x,z)>45)pts.push([x,z])}
   for(const I of ISL)for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
-  buildRace();buildHunt();
+  buildRace();buildHunt();buildSeaLife();
 }
 
 const S={x:0,y:0,z:0,vy:0,rot:0,yaw:0,pitch:.35,grounded:true,state:'idle',flying:false,kx:0,kz:0,hurt:0,iframe:0};
@@ -452,7 +452,7 @@ function explore(dt,t){
   const dd=(x,z)=>Math.hypot(S.x-x,S.z-z);let n=false;
   if(hunt.on&&dd(hunt.x,hunt.z)<6&&Math.abs(S.y-hunt.y)<20)n='dig';else if(dd(BOARD.x,BOARD.z)<5)n='hunt';else if(dd(WP[0][0],WP[0][1])<7)n='race';else if(dd(TOWN.x,TOWN.z)<8)n='pil';
   if(n!==nearP){nearP=n;$('use').style.display=n?'block':'none';$('use').textContent={dig:'Dig!',hunt:'Start Treasure Hunt',race:'Start Sky Race',pil:'Use'}[n]||'Use'}
-  raceTick(t);huntTick(dt,t);partnerTrack();
+  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);
   if(!race.on&&!hunt.on&&mk)mk.style.display='none';
   if(pulse>0){pulse=Math.max(0,pulse-dt);pil.material.emissive.setRGB(pulse*.6,pulse*.45,pulse*.1)}
 }
@@ -578,6 +578,65 @@ function onSmacked(p){
   const o=others.size?others.values().next().value:null;
   banner((o&&o.group.userData.nm||'Your partner')+' bonked you!','🍳');
 }
+
+// ---------- sea life ----------
+let sharkP,sharkBuf,sharkClip,sharks=[],fishSchools=[];
+function loadShark(){
+  if(!sharkP)sharkP=(async()=>{if(!THREE.GLTFLoader)throw new Error('no loader');sharkBuf=await(await fetch(AURL+'shark.glb')).arrayBuffer()})();
+  return sharkP;
+}
+function mkFish(color,len){
+  const g=new THREE.Group(),bm=new THREE.MeshStandardMaterial({color,roughness:.5,metalness:.1,side:THREE.DoubleSide});
+  const body=new THREE.Mesh(new THREE.ConeGeometry(len*.22,len,7),bm);body.rotation.x=Math.PI/2;g.add(body);
+  const tail=new THREE.Mesh(new THREE.ConeGeometry(len*.16,len*.5,4),bm);tail.position.z=len*.65;tail.rotation.x=-Math.PI/2;g.add(tail);
+  g.userData.tail=tail;g.userData.ph=Math.random()*10;return g;
+}
+function buildSeaLife(){
+  const FCOL=['#ff9d3c','#3cd6ff','#ffe066','#7fff9d','#ff6ec7'];
+  for(const I of [{x:0,z:0,R:150},...ISL]){
+    for(let s=0;s<3;s++){
+      const a0=rng()*6.283,r0=I.R*(.55+rng()*.5),cx=I.x+Math.cos(a0)*r0,cz=I.z+Math.sin(a0)*r0;
+      if(H(cx,cz)>-.6)continue;
+      const col=FCOL[rng()*FCOL.length|0],n=4+(rng()*5|0),school={cx,cz,cy:-1.5-rng()*3,rad:3+rng()*4,speed:.5+rng()*.4,ph:rng()*6.283,fish:[]};
+      for(let i=0;i<n;i++){const f=mkFish(col,.4+rng()*.35);f.userData.off=rng()*6.283;f.userData.rOff=.7+rng()*.6;f.userData.yOff=(rng()-.5)*1.4;scene.add(f);school.fish.push(f)}
+      fishSchools.push(school);
+    }
+  }
+  loadShark().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(sharkBuf.slice(0),AURL,res,rej))).then(r=>{
+    sharkClip=r.animations[0];
+    for(const I of [{x:0,z:0,R:150},...ISL]){
+      if(rng()>.6)continue;
+      const a0=rng()*6.283,r0=I.R*(.8+rng()*.5),cx=I.x+Math.cos(a0)*r0,cz=I.z+Math.sin(a0)*r0;
+      if(H(cx,cz)>-2)continue;
+      const m=r.scene.clone(true);m.scale.setScalar(.7+rng()*.5);m.traverse(c=>{if(c.isMesh)c.castShadow=true});scene.add(m);
+      const mx=new THREE.AnimationMixer(m),act=mx.clipAction(sharkClip);act.play();
+      sharks.push({m,mx,act,cx,cz,cy:-2-rng()*2,rad:10+rng()*10,ang:rng()*6.283,speed:.35,state:'patrol',bitAt:-9999});
+    }
+  }).catch(()=>{});
+}
+function seaTick(dt,t){
+  for(const sc of fishSchools){sc.ph+=dt*sc.speed;
+    for(const f of sc.fish){const a=sc.ph+f.userData.off,r=sc.rad*f.userData.rOff;
+      const x=sc.cx+Math.cos(a)*r,z=sc.cz+Math.sin(a)*r,y=sc.cy+f.userData.yOff+Math.sin(t/600+f.userData.off)*.3;
+      f.position.set(x,y,z);f.lookAt(sc.cx+Math.cos(a+.3)*r,y,sc.cz+Math.sin(a+.3)*r);
+      f.userData.ph+=dt*6;f.userData.tail.rotation.y=Math.sin(f.userData.ph)*.6;
+    }}
+  for(const s of sharks){
+    const dx=S.x-s.cx,dz=S.z-s.cz,pd=Math.hypot(dx,dz),near=S.y<-.4&&pd<26&&t-s.bitAt>3000;
+    if(near&&s.state==='patrol'){s.state='chase';banner('Something is circling in the water…','⚠️')}
+    if(!near&&s.state==='chase'&&pd>34)s.state='patrol';
+    let tx,tz;
+    if(s.state==='chase'){tx=S.x;tz=S.z;s.act.timeScale=2.2;
+      if(pd<2.4&&t-s.bitAt>3000){s.bitAt=t;onSmacked({dx:dx/Math.max(pd,.01),dz:dz/Math.max(pd,.01)});sharkBite()}}
+    else{s.ang+=dt*s.speed*.3;tx=s.cx+Math.cos(s.ang)*s.rad;tz=s.cz+Math.sin(s.ang)*s.rad;s.act.timeScale=1;}
+    const cur=s.m.position,ddx=tx-cur.x,ddz=tz-cur.z,dd=Math.hypot(ddx,ddz)||1,spd=(s.state==='chase'?7.5:2.5);
+    s.m.position.x+=ddx/dd*Math.min(spd*dt,dd);s.m.position.z+=ddz/dd*Math.min(spd*dt,dd);
+    s.m.position.y+=(s.cy-s.m.position.y)*Math.min(1,dt*1.5);
+    const yaw=Math.atan2(ddx,ddz);s.m.rotation.y=lerpAngle(s.m.rotation.y,yaw,Math.min(1,dt*3));
+    s.mx.update(dt);
+  }
+}
+function sharkBite(){try{const a=new(window.AudioContext||webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.type='sawtooth';o.frequency.setValueAtTime(90,a.currentTime);o.frequency.exponentialRampToValueAtTime(30,a.currentTime+.3);o.connect(g);g.connect(a.destination);g.gain.setValueAtTime(.4,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.35);o.start();o.stop(a.currentTime+.35)}catch(e){}}
 
 // ---------- loop ----------
 let last=performance.now(),camY=0,fpsA=.016,fpsN=0;
