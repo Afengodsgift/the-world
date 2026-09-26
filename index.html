@@ -238,7 +238,9 @@ loadAssets();loadChar().catch(()=>{});
 const sstep=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t)};
 const TOWN={x:25,z:62};
 const SKY={x:-1900,z:2350,R:150,base:205};
-function SKYH(dx,dz){const d=Math.hypot(dx,dz);const dome=Math.max(0,1-(d/SKY.R)**2);return SKY.base+dome*20+Math.sin(dx*.06)*Math.cos(dz*.05)*1.3}
+function SKYH(dx,dz){const d=Math.hypot(dx,dz);const dome=Math.max(0,1-(d/SKY.R)**2);let h=SKY.base+dome*20+Math.sin(dx*.06)*Math.cos(dz*.05)*1.3;
+  if(d>SKY.R){const t=Math.min(1,(d-SKY.R)/45);h=SKY.base-t*t*95}
+  return h}
 const ISL=[{n:'Ember Isle',x:-1400,z:-850,R:320,pk:55,c:'#ff6a3d'},{n:'Sunken Isle',x:1250,z:-420,R:270,pk:16,c:'#3dd6ff'},{n:'Palm Atoll',x:760,z:1400,R:230,pk:0,c:'#ffe066'},{n:'Frost Isle',x:-980,z:1450,R:300,pk:60,c:'#d9f0ff'},{n:'Far Reef',x:1950,z:1050,R:260,pk:20,c:'#b06bff'},{n:'Storm Cay',x:0,z:1750,R:180,pk:10,c:'#8bffb0'},{n:'The Boneyard',x:1700,z:-1150,R:200,pk:24,c:'#ffab5e'}];
 function H(x,z){
   const d=Math.hypot(x,z);
@@ -369,7 +371,7 @@ function buildWorld(code){
   buildRace();buildHunt();buildSeaLife();buildSkyIsland();
 }
 function buildSkyIsland(){
-  const geo=new THREE.PlaneGeometry(SKY.R*2.4,SKY.R*2.4,64,64);geo.rotateX(-Math.PI/2);
+  const geo=new THREE.PlaneGeometry(SKY.R*2.8,SKY.R*2.8,72,72);geo.rotateX(-Math.PI/2);
   const pos=geo.attributes.position,cols=new Float32Array(pos.count*3),c=new THREE.Color(),c1=new THREE.Color('#6fae5c'),c2=new THREE.Color('#8bcf6a'),c3=new THREE.Color('#c9c2a8');
   for(let i=0;i<pos.count;i++){const dx=pos.getX(i),dz=pos.getZ(i),d=Math.hypot(dx,dz),y=SKYH(dx,dz);pos.setY(i,y-SKY.base);
     c.copy(c1).lerp(c2,Math.sin(dx*.3+dz*.2)*.5+.5);c.lerp(c3,sstep(SKY.R*.82,SKY.R*.98,d));cols.set([c.r,c.g,c.b],i*3)}
@@ -696,7 +698,7 @@ function tick(t){
   S.iframe=Math.max(0,S.iframe-dt);S.hurt=Math.max(0,S.hurt-dt);$('flash').style.opacity=S.hurt>0?Math.min(.35,S.hurt*.7):0;
   const rr=Math.hypot(S.x,S.z);const RB=3300;if(rr>RB){S.x*=RB/rr;S.z*=RB/rr}
   let gY=H(S.x,S.z);
-  {const dxs=S.x-SKY.x,dzs=S.z-SKY.z,dsky=Math.hypot(dxs,dzs);if(dsky<SKY.R){const sh=SKYH(dxs,dzs);if(S.y>=sh-3)gY=Math.max(gY,sh)}}
+  {const dxs=S.x-SKY.x,dzs=S.z-SKY.z,dsky=Math.hypot(dxs,dzs);if(dsky<SKY.R*1.4){const sh=SKYH(dxs,dzs);if(S.y>=sh-3)gY=Math.max(gY,sh)}}
   const wat=gY<-.5;if(wat)gY=-1;
   const hi=S.flying&&S.y>gY+14&&Math.hypot(S.x-SKY.x,S.z-SKY.z)>SKY.R+60;
   for(const c of solids){if(hi)break;const ax=S.x-c.x,az=S.z-c.z,dd=Math.hypot(ax,az),R=c.r+.4;
