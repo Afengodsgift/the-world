@@ -372,26 +372,44 @@ function buildWorld(code){
 }
 function buildSkyIsland(){
   const geo=new THREE.PlaneGeometry(SKY.R*2.8,SKY.R*2.8,72,72);geo.rotateX(-Math.PI/2);
-  const pos=geo.attributes.position,cols=new Float32Array(pos.count*3),c=new THREE.Color(),c1=new THREE.Color('#6fae5c'),c2=new THREE.Color('#8bcf6a'),c3=new THREE.Color('#c9c2a8');
+  const pos=geo.attributes.position,cols=new Float32Array(pos.count*3),c=new THREE.Color(),c1=new THREE.Color('#6fae5c'),c2=new THREE.Color('#8bcf6a'),c3=new THREE.Color('#8d8478');
   for(let i=0;i<pos.count;i++){const dx=pos.getX(i),dz=pos.getZ(i),d=Math.hypot(dx,dz),y=SKYH(dx,dz);pos.setY(i,y-SKY.base);
-    c.copy(c1).lerp(c2,Math.sin(dx*.3+dz*.2)*.5+.5);c.lerp(c3,sstep(SKY.R*.82,SKY.R*.98,d));cols.set([c.r,c.g,c.b],i*3)}
+    c.copy(c1).lerp(c2,Math.sin(dx*.3+dz*.2)*.5+.5);c.lerp(c3,sstep(SKY.R*.98,SKY.R*1.22,d));cols.set([c.r,c.g,c.b],i*3)}
   geo.setAttribute('color',new THREE.BufferAttribute(cols,3));geo.computeVertexNormals();
   const top=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));
   top.position.set(SKY.x,SKY.base,SKY.z);top.receiveShadow=true;scene.add(top);
-  const rockM=new THREE.MeshStandardMaterial({color:'#8d8478',roughness:1}),under=new THREE.Group();
-  const seg=[[SKY.R*.95,10],[SKY.R*.55,26],[SKY.R*.28,26],[SKY.R*.1,24]];let y=0;
-  for(const [r,h] of seg){const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r*.7,h,10),rockM);m.position.y=y-h/2;under.add(m);y-=h}
-  for(let i=0;i<10;i++){const a=rng()*6.283,r=SKY.R*(.3+rng()*.5),rk=new THREE.Mesh(new THREE.DodecahedronGeometry(4+rng()*7,0),rockM);
-    rk.position.set(Math.cos(a)*r,-30-rng()*40,Math.sin(a)*r);rk.rotation.set(rng()*3,rng()*3,0);under.add(rk)}
-  under.position.set(SKY.x,SKY.base-1,SKY.z);under.castShadow=true;scene.add(under);
 
-  const beam=new THREE.Mesh(new THREE.CylinderGeometry(2.5,2.5,600,10,1,true),new THREE.MeshBasicMaterial({color:'#c9ffe0',transparent:true,opacity:.35,fog:false,side:THREE.DoubleSide}));
-  beam.position.set(SKY.x,SKY.base+320,SKY.z);scene.add(beam);
+  // jagged rocky underside: an irregular broken mass with long thin roots, not a tidy stack
+  const rockM=new THREE.MeshStandardMaterial({color:'#7c7266',roughness:1,flatShading:true}),under=new THREE.Group();
+  const core=[[SKY.R*.85,18,0,0],[SKY.R*.6,34,SKY.R*.12,SKY.R*.08],[SKY.R*.62,30,-SKY.R*.15,SKY.R*.05],[SKY.R*.38,40,SKY.R*.05,-SKY.R*.1],[SKY.R*.4,38,-SKY.R*.08,SKY.R*.12]];
+  let yy=6;
+  for(const [r,h,ox,oz] of core){const m=new THREE.Mesh(new THREE.ConeGeometry(r,h,7+  (rng()*3|0)),rockM);
+    m.position.set(ox,yy-h*.5,oz);m.rotation.y=rng()*6.283;m.scale.set(1+rng()*.3,1,1+rng()*.3);under.add(m);yy-=h*.62}
+  for(let i=0;i<26;i++){const a=rng()*6.283,r=SKY.R*(.15+rng()*.75),rk=new THREE.Mesh(new THREE.DodecahedronGeometry(3+rng()*10,0),rockM);
+    rk.position.set(Math.cos(a)*r,-10-rng()*95,Math.sin(a)*r);rk.rotation.set(rng()*3,rng()*3,rng()*3);rk.scale.set(1,.6+rng()*.6,1);under.add(rk)}
+  // thin hanging roots poking well below the main mass, asymmetric
+  for(let i=0;i<9;i++){const a=rng()*6.283,r=SKY.R*(.1+rng()*.55),len=40+rng()*70,rad=2+rng()*3.5;
+    const m=new THREE.Mesh(new THREE.ConeGeometry(rad,len,5),rockM);m.position.set(Math.cos(a)*r,-30-rng()*30-len*.4,Math.sin(a)*r);
+    m.rotation.set((rng()-.5)*.5,rng()*6.283,(rng()-.5)*.5);under.add(m)}
+  under.position.set(SKY.x,SKY.base-2,SKY.z);under.traverse(o=>{if(o.isMesh)o.castShadow=true});scene.add(under);
+
+  // broken rock spires along the rim so the silhouette isn't a smooth dome
+  for(let i=0;i<9;i++){const a=i/9*6.283+rng()*.3,r=SKY.R*(.92+rng()*.2),x=SKY.x+Math.cos(a)*r,z=SKY.z+Math.sin(a)*r,base=SKYH(x-SKY.x,z-SKY.z),h=10+rng()*22;
+    const m=new THREE.Mesh(new THREE.ConeGeometry(4+rng()*5,h,6),rockM);m.position.set(x,base+h*.3,z);m.rotation.set((rng()-.5)*.3,rng()*6.283,(rng()-.5)*.3);m.castShadow=true;scene.add(m);
+    solids.push({x,z,r:4});}
+
+  // a small waterfall off one edge into the sky
+  {const a=2.4,ex=SKY.x+Math.cos(a)*SKY.R*.9,ez=SKY.z+Math.sin(a)*SKY.R*.9,top_y=SKYH(ex-SKY.x,ez-SKY.z);
+    const wf=new THREE.Mesh(new THREE.PlaneGeometry(14,120),new THREE.MeshStandardMaterial({color:'#bfe6ff',roughness:.15,metalness:.1,transparent:true,opacity:.75,side:THREE.DoubleSide}));
+    wf.position.set(ex+Math.cos(a)*6,top_y-60,ez+Math.sin(a)*6);wf.rotation.y=a+Math.PI/2;scene.add(wf);
+    const mist=new THREE.Mesh(new THREE.CircleGeometry(16,20),new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.4}));
+    mist.rotation.x=-Math.PI/2;mist.position.set(ex+Math.cos(a)*6,top_y-118,ez+Math.sin(a)*6);scene.add(mist);}
+
   const kinds=['tree_pineDefaultA','tree_pineRoundA','tree_oak','tree_fat'],P={},TH={tree_pineDefaultA:9,tree_pineRoundA:8,tree_oak:7,tree_fat:6.5,plant_bushLarge:1.4,stone_largeA:2.2,rock_tallB:2.6};
   const addk=(n,x,z,s)=>{(P[n]=P[n]||[]).push({x,y:SKYH(x-SKY.x,z-SKY.z),z,ry:rng()*6.283,s})};
   for(let i=0;i<60;i++){const a=rng()*6.283,r=rng()*SKY.R*.75,x=SKY.x+Math.cos(a)*r,z=SKY.z+Math.sin(a)*r;addk(kinds[rng()*4|0],x,z,.8+rng()*.5)}
   for(let i=0;i<24;i++){const a=rng()*6.283,r=rng()*SKY.R*.8,x=SKY.x+Math.cos(a)*r,z=SKY.z+Math.sin(a)*r;addk('plant_bushLarge',x,z,.9+rng()*.7)}
-  for(let i=0;i<10;i++){const a=rng()*6.283,r=rng()*SKY.R*.8,x=SKY.x+Math.cos(a)*r,z=SKY.z+Math.sin(a)*r;addk(rng()<.5?'stone_largeA':'rock_tallB',x,z,.5+rng()*1)}
+  for(let i=0;i<14;i++){const a=rng()*6.283,r=rng()*SKY.R*.85,x=SKY.x+Math.cos(a)*r,z=SKY.z+Math.sin(a)*r;addk(rng()<.5?'stone_largeA':'rock_tallB',x,z,.5+rng()*1)}
   for(const nm in P){const f=scatter(nm,TH[nm],P[nm]);if(!f)continue;for(const p of P[nm]){if(nm.startsWith('tree_'))solids.push({x:p.x,z:p.z,r:.3*p.s});else if(!nm.startsWith('plant_'))solids.push({x:p.x,z:p.z,r:f.w*.35*p.s,h:p.y+2*p.s})}}
   const shard=new THREE.MeshStandardMaterial({color:'#ffe08a',emissive:'#ffb020',emissiveIntensity:.9});
   for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*SKY.R*.75,x=SKY.x+Math.cos(a)*r,z=SKY.z+Math.sin(a)*r,y=SKYH(x-SKY.x,z-SKY.z)+1.2;
