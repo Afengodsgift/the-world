@@ -382,7 +382,7 @@ function buildSkyIsland(){
   for(let i=0;i<10;i++){const a=rng()*6.283,r=SKY.R*(.3+rng()*.5),rk=new THREE.Mesh(new THREE.DodecahedronGeometry(4+rng()*7,0),rockM);
     rk.position.set(Math.cos(a)*r,-30-rng()*40,Math.sin(a)*r);rk.rotation.set(rng()*3,rng()*3,0);under.add(rk)}
   under.position.set(SKY.x,SKY.base-1,SKY.z);under.castShadow=true;scene.add(under);
-  solids.push({x:SKY.x,z:SKY.z,r:SKY.R,h:SKY.base+18,noSide:true});
+
   const beam=new THREE.Mesh(new THREE.CylinderGeometry(2.5,2.5,600,10,1,true),new THREE.MeshBasicMaterial({color:'#c9ffe0',transparent:true,opacity:.35,fog:false,side:THREE.DoubleSide}));
   beam.position.set(SKY.x,SKY.base+320,SKY.z);scene.add(beam);
   const kinds=['tree_pineDefaultA','tree_pineRoundA','tree_oak','tree_fat'],P={},TH={tree_pineDefaultA:9,tree_pineRoundA:8,tree_oak:7,tree_fat:6.5,plant_bushLarge:1.4,stone_largeA:2.2,rock_tallB:2.6};
@@ -695,7 +695,9 @@ function tick(t){
   S.x+=S.kx*dt;S.z+=S.kz*dt;const kd=Math.exp(-4*dt);S.kx*=kd;S.kz*=kd;
   S.iframe=Math.max(0,S.iframe-dt);S.hurt=Math.max(0,S.hurt-dt);$('flash').style.opacity=S.hurt>0?Math.min(.35,S.hurt*.7):0;
   const rr=Math.hypot(S.x,S.z);const RB=3300;if(rr>RB){S.x*=RB/rr;S.z*=RB/rr}
-  let gY=H(S.x,S.z);const wat=gY<-.5;if(wat)gY=-1;
+  let gY=H(S.x,S.z);
+  {const dxs=S.x-SKY.x,dzs=S.z-SKY.z,dsky=Math.hypot(dxs,dzs);if(dsky<SKY.R){const sh=SKYH(dxs,dzs);if(S.y>=sh-3)gY=Math.max(gY,sh)}}
+  const wat=gY<-.5;if(wat)gY=-1;
   const hi=S.flying&&S.y>gY+14&&Math.hypot(S.x-SKY.x,S.z-SKY.z)>SKY.R+60;
   for(const c of solids){if(hi)break;const ax=S.x-c.x,az=S.z-c.z,dd=Math.hypot(ax,az),R=c.r+.4;
     if(dd<R){if(c.h&&S.y>=c.h-.15)gY=Math.max(gY,c.h);else if(!c.noSide&&dd>1e-4){S.x=c.x+ax/dd*R;S.z=c.z+az/dd*R}}}
