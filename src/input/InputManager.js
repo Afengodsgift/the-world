@@ -1,10 +1,9 @@
 // Keyboard + touch input. bindInput() is called once from startGame(), after S,
 // doUse(), smack(), and renderer already exist — same forward-reference pattern as
-// the rest of the extracted modules. Behavior is unchanged from before the move;
-// this is a straight relocation, not a redesign of how input works.
+// the rest of the extracted modules.
 const keys={};let stickV={x:0,y:0},jumpQ=false;
 function bindInput(){
-  addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Space')jumpQ=true;if(e.code==='KeyE')doUse();if(e.code==='KeyB')S.boost=!S.boost;if(e.code==='KeyF')smack()});
+  addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Space')jumpQ=true;if(e.code==='KeyE')doUse();if(e.code==='KeyB')S.boost=!S.boost;if(e.code==='KeyF'){if(typeof panEquipped!=='undefined'&&!panEquipped)togglePan();else smack()}if(e.code==='KeyQ')togglePan()});
   addEventListener('keyup',e=>keys[e.code]=false);
   const stick=$('stick'),knob=$('knob');let sid=null;
   const setStick=e=>{const r=stick.getBoundingClientRect();let dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);const m=Math.hypot(dx,dy),max=r.width/2;if(m>max){dx*=max/m;dy*=max/m}
@@ -16,7 +15,18 @@ function bindInput(){
   $('jump').addEventListener('pointerdown',e=>{jumpQ=true;e.preventDefault()});
   $('use').addEventListener('pointerdown',e=>{doUse();e.preventDefault()});
   $('boost').addEventListener('pointerdown',e=>{S.boost=!S.boost;$('boost').textContent=S.boost?'BOOST ON':'Boost';$('boost').style.opacity=S.boost?1:.75;e.preventDefault()});
-  $('smack').addEventListener('pointerdown',e=>{smack();e.preventDefault()});
+  // Smack button: equip if not holding pan, otherwise attack. Long-press or Q key also toggles.
+  let smackTimer=null;
+  $('smack').addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    if(typeof panEquipped!=='undefined'&&!panEquipped){togglePan();return}
+    smackTimer=setTimeout(()=>{togglePan();smackTimer=null},420);
+  });
+  $('smack').addEventListener('pointerup',e=>{
+    e.preventDefault();
+    if(smackTimer){clearTimeout(smackTimer);smackTimer=null;smack()}
+  });
+  $('smack').addEventListener('pointercancel',e=>{if(smackTimer){clearTimeout(smackTimer);smackTimer=null}});
   // look
   let lid=null,lx=0,ly=0;const cv=renderer.domElement;
   cv.addEventListener('pointerdown',e=>{lid=e.pointerId;lx=e.clientX;ly=e.clientY;cv.setPointerCapture(lid)});
