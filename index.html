@@ -63,6 +63,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/input/InputManager.js"></script>
 <script src="src/world/SeaLife.js"></script>
 <script src="src/combat/Melee.js"></script>
+<script src="src/interaction/InteractionManager.js"></script>
 <script>
 const SUPABASE_URL='https://lzqnxawxehmqgswuzpyn.supabase.co';
 const SUPABASE_KEY='sb_publishable_bAm2KsLV8__Y4nWSFesZeQ_38-Ly6DE';
@@ -440,20 +441,33 @@ function send(){
 }
 
 // ---------- exploration ----------
-let disc=new Set(),orbs=[],got=0,pil,pulse=0,nearP=false;
+let disc=new Set(),orbs=[],got=0,pil,pulse=0;
 function save(){try{localStorage.setItem('w4:'+roomCode,JSON.stringify({d:[...disc],o:orbs.map((o,i)=>o.on?-1:i).filter(i=>i>=0)}))}catch(e){}}
 function load(){try{const v=JSON.parse(localStorage.getItem('w4:'+roomCode)||'{}');disc=new Set(v.d||[]);for(const i of v.o||[])if(orbs[i]){orbs[i].on=false;orbs[i].m.visible=false;got++}}catch(e){}}
 function banner(t,l){const b=$('banner');b.innerHTML='<small>'+(l||'NEW LOCATION DISCOVERED')+'</small><br>'+t;b.style.opacity=1;clearTimeout(banner.t);banner.t=setTimeout(()=>b.style.opacity=0,3200)}
 function take(i,local){const o=orbs[i];if(!o||!o.on)return;o.on=false;o.m.visible=false;got++;save();updateHud();if(local&&chan)chan.send({type:'broadcast',event:'c',payload:{i}})}
 function chime(){try{const a=new(window.AudioContext||webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.frequency.value=660;o.connect(g);g.connect(a.destination);g.gain.setValueAtTime(.2,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+1.4);o.start();o.stop(a.currentTime+1.4)}catch(e){}}
-function doUse(){if(!nearP)return;if(nearP==='race'){startRace(true);return}if(nearP==='kart'){startKartRace(true);return}if(nearP==='hunt'){startHunt(true);return}if(nearP==='dig'){dig(true);return}pulse=1.5;chime();if(chan)chan.send({type:'broadcast',event:'u',payload:{}})}
+function doUse(){Interaction.use()}
+Interaction.register('dig','Dig!',
+  ()=>hunt.on&&Math.hypot(S.x-hunt.x,S.z-hunt.z)<6&&Math.abs(S.y-hunt.y)<20,
+  ()=>dig(true));
+Interaction.register('hunt','Start Treasure Hunt',
+  ()=>Math.hypot(S.x-BOARD.x,S.z-BOARD.z)<5,
+  ()=>startHunt(true));
+Interaction.register('race','Start Sky Race',
+  ()=>Math.hypot(S.x-WP[0][0],S.z-WP[0][1])<7,
+  ()=>startRace(true));
+Interaction.register('pil','Use',
+  ()=>Math.hypot(S.x-TOWN.x,S.z-TOWN.z)<8,
+  ()=>{pulse=1.5;chime();if(chan)chan.send({type:'broadcast',event:'u',payload:{}})});
+Interaction.register('kart','Start Ground Race',
+  ()=>kart.padX!==undefined&&Math.hypot(S.x-kart.padX,S.z-kart.padZ)<7,
+  ()=>startKartRace(true));
 function explore(dt,t){
   for(const L of LOCS)if(!disc.has(L.n)&&Math.hypot(S.x-L.x,S.z-L.z)<L.r&&(!L.y||S.y>L.y)){disc.add(L.n);banner(L.n);save();updateHud()}
   orbs.forEach((o,i)=>{if(!o.on)return;o.m.rotation.y+=dt*2;o.m.position.y=o.y+Math.sin(t/400+i)*.15;
     if(Math.hypot(S.x-o.x,S.z-o.z)<1.6&&Math.abs(S.y+1-o.y)<2.2)take(i,true)});
-  const dd=(x,z)=>Math.hypot(S.x-x,S.z-z);let n=false;
-  if(hunt.on&&dd(hunt.x,hunt.z)<6&&Math.abs(S.y-hunt.y)<20)n='dig';else if(dd(BOARD.x,BOARD.z)<5)n='hunt';else if(dd(WP[0][0],WP[0][1])<7)n='race';else if(dd(TOWN.x,TOWN.z)<8)n='pil';else if(kart.padX!==undefined&&dd(kart.padX,kart.padZ)<7)n='kart';
-  if(n!==nearP){nearP=n;$('use').style.display=n?'block':'none';$('use').textContent={dig:'Dig!',hunt:'Start Treasure Hunt',race:'Start Sky Race',kart:'Start Ground Race',pil:'Use'}[n]||'Use'}
+  Interaction.update();
   raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);
   if(!race.on&&!hunt.on&&mk)mk.style.display='none';
   if(pulse>0){pulse=Math.max(0,pulse-dt);pil.material.emissive.setRGB(pulse*.6,pulse*.45,pulse*.1)}
