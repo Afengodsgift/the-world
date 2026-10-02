@@ -67,6 +67,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/interaction/InteractionManager.js"></script>
 <script src="src/games/Tag.js"></script>
 <script src="src/games/Outlaw.js"></script>
+<script src="src/ui/WorldMap.js"></script>
 <script>
 const SUPABASE_URL='https://lzqnxawxehmqgswuzpyn.supabase.co';
 const SUPABASE_KEY='sb_publishable_bAm2KsLV8__Y4nWSFesZeQ_38-Ly6DE';
@@ -474,7 +475,7 @@ function explore(dt,t){
   orbs.forEach((o,i)=>{if(!o.on)return;o.m.rotation.y+=dt*2;o.m.position.y=o.y+Math.sin(t/400+i)*.15;
     if(Math.hypot(S.x-o.x,S.z-o.z)<1.6&&Math.abs(S.y+1-o.y)<2.2)take(i,true)});
   Interaction.update();
-  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);
+  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);WorldMap.tick();
   if(!race.on&&!hunt.on&&mk)mk.style.display='none';
   if(pulse>0){pulse=Math.max(0,pulse-dt);pil.material.emissive.setRGB(pulse*.6,pulse*.45,pulse*.1)}
 }
