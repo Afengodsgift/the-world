@@ -16,6 +16,11 @@ const PAN_ENABLED=true;
 const PAN_REST_Z=Math.PI/2-.45; // resting roll of the pan about its own width axis; the swing animates around this
 let smacks=0;try{smacks=+localStorage.getItem('w4sm')||0}catch(e){}
 let lastSmack=-9;
+// Swing arc offset (radians, about the pan's width axis) for swing s: 1 (just started) -> 0 (done). Quick wind-up back, hard slam forward-down, then recover.
+function panSwingDelta(s){const p=1-Math.min(1,s);if(p<=0||p>=1)return 0;
+  if(p<.22)return -.6*Math.sin(p/.22*Math.PI/2);
+  if(p<.5)return -.6+2.5*Math.sin((p-.22)/.28*Math.PI/2);
+  return 1.9*Math.cos((p-.5)/.5*Math.PI/2)}
 let panOn=false; // pan starts holstered; togglePan() equips/unequips (synced to partner in the 's' state broadcast)
 function togglePan(){panOn=!panOn;$('panbtn').style.opacity=panOn?1:.6}
 function bonk(){try{const a=new(window.AudioContext||webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.type='square';o.frequency.setValueAtTime(180,a.currentTime);o.frequency.exponentialRampToValueAtTime(60,a.currentTime+.15);o.connect(g);g.connect(a.destination);g.gain.setValueAtTime(.35,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.2);o.start();o.stop(a.currentTime+.2)}catch(e){}}
@@ -37,7 +42,8 @@ function smackTick(dt){if(me&&me.userData.pan)me.userData.pan.visible=panOn}
 function onSmacked(p){
   const a=p.from&&others.get(p.from);if(a)a.group.userData.swing=1;
   if(S.iframe>0)return;S.iframe=.6;S.hurt=.5;
-  S.kx+=p.dx*13;S.kz+=p.dz*13;S.vy=Math.max(S.vy,4);
+  const pan=!!p.from; // pan bonks launch harder than shark bites (which have no sender)
+  S.kx+=p.dx*(pan?30:13);S.kz+=p.dz*(pan?30:13);S.vy=Math.max(S.vy,pan?8:4);
   bonk();if(navigator.vibrate)navigator.vibrate([30,40,30]);
   const o=others.size?others.values().next().value:null;
   banner((o&&o.group.userData.nm||'Your partner')+' bonked you!','🍳');
