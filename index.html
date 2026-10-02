@@ -186,16 +186,44 @@ function pose(q,st,dt){
     aim(B[n+'Arm'],B[n+'ForeArm'],ad);aim(B[n+'ForeArm'],B[n+'Hand'],ad);aim(B[n+'UpLeg'],B[n+'Leg'],ld);aim(B[n+'Leg'],B[n+'Foot'],ld);
   }
 }
+// Flying pose. Blends by speed: hover (upright, relaxed) -> cruise (hero pose: one fist forward, other arm at the side,
+// legs together) -> dive/boost (both arms forward). q.fb / q.fd are the smoothed blend amounts.
+function flyPose(q,dt,sf){
+  const B=q.bones;q.model.updateMatrixWorld(true);q.model.getWorldQuaternion(_qw);
+  const D=(x,y,z)=>new THREE.Vector3(x,y,z).normalize().applyQuaternion(_qw);
+  q.fb+=((Math.max(0,Math.min(1,(sf-.12)/.3)))-q.fb)*Math.min(1,dt*5);
+  q.fd+=((Math.max(0,Math.min(1,(sf-.65)/.25)))-q.fd)*Math.min(1,dt*5);
+  q.ph+=dt*(2.2+sf*3);
+  const mix=(a,b,c)=>a.clone().lerp(b,q.fb).lerp(c,q.fd).normalize();
+  for(const s of [1,-1]){const n=s===1?'Left':'Right',off=s===1?0:Math.PI,fl=Math.sin(q.ph*2+off);
+    // legs: dangle & swing when hovering, together and trailing (slightly arched) when moving
+    const l1=mix(D(s*.12,-1,.04+.14*fl),D(s*.03,-1,-.16+.03*fl),D(s*.02,-1,-.2));
+    const l2=mix(D(s*.1,-1,-.1+.18*fl),D(s*.02,-1,-.3+.04*fl),D(s*.01,-1,-.34));
+    aim(B[n+'UpLeg'],B[n+'Leg'],l1);aim(B[n+'Leg'],B[n+'Foot'],l2);
+    // arms: left leads (fist forward), right tucks back in cruise; both forward in a dive
+    const fwd=D(s*.1,1,.05),fwd2=D(s*.06,1,.05);
+    const up=s===1?fwd:mix(D(-.5,-.85,.1),D(-.55,-.5,-.25),D(-.1,1,.05)),fa=s===1?fwd2:mix(D(-.25,-1,.2),D(-.2,-1,-.35),D(-.06,1,.05));
+    const hv=D(s*.5,-.85,.1),hv2=D(s*.25,-1,.2);
+    aim(B[n+'Arm'],B[n+'ForeArm'],s===1?mix(hv,fwd,fwd):up);aim(B[n+'ForeArm'],B[n+'Hand'],s===1?mix(hv2,fwd2,fwd2):fa);
+  }
+}
 function animate(g,dt,st){
   const q=g.userData;
   if(q.mixer){
+    if(q.lp){const dd=Math.max(dt,.001);q.spd+=(Math.hypot(g.position.x-q.lp[0],g.position.z-q.lp[1])/dd-q.spd)*Math.min(1,dt*6);
+      q.yr+=(Math.atan2(Math.sin(g.rotation.y-q.lyaw),Math.cos(g.rotation.y-q.lyaw))/dd-q.yr)*Math.min(1,dt*5)}
+    q.lp=[g.position.x,g.position.z];q.lyaw=g.rotation.y;
+    const sf=Math.max(0,Math.min(1,q.spd/30));
     const want=(st==='idle'||st==='fly')?'idle':(st==='jump'||st==='fall')?'jump':'run';
     if(q.cur!==want){q.act[want].reset().fadeIn(.15).play();if(q.cur)q.act[q.cur].fadeOut(.15);q.cur=want}
     q.act.run.timeScale=st==='walk'?.7:st==='swim'?1.2:1.15;
     if(q.pan){q.swing=Math.max(0,(q.swing||0)-dt*2.6);q.pan.rotation.z=PAN_REST_Z+panSwingDelta(q.swing)}
-    q.land=Math.max(0,q.land-dt);q.model.rotation.x+=((st==='swim'?1.45:st==='fly'?1.4:0)+(q.pan?Math.sin(Math.min(1,q.swing||0)*Math.PI)*.3:0)-q.model.rotation.x)*Math.min(1,dt*10);
+    q.land=Math.max(0,q.land-dt);q.model.rotation.y+=((st==='fly'?Math.max(-.7,Math.min(.7,-q.yr*.1)):0)-q.model.rotation.y)*Math.min(1,dt*6); // bank into turns
+    q.model.rotation.x+=((st==='swim'?1.45:st==='fly'?.2+1.25*Math.min(1,sf*1.6):0)+(q.pan?Math.sin(Math.min(1,q.swing||0)*Math.PI)*.3:0)-q.model.rotation.x)*Math.min(1,dt*10);
     q.model.position.set(0,.65*(1-Math.cos(q.model.rotation.x)),-.65*Math.sin(q.model.rotation.x));
-    q.model.scale.set(.5*(1+q.land*.3),.5*(1-q.land*.6),.5*(1+q.land*.3));q.mixer.update(dt);if(st==='fly'||st==='swim')pose(q,st,dt);return;
+    q.model.scale.set(.5*(1+q.land*.3),.5*(1-q.land*.6),.5*(1+q.land*.3));q.mixer.update(dt);
+    if(st==='fly')flyPose(q,dt,sf);else if(st==='swim')pose(q,st,dt);else if(q.gunI>=0&&typeof Outlaw!=='undefined')Outlaw.poseGun(g,q,st,dt);
+    if(q.gun)q.gun.visible=!!q.gun.userData.ok&&!(st==='fly'||st==='swim');return;
   }
   const u=g.userData,air=st==='jump'||st==='fall',w=st==='run'?1:st==='walk'?.6:st==='swim'?.7:0;
   u.ph+=dt*(st==='run'?13:9);const s=Math.sin(u.ph),k=Math.min(1,dt*18);
@@ -216,7 +244,7 @@ function dress(g,skin){
     m.traverse(o=>{if(o.isSkinnedMesh){o.skeleton.bones.forEach(b=>bones[b.name]=b);o.frustumCulled=false;o.material=new THREE.MeshStandardMaterial({map:skinT[skin%skinT.length],roughness:.85,metalness:0})}});
     const mx=new THREE.AnimationMixer(m),act={};for(const n in clips)act[n]=mx.clipAction(clips[n]);
     act.jump.setLoop(THREE.LoopOnce,1);act.jump.clampWhenFinished=true;
-    const u=g.userData;u.rig.visible=false;m.traverse(c=>{if(c.isMesh){c.castShadow=true}});g.add(m);Object.assign(u,{mixer:mx,act,model:m,bones,cur:null,ph:0,swing:0});
+    const u=g.userData;u.rig.visible=false;m.traverse(c=>{if(c.isMesh){c.castShadow=true}});g.add(m);Object.assign(u,{mixer:mx,act,model:m,bones,cur:null,ph:0,swing:0,spd:0,yr:0,fb:0,fd:0});
     if(PAN_ENABLED&&bones.RightHand)loadPan().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(panBuf.slice(0),AURL,res,rej))).then(pr=>{
       const piv=new THREE.Group(),pn=pr.scene;pn.traverse(c=>{if(c.isMesh)c.castShadow=true});
       pn.position.set(.173,-19.68,31.046);piv.add(pn);piv.scale.setScalar((.36/5.915)/50);piv.position.set(0,.0016,0);piv.rotation.set(Math.PI,0,PAN_REST_Z);
@@ -238,7 +266,7 @@ function H(x,z){
   for(const I of ISL){const dx=x-I.x,dz=z-I.z,dd=Math.hypot(dx,dz);if(dd>I.R*1.6)continue;
     const v=Math.max(-3,(1-(dd/I.R)**2)*4-.6)+Math.sin(x*.09)*Math.cos(z*.11)*.7+I.pk*Math.exp(-dd*dd/(2*(I.R*.35)**2));
     if(v>h)h=v}
-  {const t=1-sstep(26,44,Math.hypot(x-OUT.x,z-OUT.z));if(t>0)h=h*(1-t)+OUT.y*t} // Outlaw Town plateau
+  {const t=1-sstep(48,68,Math.hypot(x-OUT.x,z-OUT.z));if(t>0)h=h*(1-t)+OUT.y*t} // Outlaw Town plateau
   return h;
 }
 function terrain(cx,cz,size,seg){
