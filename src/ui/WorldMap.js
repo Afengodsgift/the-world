@@ -1,5 +1,5 @@
 // World map: 🗺️ button (or M key). Drag to pan, pinch/wheel to zoom, tap a place for Track / Travel.
-// "Track" puts a waypoint arrow in the 3D view (reuses markToEl). Globals: S, others, LOCS, ISL, SKY, KT, OUT, TOWN, K, H, disc, hunt, markToEl, banner, Tag.
+// "Track" puts a waypoint arrow in the 3D view (reuses markToEl). Globals: S, others, LOCS, ISL, SKY, KT, OUT, TOWN, K, H, disc, hunt, markToEl, banner, Tag, RING, srun.
 const WorldMap=(()=>{
   let ov,cv,ctx,card,chips,btn,wmk,isOpen=false,sel=null,wp=null,raf=0;
   const view={cx:0,cz:0,s:.1},ptr=new Map();let pinch0=0,moved=0,W=0,Hh=0;
@@ -9,7 +9,8 @@ const WorldMap=(()=>{
   const places=()=>{
     const isl=new Set(ISL.map(i=>i.n).concat(['The Floating Island']));
     const l=LOCS.map(L=>({n:L.n,x:L.x,z:L.z,y:L.y,r:L.r,big:isl.has(L.n)}));
-    l.push({n:'Tag Arena',x:Tag.pos.x,z:Tag.pos.z,r:5,icon:'🏃'},{n:'Outlaw Portal',x:PORTAL.x,z:PORTAL.z,r:5,icon:'🌀'});
+    l.push({n:'Tag Arena',x:Tag.pos.x,z:Tag.pos.z,r:5,icon:'🏃'},{n:'Outlaw Portal',x:PORTAL.x,z:PORTAL.z,r:5,icon:'🌀'},{n:'Bonk Ring',x:RING.x,z:RING.z,r:RING.R,icon:'🍳'});
+    if(srun.start)l.push({n:'Shark Run',x:srun.start.x,z:srun.start.z,r:5,icon:'🦈'});
     return l};
   const icon=p=>p.icon||(p.n==='Outlaw Isle'?'🤠':p.n==='The Floating Island'?'☁️':p.n==='The Race Track'?'🏁':p.big?'🏝️':'📍');
   const dist=p=>Math.hypot(S.x-p.x,S.z-p.z);
