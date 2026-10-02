@@ -121,6 +121,8 @@ async function enter(code){
   chan.on('broadcast',{event:'bo'},({payload})=>ringPoint(payload));
   chan.on('broadcast',{event:'ss'},()=>startSharkRun(false));
   chan.on('broadcast',{event:'sls'},()=>startSlalom(false));
+  chan.on('broadcast',{event:'ds'},()=>startDash(false));
+  chan.on('broadcast',{event:'df'},({payload})=>{if(dash.on)banner('Partner finished in '+fmt(payload.ms),'OBSTACLE DASH')});
   chan.on('broadcast',{event:'slp'},({payload})=>{slalom.pi=payload.i});
   chan.on('broadcast',{event:'slf'},({payload})=>{if(slalom.on)banner('Partner finished in '+fmt(payload.ms),'SKY SLALOM')});
   chan.on('broadcast',{event:'sf'},({payload})=>{if(srun.on)banner('Partner finished in '+fmt(payload.ms),'SHARK RUN')});
@@ -363,7 +365,7 @@ function buildWorld(code){
   while(pts.length<40){const a=rng()*6.283,r=12+rng()*195,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<40&&dist(x,z)>45)pts.push([x,z])}
   for(const I of ISL)for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
-  buildRace();buildHunt();buildSeaLife();buildSkyIsland();buildKartTrack();Tag.build();Outlaw.build();buildBonkRing();buildSharkRun();buildSlalom();
+  buildRace();buildHunt();buildSeaLife();buildSkyIsland();buildKartTrack();Tag.build();Outlaw.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
 }
 function buildSkyIsland(){
   const geo=new THREE.PlaneGeometry(SKY.R*2.8,SKY.R*2.8,72,72);geo.rotateX(-Math.PI/2);
@@ -486,12 +488,15 @@ Interaction.register('sharkrun','Start Shark Run',
 Interaction.register('slalom','Start Sky Slalom',
   ()=>!slalom.on&&slalom.start&&Math.hypot(S.x-slalom.start.x,S.z-slalom.start.z)<4.5&&Math.abs(S.y-slalom.start.y)<6,
   ()=>startSlalom(true));
+Interaction.register('dash','Start Obstacle Dash',
+  ()=>!dash.on&&dash.start&&Math.hypot(S.x-dash.start.x,S.z-dash.start.z)<4,
+  ()=>startDash(true));
 function explore(dt,t){
   for(const L of LOCS)if(!disc.has(L.n)&&Math.hypot(S.x-L.x,S.z-L.z)<L.r&&(!L.y||S.y>L.y)){disc.add(L.n);banner(L.n);save();updateHud()}
   orbs.forEach((o,i)=>{if(!o.on)return;o.m.rotation.y+=dt*2;o.m.position.y=o.y+Math.sin(t/400+i)*.15;
     if(Math.hypot(S.x-o.x,S.z-o.z)<1.6&&Math.abs(S.y+1-o.y)<2.2)take(i,true)});
   Interaction.update();
-  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);ringTick(t);sharkRunTick(t);slalomTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);WorldMap.tick();
+  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);ringTick(t);sharkRunTick(t);slalomTick(t);dashTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);WorldMap.tick();
   if(!race.on&&!hunt.on&&!slalom.on&&mk)mk.style.display='none';
   if(pulse>0){pulse=Math.max(0,pulse-dt);pil.material.emissive.setRGB(pulse*.6,pulse*.45,pulse*.1)}
 }
@@ -698,6 +703,74 @@ function slalomTick(t){
   const a=slalom.gates[slalom.i];
   slalom.el.textContent='Slalom  ·  Ring '+(slalom.i+1)+'/'+SL_N+'  ·  '+fmt(Math.max(0,now-slalom.t0-slalom.perf*SL_BONUS))+'  ·  ⭐ '+slalom.perf+(slalom.pi?'  ·  Partner: ring '+(slalom.pi+1):'');
   a.m.scale.setScalar(1.12+Math.sin(t/200)*.06);markTo(a.x,a.y,a.z,'Ring '+(slalom.i+1));
+}
+
+// ---------- obstacle dash (parkour course: stepping stones, a beam, moving platforms, a bounce pad, a tower; each fall = +2s and back to your last platform) ----------
+const OD_FALL=2000;
+// u = metres along the course, v = sideways, r = platform radius, h = top height above the start ground. Jumps reach ~1.6 m up / ~8 m across (checked in a physics sim).
+const OD=[
+  {k:'stone',u:6,v:0,r:1.7,h:.8},{k:'stone',u:11.5,v:-2.5,r:1.5,h:1.4},{k:'stone',u:17,v:2,r:1.5,h:2},{k:'stone',u:23,v:-1.5,r:1.4,h:2.6},
+  {k:'beam',u0:27,u1:37,v:0,r:.6,h:2.6},
+  {k:'move',u:42,v:0,r:1.6,h:2.6,amp:3,per:4,ph:0},{k:'move',u:48.5,v:0,r:1.6,h:3.2,amp:3,per:4,ph:2},
+  {k:'bounce',u:54.5,v:0,r:2,h:2},
+  {k:'stone',u:60,v:0,r:3,h:6.5},{k:'stone',u:66,v:-2,r:1.6,h:7.5},{k:'stone',u:72.5,v:0,r:2.4,h:8.5,fin:true}];
+const dash={on:false,t0:0,falls:0,cp:-1,far:0,plats:[],start:null,el:null,th:0,ox:0,oz:0,g0:0,lastB:0};
+const dashW=(u,v)=>{const c=Math.cos(dash.th),s=Math.sin(dash.th);return {x:dash.ox+u*c-v*s,z:dash.oz+u*s+v*c}};
+function dashSite(){ // fixed-order search for a flat, tree-free 82x16 m strip on the main island, so everyone in the room gets the same spot
+  const ex=(x,z)=>Math.hypot(x-TOWN.x,z-TOWN.z)<55||Math.hypot(x-RING.x,z-RING.z)<RING.R+10||Math.hypot(x-BOARD.x,z-BOARD.z)<15||Math.hypot(x-WP[0][0],z-WP[0][1])<15||(typeof Tag!=='undefined'&&Tag.pos&&Math.hypot(x-Tag.pos.x,z-Tag.pos.z)<20);
+  for(const tol of [.9,1.4])for(let r=60;r<=190;r+=10)for(let ai=0;ai<36;ai++)for(let hi=0;hi<8;hi++){ // second pass tolerates a gentler slope if the first finds nothing
+    const a=ai/36*6.283,ox=Math.cos(a)*r,oz=Math.sin(a)*r,th=hi/8*6.283,g0=H(ox,oz);if(g0<1)continue;
+    const c=Math.cos(th),s=Math.sin(th);let ok=true,pts=[];
+    for(let u=-4;u<=78&&ok;u+=4)for(const v of [-6,0,6]){const x=ox+u*c-v*s,z=oz+u*s+v*c,h=H(x,z);if(h<1||Math.abs(h-g0)>tol||ex(x,z)){ok=false;break}pts.push([x,z])}
+    if(!ok)continue;
+    if(solids.some(q=>pts.some(p=>Math.hypot(q.x-p[0],q.z-p[1])<q.r+3.5)))continue;
+    return {ox,oz,th,g0}}
+  return null}
+function buildDash(){
+  const site=dashSite();if(!site)return;Object.assign(dash,site);dash.start={x:site.ox,z:site.oz};
+  const col={stone:'#6ec6ff',beam:'#ffd24a',move:'#7be08a',bounce:'#ff8a3d'},g0=dash.g0;
+  const pad=new THREE.Mesh(new THREE.CylinderGeometry(2.2,2.2,.3,24),new THREE.MeshStandardMaterial({color:'#ff6ea1',emissive:'#ff2d7a',emissiveIntensity:.7}));pad.position.set(site.ox,g0+.18,site.oz);scene.add(pad);
+  const sb=new THREE.Mesh(new THREE.CylinderGeometry(.5,.5,40,10,1,true),new THREE.MeshBasicMaterial({color:'#ff6ea1',transparent:true,opacity:.28,depthWrite:false,fog:false,side:THREE.DoubleSide}));sb.position.set(site.ox,g0+20,site.oz);scene.add(sb);
+  for(const d of OD){const top=g0+d.h,mat=new THREE.MeshStandardMaterial({color:col[d.k]||'#6ec6ff',roughness:.7});let p={k:d.k,top,fin:!!d.fin,c:[]};
+    if(d.k==='beam'){const n=Math.round((d.u1-d.u0)/.8);for(let i=0;i<=n;i++){const w=dashW(d.u0+(d.u1-d.u0)*i/n,d.v),q={x:w.x,z:w.z,r:d.r,h:top};solids.push(q);p.c.push(q)}
+      const mid=dashW((d.u0+d.u1)/2,d.v),m=new THREE.Mesh(new THREE.BoxGeometry(d.u1-d.u0+2*(d.r+.4),d.h+2,2*(d.r+.4)),mat);m.position.set(mid.x,g0-2+(d.h+2)/2,mid.z);m.rotation.y=-dash.th;scene.add(m)}
+    else{const w=dashW(d.u,d.v),q={x:w.x,z:w.z,r:d.r,h:top};
+      if(d.k==='move'){q.noSide=true;p.u=d.u;p.amp=d.amp;p.per=d.per;p.ph=d.ph;p.last={x:w.x,z:w.z};
+        const m=new THREE.Mesh(new THREE.CylinderGeometry(d.r+.35,d.r+.35,.5,20),mat);m.position.set(w.x,top-.25,w.z);scene.add(m);p.m=m}
+      else{const m=new THREE.Mesh(new THREE.CylinderGeometry(d.r+.35,d.r+.35,d.h+2,20),mat);m.position.set(w.x,g0-2+(d.h+2)/2,w.z);scene.add(m);
+        if(d.k==='bounce'){const ring=new THREE.Mesh(new THREE.TorusGeometry(d.r*.6,.18,8,24),new THREE.MeshBasicMaterial({color:'#ffffff'}));ring.rotation.x=Math.PI/2;ring.position.set(w.x,top+.08,w.z);scene.add(ring)}
+        if(d.fin){const pole=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,5,8),new THREE.MeshStandardMaterial({color:'#ffffff'}));pole.position.set(w.x,top+2.5,w.z);scene.add(pole);
+          const fl=new THREE.Mesh(new THREE.PlaneGeometry(2.4,1.4),new THREE.MeshBasicMaterial({color:'#ffd24a',side:THREE.DoubleSide}));fl.position.set(w.x+1.2*Math.cos(dash.th+1.57),top+4.2,w.z+1.2*Math.sin(dash.th+1.57));fl.rotation.y=-dash.th;scene.add(fl)}}
+      solids.push(q);p.c.push(q)}
+    dash.plats.push(p)}
+  if(!dash.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 92px);left:0;right:0;text-align:center;font-size:18px;text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);dash.el=d}
+}
+function startDash(local){
+  if(!dash.start||dash.on)return;
+  dash.on=true;dash.t0=performance.now()+3000;dash.falls=0;dash.cp=-1;dash.far=0;S.flying=false;
+  banner('Hop the course to the flag · every fall = +2s','OBSTACLE DASH');
+  if(local&&chan)chan.send({type:'broadcast',event:'ds',payload:{}});
+}
+function dashTick(t){
+  if(!dash.start)return;
+  const now=performance.now(),tt=now/1000;
+  for(const p of dash.plats)if(p.k==='move'){ // slide sideways; carry anyone standing on it
+    const q=p.c[0],on=S.grounded&&Math.abs(S.y-p.top)<.35&&Math.hypot(S.x-q.x,S.z-q.z)<q.r+.4;
+    const w=dashW(p.u,Math.sin(tt/p.per*6.283+p.ph)*p.amp);if(on){S.x+=w.x-q.x;S.z+=w.z-q.z}q.x=w.x;q.z=w.z;p.m.position.x=w.x;p.m.position.z=w.z}
+  let on=-1;
+  if(S.grounded)dash.plats.forEach((p,i)=>{if(on<0&&Math.abs(S.y-p.top)<.35&&p.c.some(q=>Math.hypot(S.x-q.x,S.z-q.z)<q.r+.4))on=i});
+  if(on>=0&&dash.plats[on].k==='bounce'&&now-dash.lastB>400){dash.lastB=now;S.vy=17;S.grounded=false;chime()}
+  if(!dash.on){if(dash.el)dash.el.style.display='none';return}
+  dash.el.style.display='block';
+  if(now<dash.t0){dash.el.style.fontSize='44px';dash.el.textContent=Math.ceil((dash.t0-now)/1000);return}
+  dash.el.style.fontSize='18px';if(S.flying)S.flying=false;
+  if(on>=0){dash.cp=on;dash.far=Math.max(dash.far,on+1);
+    if(dash.plats[on].fin){const ms=now-dash.t0+dash.falls*OD_FALL;let best=+localStorage.getItem('w4dash')||1e12;const nb=ms<best;try{if(nb)localStorage.setItem('w4dash',ms)}catch(e){}
+      banner(fmt(ms)+(nb?' · new best!':' · best '+fmt(best)),'OBSTACLE DASH · '+dash.falls+(dash.falls===1?' FALL':' FALLS'));dash.on=false;if(chan)chan.send({type:'broadcast',event:'df',payload:{ms}});return}}
+  else if(dash.cp>=0&&S.grounded&&S.y<H(S.x,S.z)+.6){ // touched the ground after starting: back to the last platform
+    dash.falls++;const q=dash.plats[dash.cp].c[dash.plats[dash.cp].c.length>>1];S.x=q.x;S.z=q.z;S.y=dash.plats[dash.cp].top+.05;S.vy=0;S.kx=0;S.kz=0;S.rot=Math.PI/2-dash.th;
+    banner('Splat! +2s','OBSTACLE DASH')}
+  dash.el.textContent='Dash  ·  Step '+dash.far+'/'+dash.plats.length+'  ·  '+fmt(now-dash.t0+dash.falls*OD_FALL)+'  ·  💦 '+dash.falls+(dash.falls?' (+'+dash.falls*2+'s)':'');
 }
 
 // ---------- sky race ----------
