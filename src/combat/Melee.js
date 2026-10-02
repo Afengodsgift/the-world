@@ -31,6 +31,7 @@ function smack(){
 }
 function smackTick(dt){}
 function onSmacked(p){
+  const a=p.from&&others.get(p.from);if(a)a.group.userData.swing=1;
   if(S.iframe>0)return;S.iframe=.6;S.hurt=.5;
   S.kx+=p.dx*13;S.kz+=p.dz*13;S.vy=Math.max(S.vy,4);
   bonk();if(navigator.vibrate)navigator.vibrate([30,40,30]);
