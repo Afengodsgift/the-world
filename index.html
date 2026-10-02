@@ -117,6 +117,8 @@ async function enter(code){
   chan.on('broadcast',{event:'rf'},({payload})=>{if(race.on)banner('Partner finished in '+fmt(payload.ms),'SKY RACE')});
   chan.on('broadcast',{event:'og'},({payload})=>Outlaw.onMsg(payload));
   chan.on('broadcast',{event:'tg'},({payload})=>Tag.onMsg(payload));
+  chan.on('broadcast',{event:'bs'},()=>startRing(false));
+  chan.on('broadcast',{event:'bo'},({payload})=>ringPoint(payload));
   chan.on('broadcast',{event:'sm'},({payload})=>{if(payload.from!==myId)onSmacked(payload)});
   chan.subscribe(async status=>{
     if(status==='SUBSCRIBED'&&!entered){
@@ -356,7 +358,7 @@ function buildWorld(code){
   while(pts.length<40){const a=rng()*6.283,r=12+rng()*195,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<40&&dist(x,z)>45)pts.push([x,z])}
   for(const I of ISL)for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
-  buildRace();buildHunt();buildSeaLife();buildSkyIsland();buildKartTrack();Tag.build();Outlaw.build();
+  buildRace();buildHunt();buildSeaLife();buildSkyIsland();buildKartTrack();Tag.build();Outlaw.build();buildBonkRing();
 }
 function buildSkyIsland(){
   const geo=new THREE.PlaneGeometry(SKY.R*2.8,SKY.R*2.8,72,72);geo.rotateX(-Math.PI/2);
@@ -470,12 +472,15 @@ Interaction.register('pil','Use',
 Interaction.register('kart','Start Ground Race',
   ()=>kart.padX!==undefined&&Math.hypot(S.x-kart.padX,S.z-kart.padZ)<7,
   ()=>startKartRace(true));
+Interaction.register('ring','Start Bonk Ring',
+  ()=>!brg.on&&Math.hypot(S.x-RING.x,S.z-RING.z)<RING.R,
+  ()=>startRing(true));
 function explore(dt,t){
   for(const L of LOCS)if(!disc.has(L.n)&&Math.hypot(S.x-L.x,S.z-L.z)<L.r&&(!L.y||S.y>L.y)){disc.add(L.n);banner(L.n);save();updateHud()}
   orbs.forEach((o,i)=>{if(!o.on)return;o.m.rotation.y+=dt*2;o.m.position.y=o.y+Math.sin(t/400+i)*.15;
     if(Math.hypot(S.x-o.x,S.z-o.z)<1.6&&Math.abs(S.y+1-o.y)<2.2)take(i,true)});
   Interaction.update();
-  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);WorldMap.tick();
+  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);ringTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);WorldMap.tick();
   if(!race.on&&!hunt.on&&mk)mk.style.display='none';
   if(pulse>0){pulse=Math.max(0,pulse-dt);pil.material.emissive.setRGB(pulse*.6,pulse*.45,pulse*.1)}
 }
@@ -556,6 +561,47 @@ function kartTick(t){
   const a=kart.gates[kart.i%NG];
   kart.el.textContent='Lap '+(Math.floor(kart.i/NG)+1)+'/'+KLAPS+'  ·  Gate '+(kart.i%NG+1)+'/'+NG+'  ·  '+fmt(el)+'  ·  👻 '+(kart.dl==null?'--':(kart.dl>0?'+':'')+(kart.dl/1000).toFixed(1)+'s')+(kart.pi?'  ·  Partner: L'+(Math.floor(kart.pi/NG)+1)+' G'+(kart.pi%NG+1):'');
   a.m.scale.setScalar(1.2+Math.sin(t/200)*.08);
+}
+
+// ---------- bonk ring (2-player pan arena: knock your partner out of the ring, first to 3) ----------
+const RING={x:64.3,z:89.5,R:12},RING_WIN=3; // flat spot east of the town square, clear of houses/trees
+const brg={on:false,me:0,them:0,go:0,mesh:null,el:null};
+function buildBonkRing(){
+  const flat=g=>{g.rotateX(-Math.PI/2);const p=g.attributes.position;for(let i=0;i<p.count;i++)p.setY(i,H(p.getX(i)+RING.x,p.getZ(i)+RING.z)+.09);g.computeVertexNormals();return g};
+  const po=n=>({polygonOffset:true,polygonOffsetFactor:-n,polygonOffsetUnits:-n});
+  const g=new THREE.Group();g.position.set(RING.x,0,RING.z);
+  const disc=new THREE.Mesh(flat(new THREE.RingGeometry(.01,RING.R,48,10)),new THREE.MeshStandardMaterial(Object.assign({color:'#ff8fa3',roughness:.9},po(2))));disc.receiveShadow=true;g.add(disc);
+  g.add(new THREE.Mesh(flat(new THREE.RingGeometry(RING.R-.7,RING.R+.3,64,1)),new THREE.MeshBasicMaterial(Object.assign({color:'#ffd24a'},po(3)))));
+  g.add(new THREE.Mesh(flat(new THREE.RingGeometry(1.2,1.9,32,1)),new THREE.MeshBasicMaterial(Object.assign({color:'#ffffff'},po(3)))));
+  const beam=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.2,70,12,1,true),new THREE.MeshBasicMaterial({color:'#ff8fa3',transparent:true,opacity:.2,depthWrite:false,fog:false,side:THREE.DoubleSide}));beam.position.y=H(RING.x,RING.z)+35;g.add(beam);
+  scene.add(g);brg.mesh=g;
+  for(let i=0;i<4;i++){const a=i/4*6.283+.785,x=RING.x+Math.cos(a)*(RING.R+1.8),z=RING.z+Math.sin(a)*(RING.R+1.8);place(scene,'lantern',x,H(x,z),z,0,2.2)}
+  if(!brg.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 92px);left:0;right:0;text-align:center;font-size:18px;text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);brg.el=d}
+}
+function ringSpawn(ms){ // each player starts on their own side of the ring, facing the middle
+  const oid=others.size?others.keys().next().value:'',side=myId<oid?-1:1;
+  S.x=RING.x+side*RING.R*.5;S.z=RING.z;S.y=H(S.x,S.z)+.1;S.vy=0;S.kx=0;S.kz=0;S.rot=-side*Math.PI/2;S.iframe=0;brg.go=performance.now()+ms}
+function startRing(local){
+  if(!brg.mesh)return;
+  if(local&&!others.size){banner('Bring your partner for a bonk-off!','BONK RING');return}
+  brg.on=true;brg.me=0;brg.them=0;S.flying=false;if(!panOn)togglePan();ringSpawn(3000);
+  banner('First to '+RING_WIN+' · knock them out of the ring!','BONK RING');
+  if(local&&chan)chan.send({type:'broadcast',event:'bs',payload:{}});
+}
+function endRing(){brg.on=false;const w=brg.me>=RING_WIN;banner(w?'You win '+brg.me+' – '+brg.them+' 🍳':'They win '+brg.them+' – '+brg.me,'BONK RING')}
+function ringPoint(p){ // partner fell out: I score. l = their running loss count, so a dropped packet can't desync the score
+  if(!brg.on)return;brg.me=p.l;chime();
+  if(brg.me>=RING_WIN){endRing();return}
+  banner('Point to you!  '+brg.me+' – '+brg.them,'BONK RING');ringSpawn(2200)}
+function ringTick(t){
+  if(!brg.on){if(brg.el)brg.el.style.display='none';return}
+  const now=performance.now();brg.el.style.display='block';
+  if(now<brg.go){brg.el.style.fontSize='44px';brg.el.textContent=Math.ceil((brg.go-now)/1000);return}
+  brg.el.style.fontSize='18px';brg.el.textContent='Bonk Ring  ·  You '+brg.me+' – '+brg.them+' Them  ·  first to '+RING_WIN;
+  if(Math.hypot(S.x-RING.x,S.z-RING.z)>RING.R+.6){ // I fell out of the ring
+    brg.them++;if(chan)chan.send({type:'broadcast',event:'bo',payload:{l:brg.them}});
+    if(brg.them>=RING_WIN){endRing();return}
+    banner('You fell out!  '+brg.me+' – '+brg.them,'BONK RING');ringSpawn(2200)}
 }
 
 // ---------- sky race ----------
