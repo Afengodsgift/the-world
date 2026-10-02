@@ -13,6 +13,7 @@
 // system is extracted in a later phase — pulling just that fragment out now would
 // leave dress() awkwardly split for no real benefit.
 const PAN_ENABLED=true;
+const PAN_REST_Z=Math.PI/2-.45; // resting roll of the pan about its own width axis; the swing animates around this
 let smacks=0;try{smacks=+localStorage.getItem('w4sm')||0}catch(e){}
 let lastSmack=-9;
 function bonk(){try{const a=new(window.AudioContext||webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.type='square';o.frequency.setValueAtTime(180,a.currentTime);o.frequency.exponentialRampToValueAtTime(60,a.currentTime+.15);o.connect(g);g.connect(a.destination);g.gain.setValueAtTime(.35,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.2);o.start();o.stop(a.currentTime+.2)}catch(e){}}
