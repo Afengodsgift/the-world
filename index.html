@@ -65,7 +65,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/world/SeaLife.js"></script>
 <script src="src/combat/Melee.js"></script>
 <script src="src/interaction/InteractionManager.js"></script>
-<script src="src/games/Arcade.js"></script>
+<script src="src/games/Tag.js"></script>
 <script src="src/games/Outlaw.js"></script>
 <script>
 const SUPABASE_URL='https://lzqnxawxehmqgswuzpyn.supabase.co';
@@ -115,7 +115,7 @@ async function enter(code){
   chan.on('broadcast',{event:'rp'},({payload})=>{race.pi=payload.i});
   chan.on('broadcast',{event:'rf'},({payload})=>{if(race.on)banner('Partner finished in '+fmt(payload.ms),'SKY RACE')});
   chan.on('broadcast',{event:'og'},({payload})=>Outlaw.onMsg(payload));
-  chan.on('broadcast',{event:'ag'},({payload})=>Arcade.onMsg(payload));
+  chan.on('broadcast',{event:'tg'},({payload})=>Tag.onMsg(payload));
   chan.on('broadcast',{event:'sm'},({payload})=>{if(payload.from!==myId)onSmacked(payload)});
   chan.subscribe(async status=>{
     if(status==='SUBSCRIBED'&&!entered){
@@ -237,6 +237,7 @@ function H(x,z){
   for(const I of ISL){const dx=x-I.x,dz=z-I.z,dd=Math.hypot(dx,dz);if(dd>I.R*1.6)continue;
     const v=Math.max(-3,(1-(dd/I.R)**2)*4-.6)+Math.sin(x*.09)*Math.cos(z*.11)*.7+I.pk*Math.exp(-dd*dd/(2*(I.R*.35)**2));
     if(v>h)h=v}
+  {const t=1-sstep(26,44,Math.hypot(x-OUT.x,z-OUT.z));if(t>0)h=h*(1-t)+OUT.y*t} // Outlaw Town plateau
   return h;
 }
 function terrain(cx,cz,size,seg){
@@ -308,7 +309,7 @@ function buildWorld(code){
   rng=mulberry(hashSeed(code));
   if(AM.plant_bushLarge)AM.plant_bushLarge.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.material.side=THREE.DoubleSide;o.material.emissive=new THREE.Color('#2a6a30')}});
   const dist=(x,z)=>Math.hypot(x-TOWN.x,z-TOWN.z),P={};
-  const add=(n,x,z,s)=>{(P[n]=P[n]||[]).push({x,y:H(x,z),z,ry:rng()*6.283,s})};
+  const add=(n,x,z,s)=>{if(Math.hypot(x-OUT.x,z-OUT.z)<OUT.clear)return;(P[n]=P[n]||[]).push({x,y:H(x,z),z,ry:rng()*6.283,s})};
   // forest (west), scattered trees, beach palms, bushes, rocks
   const kinds=['tree_pineDefaultA','tree_pineRoundA','tree_oak','tree_fat'];
   for(let i=0,n=0;i<1500&&n<300;i++){const a=rng()*6.283,r=rng()*80,x=-110+Math.cos(a)*r,z=40+Math.sin(a)*r,h=H(x,z);
@@ -354,7 +355,7 @@ function buildWorld(code){
   while(pts.length<40){const a=rng()*6.283,r=12+rng()*195,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<40&&dist(x,z)>45)pts.push([x,z])}
   for(const I of ISL)for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
-  buildRace();buildHunt();buildSeaLife();buildSkyIsland();buildKartTrack();Arcade.build();Outlaw.build();
+  buildRace();buildHunt();buildSeaLife();buildSkyIsland();buildKartTrack();Tag.build();Outlaw.build();
 }
 function buildSkyIsland(){
   const geo=new THREE.PlaneGeometry(SKY.R*2.8,SKY.R*2.8,72,72);geo.rotateX(-Math.PI/2);
@@ -473,7 +474,7 @@ function explore(dt,t){
   orbs.forEach((o,i)=>{if(!o.on)return;o.m.rotation.y+=dt*2;o.m.position.y=o.y+Math.sin(t/400+i)*.15;
     if(Math.hypot(S.x-o.x,S.z-o.z)<1.6&&Math.abs(S.y+1-o.y)<2.2)take(i,true)});
   Interaction.update();
-  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);Arcade.tick(dt,t);Outlaw.tick(dt,t);
+  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);
   if(!race.on&&!hunt.on&&mk)mk.style.display='none';
   if(pulse>0){pulse=Math.max(0,pulse-dt);pil.material.emissive.setRGB(pulse*.6,pulse*.45,pulse*.1)}
 }

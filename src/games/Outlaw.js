@@ -42,12 +42,6 @@ const Outlaw=(()=>{
     const d2=lx*lx+ly*ly+lz*lz-tca*tca;if(d2>r*r)return null;return tca-Math.sqrt(r*r-d2)}
 
   // ---------- town ----------
-  function findSpot(){
-    for(let r=120;r<=240;r+=12)for(let k=0;k<24;k++){
-      const a=3.9+k*.2618,x=Math.cos(a)*r,z=Math.sin(a)*r;let lo=1e9,hi=-1e9,ok=true;
-      for(let i=0;i<9&&ok;i++){const q=i?[Math.cos(i*.785)*24,Math.sin(i*.785)*24]:[0,0],h=H(x+q[0],z+q[1]);if(h<2||h>14)ok=false;lo=Math.min(lo,h);hi=Math.max(hi,h)}
-      if(ok&&hi-lo<2.6&&Math.hypot(x-TOWN.x,z-TOWN.z)>85&&Math.hypot(x-WP[0][0],z-WP[0][1])>45)return {x,z,y:(lo+hi)/2}}
-    return {x:-110,z:40,y:H(-110,40)}}
   function label(txt,w,h){const c=document.createElement('canvas');c.width=256;c.height=64;const x=c.getContext('2d');x.fillStyle='#3b2412';x.fillRect(0,0,256,64);x.fillStyle='#f3d9a4';x.font='bold 34px serif';x.textAlign='center';x.textBaseline='middle';x.fillText(txt,128,34);
     return new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c)}))}
   function building(x,z,w,d,h,col,txt,ry){
@@ -62,14 +56,29 @@ const Outlaw=(()=>{
     const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:kind==='barrel'?'#7a4a22':'#a9803f',roughness:.9}));m.position.set(x,y+.65,z);m.rotation.y=Math.random()*3;m.castShadow=true;scene.add(m);
     const c={x,z,r:.95};solids.push(c);cover.push(c)}
   function build(){
-    C=findSpot();C.y+=.05;cover.length=0;
+    C={x:OUT.x,z:OUT.z,y:OUT.y+.05};cover.length=0; // dedicated Outlaw Isle (see data/islands.js)
     const ground=new THREE.Mesh(new THREE.CircleGeometry(24,32),new THREE.MeshStandardMaterial({color:'#b79a68',roughness:1}));ground.rotation.x=-Math.PI/2;ground.position.set(C.x,C.y+.04,C.z);ground.receiveShadow=true;scene.add(ground);
     building(C.x-14,C.z-8,11,7,6,'#8a5a30','SALOON',0);building(C.x+14,C.z-8,11,7,5.4,'#7d6a52','BANK',0);
     building(C.x-14,C.z+10,10,6,5,'#9a7440','HOTEL',Math.PI);building(C.x+14,C.z+10,9,6,4.6,'#6e5a46','JAIL',Math.PI);
     [[-5,-2],[4,3],[-2,6],[7,-3],[-8,2],[0,-5],[10,2],[-10,-3]].forEach(([dx,dz],i)=>prop(C.x+dx,C.z+dz,i%2?'barrel':'crate'));
     const pad=new THREE.Mesh(new THREE.CylinderGeometry(2.2,2.4,.3,24),new THREE.MeshStandardMaterial({color:'#c0392b',emissive:'#7a1a10',emissiveIntensity:.6}));pad.position.set(C.x,C.y+.15,C.z+1);scene.add(pad);
     const sg=label('OUTLAW TOWN',6,1.5);sg.position.set(C.x,5,C.z+1);sg.userData.bb=1;scene.add(sg);fx.push({sign:sg});
-    LOCS.push({n:'Outlaw Town',x:C.x,z:C.z,r:30});
+    portals();
+  }
+
+  // ---------- portals: town <-> Outlaw Isle ----------
+  function portalPad(x,z,col,txt){
+    const y=H(x,z),g=new THREE.Group();g.position.set(x,y,z);
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(2.6,2.8,.4,28),new THREE.MeshStandardMaterial({color:col,emissive:col,emissiveIntensity:.55}));b.position.y=.2;g.add(b);
+    const r=new THREE.Mesh(new THREE.TorusGeometry(1.9,.16,10,36),new THREE.MeshBasicMaterial({color:'#ffffff',fog:false}));r.rotation.x=Math.PI/2;r.position.y=1.5;g.add(r);
+    const c=document.createElement('canvas');c.width=512;c.height=128;const x2=c.getContext('2d');x2.fillStyle='#2b1608';x2.fillRect(0,0,512,128);x2.fillStyle='#fff';x2.font='bold 54px sans-serif';x2.textAlign='center';x2.textBaseline='middle';x2.fillText(txt,256,68);
+    const sg=new THREE.Mesh(new THREE.PlaneGeometry(4.4,1.1),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),side:THREE.DoubleSide}));sg.position.y=4;g.add(sg);scene.add(g);fx.push({sign:sg})}
+  function tp(x,z,msg){S.x=x;S.z=z;S.y=H(x,z)+.6;S.vy=0;S.kx=0;S.kz=0;banner(msg,'TRAVEL')}
+  function portals(){
+    const a=5.7,T={x:TOWN.x+Math.cos(a)*19,z:TOWN.z+Math.sin(a)*19},I={x:C.x,z:C.z+20};
+    portalPad(T.x,T.z,'#c0392b','🤠 OUTLAW ISLE');portalPad(I.x,I.z,'#2e86de','🏠 BACK TO TOWN');
+    Interaction.register('ow-go','Go to Outlaw Isle',()=>Math.hypot(S.x-T.x,S.z-T.z)<5,()=>tp(C.x+(Math.random()-.5)*4,C.z+14,'Welcome to Outlaw Isle 🤠'));
+    Interaction.register('ow-home','Back to Town',()=>Math.hypot(S.x-I.x,S.z-I.z)<5,()=>tp(TOWN.x+(Math.random()-.5)*4,TOWN.z+7,'Back in town 🏠'));
   }
 
   // ---------- weapons (visual) ----------
@@ -99,13 +108,24 @@ const Outlaw=(()=>{
 
   // ---------- player shooting ----------
   const camDir=new THREE.Vector3();
+  // Aim assist: lock the best live NPC near the crosshair (cone ~34 deg, must be visible, not behind cover).
+  let lockM=null;
+  function lockTarget(range){
+    camera.getWorldDirection(camDir);const o=camera.position;let best=null,bs=1e9;
+    for(const n of npcs.values()){if(n.dead||!n.group)continue;const p=n.group.position,sc=TYPES[n.type].sc,
+      vx=p.x-o.x,vy=p.y+sc-o.y,vz=p.z-o.z,L=Math.hypot(vx,vy,vz);if(L>range||L<1)continue;
+      const ang=Math.acos(Math.max(-1,Math.min(1,(vx*camDir.x+vy*camDir.y+vz*camDir.z)/L)));
+      if(ang>.6||!los(S.x,S.z,p.x,p.z))continue;const sc2=ang+L*.004;if(sc2<bs){bs=sc2;best=n}}
+    return best}
   function fire(){
     if(wi<0||down||!camera)return;const W=WEAPONS[wi];if(cdT>0)return;cdT=W.cd;
-    camera.getWorldDirection(camDir);const o=camera.position;
-    S.rot=Math.atan2(camDir.x,camDir.z);me.rotation.y=S.rot;const M=muzzle(me,wi);
+    const lk=lockTarget(W.rng),o=camera.position.clone(),base=camDir.clone();
+    let lp=null,lsc=1;if(lk){lp=lk.group.position;lsc=TYPES[lk.type].sc;S.rot=Math.atan2(lp.x-S.x,lp.z-S.z)}else S.rot=Math.atan2(camDir.x,camDir.z);
+    me.rotation.y=S.rot;const M=muzzle(me,wi);
+    if(lk){o.set(M.x,M.y,M.z);base.set(lp.x-M.x,lp.y+lsc-M.y,lp.z-M.z).normalize()}
     let anyHit=false,endp=null;
     for(let p=0;p<W.pel;p++){
-      const d=camDir.clone();if(W.sp){d.x+=rnd(-W.sp,W.sp);d.y+=rnd(-W.sp,W.sp);d.z+=rnd(-W.sp,W.sp);d.normalize()}
+      const d=base.clone();if(W.sp){d.x+=rnd(-W.sp,W.sp);d.y+=rnd(-W.sp,W.sp);d.z+=rnd(-W.sp,W.sp);d.normalize()}
       const wall=rayCover(o,d,W.rng);let tn=wall,hit=null;
       for(const n of npcs.values()){if(n.dead)continue;const p3=n.group.position,sc=TYPES[n.type].sc,
         t=raySphere(o,d,p3.x,p3.y+1*sc,p3.z,.95*sc+Math.min(1.6,(Math.hypot(p3.x-o.x,p3.z-o.z))*.025));
@@ -118,6 +138,11 @@ const Outlaw=(()=>{
     if(anyHit)hitT=.18;
     send({k:'f',w:wi,m:[M.x,M.y,M.z],e:endp});
   }
+  function lockMarker(){
+    const lk=wi>=0&&!down?lockTarget(WEAPONS[wi].rng):null;
+    if(!lockM){lockM=new THREE.Mesh(new THREE.RingGeometry(.55,.7,28),new THREE.MeshBasicMaterial({color:'#ff3030',depthTest:false,transparent:true,opacity:.9,side:THREE.DoubleSide}));lockM.renderOrder=10;lockM.visible=false;scene.add(lockM)}
+    if(!lk){lockM.visible=false;return}
+    const p=lk.group.position,sc=TYPES[lk.type].sc;lockM.visible=true;lockM.position.set(p.x,p.y+sc,p.z);lockM.scale.setScalar(sc);lockM.lookAt(camera.position)}
   function reportHit(id,d){if(isHost())damageNpc(id,d);else send({k:'h',id,d})}
   function damageNpc(id,d){const n=npcs.get(id);if(!n||n.dead)return;n.hp-=d;n.flash=.12;if(n.hp<=0)killNpc(n)}
   function killNpc(n){n.dead=1;kills++;chime()}
@@ -262,7 +287,7 @@ const Outlaw=(()=>{
   }
   function ui(){
     if(hudEl)return;
-    const st=document.createElement('style');st.textContent='#owhud{position:fixed;z-index:6;left:12px;top:calc(env(safe-area-inset-top,0px) + 56px);color:#fff;font-size:13px;text-shadow:0 1px 4px #000;pointer-events:none;display:none}#owhud .bar{width:150px;height:10px;background:#0008;border-radius:6px;overflow:hidden;margin-bottom:4px}#owhp{height:100%}'
+    const st=document.createElement('style');st.textContent='#owhud{position:fixed;z-index:6;left:12px;top:calc(env(safe-area-inset-top,0px) + 88px);color:#fff;font-size:13px;text-shadow:0 1px 4px #000;pointer-events:none;display:none}#owhud .bar{width:150px;height:10px;background:#0008;border-radius:6px;overflow:hidden;margin-bottom:4px}#owhp{height:100%}'
       +'#owxh{position:fixed;z-index:6;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;pointer-events:none;display:none}#owxh:before,#owxh:after{content:"";position:absolute;background:#fff;box-shadow:0 0 3px #000}#owxh:before{left:10px;top:0;width:2px;height:22px}#owxh:after{top:10px;left:0;height:2px;width:22px}'
       +'.owb{position:fixed;z-index:5;border-radius:50%;border:0;color:#fff;font-size:26px}#owfire{right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 232px);width:78px;height:78px;background:#e0443ecc;display:none;touch-action:none}#owgun{right:200px;bottom:calc(env(safe-area-inset-bottom,0px) + 144px);width:56px;height:56px;background:#ffffffcc}';
     document.head.appendChild(st);
@@ -302,6 +327,7 @@ const Outlaw=(()=>{
     const p=partner();if(p){const g=p[1].group.position;pprev.vx=(g.x-pprev.x)/Math.max(dt,.001);pprev.vz=(g.z-pprev.z)/Math.max(dt,.001);pprev.x=g.x;pprev.z=g.z;if(p[1].group.userData.gunI!==pw)setGun(p[1].group,pw)}
     cdT-=dt;hitT=Math.max(0,hitT-dt);if(xh)xh.style.filter=hitT>0?'hue-rotate(160deg) saturate(8)':'none';
     if(firing)fire();
+    lockMarker();
     if(down){downT-=dt;if(downT<=0)respawn()}
     if(active){if(isHost())hostTick(dt)}
     visuals(dt);
@@ -309,5 +335,5 @@ const Outlaw=(()=>{
 
   Interaction.register('ow-start','Start Showdown',()=>C&&!active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>{send({k:'start',host:myId});onMsg({k:'start',host:myId})});
   Interaction.register('ow-end','End Showdown',()=>C&&active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>{send({k:'end'});onMsg({k:'end'})});
-  return {build,tick,onMsg,equip};
+  return {build,tick,onMsg,equip,fire,lockTarget};
 })();
