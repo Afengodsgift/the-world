@@ -638,7 +638,7 @@ function tick(t){
   if(keys.KeyW||keys.ArrowUp)iy-=1;if(keys.KeyS||keys.ArrowDown)iy+=1;
   const len=Math.hypot(ix,iy);if(len>1){ix/=len;iy/=len}
   const sprint=keys.ShiftLeft||len>.9;
-  const speed=S.flying?(bst()?70:24)*Math.min(1,len):(H(S.x,S.z)<-.5?(sprint?16:9):(sprint?12:6))*Math.min(1,len);
+  const speed=S.flying?(bst()?70:34)*Math.min(1,len):(H(S.x,S.z)<-.5?(sprint?16:9):(sprint?12:6))*Math.min(1,len);
   const sy=Math.sin(S.yaw),cy=Math.cos(S.yaw),px=S.x,pz=S.z;
   const dx=cy*ix+sy*iy,dz=-sy*ix+cy*iy;
   if(len>.05){S.x+=dx*speed*dt;S.z+=dz*speed*dt;S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt))}
