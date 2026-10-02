@@ -117,6 +117,15 @@ async function enter(code){
   chan.on('broadcast',{event:'rf'},({payload})=>{if(race.on)banner('Partner finished in '+fmt(payload.ms),'SKY RACE')});
   chan.on('broadcast',{event:'og'},({payload})=>Outlaw.onMsg(payload));
   chan.on('broadcast',{event:'tg'},({payload})=>Tag.onMsg(payload));
+  chan.on('broadcast',{event:'bs'},()=>startRing(false));
+  chan.on('broadcast',{event:'bo'},({payload})=>ringPoint(payload));
+  chan.on('broadcast',{event:'ss'},()=>startSharkRun(false));
+  chan.on('broadcast',{event:'sls'},()=>startSlalom(false));
+  chan.on('broadcast',{event:'ds'},()=>startDash(false));
+  chan.on('broadcast',{event:'df'},({payload})=>{if(dash.on)banner('Partner finished in '+fmt(payload.ms),'OBSTACLE DASH')});
+  chan.on('broadcast',{event:'slp'},({payload})=>{slalom.pi=payload.i});
+  chan.on('broadcast',{event:'slf'},({payload})=>{if(slalom.on)banner('Partner finished in '+fmt(payload.ms),'SKY SLALOM')});
+  chan.on('broadcast',{event:'sf'},({payload})=>{if(srun.on)banner('Partner finished in '+fmt(payload.ms),'SHARK RUN')});
   chan.on('broadcast',{event:'sm'},({payload})=>{if(payload.from!==myId)onSmacked(payload)});
   chan.subscribe(async status=>{
     if(status==='SUBSCRIBED'&&!entered){
@@ -191,8 +200,8 @@ function pose(q,st,dt){
 function flyPose(q,dt,sf){
   const B=q.bones;q.model.updateMatrixWorld(true);q.model.getWorldQuaternion(_qw);
   const D=(x,y,z)=>new THREE.Vector3(x,y,z).normalize().applyQuaternion(_qw);
-  q.fb+=((Math.max(0,Math.min(1,(sf-.12)/.3)))-q.fb)*Math.min(1,dt*5);
-  q.fd+=((Math.max(0,Math.min(1,(sf-.65)/.25)))-q.fd)*Math.min(1,dt*5);
+  q.fb+=((Math.max(0,Math.min(1,(sf-.05)/.2)))-q.fb)*Math.min(1,dt*5);   // sf = speed/70: 0 hover, ~.5 cruise (34 m/s), 1 boost (70 m/s)
+  q.fd+=((Math.max(0,Math.min(1,(sf-.62)/.25)))-q.fd)*Math.min(1,dt*5);
   q.ph+=dt*(2.2+sf*3);
   const mix=(a,b,c)=>a.clone().lerp(b,q.fb).lerp(c,q.fd).normalize();
   for(const s of [1,-1]){const n=s===1?'Left':'Right',off=s===1?0:Math.PI,fl=Math.sin(q.ph*2+off);
@@ -207,19 +216,59 @@ function flyPose(q,dt,sf){
     aim(B[n+'Arm'],B[n+'ForeArm'],s===1?mix(hv,fwd,fwd):up);aim(B[n+'ForeArm'],B[n+'Hand'],s===1?mix(hv2,fwd2,fwd2):fa);
   }
 }
+// Baked-clip animation (assets/anims.json): ground clip by actual speed, swim/fly/jump/fall by state, one-shot overlays for swing/hit/land/interact.
+// Overlay clips use a big weight so they override the locomotion clip on the bones they touch (smack = upper body only).
+const LOCO={walk:1,jog:1,sprint:1},clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function animateClips(g,dt,st){
+  const q=g.userData,A=q.nact,p=g.position;
+  const rawU=q.pp&&dt>0?Math.hypot(p.x-q.pp.x,p.z-q.pp.z)/dt:0,raw=Math.min(16,rawU);q.pp={x:p.x,z:p.z};
+  q.fs=(q.fs||0)+(rawU-(q.fs||0))*Math.min(1,dt*6);const sf=clamp(q.fs/70,0,1); // unclamped speed (flight is much faster than the 16 m/s clamp above)
+  {const ly=q.lyaw===undefined?g.rotation.y:q.lyaw,yd=Math.atan2(Math.sin(g.rotation.y-ly),Math.cos(g.rotation.y-ly))/Math.max(dt,.001);q.yr=(q.yr||0)+(yd-(q.yr||0))*Math.min(1,dt*5);q.lyaw=g.rotation.y}q.v=(q.v||0)+(raw-(q.v||0))*Math.min(1,dt*10);const v=q.v;
+  let want='idle',ts=1,fade=.18;
+  if(st==='swim'){want=v>.8?'swim':'tread';ts=want==='swim'?clamp(v/2.4,.6,2):1;fade=.3}
+  else if(st==='fly'){want='idle';ts=.6;fade=.3} // base pose for the torso/head; flyPose() overrides the limbs (flying must not look like swimming)
+  else if(st==='jump'){want='jump';fade=.08}
+  else if(st==='fall'){want='fall';fade=.12}
+  else if(st==='walk'||st==='run'){const c=q.cur; // thresholds have hysteresis so it doesn't flicker between clips
+    want=v<.4?'idle':(c==='sprint'?v>7.2:v>8.4)?'sprint':(c==='jog'?v>2.4:v>3.2)?'jog':'walk';
+    ts=want==='walk'?clamp(v/1.06,.6,2.2):want==='jog'?clamp(v/5.8,.5,1.5):want==='sprint'?clamp(v/9,.8,1.7):1}
+  const n=A[want];
+  if(q.cur!==want){n.reset();if(LOCO[q.cur]&&LOCO[want]){const o=A[q.cur];n.time=o.time/o.getClip().duration*n.getClip().duration} // keep the stride phase when switching gait
+    n.setEffectiveWeight(1);n.fadeIn(fade).play();if(q.cur)A[q.cur].fadeOut(fade);q.cur=want}
+  n.setEffectiveTimeScale(ts);
+  // one-shot overlays
+  const ov=(name,sp,w,fi)=>{const a=A[name];if(!a)return;a.reset();a.setEffectiveTimeScale(sp);a.setEffectiveWeight(w);a.fadeIn(fi).play();(q.ov=q.ov||{})[name]={a,left:a.getClip().duration/sp,ending:false}};
+  if((q.swing||0)>.9)ov('smack',1.4,24,.05);
+  if(q.hitReq){q.hitReq=0;q.hitAlt=!q.hitAlt;ov(q.hitAlt&&A.hit2?'hit2':'hit',q.hitAlt?1.3:.9,24,.02)} // alternate two hit reactions
+  if(q.emote){const e=q.emote;q.emote=null;ov(e,1.3,20,.1)}
+  if((q.land||0)>.05&&!q.landOn){q.landOn=true;if(v<2.5&&st==='idle')ov('land',1.5,6,.04)}else if((q.land||0)<=0)q.landOn=false;
+  for(const k in q.ov){const o=q.ov[k];o.left-=dt;if(o.left<.14&&!o.ending){o.ending=true;o.a.fadeOut(.12)}if(o.left<-.05)delete q.ov[k]}
+  q.swing=Math.max(0,(q.swing||0)-dt*2.6);
+  q.land=Math.max(0,(q.land||0)-dt);
+  const oy=st==='swim'?.7:(st==='fly'&&want==='swim')?.5:0;q.oy=(q.oy||0)+(oy-(q.oy||0))*Math.min(1,dt*6); // swim clips are authored with the waterline at the chest: lift the body to the surface
+  const fly=st==='fly';q.pv+=((fly?1:0)-q.pv)*Math.min(1,dt*10);
+  q.model.rotation.x+=((fly?.2+1.25*Math.min(1,sf*2.5):0)+(q.pan?Math.sin(Math.min(1,q.swing)*Math.PI)*.3:0)-q.model.rotation.x)*Math.min(1,dt*10); // flight pitch (hover upright -> horizontal at speed) + small lunge into the swing
+  q.model.rotation.y+=((fly?clamp(-q.yr*.18,-.7,.7):0)-q.model.rotation.y)*Math.min(1,dt*6); // bank into turns
+  {const rx=q.model.rotation.x;q.model.position.set(0,q.oy+q.pv*.65*(1-Math.cos(rx)),-q.pv*.65*Math.sin(rx))} // pitch about the hips, not the feet
+  q.model.scale.set(.5*(1+q.land*.3),.5*(1-q.land*.6),.5*(1+q.land*.3));
+  q.mixer.update(dt);
+  if(st==='fly')flyPose(q,dt,sf);else if(q.gunI>=0&&typeof Outlaw!=='undefined')Outlaw.poseGun(g,q,st,dt); // procedural overrides on top of the baked clips
+  if(q.gun)q.gun.visible=!!q.gun.userData.ok&&st!=='fly'&&st!=='swim';
+}
 function animate(g,dt,st){
   const q=g.userData;
+  if(q.mixer&&q.nact){animateClips(g,dt,st);return}
   if(q.mixer){
     if(q.lp){const dd=Math.max(dt,.001);q.spd+=(Math.hypot(g.position.x-q.lp[0],g.position.z-q.lp[1])/dd-q.spd)*Math.min(1,dt*6);
       q.yr+=(Math.atan2(Math.sin(g.rotation.y-q.lyaw),Math.cos(g.rotation.y-q.lyaw))/dd-q.yr)*Math.min(1,dt*5)}
     q.lp=[g.position.x,g.position.z];q.lyaw=g.rotation.y;
-    const sf=Math.max(0,Math.min(1,q.spd/30));
+    const sf=Math.max(0,Math.min(1,q.spd/70));
     const want=(st==='idle'||st==='fly')?'idle':(st==='jump'||st==='fall')?'jump':'run';
     if(q.cur!==want){q.act[want].reset().fadeIn(.15).play();if(q.cur)q.act[q.cur].fadeOut(.15);q.cur=want}
     q.act.run.timeScale=st==='walk'?.7:st==='swim'?1.2:1.15;
     if(q.pan){q.swing=Math.max(0,(q.swing||0)-dt*2.6);q.pan.rotation.z=PAN_REST_Z+panSwingDelta(q.swing)}
-    q.land=Math.max(0,q.land-dt);q.model.rotation.y+=((st==='fly'?Math.max(-.7,Math.min(.7,-q.yr*.1)):0)-q.model.rotation.y)*Math.min(1,dt*6); // bank into turns
-    q.model.rotation.x+=((st==='swim'?1.45:st==='fly'?.2+1.25*Math.min(1,sf*1.6):0)+(q.pan?Math.sin(Math.min(1,q.swing||0)*Math.PI)*.3:0)-q.model.rotation.x)*Math.min(1,dt*10);
+    q.land=Math.max(0,q.land-dt);q.model.rotation.y+=((st==='fly'?Math.max(-.7,Math.min(.7,-q.yr*.18)):0)-q.model.rotation.y)*Math.min(1,dt*6); // bank into turns
+    q.model.rotation.x+=((st==='swim'?1.45:st==='fly'?.2+1.25*Math.min(1,sf*2.5):0)+(q.pan?Math.sin(Math.min(1,q.swing||0)*Math.PI)*.3:0)-q.model.rotation.x)*Math.min(1,dt*10);
     q.model.position.set(0,.65*(1-Math.cos(q.model.rotation.x)),-.65*Math.sin(q.model.rotation.x));
     q.model.scale.set(.5*(1+q.land*.3),.5*(1-q.land*.6),.5*(1+q.land*.3));q.mixer.update(dt);
     if(st==='fly')flyPose(q,dt,sf);else if(st==='swim')pose(q,st,dt);else if(q.gunI>=0&&typeof Outlaw!=='undefined')Outlaw.poseGun(g,q,st,dt);
@@ -242,13 +291,16 @@ function dress(g,skin){
   loadChar().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(charBuf.slice(0),AURL,res,rej))).then(r=>{
     const m=r.scene,bones={};m.scale.setScalar(.5);
     m.traverse(o=>{if(o.isSkinnedMesh){o.skeleton.bones.forEach(b=>bones[b.name]=b);o.frustumCulled=false;o.material=new THREE.MeshStandardMaterial({map:skinT[skin%skinT.length],roughness:.85,metalness:0})}});
-    const mx=new THREE.AnimationMixer(m),act={};for(const n in clips)act[n]=mx.clipAction(clips[n]);
+    const mx=new THREE.AnimationMixer(m),act={},nact={};for(const n in clips)act[n]=mx.clipAction(clips[n]);
     act.jump.setLoop(THREE.LoopOnce,1);act.jump.clampWhenFinished=true;
-    const u=g.userData;u.rig.visible=false;m.traverse(c=>{if(c.isMesh){c.castShadow=true}});g.add(m);Object.assign(u,{mixer:mx,act,model:m,bones,cur:null,ph:0,swing:0,spd:0,yr:0,fb:0,fd:0});
+    for(const n in nclips)nact[n]=mx.clipAction(nclips[n]);
+    if(nact.jump){nact.jump.setLoop(THREE.LoopOnce,1);nact.jump.clampWhenFinished=true}
+    for(const n of ['smack','hit','hit2','land','interact','dig'])if(nact[n])nact[n].setLoop(THREE.LoopOnce,1); // one-shot overlays
+    const u=g.userData;u.rig.visible=false;m.traverse(c=>{if(c.isMesh){c.castShadow=true}});g.add(m);Object.assign(u,{mixer:mx,act,nact:nact.idle?nact:null,model:m,bones,cur:null,ph:0,swing:0,spd:0,yr:0,fb:0,fd:0,pv:0});
     if(PAN_ENABLED&&bones.RightHand)loadPan().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(panBuf.slice(0),AURL,res,rej))).then(pr=>{
       const piv=new THREE.Group(),pn=pr.scene;pn.traverse(c=>{if(c.isMesh)c.castShadow=true});
       pn.position.set(.173,-19.68,31.046);piv.add(pn);piv.scale.setScalar((.36/5.915)/50);piv.position.set(0,.0016,0);piv.rotation.set(Math.PI,0,PAN_REST_Z);
-      piv.visible=false;bones.RightHand.add(piv);u.pan=piv;
+      if(u.nact)piv.quaternion.set(...PAN_GRIP);piv.visible=false;bones.RightHand.add(piv);u.pan=piv;
     }).catch(()=>{});
   }).catch(()=>{});
 }
@@ -384,7 +436,7 @@ function buildWorld(code){
   while(pts.length<40){const a=rng()*6.283,r=12+rng()*195,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<40&&dist(x,z)>45)pts.push([x,z])}
   for(const I of ISL)for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
-  buildRace();buildHunt();buildSeaLife();buildSkyIsland();buildKartTrack();Tag.build();Outlaw.build();
+  buildRace();buildHunt();buildSeaLife();buildSkyIsland();buildKartTrack();Tag.build();Outlaw.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
 }
 function buildSkyIsland(){
   const geo=new THREE.PlaneGeometry(SKY.R*2.8,SKY.R*2.8,72,72);geo.rotateX(-Math.PI/2);
@@ -482,7 +534,7 @@ function load(){try{const v=JSON.parse(localStorage.getItem('w4:'+roomCode)||'{}
 function banner(t,l){const b=$('banner');b.innerHTML='<small>'+(l||'NEW LOCATION DISCOVERED')+'</small><br>'+t;b.style.opacity=1;clearTimeout(banner.t);banner.t=setTimeout(()=>b.style.opacity=0,3200)}
 function take(i,local){const o=orbs[i];if(!o||!o.on)return;o.on=false;o.m.visible=false;got++;save();updateHud();if(local&&chan)chan.send({type:'broadcast',event:'c',payload:{i}})}
 function chime(){try{const a=new(window.AudioContext||webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.frequency.value=660;o.connect(g);g.connect(a.destination);g.gain.setValueAtTime(.2,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+1.4);o.start();o.stop(a.currentTime+1.4)}catch(e){}}
-function doUse(){Interaction.use()}
+function doUse(){const t=$('use').style.display==='block',id=Interaction.current();Interaction.use();if(t&&me)me.userData.emote=id==='dig'&&me.userData.nact&&me.userData.nact.dig?'dig':'interact'}
 Interaction.register('dig','Dig!',
   ()=>hunt.on&&Math.hypot(S.x-hunt.x,S.z-hunt.z)<6&&Math.abs(S.y-hunt.y)<20,
   ()=>dig(true));
@@ -498,13 +550,25 @@ Interaction.register('pil','Use',
 Interaction.register('kart','Start Ground Race',
   ()=>kart.padX!==undefined&&Math.hypot(S.x-kart.padX,S.z-kart.padZ)<7,
   ()=>startKartRace(true));
+Interaction.register('ring','Start Bonk Ring',
+  ()=>!brg.on&&Math.hypot(S.x-RING.x,S.z-RING.z)<RING.R,
+  ()=>startRing(true));
+Interaction.register('sharkrun','Start Shark Run',
+  ()=>!srun.on&&srun.start&&Math.hypot(S.x-srun.start.x,S.z-srun.start.z)<5,
+  ()=>startSharkRun(true));
+Interaction.register('slalom','Start Sky Slalom',
+  ()=>!slalom.on&&slalom.start&&Math.hypot(S.x-slalom.start.x,S.z-slalom.start.z)<4.5&&Math.abs(S.y-slalom.start.y)<6,
+  ()=>startSlalom(true));
+Interaction.register('dash','Start Obstacle Dash',
+  ()=>!dash.on&&dash.start&&Math.hypot(S.x-dash.start.x,S.z-dash.start.z)<4,
+  ()=>startDash(true));
 function explore(dt,t){
   for(const L of LOCS)if(!disc.has(L.n)&&Math.hypot(S.x-L.x,S.z-L.z)<L.r&&(!L.y||S.y>L.y)){disc.add(L.n);banner(L.n);save();updateHud()}
   orbs.forEach((o,i)=>{if(!o.on)return;o.m.rotation.y+=dt*2;o.m.position.y=o.y+Math.sin(t/400+i)*.15;
     if(Math.hypot(S.x-o.x,S.z-o.z)<1.6&&Math.abs(S.y+1-o.y)<2.2)take(i,true)});
   Interaction.update();
-  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);WorldMap.tick();
-  if(!race.on&&!hunt.on&&mk)mk.style.display='none';
+  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);ringTick(t);sharkRunTick(t);slalomTick(t);dashTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);WorldMap.tick();
+  if(!race.on&&!hunt.on&&!slalom.on&&mk)mk.style.display='none';
   if(pulse>0){pulse=Math.max(0,pulse-dt);pil.material.emissive.setRGB(pulse*.6,pulse*.45,pulse*.1)}
 }
 
@@ -584,6 +648,200 @@ function kartTick(t){
   const a=kart.gates[kart.i%NG];
   kart.el.textContent='Lap '+(Math.floor(kart.i/NG)+1)+'/'+KLAPS+'  ·  Gate '+(kart.i%NG+1)+'/'+NG+'  ·  '+fmt(el)+'  ·  👻 '+(kart.dl==null?'--':(kart.dl>0?'+':'')+(kart.dl/1000).toFixed(1)+'s')+(kart.pi?'  ·  Partner: L'+(Math.floor(kart.pi/NG)+1)+' G'+(kart.pi%NG+1):'');
   a.m.scale.setScalar(1.2+Math.sin(t/200)*.08);
+}
+
+// ---------- bonk ring (2-player pan arena: knock your partner out of the ring, first to 3) ----------
+const RING={x:64.3,z:89.5,R:12},RING_WIN=3; // flat spot east of the town square, clear of houses/trees
+const brg={on:false,me:0,them:0,go:0,mesh:null,el:null};
+function buildBonkRing(){
+  const flat=g=>{g.rotateX(-Math.PI/2);const p=g.attributes.position;for(let i=0;i<p.count;i++)p.setY(i,H(p.getX(i)+RING.x,p.getZ(i)+RING.z)+.09);g.computeVertexNormals();return g};
+  const po=n=>({polygonOffset:true,polygonOffsetFactor:-n,polygonOffsetUnits:-n});
+  const g=new THREE.Group();g.position.set(RING.x,0,RING.z);
+  const disc=new THREE.Mesh(flat(new THREE.RingGeometry(.01,RING.R,48,10)),new THREE.MeshStandardMaterial(Object.assign({color:'#ff8fa3',roughness:.9},po(2))));disc.receiveShadow=true;g.add(disc);
+  g.add(new THREE.Mesh(flat(new THREE.RingGeometry(RING.R-.7,RING.R+.3,64,1)),new THREE.MeshBasicMaterial(Object.assign({color:'#ffd24a'},po(3)))));
+  g.add(new THREE.Mesh(flat(new THREE.RingGeometry(1.2,1.9,32,1)),new THREE.MeshBasicMaterial(Object.assign({color:'#ffffff'},po(3)))));
+  const beam=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.2,70,12,1,true),new THREE.MeshBasicMaterial({color:'#ff8fa3',transparent:true,opacity:.2,depthWrite:false,fog:false,side:THREE.DoubleSide}));beam.position.y=H(RING.x,RING.z)+35;g.add(beam);
+  scene.add(g);brg.mesh=g;
+  for(let i=0;i<4;i++){const a=i/4*6.283+.785,x=RING.x+Math.cos(a)*(RING.R+1.8),z=RING.z+Math.sin(a)*(RING.R+1.8);place(scene,'lantern',x,H(x,z),z,0,2.2)}
+  if(!brg.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 92px);left:0;right:0;text-align:center;font-size:18px;text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);brg.el=d}
+}
+function ringSpawn(ms){ // each player starts on their own side of the ring, facing the middle
+  const oid=others.size?others.keys().next().value:'',side=myId<oid?-1:1;
+  S.x=RING.x+side*RING.R*.5;S.z=RING.z;S.y=H(S.x,S.z)+.1;S.vy=0;S.kx=0;S.kz=0;S.rot=-side*Math.PI/2;S.iframe=0;brg.go=performance.now()+ms}
+function startRing(local){
+  if(!brg.mesh)return;
+  if(local&&!others.size){banner('Bring your partner for a bonk-off!','BONK RING');return}
+  brg.on=true;brg.me=0;brg.them=0;S.flying=false;if(!panOn)togglePan();ringSpawn(3000);
+  banner('First to '+RING_WIN+' · knock them out of the ring!','BONK RING');
+  if(local&&chan)chan.send({type:'broadcast',event:'bs',payload:{}});
+}
+function endRing(){brg.on=false;const w=brg.me>=RING_WIN;banner(w?'You win '+brg.me+' – '+brg.them+' 🍳':'They win '+brg.them+' – '+brg.me,'BONK RING')}
+function ringPoint(p){ // partner fell out: I score. l = their running loss count, so a dropped packet can't desync the score
+  if(!brg.on)return;brg.me=p.l;chime();
+  if(brg.me>=RING_WIN){endRing();return}
+  banner('Point to you!  '+brg.me+' – '+brg.them,'BONK RING');ringSpawn(2200)}
+function ringTick(t){
+  if(!brg.on){if(brg.el)brg.el.style.display='none';return}
+  const now=performance.now();brg.el.style.display='block';
+  if(now<brg.go){brg.el.style.fontSize='44px';brg.el.textContent=Math.ceil((brg.go-now)/1000);return}
+  brg.el.style.fontSize='18px';brg.el.textContent='Bonk Ring  ·  You '+brg.me+' – '+brg.them+' Them  ·  first to '+RING_WIN;
+  if(Math.hypot(S.x-RING.x,S.z-RING.z)>RING.R+.6){ // I fell out of the ring
+    brg.them++;if(chan)chan.send({type:'broadcast',event:'bo',payload:{l:brg.them}});
+    if(brg.them>=RING_WIN){endRing();return}
+    banner('You fell out!  '+brg.me+' – '+brg.them,'BONK RING');ringSpawn(2200)}
+}
+
+// ---------- shark run (swim a buoy course past patrolling sharks; each bite costs +3s) ----------
+const SR_GATES=[[232,98],[232,112],[232,126],[250,132],[250,118],[250,104]],SR_SHARKS=[[232,112],[250,128],[250,108]],SR_PEN=3000; // [radius from island centre, angle deg]; start pad on Shell Beach
+const srun={on:false,i:0,t0:0,bites:0,gates:[],start:null,el:null,saved:[]};
+const srPt=(r,t)=>({x:Math.cos(t*Math.PI/180)*r,z:Math.sin(t*Math.PI/180)*r});
+function buildSharkRun(){
+  srun.start=srPt(188,98);const sy=H(srun.start.x,srun.start.z);
+  const pad=new THREE.Mesh(new THREE.CylinderGeometry(3,3,.25,24),new THREE.MeshStandardMaterial({color:'#2f9fff'}));pad.position.set(srun.start.x,sy+.14,srun.start.z);scene.add(pad);
+  const sb=new THREE.Mesh(new THREE.CylinderGeometry(.5,.5,40,10,1,true),new THREE.MeshBasicMaterial({color:'#2f9fff',transparent:true,opacity:.22,depthWrite:false,fog:false,side:THREE.DoubleSide}));sb.position.set(srun.start.x,sy+20,srun.start.z);scene.add(sb);
+  for(const [r,t] of SR_GATES){const p=srPt(r,t),g=new THREE.Group();g.position.set(p.x,-.3,p.z);
+    const ball=new THREE.Mesh(new THREE.SphereGeometry(1.1,12,10),new THREE.MeshStandardMaterial({color:'#ff7a1a',emissive:'#ff4a00',emissiveIntensity:.6}));ball.position.y=.5;g.add(ball);
+    const beam=new THREE.Mesh(new THREE.CylinderGeometry(.35,.35,30,8,1,true),new THREE.MeshBasicMaterial({color:'#ffb066',transparent:true,opacity:.35,depthWrite:false,fog:false,side:THREE.DoubleSide}));beam.position.y=15;g.add(beam);
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(6,.25,8,32),new THREE.MeshBasicMaterial({color:'#ffffff'}));ring.rotation.x=Math.PI/2;ring.position.y=.2;g.add(ring);
+    g.visible=false;scene.add(g);srun.gates.push({g,x:p.x,z:p.z})}
+  if(!srun.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 92px);left:0;right:0;text-align:center;font-size:18px;text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);srun.el=d}
+}
+function startSharkRun(local){
+  if(!srun.gates.length||srun.on)return;
+  srun.on=true;srun.i=0;srun.bites=0;srun.t0=performance.now()+3000;S.flying=false;
+  srun.saved=[];sharks.slice(0,SR_SHARKS.length).forEach((s,k)=>{const p=srPt(...SR_SHARKS[k]); // borrow up to 3 sharks and park their patrols on the course; endSharkRun() puts them back
+    srun.saved.push({s,cx:s.cx,cz:s.cz,cy:s.cy,rad:s.rad,state:s.state});s.cx=p.x;s.cz=p.z;s.cy=H(p.x,p.z)-1.4;s.rad=11;s.state='patrol';s.bitAt=-9999;s.m.position.set(p.x+11,s.cy,p.z)});
+  banner('Swim the buoys, dodge the sharks! Each bite = +3s','SHARK RUN');
+  if(local&&chan)chan.send({type:'broadcast',event:'ss',payload:{}});
+}
+function endSharkRun(){srun.on=false;for(const o of srun.saved){Object.assign(o.s,{cx:o.cx,cz:o.cz,cy:o.cy,rad:o.rad,state:o.state});o.s.m.position.set(o.cx+o.rad,o.cy,o.cz)}srun.saved=[];srun.gates.forEach(g=>g.g.visible=false)}
+function sharkRunTick(t){
+  if(!srun.on){if(srun.el)srun.el.style.display='none';return}
+  const now=performance.now(),n=srun.gates.length;srun.el.style.display='block';
+  srun.gates.forEach((g,i)=>{g.g.visible=i>=srun.i;g.g.scale.setScalar(i===srun.i?1+Math.sin(t/200)*.06:.8)});
+  if(now<srun.t0){srun.el.style.fontSize='44px';srun.el.textContent=Math.ceil((srun.t0-now)/1000);return}
+  srun.el.style.fontSize='18px';if(S.flying)S.flying=false;
+  for(const o of srun.saved){const s=o.s,sd=Math.hypot(S.x-s.m.position.x,S.z-s.m.position.z); // a bite = a shark actually reaching me
+    if(sd<2.6&&S.y<.5&&now-s.bitAt>2500){s.bitAt=now;srun.bites++;onSmacked({dx:(S.x-s.m.position.x)/Math.max(sd,.01),dz:(S.z-s.m.position.z)/Math.max(sd,.01)});sharkBite()}}
+  const tg=srun.i<n?srun.gates[srun.i]:srun.start; // after the last buoy, swim back to the start pad
+  if(Math.hypot(S.x-tg.x,S.z-tg.z)<(srun.i<n?7:5)){srun.i++;chime();
+    if(srun.i>n){const ms=now-srun.t0+srun.bites*SR_PEN;let best=+localStorage.getItem('w4shark')||1e12;const nb=ms<best;try{if(nb)localStorage.setItem('w4shark',ms)}catch(e){}
+      banner(fmt(ms)+(nb?' · new best!':' · best '+fmt(best)),'SHARK RUN · '+srun.bites+(srun.bites===1?' BITE':' BITES'));
+      if(chan)chan.send({type:'broadcast',event:'sf',payload:{ms}});endSharkRun();return}}
+  srun.el.textContent='Shark Run  ·  '+(srun.i<n?'Buoy '+(srun.i+1)+'/'+n:'Back to the pad!')+'  ·  '+fmt(now-srun.t0+srun.bites*SR_PEN)+'  ·  🦈 '+srun.bites+(srun.bites?' (+'+srun.bites*3+'s)':'');
+}
+
+// ---------- sky slalom (weave 12 tight rings around the floating island; a near-centre pass is "perfect": boost + 0.5s off) ----------
+const SL_N=12,SL_HIT=9,SL_PERFECT=3.5,SL_BONUS=500;
+const slalom={on:false,i:0,pi:0,t0:0,perf:0,gates:[],start:null,el:null,pv:null,beam:null};
+function buildSlalom(){
+  let pad=null; // start pad on the island top: first flat, clear spot on a fixed spiral (same result for everyone in the room, since trees come from the room seed)
+  for(let k=0;k<400&&!pad;k++){const a=k*2.39996,r=25+((k*13)%70),x=SKY.x+Math.cos(a)*r,z=SKY.z+Math.sin(a)*r,y=SKYH(x-SKY.x,z-SKY.z);
+    if(Math.abs(SKYH(x-SKY.x+3,z-SKY.z)-y)>.5||Math.abs(SKYH(x-SKY.x,z-SKY.z+3)-y)>.5)continue;
+    if(solids.some(c=>Math.hypot(c.x-x,c.z-z)<c.r+5))continue;pad={x,y,z}}
+  if(!pad)pad={x:SKY.x,y:SKYH(0,0),z:SKY.z};
+  slalom.start=pad;
+  const a0=Math.atan2(pad.z-SKY.z,pad.x-SKY.x);
+  for(let k=0;k<SL_N;k++){const a=a0+(k+1)*.5,r=k%2?118:55,x=SKY.x+Math.cos(a)*r,z=SKY.z+Math.sin(a)*r; // alternate inner/outer radius and three heights = a weave
+    slalom.gates.push({x,y:SKYH(x-SKY.x,z-SKY.z)+16+(k%3)*10,z})}
+  slalom.gates.forEach((g,i,A)=>{g.m=new THREE.Mesh(new THREE.TorusGeometry(SL_HIT,.8,10,40),new THREE.MeshBasicMaterial({color:'#7fd0ff',fog:false,transparent:true,opacity:.5}));
+    g.m.position.set(g.x,g.y,g.z);const n=A[i+1]||{x:g.x+(g.x-A[i-1].x),y:g.y,z:g.z+(g.z-A[i-1].z)},nl=Math.hypot(n.x-g.x,n.y-g.y,n.z-g.z)||1;g.n={x:(n.x-g.x)/nl,y:(n.y-g.y)/nl,z:(n.z-g.z)/nl};g.m.lookAt(n.x,n.y,n.z);scene.add(g.m)});
+  const padm=new THREE.Mesh(new THREE.CylinderGeometry(3.5,3.5,.3,24),new THREE.MeshStandardMaterial({color:'#7fd0ff',emissive:'#2f9fff',emissiveIntensity:.8}));padm.position.set(pad.x,pad.y+.2,pad.z);scene.add(padm);
+  const sb=new THREE.Mesh(new THREE.CylinderGeometry(.5,.5,60,10,1,true),new THREE.MeshBasicMaterial({color:'#7fd0ff',transparent:true,opacity:.28,depthWrite:false,fog:false,side:THREE.DoubleSide}));sb.position.set(pad.x,pad.y+30,pad.z);scene.add(sb);
+  if(!slalom.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 92px);left:0;right:0;text-align:center;font-size:18px;text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);slalom.el=d}
+}
+function slPaint(){slalom.gates.forEach((g,i)=>{const on=slalom.on,act=on&&i===slalom.i;g.m.visible=!(on&&i<slalom.i);g.m.material.color.set(act?'#ffd24a':'#7fd0ff');g.m.material.opacity=act?1:on?.5:.45;g.m.scale.setScalar(act?1.12:1)})}
+function startSlalom(local){
+  if(!slalom.gates.length||slalom.on)return;
+  slalom.on=true;slalom.i=0;slalom.pi=0;slalom.perf=0;slalom.pv=null;slalom.t0=performance.now()+3000;slPaint();
+  banner('Take off and fly the rings in order · near-centre passes = ⭐ boost','SKY SLALOM');
+  if(local&&chan)chan.send({type:'broadcast',event:'sls',payload:{}});
+}
+function slalomTick(t){
+  if(!slalom.on){if(slalom.el)slalom.el.style.display='none';return}
+  const now=performance.now();slalom.el.style.display='block';
+  if(now<slalom.t0){slalom.el.style.fontSize='44px';slalom.el.textContent=Math.ceil((slalom.t0-now)/1000);slalom.pv=null;return}
+  slalom.el.style.fontSize='18px';
+  const g=slalom.gates[slalom.i],cur={x:S.x,y:S.y+1,z:S.z},pv=slalom.pv||cur;slalom.pv=cur;
+  // a gate counts when this frame's path crosses the ring's plane; d = how far from the ring centre it crossed (swept, so a fast boost can't skip it)
+  const s0=(pv.x-g.x)*g.n.x+(pv.y-g.y)*g.n.y+(pv.z-g.z)*g.n.z,s1=(cur.x-g.x)*g.n.x+(cur.y-g.y)*g.n.y+(cur.z-g.z)*g.n.z;
+  let d=1e9;if(s0!==s1&&s0*s1<=0){const k=s0/(s0-s1);d=Math.hypot(pv.x+(cur.x-pv.x)*k-g.x,pv.y+(cur.y-pv.y)*k-g.y,pv.z+(cur.z-pv.z)*k-g.z)}
+  if(d<SL_HIT){slalom.i++;chime();if(d<SL_PERFECT){slalom.perf++;S.burst=.9}
+    if(chan)chan.send({type:'broadcast',event:'slp',payload:{i:slalom.i}});
+    if(slalom.i>=SL_N){const ms=Math.max(1000,now-slalom.t0-slalom.perf*SL_BONUS);let best=+localStorage.getItem('w4slalom')||1e12;const nb=ms<best;try{if(nb)localStorage.setItem('w4slalom',ms)}catch(e){}
+      banner(fmt(ms)+(nb?' · new best!':' · best '+fmt(best)),'SKY SLALOM · ⭐ '+slalom.perf+'/'+SL_N);slalom.on=false;slPaint();if(chan)chan.send({type:'broadcast',event:'slf',payload:{ms}});return}
+    slPaint()}
+  const a=slalom.gates[slalom.i];
+  slalom.el.textContent='Slalom  ·  Ring '+(slalom.i+1)+'/'+SL_N+'  ·  '+fmt(Math.max(0,now-slalom.t0-slalom.perf*SL_BONUS))+'  ·  ⭐ '+slalom.perf+(slalom.pi?'  ·  Partner: ring '+(slalom.pi+1):'');
+  a.m.scale.setScalar(1.12+Math.sin(t/200)*.06);markTo(a.x,a.y,a.z,'Ring '+(slalom.i+1));
+}
+
+// ---------- obstacle dash (parkour course: stepping stones, a beam, moving platforms, a bounce pad, a tower; each fall = +2s and back to your last platform) ----------
+const OD_FALL=2000;
+// u = metres along the course, v = sideways, r = platform radius, h = top height above the start ground. Jumps reach ~1.6 m up / ~8 m across (checked in a physics sim).
+const OD=[
+  {k:'stone',u:6,v:0,r:1.7,h:.8},{k:'stone',u:11.5,v:-2.5,r:1.5,h:1.4},{k:'stone',u:17,v:2,r:1.5,h:2},{k:'stone',u:23,v:-1.5,r:1.4,h:2.6},
+  {k:'beam',u0:27,u1:37,v:0,r:.6,h:2.6},
+  {k:'move',u:42,v:0,r:1.6,h:2.6,amp:3,per:4,ph:0},{k:'move',u:48.5,v:0,r:1.6,h:3.2,amp:3,per:4,ph:2},
+  {k:'bounce',u:54.5,v:0,r:2,h:2},
+  {k:'stone',u:60,v:0,r:3,h:6.5},{k:'stone',u:66,v:-2,r:1.6,h:7.5},{k:'stone',u:72.5,v:0,r:2.4,h:8.5,fin:true}];
+const dash={on:false,t0:0,falls:0,cp:-1,far:0,plats:[],start:null,el:null,th:0,ox:0,oz:0,g0:0,lastB:0};
+const dashW=(u,v)=>{const c=Math.cos(dash.th),s=Math.sin(dash.th);return {x:dash.ox+u*c-v*s,z:dash.oz+u*s+v*c}};
+function dashSite(){ // fixed-order search for a flat, tree-free 82x16 m strip on the main island, so everyone in the room gets the same spot
+  const ex=(x,z)=>Math.hypot(x-TOWN.x,z-TOWN.z)<55||Math.hypot(x-RING.x,z-RING.z)<RING.R+10||Math.hypot(x-BOARD.x,z-BOARD.z)<15||Math.hypot(x-WP[0][0],z-WP[0][1])<15||(typeof Tag!=='undefined'&&Tag.pos&&Math.hypot(x-Tag.pos.x,z-Tag.pos.z)<20);
+  for(const tol of [.9,1.4])for(let r=60;r<=190;r+=10)for(let ai=0;ai<36;ai++)for(let hi=0;hi<8;hi++){ // second pass tolerates a gentler slope if the first finds nothing
+    const a=ai/36*6.283,ox=Math.cos(a)*r,oz=Math.sin(a)*r,th=hi/8*6.283,g0=H(ox,oz);if(g0<1)continue;
+    const c=Math.cos(th),s=Math.sin(th);let ok=true,pts=[];
+    for(let u=-4;u<=78&&ok;u+=4)for(const v of [-6,0,6]){const x=ox+u*c-v*s,z=oz+u*s+v*c,h=H(x,z);if(h<1||Math.abs(h-g0)>tol||ex(x,z)){ok=false;break}pts.push([x,z])}
+    if(!ok)continue;
+    if(solids.some(q=>pts.some(p=>Math.hypot(q.x-p[0],q.z-p[1])<q.r+3.5)))continue;
+    return {ox,oz,th,g0}}
+  return null}
+function buildDash(){
+  const site=dashSite();if(!site)return;Object.assign(dash,site);dash.start={x:site.ox,z:site.oz};
+  const col={stone:'#6ec6ff',beam:'#ffd24a',move:'#7be08a',bounce:'#ff8a3d'},g0=dash.g0;
+  const pad=new THREE.Mesh(new THREE.CylinderGeometry(2.2,2.2,.3,24),new THREE.MeshStandardMaterial({color:'#ff6ea1',emissive:'#ff2d7a',emissiveIntensity:.7}));pad.position.set(site.ox,g0+.18,site.oz);scene.add(pad);
+  const sb=new THREE.Mesh(new THREE.CylinderGeometry(.5,.5,40,10,1,true),new THREE.MeshBasicMaterial({color:'#ff6ea1',transparent:true,opacity:.28,depthWrite:false,fog:false,side:THREE.DoubleSide}));sb.position.set(site.ox,g0+20,site.oz);scene.add(sb);
+  for(const d of OD){const top=g0+d.h,mat=new THREE.MeshStandardMaterial({color:col[d.k]||'#6ec6ff',roughness:.7});let p={k:d.k,top,fin:!!d.fin,c:[]};
+    if(d.k==='beam'){const n=Math.round((d.u1-d.u0)/.8);for(let i=0;i<=n;i++){const w=dashW(d.u0+(d.u1-d.u0)*i/n,d.v),q={x:w.x,z:w.z,r:d.r,h:top};solids.push(q);p.c.push(q)}
+      const mid=dashW((d.u0+d.u1)/2,d.v),m=new THREE.Mesh(new THREE.BoxGeometry(d.u1-d.u0+2*(d.r+.4),d.h+2,2*(d.r+.4)),mat);m.position.set(mid.x,g0-2+(d.h+2)/2,mid.z);m.rotation.y=-dash.th;scene.add(m)}
+    else{const w=dashW(d.u,d.v),q={x:w.x,z:w.z,r:d.r,h:top};
+      if(d.k==='move'){q.noSide=true;p.u=d.u;p.amp=d.amp;p.per=d.per;p.ph=d.ph;p.last={x:w.x,z:w.z};
+        const m=new THREE.Mesh(new THREE.CylinderGeometry(d.r+.35,d.r+.35,.5,20),mat);m.position.set(w.x,top-.25,w.z);scene.add(m);p.m=m}
+      else{const m=new THREE.Mesh(new THREE.CylinderGeometry(d.r+.35,d.r+.35,d.h+2,20),mat);m.position.set(w.x,g0-2+(d.h+2)/2,w.z);scene.add(m);
+        if(d.k==='bounce'){const ring=new THREE.Mesh(new THREE.TorusGeometry(d.r*.6,.18,8,24),new THREE.MeshBasicMaterial({color:'#ffffff'}));ring.rotation.x=Math.PI/2;ring.position.set(w.x,top+.08,w.z);scene.add(ring)}
+        if(d.fin){const pole=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,5,8),new THREE.MeshStandardMaterial({color:'#ffffff'}));pole.position.set(w.x,top+2.5,w.z);scene.add(pole);
+          const fl=new THREE.Mesh(new THREE.PlaneGeometry(2.4,1.4),new THREE.MeshBasicMaterial({color:'#ffd24a',side:THREE.DoubleSide}));fl.position.set(w.x+1.2*Math.cos(dash.th+1.57),top+4.2,w.z+1.2*Math.sin(dash.th+1.57));fl.rotation.y=-dash.th;scene.add(fl)}}
+      solids.push(q);p.c.push(q)}
+    dash.plats.push(p)}
+  if(!dash.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 92px);left:0;right:0;text-align:center;font-size:18px;text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);dash.el=d}
+}
+function startDash(local){
+  if(!dash.start||dash.on)return;
+  dash.on=true;dash.t0=performance.now()+3000;dash.falls=0;dash.cp=-1;dash.far=0;S.flying=false;
+  banner('Hop the course to the flag · every fall = +2s','OBSTACLE DASH');
+  if(local&&chan)chan.send({type:'broadcast',event:'ds',payload:{}});
+}
+function dashTick(t){
+  if(!dash.start)return;
+  const now=performance.now(),tt=now/1000;
+  for(const p of dash.plats)if(p.k==='move'){ // slide sideways; carry anyone standing on it
+    const q=p.c[0],on=S.grounded&&Math.abs(S.y-p.top)<.35&&Math.hypot(S.x-q.x,S.z-q.z)<q.r+.4;
+    const w=dashW(p.u,Math.sin(tt/p.per*6.283+p.ph)*p.amp);if(on){S.x+=w.x-q.x;S.z+=w.z-q.z}q.x=w.x;q.z=w.z;p.m.position.x=w.x;p.m.position.z=w.z}
+  let on=-1;
+  if(S.grounded)dash.plats.forEach((p,i)=>{if(on<0&&Math.abs(S.y-p.top)<.35&&p.c.some(q=>Math.hypot(S.x-q.x,S.z-q.z)<q.r+.4))on=i});
+  if(on>=0&&dash.plats[on].k==='bounce'&&now-dash.lastB>400){dash.lastB=now;S.vy=17;S.grounded=false;chime()}
+  if(!dash.on){if(dash.el)dash.el.style.display='none';return}
+  dash.el.style.display='block';
+  if(now<dash.t0){dash.el.style.fontSize='44px';dash.el.textContent=Math.ceil((dash.t0-now)/1000);return}
+  dash.el.style.fontSize='18px';if(S.flying)S.flying=false;
+  if(on>=0){dash.cp=on;dash.far=Math.max(dash.far,on+1);
+    if(dash.plats[on].fin){const ms=now-dash.t0+dash.falls*OD_FALL;let best=+localStorage.getItem('w4dash')||1e12;const nb=ms<best;try{if(nb)localStorage.setItem('w4dash',ms)}catch(e){}
+      banner(fmt(ms)+(nb?' · new best!':' · best '+fmt(best)),'OBSTACLE DASH · '+dash.falls+(dash.falls===1?' FALL':' FALLS'));dash.on=false;if(chan)chan.send({type:'broadcast',event:'df',payload:{ms}});return}}
+  else if(dash.cp>=0&&S.grounded&&S.y<H(S.x,S.z)+.6){ // touched the ground after starting: back to the last platform
+    dash.falls++;const q=dash.plats[dash.cp].c[dash.plats[dash.cp].c.length>>1];S.x=q.x;S.z=q.z;S.y=dash.plats[dash.cp].top+.05;S.vy=0;S.kx=0;S.kz=0;S.rot=Math.PI/2-dash.th;
+    banner('Splat! +2s','OBSTACLE DASH')}
+  dash.el.textContent='Dash  ·  Step '+dash.far+'/'+dash.plats.length+'  ·  '+fmt(now-dash.t0+dash.falls*OD_FALL)+'  ·  💦 '+dash.falls+(dash.falls?' (+'+dash.falls*2+'s)':'');
 }
 
 // ---------- sky race ----------
