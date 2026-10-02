@@ -16,11 +16,14 @@ const PAN_ENABLED=true;
 const PAN_REST_Z=Math.PI/2-.45; // resting roll of the pan about its own width axis; the swing animates around this
 let smacks=0;try{smacks=+localStorage.getItem('w4sm')||0}catch(e){}
 let lastSmack=-9;
+let panOn=false; // pan starts holstered; togglePan() equips/unequips (synced to partner in the 's' state broadcast)
+function togglePan(){panOn=!panOn;$('panbtn').style.opacity=panOn?1:.6}
 function bonk(){try{const a=new(window.AudioContext||webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.type='square';o.frequency.setValueAtTime(180,a.currentTime);o.frequency.exponentialRampToValueAtTime(60,a.currentTime+.15);o.connect(g);g.connect(a.destination);g.gain.setValueAtTime(.35,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.2);o.start();o.stop(a.currentTime+.2)}catch(e){}}
 function smack(){
-  if(!others.size||S.flying)return;
+  if(!panOn||S.flying)return;
   const t=performance.now()/1000;if(t-lastSmack<.55)return;lastSmack=t;
   me.userData.swing=1;
+  if(!others.size)return;
   const o=others.values().next().value,p=o.group.position,dxo=p.x-S.x,dzo=p.z-S.z,d=Math.hypot(dxo,dzo);
   if(d>3.4)return;
   const fx=Math.sin(S.rot),fz=Math.cos(S.rot),nx=dxo/d,nz=dzo/d,dot=fx*nx+fz*nz;
@@ -30,7 +33,7 @@ function smack(){
   banner('You bonked '+(o.group.userData.nm||'them')+'!','🍳');
   if(chan)chan.send({type:'broadcast',event:'sm',payload:{from:myId,dx:nx,dz:nz}});
 }
-function smackTick(dt){}
+function smackTick(dt){if(me&&me.userData.pan)me.userData.pan.visible=panOn}
 function onSmacked(p){
   const a=p.from&&others.get(p.from);if(a)a.group.userData.swing=1;
   if(S.iframe>0)return;S.iframe=.6;S.hurt=.5;

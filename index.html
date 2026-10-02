@@ -26,6 +26,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 #banner{position:fixed;z-index:6;top:22%;left:0;right:0;text-align:center;font-size:26px;font-style:italic;text-shadow:0 2px 10px #000;opacity:0;transition:opacity .6s;pointer-events:none}#banner small{font-size:12px;letter-spacing:.25em;font-style:normal;opacity:.8}
 #boost{position:fixed;z-index:5;right:126px;bottom:calc(env(safe-area-inset-bottom,0px) + 58px);width:76px;height:76px;border-radius:50%;padding:0;display:none;background:#7fd0ffdd;color:#06304a;font-size:13px;opacity:.75}
 #smack{position:fixed;z-index:5;right:126px;bottom:calc(env(safe-area-inset-bottom,0px) + 58px);width:76px;height:76px;border-radius:50%;padding:0;display:none;background:#ffb0b0dd;color:#4a0606;font-size:13px}
+#panbtn{position:fixed;z-index:5;right:136px;bottom:calc(env(safe-area-inset-bottom,0px) + 144px);width:56px;height:56px;border-radius:50%;padding:0;display:none;background:#ffffffcc;font-size:26px;opacity:.6}
 #flash{position:fixed;z-index:8;inset:0;background:#ff0000;opacity:0;pointer-events:none;transition:opacity .08s}
 #use{position:fixed;z-index:5;right:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 156px);display:none;width:auto;padding:12px 22px;background:#ffffffdd;color:#1a1f3a}
 #skinRow button{flex:1;padding:8px 4px;font-size:12px;border-radius:10px;background:#ffffff14;border:1px solid #ffffff33;color:#fff}
@@ -49,7 +50,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <button id="jump">Jump</button>
 <div id="flash"></div>
 <button id="boost">Boost</button>
-<button id="smack">Smack</button><div id="banner"></div><button id="use">Use</button>
+<button id="panbtn">🍳</button><button id="smack">Smack</button><div id="banner"></div><button id="use">Use</button>
 <div id="pmk"><div>▲</div><small style="font-size:12px"></small></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
@@ -214,7 +215,7 @@ function dress(g,skin){
     if(PAN_ENABLED&&bones.RightHand)loadPan().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(panBuf.slice(0),AURL,res,rej))).then(pr=>{
       const piv=new THREE.Group(),pn=pr.scene;pn.traverse(c=>{if(c.isMesh)c.castShadow=true});
       pn.position.set(.173,-19.68,31.046);piv.add(pn);piv.scale.setScalar((.36/5.915)/50);piv.position.set(0,.0016,0);piv.rotation.set(Math.PI,0,PAN_REST_Z);
-      bones.RightHand.add(piv);u.pan=piv;
+      piv.visible=false;bones.RightHand.add(piv);u.pan=piv;
     }).catch(()=>{});
   }).catch(()=>{});
 }
@@ -401,7 +402,7 @@ const S={x:0,y:0,z:0,vy:0,rot:0,yaw:0,pitch:.35,grounded:true,state:'idle',flyin
 
 async function startGame(){
   $('lobby').style.display='none';
-  ['hud','stick'].forEach(i=>$(i).style.display=i==='hud'?'flex':'block');$('jump').style.display='block';
+  ['hud','stick'].forEach(i=>$(i).style.display=i==='hud'?'flex':'block');$('jump').style.display='block';$('panbtn').style.display=PAN_ENABLED?'block':'none';
   renderer=new THREE.WebGLRenderer({antialias:true});renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);
   document.body.appendChild(renderer.domElement);
@@ -432,12 +433,12 @@ function onState(p){
   if(!scene||!me)return;
   let o=others.get(p.id);
   if(!o){const m=(chan.presenceState()[p.id]||[{}])[0];addOther(p.id,m.name,m.color,m.skin);o=others.get(p.id);if(!o)return;o.group.position.set(p.x,p.y,p.z)}
-  o.tx=p.x;o.ty=p.y;o.tz=p.z;o.tr=p.r;
+  o.tx=p.x;o.ty=p.y;o.tz=p.z;o.tr=p.r;if(o.group.userData.pan)o.group.userData.pan.visible=!!p.pn;
   if(o.st==='fall'&&p.st!=='fall'&&p.st!=='jump')o.group.userData.land=.15;o.st=p.st||'idle';
 }
 function send(){
   if(!chan||!entered)return;
-  chan.send({type:'broadcast',event:'s',payload:{id:myId,x:+S.x.toFixed(2),y:+S.y.toFixed(2),z:+S.z.toFixed(2),r:+S.rot.toFixed(2),st:S.state}});
+  chan.send({type:'broadcast',event:'s',payload:{id:myId,x:+S.x.toFixed(2),y:+S.y.toFixed(2),z:+S.z.toFixed(2),r:+S.rot.toFixed(2),st:S.state,pn:+panOn}});
 }
 
 // ---------- exploration ----------
@@ -672,8 +673,8 @@ function tick(t){
     fpsA=fpsA*.97+dt*.03;if(sun.castShadow&&++fpsN>240&&fpsA>.034){sun.castShadow=false;scene.traverse(o=>{if(o.material)o.material.needsUpdate=true})}}
   S.burst=Math.max(0,(S.burst||0)-dt);if(!S.flying)S.boost=false;
   if(S.flying!==bvis){bvis=S.flying;$('boost').style.display=bvis?'block':'none';if(!bvis){$('boost').textContent='Boost';$('boost').style.opacity=.75}
-    $('smack').style.display=(PAN_ENABLED&&!bvis&&others.size)?'block':'none'}
-  else if(!bvis)$('smack').style.display=(PAN_ENABLED&&others.size)?'block':'none';
+    $('smack').style.display=(PAN_ENABLED&&panOn&&!bvis)?'block':'none'}
+  else if(!bvis)$('smack').style.display=(PAN_ENABLED&&panOn)?'block':'none';
   const tf=S.flying?(bst()?95:80):65;if(Math.abs(camera.fov-tf)>.1){camera.fov+=(tf-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix()}
   smackTick(dt);
   renderer.render(scene,camera);
