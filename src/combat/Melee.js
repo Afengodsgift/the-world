@@ -13,6 +13,7 @@
 // system is extracted in a later phase — pulling just that fragment out now would
 // leave dress() awkwardly split for no real benefit.
 const PAN_ENABLED=true;
+const PAN_GRIP=[-0.67022,0.74026,-0.03626,-0.03873]; // pan orientation in the RightHand bone for the baked clips (handle held, head ~40deg up/forward in idle, face up); solved from the idle hand pose
 const PAN_REST_Z=Math.PI/2-.45; // resting roll of the pan about its own width axis; the swing animates around this
 let smacks=0;try{smacks=+localStorage.getItem('w4sm')||0}catch(e){}
 let lastSmack=-9;
@@ -41,6 +42,7 @@ function smack(){
 function smackTick(dt){if(me&&me.userData.pan)me.userData.pan.visible=panOn}
 function onSmacked(p){
   const a=p.from&&others.get(p.from);if(a)a.group.userData.swing=1;
+  if(me&&!(S.iframe>0))me.userData.hitReq=1; // play the hit-reaction clip
   if(S.iframe>0)return;S.iframe=.6;S.hurt=.5;
   const pan=!!p.from; // pan bonks launch harder than shark bites (which have no sender)
   S.kx+=p.dx*(pan?30:13);S.kz+=p.dz*(pan?30:13);S.vy=Math.max(S.vy,pan?8:4);

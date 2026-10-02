@@ -195,8 +195,42 @@ function pose(q,st,dt){
     aim(B[n+'Arm'],B[n+'ForeArm'],ad);aim(B[n+'ForeArm'],B[n+'Hand'],ad);aim(B[n+'UpLeg'],B[n+'Leg'],ld);aim(B[n+'Leg'],B[n+'Foot'],ld);
   }
 }
+// Baked-clip animation (assets/anims.json): ground clip by actual speed, swim/fly/jump/fall by state, one-shot overlays for swing/hit/land/interact.
+// Overlay clips use a big weight so they override the locomotion clip on the bones they touch (smack = upper body only).
+const LOCO={walk:1,jog:1,sprint:1},clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function animateClips(g,dt,st){
+  const q=g.userData,A=q.nact,p=g.position;
+  const raw=q.pp&&dt>0?Math.min(16,Math.hypot(p.x-q.pp.x,p.z-q.pp.z)/dt):0;q.pp={x:p.x,z:p.z};q.v=(q.v||0)+(raw-(q.v||0))*Math.min(1,dt*10);const v=q.v;
+  let want='idle',ts=1,fade=.18;
+  if(st==='swim'){want=v>.8?'swim':'tread';ts=want==='swim'?clamp(v/2.4,.6,2):1;fade=.3}
+  else if(st==='fly'){want=v>2?'swim':'fall';ts=want==='swim'?.9:1;fade=.3}
+  else if(st==='jump'){want='jump';fade=.08}
+  else if(st==='fall'){want='fall';fade=.12}
+  else if(st==='walk'||st==='run'){const c=q.cur; // thresholds have hysteresis so it doesn't flicker between clips
+    want=v<.4?'idle':(c==='sprint'?v>7.2:v>8.4)?'sprint':(c==='jog'?v>2.4:v>3.2)?'jog':'walk';
+    ts=want==='walk'?clamp(v/1.06,.6,2.2):want==='jog'?clamp(v/5.8,.5,1.5):want==='sprint'?clamp(v/9,.8,1.7):1}
+  const n=A[want];
+  if(q.cur!==want){n.reset();if(LOCO[q.cur]&&LOCO[want]){const o=A[q.cur];n.time=o.time/o.getClip().duration*n.getClip().duration} // keep the stride phase when switching gait
+    n.setEffectiveWeight(1);n.fadeIn(fade).play();if(q.cur)A[q.cur].fadeOut(fade);q.cur=want}
+  n.setEffectiveTimeScale(ts);
+  // one-shot overlays
+  const ov=(name,sp,w,fi)=>{const a=A[name];if(!a)return;a.reset();a.setEffectiveTimeScale(sp);a.setEffectiveWeight(w);a.fadeIn(fi).play();(q.ov=q.ov||{})[name]={a,left:a.getClip().duration/sp,ending:false}};
+  if((q.swing||0)>.9)ov('smack',1.4,24,.05);
+  if(q.hitReq){q.hitReq=0;ov('hit',.9,24,.02)}
+  if(q.emote){const e=q.emote;q.emote=null;ov(e,1.3,20,.1)}
+  if((q.land||0)>.05&&!q.landOn){q.landOn=true;if(v<2.5&&st==='idle')ov('land',1.5,6,.04)}else if((q.land||0)<=0)q.landOn=false;
+  for(const k in q.ov){const o=q.ov[k];o.left-=dt;if(o.left<.14&&!o.ending){o.ending=true;o.a.fadeOut(.12)}if(o.left<-.05)delete q.ov[k]}
+  q.swing=Math.max(0,(q.swing||0)-dt*2.6);
+  q.land=Math.max(0,(q.land||0)-dt);
+  const oy=st==='swim'?.7:(st==='fly'&&want==='swim')?.5:0;q.oy=(q.oy||0)+(oy-(q.oy||0))*Math.min(1,dt*6); // swim clips are authored with the waterline at the chest: lift the body to the surface
+  q.model.rotation.x+=((q.pan?Math.sin(Math.min(1,q.swing)*Math.PI)*.3:0)-q.model.rotation.x)*Math.min(1,dt*10); // small lunge into the swing
+  q.model.position.set(0,q.oy,0);
+  q.model.scale.set(.5*(1+q.land*.3),.5*(1-q.land*.6),.5*(1+q.land*.3));
+  q.mixer.update(dt);
+}
 function animate(g,dt,st){
   const q=g.userData;
+  if(q.mixer&&q.nact){animateClips(g,dt,st);return}
   if(q.mixer){
     const want=(st==='idle'||st==='fly')?'idle':(st==='jump'||st==='fall')?'jump':'run';
     if(q.cur!==want){q.act[want].reset().fadeIn(.15).play();if(q.cur)q.act[q.cur].fadeOut(.15);q.cur=want}
@@ -223,13 +257,16 @@ function dress(g,skin){
   loadChar().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(charBuf.slice(0),AURL,res,rej))).then(r=>{
     const m=r.scene,bones={};m.scale.setScalar(.5);
     m.traverse(o=>{if(o.isSkinnedMesh){o.skeleton.bones.forEach(b=>bones[b.name]=b);o.frustumCulled=false;o.material=new THREE.MeshStandardMaterial({map:skinT[skin%skinT.length],roughness:.85,metalness:0})}});
-    const mx=new THREE.AnimationMixer(m),act={};for(const n in clips)act[n]=mx.clipAction(clips[n]);
+    const mx=new THREE.AnimationMixer(m),act={},nact={};for(const n in clips)act[n]=mx.clipAction(clips[n]);
     act.jump.setLoop(THREE.LoopOnce,1);act.jump.clampWhenFinished=true;
-    const u=g.userData;u.rig.visible=false;m.traverse(c=>{if(c.isMesh){c.castShadow=true}});g.add(m);Object.assign(u,{mixer:mx,act,model:m,bones,cur:null,ph:0,swing:0});
+    for(const n in nclips)nact[n]=mx.clipAction(nclips[n]);
+    if(nact.jump){nact.jump.setLoop(THREE.LoopOnce,1);nact.jump.clampWhenFinished=true}
+    for(const n of ['smack','hit','land','interact'])if(nact[n])nact[n].setLoop(THREE.LoopOnce,1); // one-shot overlays
+    const u=g.userData;u.rig.visible=false;m.traverse(c=>{if(c.isMesh){c.castShadow=true}});g.add(m);Object.assign(u,{mixer:mx,act,nact:nact.idle?nact:null,model:m,bones,cur:null,ph:0,swing:0});
     if(PAN_ENABLED&&bones.RightHand)loadPan().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(panBuf.slice(0),AURL,res,rej))).then(pr=>{
       const piv=new THREE.Group(),pn=pr.scene;pn.traverse(c=>{if(c.isMesh)c.castShadow=true});
       pn.position.set(.173,-19.68,31.046);piv.add(pn);piv.scale.setScalar((.36/5.915)/50);piv.position.set(0,.0016,0);piv.rotation.set(Math.PI,0,PAN_REST_Z);
-      piv.visible=false;bones.RightHand.add(piv);u.pan=piv;
+      if(u.nact)piv.quaternion.set(...PAN_GRIP);piv.visible=false;bones.RightHand.add(piv);u.pan=piv;
     }).catch(()=>{});
   }).catch(()=>{});
 }
@@ -463,7 +500,7 @@ function load(){try{const v=JSON.parse(localStorage.getItem('w4:'+roomCode)||'{}
 function banner(t,l){const b=$('banner');b.innerHTML='<small>'+(l||'NEW LOCATION DISCOVERED')+'</small><br>'+t;b.style.opacity=1;clearTimeout(banner.t);banner.t=setTimeout(()=>b.style.opacity=0,3200)}
 function take(i,local){const o=orbs[i];if(!o||!o.on)return;o.on=false;o.m.visible=false;got++;save();updateHud();if(local&&chan)chan.send({type:'broadcast',event:'c',payload:{i}})}
 function chime(){try{const a=new(window.AudioContext||webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.frequency.value=660;o.connect(g);g.connect(a.destination);g.gain.setValueAtTime(.2,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+1.4);o.start();o.stop(a.currentTime+1.4)}catch(e){}}
-function doUse(){Interaction.use()}
+function doUse(){const t=$('use').style.display==='block';Interaction.use();if(t&&me)me.userData.emote='interact'}
 Interaction.register('dig','Dig!',
   ()=>hunt.on&&Math.hypot(S.x-hunt.x,S.z-hunt.z)<6&&Math.abs(S.y-hunt.y)<20,
   ()=>dig(true));

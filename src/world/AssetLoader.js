@@ -4,7 +4,7 @@
 const SKINS=['skaterMaleA','skaterFemaleA','criminalMaleA','cyborgFemaleA'];
 const AURL='assets/',AM={},AM_KART={};
 const ALIST=['tree_pineDefaultA','tree_pineRoundA','tree_oak','tree_fat','tree_palmTall','plant_bushLarge','stone_largeA','rock_tallB','wall-wood','wall-wood-door','wall-wood-window-small','roof-gable','roof-gable-end','fountain-round','lantern','stall-red','stall-green','cart'];
-let assetsP,charP,charBuf,clips={},skinT=[],panP,panBuf;
+let assetsP,charP,charBuf,clips={},nclips={},skinT=[],panP,panBuf; // clips = legacy 3 clips (fallback); nclips = baked UAL set from assets/anims.json
 function loadAssets(){
   if(!assetsP&&!THREE.GLTFLoader)assetsP=Promise.resolve();
   if(!assetsP){const gl=new THREE.GLTFLoader();
@@ -25,6 +25,7 @@ function loadChar(){
     const parse=b=>new Promise((res,rej)=>gl.parse(b,AURL,res,rej));
     charBuf=await buf('char.glb');
     for(const n of ['idle','run','jump']){const g=await parse(await buf('anim_'+n+'.glb'));clips[n]=g.animations.find(c=>!c.name.includes('Targeting'))||g.animations[g.animations.length-1]}
+    try{const aj=await (await fetch(AURL+'anims.json')).json();for(const c of aj){const ac=THREE.AnimationClip.parse(c);ac.name=c.name;nclips[c.name]=ac}}catch(e){nclips={}} // tools/retarget_ual.js; if it fails we fall back to the legacy clips
     skinT=await Promise.all(SKINS.map(n=>tl.loadAsync(AURL+n+'.png').then(t=>{t.flipY=false;t.encoding=THREE.sRGBEncoding;return t})));
   })();
   return charP;
