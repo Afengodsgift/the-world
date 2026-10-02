@@ -120,6 +120,9 @@ async function enter(code){
   chan.on('broadcast',{event:'bs'},()=>startRing(false));
   chan.on('broadcast',{event:'bo'},({payload})=>ringPoint(payload));
   chan.on('broadcast',{event:'ss'},()=>startSharkRun(false));
+  chan.on('broadcast',{event:'sls'},()=>startSlalom(false));
+  chan.on('broadcast',{event:'slp'},({payload})=>{slalom.pi=payload.i});
+  chan.on('broadcast',{event:'slf'},({payload})=>{if(slalom.on)banner('Partner finished in '+fmt(payload.ms),'SKY SLALOM')});
   chan.on('broadcast',{event:'sf'},({payload})=>{if(srun.on)banner('Partner finished in '+fmt(payload.ms),'SHARK RUN')});
   chan.on('broadcast',{event:'sm'},({payload})=>{if(payload.from!==myId)onSmacked(payload)});
   chan.subscribe(async status=>{
@@ -360,7 +363,7 @@ function buildWorld(code){
   while(pts.length<40){const a=rng()*6.283,r=12+rng()*195,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<40&&dist(x,z)>45)pts.push([x,z])}
   for(const I of ISL)for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
-  buildRace();buildHunt();buildSeaLife();buildSkyIsland();buildKartTrack();Tag.build();Outlaw.build();buildBonkRing();buildSharkRun();
+  buildRace();buildHunt();buildSeaLife();buildSkyIsland();buildKartTrack();Tag.build();Outlaw.build();buildBonkRing();buildSharkRun();buildSlalom();
 }
 function buildSkyIsland(){
   const geo=new THREE.PlaneGeometry(SKY.R*2.8,SKY.R*2.8,72,72);geo.rotateX(-Math.PI/2);
@@ -480,13 +483,16 @@ Interaction.register('ring','Start Bonk Ring',
 Interaction.register('sharkrun','Start Shark Run',
   ()=>!srun.on&&srun.start&&Math.hypot(S.x-srun.start.x,S.z-srun.start.z)<5,
   ()=>startSharkRun(true));
+Interaction.register('slalom','Start Sky Slalom',
+  ()=>!slalom.on&&slalom.start&&Math.hypot(S.x-slalom.start.x,S.z-slalom.start.z)<4.5&&Math.abs(S.y-slalom.start.y)<6,
+  ()=>startSlalom(true));
 function explore(dt,t){
   for(const L of LOCS)if(!disc.has(L.n)&&Math.hypot(S.x-L.x,S.z-L.z)<L.r&&(!L.y||S.y>L.y)){disc.add(L.n);banner(L.n);save();updateHud()}
   orbs.forEach((o,i)=>{if(!o.on)return;o.m.rotation.y+=dt*2;o.m.position.y=o.y+Math.sin(t/400+i)*.15;
     if(Math.hypot(S.x-o.x,S.z-o.z)<1.6&&Math.abs(S.y+1-o.y)<2.2)take(i,true)});
   Interaction.update();
-  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);ringTick(t);sharkRunTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);WorldMap.tick();
-  if(!race.on&&!hunt.on&&mk)mk.style.display='none';
+  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);ringTick(t);sharkRunTick(t);slalomTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);WorldMap.tick();
+  if(!race.on&&!hunt.on&&!slalom.on&&mk)mk.style.display='none';
   if(pulse>0){pulse=Math.max(0,pulse-dt);pil.material.emissive.setRGB(pulse*.6,pulse*.45,pulse*.1)}
 }
 
@@ -647,6 +653,51 @@ function sharkRunTick(t){
       banner(fmt(ms)+(nb?' · new best!':' · best '+fmt(best)),'SHARK RUN · '+srun.bites+(srun.bites===1?' BITE':' BITES'));
       if(chan)chan.send({type:'broadcast',event:'sf',payload:{ms}});endSharkRun();return}}
   srun.el.textContent='Shark Run  ·  '+(srun.i<n?'Buoy '+(srun.i+1)+'/'+n:'Back to the pad!')+'  ·  '+fmt(now-srun.t0+srun.bites*SR_PEN)+'  ·  🦈 '+srun.bites+(srun.bites?' (+'+srun.bites*3+'s)':'');
+}
+
+// ---------- sky slalom (weave 12 tight rings around the floating island; a near-centre pass is "perfect": boost + 0.5s off) ----------
+const SL_N=12,SL_HIT=9,SL_PERFECT=3.5,SL_BONUS=500;
+const slalom={on:false,i:0,pi:0,t0:0,perf:0,gates:[],start:null,el:null,pv:null,beam:null};
+function buildSlalom(){
+  let pad=null; // start pad on the island top: first flat, clear spot on a fixed spiral (same result for everyone in the room, since trees come from the room seed)
+  for(let k=0;k<400&&!pad;k++){const a=k*2.39996,r=25+((k*13)%70),x=SKY.x+Math.cos(a)*r,z=SKY.z+Math.sin(a)*r,y=SKYH(x-SKY.x,z-SKY.z);
+    if(Math.abs(SKYH(x-SKY.x+3,z-SKY.z)-y)>.5||Math.abs(SKYH(x-SKY.x,z-SKY.z+3)-y)>.5)continue;
+    if(solids.some(c=>Math.hypot(c.x-x,c.z-z)<c.r+5))continue;pad={x,y,z}}
+  if(!pad)pad={x:SKY.x,y:SKYH(0,0),z:SKY.z};
+  slalom.start=pad;
+  const a0=Math.atan2(pad.z-SKY.z,pad.x-SKY.x);
+  for(let k=0;k<SL_N;k++){const a=a0+(k+1)*.5,r=k%2?118:55,x=SKY.x+Math.cos(a)*r,z=SKY.z+Math.sin(a)*r; // alternate inner/outer radius and three heights = a weave
+    slalom.gates.push({x,y:SKYH(x-SKY.x,z-SKY.z)+16+(k%3)*10,z})}
+  slalom.gates.forEach((g,i,A)=>{g.m=new THREE.Mesh(new THREE.TorusGeometry(SL_HIT,.8,10,40),new THREE.MeshBasicMaterial({color:'#7fd0ff',fog:false,transparent:true,opacity:.5}));
+    g.m.position.set(g.x,g.y,g.z);const n=A[i+1]||{x:g.x+(g.x-A[i-1].x),y:g.y,z:g.z+(g.z-A[i-1].z)},nl=Math.hypot(n.x-g.x,n.y-g.y,n.z-g.z)||1;g.n={x:(n.x-g.x)/nl,y:(n.y-g.y)/nl,z:(n.z-g.z)/nl};g.m.lookAt(n.x,n.y,n.z);scene.add(g.m)});
+  const padm=new THREE.Mesh(new THREE.CylinderGeometry(3.5,3.5,.3,24),new THREE.MeshStandardMaterial({color:'#7fd0ff',emissive:'#2f9fff',emissiveIntensity:.8}));padm.position.set(pad.x,pad.y+.2,pad.z);scene.add(padm);
+  const sb=new THREE.Mesh(new THREE.CylinderGeometry(.5,.5,60,10,1,true),new THREE.MeshBasicMaterial({color:'#7fd0ff',transparent:true,opacity:.28,depthWrite:false,fog:false,side:THREE.DoubleSide}));sb.position.set(pad.x,pad.y+30,pad.z);scene.add(sb);
+  if(!slalom.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 92px);left:0;right:0;text-align:center;font-size:18px;text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);slalom.el=d}
+}
+function slPaint(){slalom.gates.forEach((g,i)=>{const on=slalom.on,act=on&&i===slalom.i;g.m.visible=!(on&&i<slalom.i);g.m.material.color.set(act?'#ffd24a':'#7fd0ff');g.m.material.opacity=act?1:on?.5:.45;g.m.scale.setScalar(act?1.12:1)})}
+function startSlalom(local){
+  if(!slalom.gates.length||slalom.on)return;
+  slalom.on=true;slalom.i=0;slalom.pi=0;slalom.perf=0;slalom.pv=null;slalom.t0=performance.now()+3000;slPaint();
+  banner('Take off and fly the rings in order · near-centre passes = ⭐ boost','SKY SLALOM');
+  if(local&&chan)chan.send({type:'broadcast',event:'sls',payload:{}});
+}
+function slalomTick(t){
+  if(!slalom.on){if(slalom.el)slalom.el.style.display='none';return}
+  const now=performance.now();slalom.el.style.display='block';
+  if(now<slalom.t0){slalom.el.style.fontSize='44px';slalom.el.textContent=Math.ceil((slalom.t0-now)/1000);slalom.pv=null;return}
+  slalom.el.style.fontSize='18px';
+  const g=slalom.gates[slalom.i],cur={x:S.x,y:S.y+1,z:S.z},pv=slalom.pv||cur;slalom.pv=cur;
+  // a gate counts when this frame's path crosses the ring's plane; d = how far from the ring centre it crossed (swept, so a fast boost can't skip it)
+  const s0=(pv.x-g.x)*g.n.x+(pv.y-g.y)*g.n.y+(pv.z-g.z)*g.n.z,s1=(cur.x-g.x)*g.n.x+(cur.y-g.y)*g.n.y+(cur.z-g.z)*g.n.z;
+  let d=1e9;if(s0!==s1&&s0*s1<=0){const k=s0/(s0-s1);d=Math.hypot(pv.x+(cur.x-pv.x)*k-g.x,pv.y+(cur.y-pv.y)*k-g.y,pv.z+(cur.z-pv.z)*k-g.z)}
+  if(d<SL_HIT){slalom.i++;chime();if(d<SL_PERFECT){slalom.perf++;S.burst=.9}
+    if(chan)chan.send({type:'broadcast',event:'slp',payload:{i:slalom.i}});
+    if(slalom.i>=SL_N){const ms=Math.max(1000,now-slalom.t0-slalom.perf*SL_BONUS);let best=+localStorage.getItem('w4slalom')||1e12;const nb=ms<best;try{if(nb)localStorage.setItem('w4slalom',ms)}catch(e){}
+      banner(fmt(ms)+(nb?' · new best!':' · best '+fmt(best)),'SKY SLALOM · ⭐ '+slalom.perf+'/'+SL_N);slalom.on=false;slPaint();if(chan)chan.send({type:'broadcast',event:'slf',payload:{ms}});return}
+    slPaint()}
+  const a=slalom.gates[slalom.i];
+  slalom.el.textContent='Slalom  ·  Ring '+(slalom.i+1)+'/'+SL_N+'  ·  '+fmt(Math.max(0,now-slalom.t0-slalom.perf*SL_BONUS))+'  ·  ⭐ '+slalom.perf+(slalom.pi?'  ·  Partner: ring '+(slalom.pi+1):'');
+  a.m.scale.setScalar(1.12+Math.sin(t/200)*.06);markTo(a.x,a.y,a.z,'Ring '+(slalom.i+1));
 }
 
 // ---------- sky race ----------
