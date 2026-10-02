@@ -119,6 +119,8 @@ async function enter(code){
   chan.on('broadcast',{event:'tg'},({payload})=>Tag.onMsg(payload));
   chan.on('broadcast',{event:'bs'},()=>startRing(false));
   chan.on('broadcast',{event:'bo'},({payload})=>ringPoint(payload));
+  chan.on('broadcast',{event:'ss'},()=>startSharkRun(false));
+  chan.on('broadcast',{event:'sf'},({payload})=>{if(srun.on)banner('Partner finished in '+fmt(payload.ms),'SHARK RUN')});
   chan.on('broadcast',{event:'sm'},({payload})=>{if(payload.from!==myId)onSmacked(payload)});
   chan.subscribe(async status=>{
     if(status==='SUBSCRIBED'&&!entered){
@@ -358,7 +360,7 @@ function buildWorld(code){
   while(pts.length<40){const a=rng()*6.283,r=12+rng()*195,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<40&&dist(x,z)>45)pts.push([x,z])}
   for(const I of ISL)for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
-  buildRace();buildHunt();buildSeaLife();buildSkyIsland();buildKartTrack();Tag.build();Outlaw.build();buildBonkRing();
+  buildRace();buildHunt();buildSeaLife();buildSkyIsland();buildKartTrack();Tag.build();Outlaw.build();buildBonkRing();buildSharkRun();
 }
 function buildSkyIsland(){
   const geo=new THREE.PlaneGeometry(SKY.R*2.8,SKY.R*2.8,72,72);geo.rotateX(-Math.PI/2);
@@ -475,12 +477,15 @@ Interaction.register('kart','Start Ground Race',
 Interaction.register('ring','Start Bonk Ring',
   ()=>!brg.on&&Math.hypot(S.x-RING.x,S.z-RING.z)<RING.R,
   ()=>startRing(true));
+Interaction.register('sharkrun','Start Shark Run',
+  ()=>!srun.on&&srun.start&&Math.hypot(S.x-srun.start.x,S.z-srun.start.z)<5,
+  ()=>startSharkRun(true));
 function explore(dt,t){
   for(const L of LOCS)if(!disc.has(L.n)&&Math.hypot(S.x-L.x,S.z-L.z)<L.r&&(!L.y||S.y>L.y)){disc.add(L.n);banner(L.n);save();updateHud()}
   orbs.forEach((o,i)=>{if(!o.on)return;o.m.rotation.y+=dt*2;o.m.position.y=o.y+Math.sin(t/400+i)*.15;
     if(Math.hypot(S.x-o.x,S.z-o.z)<1.6&&Math.abs(S.y+1-o.y)<2.2)take(i,true)});
   Interaction.update();
-  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);ringTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);WorldMap.tick();
+  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);ringTick(t);sharkRunTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);WorldMap.tick();
   if(!race.on&&!hunt.on&&mk)mk.style.display='none';
   if(pulse>0){pulse=Math.max(0,pulse-dt);pil.material.emissive.setRGB(pulse*.6,pulse*.45,pulse*.1)}
 }
@@ -602,6 +607,46 @@ function ringTick(t){
     brg.them++;if(chan)chan.send({type:'broadcast',event:'bo',payload:{l:brg.them}});
     if(brg.them>=RING_WIN){endRing();return}
     banner('You fell out!  '+brg.me+' – '+brg.them,'BONK RING');ringSpawn(2200)}
+}
+
+// ---------- shark run (swim a buoy course past patrolling sharks; each bite costs +3s) ----------
+const SR_GATES=[[232,98],[232,112],[232,126],[250,132],[250,118],[250,104]],SR_SHARKS=[[232,112],[250,128],[250,108]],SR_PEN=3000; // [radius from island centre, angle deg]; start pad on Shell Beach
+const srun={on:false,i:0,t0:0,bites:0,gates:[],start:null,el:null,saved:[]};
+const srPt=(r,t)=>({x:Math.cos(t*Math.PI/180)*r,z:Math.sin(t*Math.PI/180)*r});
+function buildSharkRun(){
+  srun.start=srPt(188,98);const sy=H(srun.start.x,srun.start.z);
+  const pad=new THREE.Mesh(new THREE.CylinderGeometry(3,3,.25,24),new THREE.MeshStandardMaterial({color:'#2f9fff'}));pad.position.set(srun.start.x,sy+.14,srun.start.z);scene.add(pad);
+  const sb=new THREE.Mesh(new THREE.CylinderGeometry(.5,.5,40,10,1,true),new THREE.MeshBasicMaterial({color:'#2f9fff',transparent:true,opacity:.22,depthWrite:false,fog:false,side:THREE.DoubleSide}));sb.position.set(srun.start.x,sy+20,srun.start.z);scene.add(sb);
+  for(const [r,t] of SR_GATES){const p=srPt(r,t),g=new THREE.Group();g.position.set(p.x,-.3,p.z);
+    const ball=new THREE.Mesh(new THREE.SphereGeometry(1.1,12,10),new THREE.MeshStandardMaterial({color:'#ff7a1a',emissive:'#ff4a00',emissiveIntensity:.6}));ball.position.y=.5;g.add(ball);
+    const beam=new THREE.Mesh(new THREE.CylinderGeometry(.35,.35,30,8,1,true),new THREE.MeshBasicMaterial({color:'#ffb066',transparent:true,opacity:.35,depthWrite:false,fog:false,side:THREE.DoubleSide}));beam.position.y=15;g.add(beam);
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(6,.25,8,32),new THREE.MeshBasicMaterial({color:'#ffffff'}));ring.rotation.x=Math.PI/2;ring.position.y=.2;g.add(ring);
+    g.visible=false;scene.add(g);srun.gates.push({g,x:p.x,z:p.z})}
+  if(!srun.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 92px);left:0;right:0;text-align:center;font-size:18px;text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);srun.el=d}
+}
+function startSharkRun(local){
+  if(!srun.gates.length||srun.on)return;
+  srun.on=true;srun.i=0;srun.bites=0;srun.t0=performance.now()+3000;S.flying=false;
+  srun.saved=[];sharks.slice(0,SR_SHARKS.length).forEach((s,k)=>{const p=srPt(...SR_SHARKS[k]); // borrow up to 3 sharks and park their patrols on the course; endSharkRun() puts them back
+    srun.saved.push({s,cx:s.cx,cz:s.cz,cy:s.cy,rad:s.rad,state:s.state});s.cx=p.x;s.cz=p.z;s.cy=H(p.x,p.z)-1.4;s.rad=11;s.state='patrol';s.bitAt=-9999;s.m.position.set(p.x+11,s.cy,p.z)});
+  banner('Swim the buoys, dodge the sharks! Each bite = +3s','SHARK RUN');
+  if(local&&chan)chan.send({type:'broadcast',event:'ss',payload:{}});
+}
+function endSharkRun(){srun.on=false;for(const o of srun.saved){Object.assign(o.s,{cx:o.cx,cz:o.cz,cy:o.cy,rad:o.rad,state:o.state});o.s.m.position.set(o.cx+o.rad,o.cy,o.cz)}srun.saved=[];srun.gates.forEach(g=>g.g.visible=false)}
+function sharkRunTick(t){
+  if(!srun.on){if(srun.el)srun.el.style.display='none';return}
+  const now=performance.now(),n=srun.gates.length;srun.el.style.display='block';
+  srun.gates.forEach((g,i)=>{g.g.visible=i>=srun.i;g.g.scale.setScalar(i===srun.i?1+Math.sin(t/200)*.06:.8)});
+  if(now<srun.t0){srun.el.style.fontSize='44px';srun.el.textContent=Math.ceil((srun.t0-now)/1000);return}
+  srun.el.style.fontSize='18px';if(S.flying)S.flying=false;
+  for(const o of srun.saved){const s=o.s,sd=Math.hypot(S.x-s.m.position.x,S.z-s.m.position.z); // a bite = a shark actually reaching me
+    if(sd<2.6&&S.y<.5&&now-s.bitAt>2500){s.bitAt=now;srun.bites++;onSmacked({dx:(S.x-s.m.position.x)/Math.max(sd,.01),dz:(S.z-s.m.position.z)/Math.max(sd,.01)});sharkBite()}}
+  const tg=srun.i<n?srun.gates[srun.i]:srun.start; // after the last buoy, swim back to the start pad
+  if(Math.hypot(S.x-tg.x,S.z-tg.z)<(srun.i<n?7:5)){srun.i++;chime();
+    if(srun.i>n){const ms=now-srun.t0+srun.bites*SR_PEN;let best=+localStorage.getItem('w4shark')||1e12;const nb=ms<best;try{if(nb)localStorage.setItem('w4shark',ms)}catch(e){}
+      banner(fmt(ms)+(nb?' · new best!':' · best '+fmt(best)),'SHARK RUN · '+srun.bites+(srun.bites===1?' BITE':' BITES'));
+      if(chan)chan.send({type:'broadcast',event:'sf',payload:{ms}});endSharkRun();return}}
+  srun.el.textContent='Shark Run  ·  '+(srun.i<n?'Buoy '+(srun.i+1)+'/'+n:'Back to the pad!')+'  ·  '+fmt(now-srun.t0+srun.bites*SR_PEN)+'  ·  🦈 '+srun.bites+(srun.bites?' (+'+srun.bites*3+'s)':'');
 }
 
 // ---------- sky race ----------
