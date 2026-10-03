@@ -74,6 +74,9 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/games/Tag.js"></script>
 <script src="src/games/Outlaw.js"></script>
 <script src="src/ui/WorldMap.js"></script>
+<script src="src/core/Net.js"></script>
+<script src="src/core/WorldState.js"></script>
+<script src="src/ui/Journal.js"></script>
 <script>
 const SUPABASE_URL='https://lzqnxawxehmqgswuzpyn.supabase.co';
 const SUPABASE_KEY='sb_publishable_bAm2KsLV8__Y4nWSFesZeQ_38-Ly6DE';
@@ -109,6 +112,7 @@ async function enter(code){
   myName=($('name').value.trim()||'Player').slice(0,16);
   roomCode=code;msg('Connecting…');
   chan=sb.channel('world:'+code,{config:{broadcast:{self:false},presence:{key:myId}}});
+  Net.attach(chan);
   chan.on('broadcast',{event:'s'},({payload})=>onState(payload));
   chan.on('presence',{event:'sync'},syncPresence);
   chan.on('broadcast',{event:'c'},({payload})=>take(payload.i,false));
@@ -533,7 +537,7 @@ async function startGame(){
   camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,4200);
   boot('Loading world…');
   try{await Promise.race([Promise.all([loadAssets(),loadKartAssets(),loadChar().catch(e=>showErr('char: '+e))]),new Promise(r=>setTimeout(r,20000))])}catch(e){showErr(e)}
-  try{buildWorld(roomCode);load()}catch(e){showErr(e);throw e}
+  try{buildWorld(roomCode);load();wsBoot()}catch(e){showErr(e);throw e}
   boot('');
   me=makeAvatar(myName,myColor);scene.add(me);dress(me,mySkin);
   // spawn: slot by join order (offset so partners don't overlap)
@@ -567,8 +571,28 @@ function send(){
 
 // ---------- exploration ----------
 let disc=new Set(),orbs=[],got=0,pil,pulse=0;
-function save(){try{localStorage.setItem('w4:'+roomCode,JSON.stringify({d:[...disc],o:orbs.map((o,i)=>o.on?-1:i).filter(i=>i>=0)}))}catch(e){}}
+function save(){wsMirror();try{localStorage.setItem('w4:'+roomCode,JSON.stringify({d:[...disc],o:orbs.map((o,i)=>o.on?-1:i).filter(i=>i>=0)}))}catch(e){}}
 function load(){try{const v=JSON.parse(localStorage.getItem('w4:'+roomCode)||'{}');disc=new Set(v.d||[]);for(const i of v.o||[])if(orbs[i]){orbs[i].on=false;orbs[i].m.visible=false;got++}}catch(e){}}
+// ---- WorldState glue (Phase 1): local progress <-> shared memory ----
+function wsMirror(){try{if(!WS.ready())return;
+  for(const n of disc)WS.addToSet('disc',n);
+  orbs.forEach((o,i)=>{if(!o.on)WS.addToSet('orbs',i)});
+  WS.max('treas',treas);
+  for(const m of [10,25,50,75,100])if(got>=m)WS.log('shards','n'+m,{n:m});
+}catch(e){}}
+function wsPull(quiet){let ch=0,first=null;
+  for(const n of WS.getSet('disc'))if(!disc.has(n)){disc.add(n);ch++;first=first||n}
+  for(const i of WS.getSet('orbs'))if(orbs[i]&&orbs[i].on){orbs[i].on=false;orbs[i].m.visible=false;got++;ch++}
+  const t=WS.get('treas',0);if(t>treas){treas=t;try{localStorage.setItem('w4t',treas)}catch(e){}ch++}
+  if(ch){save();updateHud();if(first&&!quiet)banner(first,'YOUR PARTNER DISCOVERED')}}
+function wsBoot(){
+  WS.init(roomCode,myName).then(()=>{
+    wsMirror();                 // one-time import of whatever this device already had
+    wsPull(true);               // pull in whatever the partner did while we were away
+    WS.log('start','founded',{});
+    Journal.init();
+    WS.onChange((k,v,remote)=>{if(remote&&(k==='*'||k==='disc'||k==='orbs'||k==='treas'))wsPull(k==='*')});
+  }).catch(e=>console.warn('wsBoot',e))}
 function banner(t,l){const b=$('banner');b.innerHTML='<small>'+(l||'NEW LOCATION DISCOVERED')+'</small><br>'+t;b.style.opacity=1;clearTimeout(banner.t);banner.t=setTimeout(()=>b.style.opacity=0,3200)}
 function take(i,local){const o=orbs[i];if(!o||!o.on)return;o.on=false;o.m.visible=false;got++;save();updateHud();if(local&&chan)chan.send({type:'broadcast',event:'c',payload:{i}})}
 function chime(){try{const a=new(window.AudioContext||webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.frequency.value=660;o.connect(g);g.connect(a.destination);g.gain.setValueAtTime(.2,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+1.4);o.start();o.stop(a.currentTime+1.4)}catch(e){}}
@@ -601,7 +625,7 @@ Interaction.register('dash','Start Obstacle Dash',
   ()=>!dash.on&&dash.start&&Math.hypot(S.x-dash.start.x,S.z-dash.start.z)<4,
   ()=>startDash(true));
 function explore(dt,t){
-  for(const L of LOCS)if(!disc.has(L.n)&&Math.hypot(S.x-L.x,S.z-L.z)<L.r&&(!L.y||S.y>L.y)){disc.add(L.n);banner(L.n);save();updateHud()}
+  for(const L of LOCS)if(!disc.has(L.n)&&Math.hypot(S.x-L.x,S.z-L.z)<L.r&&(!L.y||S.y>L.y)){disc.add(L.n);banner(L.n);try{WS.log('place',L.n,{x:L.x,z:L.z})}catch(e){}save();updateHud()}
   orbs.forEach((o,i)=>{if(!o.on)return;o.m.rotation.y+=dt*2;o.m.position.y=o.y+Math.sin(t/400+i)*.15;
     if(Math.hypot(S.x-o.x,S.z-o.z)<1.6&&Math.abs(S.y+1-o.y)<2.2)take(i,true)});
   Interaction.update();
@@ -965,7 +989,7 @@ function startHunt(local,n){
 }
 function dig(local){
   if(!hunt.on)return;hunt.on=false;hunt.open=2.5;hunt.chest.visible=true;hunt.chest.position.set(hunt.x,hunt.y-.9,hunt.z);hunt.beam.visible=false;chime();
-  treas++;try{localStorage.setItem('w4t',treas)}catch(e){}updateHud();
+  treas++;try{localStorage.setItem('w4t',treas)}catch(e){}if(local)try{WS.log('treasure','hunt:'+hunt.n,{x:hunt.x,z:hunt.z})}catch(e){}save();updateHud();
   banner(local?'You found the treasure!':'Your partner found the treasure!','TREASURE FOUND');
   if(local&&chan)chan.send({type:'broadcast',event:'hf',payload:{}});
 }
