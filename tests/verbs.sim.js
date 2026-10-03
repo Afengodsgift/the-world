@@ -50,6 +50,7 @@ function step(c,n,dt){for(let i=0;i<n;i++){c.Verbs._frame(dt||.05,Date.now());c.
   const D=client('d','Dee','OTHER-ROOM');D.Verbs.build();
   ok(JSON.stringify(D.Verbs.camps().map(c=>c.x.toFixed(2)))!==JSON.stringify(ca.map(c=>c.x.toFixed(2))),'different room -> different camp layout');
   ok(A.Verbs.items().every(i=>A.H(i.x,i.z)>0.5),'all interactables are on land');
+  {const F=vm.runInContext('typeof FARM!=="undefined"?FARM:null',A.ctx);if(F)ok(A.Verbs.items().every(i=>Math.hypot(i.x-F.x,i.z-F.z)>F.R+10&&Math.hypot(i.x-F.x,i.z-(F.z+F.R+9))>20),'no camp inside the farm meadow or barn');else console.log('ok   (no FARM in this tree)')}
   ok(A.Verbs.items().length===ca.length*3,'3 interactables per camp');
   // ---- boot WS
   await A.WS.init(ROOM,'Alex');await B.WS.init(ROOM,'Bee');A.Verbs.start();B.Verbs.start();
