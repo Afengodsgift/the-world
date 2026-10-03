@@ -26,6 +26,12 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 #banner{position:fixed;z-index:6;top:22%;left:0;right:0;text-align:center;font-size:26px;font-style:italic;text-shadow:0 2px 10px #000;opacity:0;transition:opacity .6s;pointer-events:none}#banner small{font-size:12px;letter-spacing:.25em;font-style:normal;opacity:.8}
 #boost{position:fixed;z-index:5;right:126px;bottom:calc(env(safe-area-inset-bottom,0px) + 58px);width:76px;height:76px;border-radius:50%;padding:0;display:none;background:#7fd0ffdd;color:#06304a;font-size:13px;opacity:.75}
 #smack{position:fixed;z-index:5;right:126px;bottom:calc(env(safe-area-inset-bottom,0px) + 58px);width:76px;height:76px;border-radius:50%;padding:0;display:none;background:#ffb0b0dd;color:#4a0606;font-size:13px}
+#emobtn{position:fixed;z-index:5;left:20px;bottom:calc(env(safe-area-inset-bottom,0px) + 396px);width:52px;height:52px;border-radius:50%;padding:0;display:none;background:#ffffffcc;font-size:26px}
+#emopanel{position:fixed;z-index:12;left:0;right:0;bottom:0;max-height:58vh;overflow-y:auto;display:none;padding:12px 12px calc(env(safe-area-inset-bottom,0px) + 16px);background:#0d1330f2;border-radius:18px 18px 0 0;color:#fff;box-shadow:0 -6px 30px #0008}
+#emopanel h4{margin:10px 4px 6px;font-size:13px;opacity:.7;letter-spacing:.08em;text-transform:uppercase}
+#emopanel .row{display:flex;flex-wrap:wrap;gap:8px}
+#emopanel button{position:static;width:auto;height:auto;border-radius:14px;padding:9px 12px;font-size:15px;background:#ffffff1f;color:#fff;border:0;display:block}
+#emopanel .x{position:sticky;top:0;float:right;font-size:18px;padding:4px 12px;background:#ffffff33}
 #panbtn{position:fixed;z-index:5;right:136px;bottom:calc(env(safe-area-inset-bottom,0px) + 144px);width:56px;height:56px;border-radius:50%;padding:0;display:none;background:#ffffffcc;font-size:26px;opacity:.6}
 #flash{position:fixed;z-index:8;inset:0;background:#ff0000;opacity:0;pointer-events:none;transition:opacity .08s}
 #use{position:fixed;z-index:5;right:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 156px);display:none;width:auto;padding:12px 22px;background:#ffffffdd;color:#1a1f3a}
@@ -50,7 +56,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <button id="jump">Jump</button>
 <div id="flash"></div>
 <button id="boost">Boost</button>
-<button id="panbtn">🍳</button><button id="smack">Smack</button><div id="banner"></div><button id="use">Use</button>
+<button id="emobtn">😀</button><div id="emopanel"></div><button id="panbtn">🍳</button><button id="smack">Smack</button><div id="banner"></div><button id="use">Use</button>
 <div id="pmk"><div>▲</div><small style="font-size:12px"></small></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
@@ -125,6 +131,7 @@ async function enter(code){
   chan.on('broadcast',{event:'ss'},()=>startSharkRun(false));
   chan.on('broadcast',{event:'sls'},()=>startSlalom(false));
   chan.on('broadcast',{event:'ds'},()=>startDash(false));
+  chan.on('broadcast',{event:'em'},({payload})=>{const o=others.get(payload.from);if(o)loadEmotes().then(()=>{o.group.userData.emoteReq=payload.e}).catch(()=>{})});
   chan.on('broadcast',{event:'df'},({payload})=>{if(dash.on)banner('Partner finished in '+fmt(payload.ms),'OBSTACLE DASH')});
   chan.on('broadcast',{event:'slp'},({payload})=>{slalom.pi=payload.i});
   chan.on('broadcast',{event:'slf'},({payload})=>{if(slalom.on)banner('Partner finished in '+fmt(payload.ms),'SKY SLALOM')});
@@ -222,6 +229,33 @@ function flyPose(q,dt,sf){
 // Baked-clip animation (assets/anims.json): ground clip by actual speed, swim/fly/jump/fall by state, one-shot overlays for swing/hit/land/interact.
 // Overlay clips use a big weight so they override the locomotion clip on the bones they touch (smack = upper body only).
 const LOCO={walk:1,jog:1,sprint:1},clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+// ---- emotes: assets/emotes.json is fetched lazily (~1 MB). kind: once = plays once, loop = holds until you move, clamp = holds the last frame until you move. `intro` clips are named <id>_in.
+const EMO={p:null,clips:{},def:{},menu:[]};
+function loadEmotes(){
+  if(!EMO.p)EMO.p=fetch(AURL+'emotes.json').then(r=>r.json()).then(j=>{EMO.menu=j.menu;j.menu.forEach(m=>EMO.def[m.id]=m);for(const c of j.clips){const ac=THREE.AnimationClip.parse(c);ac.name=c.name;EMO.clips[c.name]=ac}}).catch(e=>{EMO.p=null;throw e});
+  return EMO.p}
+function emoAct(q,name){const A=q.nact;if(!A[name]&&EMO.clips[name])A[name]=q.mixer.clipAction(EMO.clips[name]);return A[name]}
+function openEmotes(){
+  const pn=$('emopanel');if(pn.style.display==='block'){pn.style.display='none';return}
+  pn.innerHTML='<button class="x">✕</button>';pn.style.display='block';
+  pn.firstChild.onclick=()=>{pn.style.display='none'};
+  loadEmotes().then(()=>{let cat='',row=null;
+    for(const m of EMO.menu){if(m.cat!==cat){cat=m.cat;const h=document.createElement('h4');h.textContent=cat;pn.appendChild(h);row=document.createElement('div');row.className='row';pn.appendChild(row)}
+      const b=document.createElement('button');b.textContent=m.emoji+' '+m.label;b.onclick=()=>{pn.style.display='none';playEmote(m.id)};row.appendChild(b)}
+  }).catch(()=>{pn.innerHTML+='<p>Couldn\'t load emotes - check your connection.</p>'})}
+function playEmote(id){
+  if(!me||!me.userData.nact)return;
+  if(S.flying||!S.grounded||S.state==='swim'){banner('Land on solid ground to emote','😀');return}
+  me.userData.emoteReq=id;if(chan)chan.send({type:'broadcast',event:'em',payload:{from:myId,e:id}})}
+function emoStop(q){const h=q.hold;if(!h)return;for(const a of h.acts){a.fadeOut(.2)}q.hold=null}
+function emoStart(q,id){
+  const d=EMO.def[id];if(!d)return;emoStop(q);
+  const main=emoAct(q,id);if(!main)return;const acts=[main],setup=(a,loopMode,clampEnd)=>{a.reset();a.setLoop(loopMode,loopMode===THREE.LoopOnce?1:Infinity);a.clampWhenFinished=!!clampEnd;a.setEffectiveTimeScale(1);a.setEffectiveWeight(20)};
+  if(d.kind==='once'){setup(main,THREE.LoopOnce,false);main.fadeIn(.15).play();q.hold={acts,until:performance.now()/1000+main.getClip().duration,once:true};return}
+  const mode=d.kind==='clamp'?THREE.LoopOnce:THREE.LoopRepeat,clampEnd=d.kind==='clamp';
+  if(d.intro){const ia=emoAct(q,id+'_in');if(ia){acts.push(ia);setup(ia,THREE.LoopOnce,true);ia.fadeIn(.15).play();q.hold={acts,main,mode,clampEnd,introAt:performance.now()/1000+ia.getClip().duration-.12,ia};return}}
+  setup(main,mode,clampEnd);main.fadeIn(.2).play();q.hold={acts}}
+
 function animateClips(g,dt,st){
   const q=g.userData,A=q.nact,p=g.position;
   const rawU=q.pp&&dt>0?Math.hypot(p.x-q.pp.x,p.z-q.pp.z)/dt:0,raw=Math.min(16,rawU);q.pp={x:p.x,z:p.z};
@@ -240,10 +274,14 @@ function animateClips(g,dt,st){
     n.setEffectiveWeight(1);n.fadeIn(fade).play();if(q.cur)A[q.cur].fadeOut(fade);q.cur=want}
   n.setEffectiveTimeScale(ts);
   // one-shot overlays
-  const ov=(name,sp,w,fi)=>{const a=A[name];if(!a)return;a.reset();a.setEffectiveTimeScale(sp);a.setEffectiveWeight(w);a.fadeIn(fi).play();(q.ov=q.ov||{})[name]={a,left:a.getClip().duration/sp,ending:false}};
-  if((q.swing||0)>.9)ov('smack',1.4,24,.05);
-  if(q.hitReq){q.hitReq=0;q.hitAlt=!q.hitAlt;ov(q.hitAlt&&A.hit2?'hit2':'hit',q.hitAlt?1.3:.9,24,.02)} // alternate two hit reactions
-  if(q.emote){const e=q.emote;q.emote=null;ov(e,1.3,20,.1)}
+  const ov=(name,sp,w,fi)=>{const a=A[name]||emoAct(q,name);if(!a)return;a.reset();a.setEffectiveTimeScale(sp);a.setEffectiveWeight(w);a.fadeIn(fi).play();(q.ov=q.ov||{})[name]={a,left:a.getClip().duration/sp,ending:false}};
+  if((q.swing||0)>.9){emoStop(q);ov('smack',1.4,24,.05)}
+  if(q.hitReq){emoStop(q);q.hitReq=0;q.hitAlt=!q.hitAlt;ov(q.hitAlt&&A.hit2?'hit2':'hit',q.hitAlt?1.3:.9,24,.02)} // alternate two hit reactions
+  if(q.emote){const e=q.emote;q.emote=null;emoStop(q);ov(e,1.3,20,.1)}
+  if(q.emoteReq){const e=q.emoteReq;q.emoteReq=null;if(st==='idle'||!q.hold)emoStart(q,e)}
+  if(q.hold){const h=q.hold,now=performance.now()/1000;
+    if(h.introAt&&now>=h.introAt){const m=h.main;m.reset();m.setLoop(h.mode,h.mode===THREE.LoopOnce?1:Infinity);m.clampWhenFinished=h.clampEnd;m.setEffectiveWeight(20);m.fadeIn(.25).play();h.ia.fadeOut(.25);h.introAt=0} // intro -> loop/hold
+    if(st!=='idle'||v>.6||(h.once&&now>h.until))emoStop(q)} // moving, jumping, being hit or the clip finishing ends an emote
   if((q.land||0)>.05&&!q.landOn){q.landOn=true;if(v<2.5&&st==='idle')ov('land',1.5,6,.04)}else if((q.land||0)<=0)q.landOn=false;
   for(const k in q.ov){const o=q.ov[k];o.left-=dt;if(o.left<.14&&!o.ending){o.ending=true;o.a.fadeOut(.12)}if(o.left<-.05)delete q.ov[k]}
   q.swing=Math.max(0,(q.swing||0)-dt*2.6);
@@ -497,7 +535,7 @@ const S={x:0,y:0,z:0,vy:0,rot:0,yaw:0,pitch:.35,grounded:true,state:'idle',flyin
 
 async function startGame(){
   $('lobby').style.display='none';
-  ['hud','stick'].forEach(i=>$(i).style.display=i==='hud'?'flex':'block');$('jump').style.display='block';$('panbtn').style.display=PAN_ENABLED?'block':'none';
+  ['hud','stick'].forEach(i=>$(i).style.display=i==='hud'?'flex':'block');$('jump').style.display='block';$('panbtn').style.display=PAN_ENABLED?'block':'none';$('emobtn').style.display='block';setTimeout(()=>loadEmotes().catch(()=>{}),4000);
   renderer=new THREE.WebGLRenderer({antialias:true});renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);
   document.body.appendChild(renderer.domElement);
