@@ -32,13 +32,17 @@ const Events=(()=>{
 
   // ---- helpers for event types --------------------------------------------------------------
   const rng=(ev,salt)=>mulberry(hashSeed(ev.id+':'+salt));
-  function site(ev,o){ // deterministic spot: 40% main island, else a random outer island (never Outlaw)
-    const r=rng(ev,'site'),isl=ISL.filter(i=>i.n!=='Outlaw Isle'),pickMain=ev.dev||r()<.4;
+  function site(ev,o){ // deterministic spot: 40% main island, else a random outer island (never Outlaw); falls back so an event is never silently lost
     if(ev.dev&&ev.at)return Object.assign({},ev.at,{name:'here'});
-    const cx=pickMain?0:isl[Math.floor(r()*isl.length)];
-    const base=pickMain?{n:'the main island',x:0,z:0,R:190}:cx;
-    const st=Sites.find({tag:'ev',key:ev.id,temp:true,name:base.n,cx:base.x,cz:base.z,rmin:o.rmin||0,rmax:Math.min(o.rmax||170,base.R*.7),clear:o.clear||8,sep:12});
-    return st?Object.assign(st,{name:base.n}):null;
+    const r=rng(ev,'site'),isl=ISL.filter(i=>i.n!=='Outlaw Isle'),main={n:'the main island',x:0,z:0,R:190};
+    const first=(ev.dev||r()<.4)?main:isl[Math.floor(r()*isl.length)];
+    const order=[first,main,...isl].filter((b,i,a)=>a.indexOf(b)===i);   // chosen island, then main, then the rest: same order on both phones
+    for(let i=0;i<order.length;i++){
+      const b=order[i];
+      const st=Sites.find({tag:'ev',key:ev.id+':'+i,temp:true,name:b.n,cx:b.x,cz:b.z,rmin:o.rmin||0,rmax:Math.min(o.rmax||170,b.R*.7),clear:o.clear||8,sep:12});
+      if(st)return Object.assign(st,{name:b.n});
+    }
+    return null;
   }
   function permanent(){if(!perm){perm=new THREE.Group();scene.add(perm)}return perm} // evidence that outlives an event (craters)
 

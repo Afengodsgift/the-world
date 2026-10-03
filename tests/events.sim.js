@@ -3,7 +3,7 @@
 const {client}=require('./harness');
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));let fails=0;
 const ok=(c,m)=>{if(!c){fails++;console.log('FAIL',m)}else console.log('ok  ',m)};
-const T={v:Date.now()};
+const T={v:Date.now()+(Number(process.env.SIM_OFFSET_DAYS)||0)*864e5}; // SIM_OFFSET_DAYS lets you replay the sim against different parts of the schedule
 async function pair(room){
   const A=client('a','Alex',room),B=client('b','Bee',room);
   A.others.get('b').group.position=B.S;B.others.get('a').group.position=A.S;
@@ -32,6 +32,10 @@ function findSlot(c,type,from){const s0=Math.floor(from/c.EVENTS.slotMs);for(let
   let d2=0;for(let s=s0;s<s0+60;s++)if(JSON.stringify(C2.Events.schedule(s))!==JSON.stringify(A.Events.schedule(s)))d2++;
   ok(d2>20,'different rooms get different schedules');
 
+  // ---------- no event is ever silently lost for lack of a spot (regression: 17.5% used to be)
+  {const o={meteor:{rmin:30,rmax:170,clear:14},visitor:{rmin:25,rmax:175,clear:6},rings:{rmin:20,rmax:150,clear:8}};let lost=0,seen=0;
+   for(let sl=s0;sl<s0+300;sl++){const e=A.Events.schedule(sl);if(!e)continue;seen++;if(!A.Events.site(e,o[e.type]))lost++}
+   ok(lost===0,'every scheduled event finds a spot ('+seen+' events checked, '+lost+' lost)')}
   // ---------- quiet between events
   const mEv=findSlot(A,'meteor',T.v);
   T.v=mEv.end+5000;adv([A,B],100);
