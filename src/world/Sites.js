@@ -22,13 +22,13 @@ const Sites=(()=>{
     for(const t of taken){const same=t.tag===o.tag&&t.name===o.name;if(Math.hypot(x-t.x,z-t.z)<Math.max(o.sep||40,t.r+fp,same?(o.sameSep||0):0))return false}
     return true;
   }
-  // o: {tag,key,name,cx,cz,rmin,rmax,clear,sep,sameSep}
+  // o: {tag,key,name,cx,cz,rmin,rmax,clear,sep,sameSep,temp}
   function find(o){
     const rng=mulberry(hashSeed(roomCode+':site:'+o.tag+':'+o.key));
     for(let i=0;i<500;i++){
       const a=rng()*6.283,r=o.rmin+Math.sqrt(rng())*(o.rmax-o.rmin),x=o.cx+Math.cos(a)*r,z=o.cz+Math.sin(a)*r;
       if(!ok(x,z,o))continue;
-      taken.push({x,z,r:o.clear||5,tag:o.tag,name:o.name});
+      if(!o.temp)taken.push({x,z,r:o.clear||5,tag:o.tag,name:o.name}); // temp sites (events) respect existing sites but do not reserve ground
       return {x,z,y:H(x,z),ry:rng()*6.283};
     }
     return null;

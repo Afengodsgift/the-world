@@ -15,5 +15,13 @@ const Fx=(()=>{
     for(let i=parts.length-1;i>=0;i--){const f=parts[i];f.life-=dt;f.vy-=14*dt;f.m.position.x+=f.vx*dt;f.m.position.y+=f.vy*dt;f.m.position.z+=f.vz*dt;f.m.rotation.y+=dt*6;
       if(f.life<=0){scene.remove(f.m);parts.splice(i,1)}}
   }
-  return {mat,basic,M,burst,count:()=>parts.length,_step:step};
+  // A small centred progress/status bar. const b=Fx.bar(250); b.show('text',0..1); b.hide();
+  function bar(bottom){
+    const el=document.createElement('div');el.style.cssText='position:fixed;z-index:6;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + '+(bottom||250)+'px);width:220px;padding:8px 12px;background:#000a;border-radius:12px;color:#fff;font:14px sans-serif;text-align:center;display:none;pointer-events:none';
+    const tx=document.createElement('div'),tr=document.createElement('div'),fl=document.createElement('div');
+    tr.style.cssText='height:8px;border-radius:4px;background:#ffffff33;margin-top:6px;overflow:hidden';fl.style.cssText='height:100%;width:0;background:#ffd24a';
+    tr.appendChild(fl);el.appendChild(tx);el.appendChild(tr);document.body.appendChild(el);
+    return {show(t,p){el.style.display='block';if(tx.textContent!==t)tx.textContent=t;fl.style.width=Math.max(0,Math.min(100,p*100))+'%'},hide(){el.style.display='none'},visible:()=>el.style.display!=='none'};
+  }
+  return {mat,basic,M,burst,bar,count:()=>parts.length,_step:step};
 })();

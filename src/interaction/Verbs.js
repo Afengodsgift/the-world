@@ -183,7 +183,11 @@ const Verbs=(()=>{
     WS.onChange((k,v,remote)=>{if(k==='done'||k==='*')sync(!!remote);if(k==='seen'||k==='*')restoreSeen()});
   }
   function restoreSeen(){const s=WS.getSet('seen');for(const c of camps)if(s.includes(c.id))c.seen=true}
+  // Events (a wandering visitor) can reveal places you have not found yet.
+  const unseen=()=>camps.filter(c=>!c.seen).map(c=>({id:c.id,name:c.name,x:c.x,z:c.z,y:c.y,what:'an abandoned camp'}));
+  function reveal(id,how){const c=camps.find(x=>x.id===id);if(!c||c.seen)return false;c.seen=true;
+    if(WS.ready()&&WS.addToSet('seen',c.id))WS.log('spot',c.id,{text:how||('Heard about an abandoned camp on '+c.name),icon:'⛺',x:c.x,z:c.z});return true}
   const places=()=>camps.filter(c=>c.seen).map(c=>({n:'Camp · '+c.name,x:c.x,z:c.z,y:c.y,r:6,icon:c.cleared?'🏕️':'⛺'}));
   function tp(i){const c=camps[i||0];if(!c||!S)return false;S.x=c.x+5;S.z=c.z+5;S.y=H(S.x,S.z)+.5;S.vy=0;S.flying=false;return c.name} // dev helper: Verbs.tp(0)
-  return {build,start,places,tp,camps:()=>camps,items:()=>items,_frame:frame};
+  return {build,start,places,tp,unseen,reveal,camps:()=>camps,items:()=>items,_frame:frame};
 })();

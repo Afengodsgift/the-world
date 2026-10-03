@@ -20,9 +20,9 @@ discover → remember → explore again.** We build reusable foundations first, 
 | 0 | `Net` adapter — one namespaced event for all *new* systems | `src/core/Net.js` | **done** |
 | 1 | `WorldState` — shared memory, Supabase + local + live | `src/core/WorldState.js` | **done** |
 | 1 | Journal v0 — read-only view over the log | `src/ui/Journal.js` | **done** |
-| 2 | Verbs — data-driven interactables over `Interaction` | `src/interaction/Verbs.js`, `src/data/interactables.js` | next |
-| 3 | Link — two-player primitives (both / hold / sync / split / tether) | `src/interaction/Link.js` | planned |
-| 4 | Event Director — pure function of (roomSeed, timeSlot) | `src/world/Events.js` | planned |
+| 2 | Verbs — data-driven interactables over `Interaction` (camps: dig/mine/repair) | `src/interaction/Verbs.js`, `src/data/interactables.js` | **done** |
+| 3 | Link — two-player primitives (`both`, `sync` done; hold/split/tether next) + Vaults (twin plates, call-together shrine) | `src/interaction/Link.js`, `src/world/Vaults.js` | **done** |
+| 4 | Event Director — pure function of (roomSeed, timeSlot); meteor shower, wandering visitor, golden rings | `src/world/Events.js`, `src/world/events/*.js`, `src/data/events.js` | **done** (shark surge needs sea-life hooks) |
 | 5 | Zones — island rule modifiers via one hook in `tick` | `src/world/Zones.js` | planned |
 | 6 | Home — slots driven by state, a physical record of adventures | `src/home/Home.js` | planned |
 
@@ -62,7 +62,11 @@ Storm Cay: wind (`S.kx/kz`) + lightning rods · Boneyard: relics, ghost bandits,
 Outlaw Isle: stays specialized · Sky: wind currents, cloud platforms · Main: town restoration, cave hub.
 
 ## Roadmap
-0 Net adapter ✔ · 1 WorldState + Journal ✔ · 2 Verbs v1 (dig, pickaxe, hammer + cave interior) ·
-3 Link (twin plates, lockpick+lookout, synced emote) · 4 Event Director (meteor, shark surge,
-golden ring) · 5 Zones (Storm Cay wind, Frost friction first) · 6 Home v1 (trophy shelf, aquarium) ·
+0 Net adapter ✔ · 1 WorldState + Journal ✔ · 2 Verbs v1 ✔ (cave interior still open) ·
+3 Link ✔ (twin plates, synced shrine; lockpick+lookout later) · 4 Event Director ✔ (meteor, visitor, golden rings; shark surge later) · 5 Zones (Storm Cay wind, Frost friction first) · 6 Home v1 (trophy shelf, aquarium) ·
 7 polish/perf.
+
+## Testing
+`tests/run_all.sh` runs the script-order check and four simulations (WorldState, Verbs, Vaults, Events) with
+two fake clients, a fake Supabase and the real terrain/modules. Needs `three@0.147.0` (`npm i three@0.147.0`, set `NODE_PATH`).
+Dev helpers: `Verbs.tp(i)`, `Vaults.tp(i)`, `Events.force('meteor'|'visitor'|'rings')`, or open the game with `?ev=meteor`.

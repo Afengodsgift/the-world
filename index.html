@@ -87,6 +87,11 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/interaction/Link.js"></script>
 <script src="src/interaction/Verbs.js"></script>
 <script src="src/world/Vaults.js"></script>
+<script src="src/data/events.js"></script>
+<script src="src/world/Events.js"></script>
+<script src="src/world/events/meteor.js"></script>
+<script src="src/world/events/visitor.js"></script>
+<script src="src/world/events/rings.js"></script>
 <script>
 const SUPABASE_URL='https://lzqnxawxehmqgswuzpyn.supabase.co';
 const SUPABASE_KEY='sb_publishable_bAm2KsLV8__Y4nWSFesZeQ_38-Ly6DE';
@@ -605,6 +610,7 @@ function wsBoot(){
     Journal.init();
     try{Verbs.start()}catch(e){console.error('Verbs.start',e)}
     try{Vaults.start()}catch(e){console.error('Vaults.start',e)}
+    try{Events.start()}catch(e){console.error('Events.start',e)}
     WS.onChange((k,v,remote)=>{if(remote&&(k==='*'||k==='disc'||k==='orbs'||k==='treas'))wsPull(k==='*')});
   }).catch(e=>console.warn('wsBoot',e))}
 function banner(t,l){const b=$('banner');b.innerHTML='<small>'+(l||'NEW LOCATION DISCOVERED')+'</small><br>'+t;b.style.opacity=1;clearTimeout(banner.t);banner.t=setTimeout(()=>b.style.opacity=0,3200)}

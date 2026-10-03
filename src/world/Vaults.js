@@ -134,7 +134,10 @@ const Vaults=(()=>{
     if(started)return;started=true;sync(false);restoreSeen();
     WS.onChange((k,v,remote)=>{if(k==='solved'||k==='*')sync(!!remote);if(k==='seen'||k==='*')restoreSeen()});
   }
+  const unseen=()=>list.filter(v=>!v.seen).map(v=>({id:v.id,name:v.name,x:v.x,z:v.z,y:v.y,what:'a sealed vault'}));
+  function reveal(id,how){const v=byId.get(id);if(!v||v.seen)return false;v.seen=true;
+    if(WS.ready()&&WS.addToSet('seen',v.id))WS.log('spot',v.id,{text:how||('Heard about a sealed vault on '+v.name),icon:'🗝️',x:v.x,z:v.z});return true}
   const places=()=>list.filter(v=>v.seen).map(v=>({n:'Vault · '+v.name,x:v.x,z:v.z,y:v.y,r:6,icon:v.solved?'✅':'🗝️'}));
   const tp=i=>{const v=list[i||0];if(!v||!S)return false;S.x=v.x+4;S.z=v.z+4;S.y=H(S.x,S.z)+.5;S.vy=0;S.flying=false;return v.name+' ('+v.kind+')'}; // dev helper: Vaults.tp(0)
-  return {build,start,places,tp,vaults:()=>list,_frame:frame};
+  return {build,start,places,tp,unseen,reveal,vaults:()=>list,_frame:frame};
 })();

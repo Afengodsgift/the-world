@@ -10,6 +10,10 @@ const DEPS={ // file -> files that must come first
   'core/Seeded.js':['utils/random.js'],
   'interaction/Link.js':['core/Net.js','core/Systems.js'],
   'interaction/Verbs.js':['core/Net.js','core/WorldState.js','core/Systems.js','world/Fx.js','world/Sites.js','core/Seeded.js','interaction/VerbAnims.js','data/interactables.js','interaction/InteractionManager.js','utils/random.js'],
+  'world/Events.js':['core/Net.js','core/WorldState.js','core/Systems.js','world/Fx.js','world/Sites.js','data/events.js','utils/random.js'],
+  'world/events/meteor.js':['world/Events.js','world/Fx.js','core/WorldState.js'],
+  'world/events/visitor.js':['world/Events.js','world/Fx.js','core/WorldState.js','interaction/InteractionManager.js','interaction/Verbs.js','world/Vaults.js'],
+  'world/events/rings.js':['world/Events.js','world/Fx.js','core/WorldState.js'],
   'world/Vaults.js':['core/Net.js','core/WorldState.js','core/Systems.js','world/Fx.js','world/Sites.js','core/Seeded.js','interaction/Link.js','interaction/VerbAnims.js','data/puzzles.js','interaction/InteractionManager.js','utils/random.js'],
 };
 let bad=0;
