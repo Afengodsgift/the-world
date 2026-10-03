@@ -8,6 +8,9 @@ const OUT={x:-600,z:-1250,R:230,y:3.2,clear:70};
 ISL.push({n:'Outlaw Isle',x:OUT.x,z:OUT.z,R:OUT.R,pk:0,c:'#e0a040'});
 const KT={x:760,z:1400,hw:95,hh:65,rc:34};
 const LOCS=[{n:'Town Square',x:25,z:62,r:16},{n:'Whispering Forest',x:-110,z:40,r:45},{n:'Shell Beach',x:0,z:182,r:26},{n:'Sky Peak',x:0,z:-137,r:22,y:32},{n:'The Cave',x:18,z:-88,r:9}].concat(ISL.map(I=>({n:I.n,x:I.x,z:I.z,r:I.R*.7}))).concat([{n:'The Floating Island',x:SKY.x,z:SKY.z,r:SKY.R*.8,y:SKY.base-5}]);
+// Farm: flat meadow on the main island (found by scanning H() for the flattest spot clear of town, forest, cave, Bonk Ring and beach)
+const FARM={x:30,z:120,R:19,clear:26};
+LOCS.push({n:'Farm',x:FARM.x,z:FARM.z,r:28});
 LOCS.push({n:'The Race Track',x:KT.x,z:KT.z,r:Math.max(KT.hw,KT.hh)});
 const WP=[[TOWN.x+40*Math.cos(.59),TOWN.z+40*Math.sin(.59)],[0,-137],[900,-300],[1400,750],[550,1000]];
 WP.push(WP[0]);

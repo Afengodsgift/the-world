@@ -55,6 +55,8 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/libs/fflate.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/FBXLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="src/utils/random.js"></script>
 <script src="src/utils/math.js"></script>
@@ -67,6 +69,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/interaction/InteractionManager.js"></script>
 <script src="src/games/Tag.js"></script>
 <script src="src/games/Outlaw.js"></script>
+<script src="src/world/Farm.js"></script>
 <script src="src/ui/WorldMap.js"></script>
 <script>
 const SUPABASE_URL='https://lzqnxawxehmqgswuzpyn.supabase.co';
@@ -211,7 +214,7 @@ function flyPose(q,dt,sf){
     aim(B[n+'UpLeg'],B[n+'Leg'],l1);aim(B[n+'Leg'],B[n+'Foot'],l2);
     // arms: left leads (fist forward), right tucks back in cruise; both forward in a dive
     const fwd=D(s*.1,1,.05),fwd2=D(s*.06,1,.05);
-    const up=s===1?fwd:mix(D(-.5,-.85,.1),D(-.55,-.5,-.25),D(-.1,1,.05)),fa=s===1?fwd2:mix(D(-.25,-1,.2),D(-.2,-1,-.35),D(-.06,1,.05));
+    const up=s===1?fwd:mix(D(-.5,-.85,.1),D(-.16,-1,-.02),D(-.1,1,.05)),fa=s===1?fwd2:mix(D(-.25,-1,.2),D(-.06,-1,.01),D(-.06,1,.05));
     const hv=D(s*.5,-.85,.1),hv2=D(s*.25,-1,.2);
     aim(B[n+'Arm'],B[n+'ForeArm'],s===1?mix(hv,fwd,fwd):up);aim(B[n+'ForeArm'],B[n+'Hand'],s===1?mix(hv2,fwd2,fwd2):fa);
   }
@@ -226,7 +229,7 @@ function animateClips(g,dt,st){
   {const ly=q.lyaw===undefined?g.rotation.y:q.lyaw,yd=Math.atan2(Math.sin(g.rotation.y-ly),Math.cos(g.rotation.y-ly))/Math.max(dt,.001);q.yr=(q.yr||0)+(yd-(q.yr||0))*Math.min(1,dt*5);q.lyaw=g.rotation.y}q.v=(q.v||0)+(raw-(q.v||0))*Math.min(1,dt*10);const v=q.v;
   let want='idle',ts=1,fade=.18;
   if(st==='swim'){want=v>.8?'swim':'tread';ts=want==='swim'?clamp(v/2.4,.6,2):1;fade=.3}
-  else if(st==='fly'){want='idle';ts=.6;fade=.3} // base pose for the torso/head; flyPose() overrides the limbs (flying must not look like swimming)
+  else if(st==='fly'){want='fall';ts=1;fade=.3} // hovering = the original fall/hover clip; flyBlend() fades the hero pose in as you pick up speed
   else if(st==='jump'){want='jump';fade=.08}
   else if(st==='fall'){want='fall';fade=.12}
   else if(st==='walk'||st==='run'){const c=q.cur; // thresholds have hysteresis so it doesn't flicker between clips
@@ -247,14 +250,20 @@ function animateClips(g,dt,st){
   q.land=Math.max(0,(q.land||0)-dt);
   const oy=st==='swim'?.7:(st==='fly'&&want==='swim')?.5:0;q.oy=(q.oy||0)+(oy-(q.oy||0))*Math.min(1,dt*6); // swim clips are authored with the waterline at the chest: lift the body to the surface
   const fly=st==='fly';q.pv+=((fly?1:0)-q.pv)*Math.min(1,dt*10);
-  q.model.rotation.x+=((fly?.2+1.25*Math.min(1,sf*2.5):0)+(q.pan?Math.sin(Math.min(1,q.swing)*Math.PI)*.3:0)-q.model.rotation.x)*Math.min(1,dt*10); // flight pitch (hover upright -> horizontal at speed) + small lunge into the swing
+  q.model.rotation.x+=((fly?1.4*Math.min(1,sf*2.5)*q.fw:0)+(q.pan?Math.sin(Math.min(1,q.swing)*Math.PI)*.3:0)-q.model.rotation.x)*Math.min(1,dt*10); // flight pitch (hover upright -> horizontal at speed) + small lunge into the swing
   q.model.rotation.y+=((fly?clamp(-q.yr*.18,-.7,.7):0)-q.model.rotation.y)*Math.min(1,dt*6); // bank into turns
   {const rx=q.model.rotation.x;q.model.position.set(0,q.oy+q.pv*.65*(1-Math.cos(rx)),-q.pv*.65*Math.sin(rx))} // pitch about the hips, not the feet
   q.model.scale.set(.5*(1+q.land*.3),.5*(1-q.land*.6),.5*(1+q.land*.3));
   q.mixer.update(dt);
-  if(st==='fly')flyPose(q,dt,sf);else if(q.gunI>=0&&typeof Outlaw!=='undefined')Outlaw.poseGun(g,q,st,dt); // procedural overrides on top of the baked clips
+  if(st==='fly'){q.fw+=(clamp((q.fs-3)/8,0,1)-q.fw)*Math.min(1,dt*6);if(q.fw>.01)flyBlend(q,dt,sf,q.fw)}else{q.fw=0;if(q.gunI>=0&&typeof Outlaw!=='undefined')Outlaw.poseGun(g,q,st,dt)} // procedural overrides on top of the baked clips
   if(q.gun)q.gun.visible=!!q.gun.userData.ok&&st!=='fly'&&st!=='swim';
 }
+// Blend flyPose over whatever the baked clip did (weight w: 0 = pure clip, 1 = full hero pose)
+const FLYB=['LeftArm','LeftForeArm','RightArm','RightForeArm','LeftUpLeg','LeftLeg','RightUpLeg','RightLeg'];
+function flyBlend(q,dt,sf,w){
+  const B=q.bones,sv=FLYB.map(n=>B[n]&&B[n].quaternion.clone());flyPose(q,dt,sf);
+  if(w<.999)FLYB.forEach((n,i)=>{const b=B[n];if(b&&sv[i]){const t=b.quaternion.clone();b.quaternion.copy(sv[i]).slerp(t,w)}});
+  q.model.updateMatrixWorld(true)}
 function animate(g,dt,st){
   const q=g.userData;
   if(q.mixer&&q.nact){animateClips(g,dt,st);return}
@@ -296,7 +305,7 @@ function dress(g,skin){
     for(const n in nclips)nact[n]=mx.clipAction(nclips[n]);
     if(nact.jump){nact.jump.setLoop(THREE.LoopOnce,1);nact.jump.clampWhenFinished=true}
     for(const n of ['smack','hit','hit2','land','interact','dig'])if(nact[n])nact[n].setLoop(THREE.LoopOnce,1); // one-shot overlays
-    const u=g.userData;u.rig.visible=false;m.traverse(c=>{if(c.isMesh){c.castShadow=true}});g.add(m);Object.assign(u,{mixer:mx,act,nact:nact.idle?nact:null,model:m,bones,cur:null,ph:0,swing:0,spd:0,yr:0,fb:0,fd:0,pv:0});
+    const u=g.userData;u.rig.visible=false;m.traverse(c=>{if(c.isMesh){c.castShadow=true}});g.add(m);Object.assign(u,{mixer:mx,act,nact:nact.idle?nact:null,model:m,bones,cur:null,ph:0,swing:0,spd:0,yr:0,fb:0,fd:0,pv:0,fw:0});
     if(PAN_ENABLED&&bones.RightHand)loadPan().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(panBuf.slice(0),AURL,res,rej))).then(pr=>{
       const piv=new THREE.Group(),pn=pr.scene;pn.traverse(c=>{if(c.isMesh)c.castShadow=true});
       pn.position.set(.173,-19.68,31.046);piv.add(pn);piv.scale.setScalar((.36/5.915)/50);piv.position.set(0,.0016,0);piv.rotation.set(Math.PI,0,PAN_REST_Z);
@@ -390,7 +399,7 @@ function buildWorld(code){
   rng=mulberry(hashSeed(code));
   if(AM.plant_bushLarge)AM.plant_bushLarge.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.material.side=THREE.DoubleSide;o.material.emissive=new THREE.Color('#2a6a30')}});
   const dist=(x,z)=>Math.hypot(x-TOWN.x,z-TOWN.z),P={};
-  const add=(n,x,z,s)=>{if(Math.hypot(x-OUT.x,z-OUT.z)<OUT.clear)return;(P[n]=P[n]||[]).push({x,y:H(x,z),z,ry:rng()*6.283,s})};
+  const add=(n,x,z,s)=>{if(Math.hypot(x-OUT.x,z-OUT.z)<OUT.clear||Math.hypot(x-FARM.x,z-FARM.z)<FARM.clear)return;(P[n]=P[n]||[]).push({x,y:H(x,z),z,ry:rng()*6.283,s})};
   // forest (west), scattered trees, beach palms, bushes, rocks
   const kinds=['tree_pineDefaultA','tree_pineRoundA','tree_oak','tree_fat'];
   for(let i=0,n=0;i<1500&&n<300;i++){const a=rng()*6.283,r=rng()*80,x=-110+Math.cos(a)*r,z=40+Math.sin(a)*r,h=H(x,z);
@@ -436,7 +445,7 @@ function buildWorld(code){
   while(pts.length<40){const a=rng()*6.283,r=12+rng()*195,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<40&&dist(x,z)>45)pts.push([x,z])}
   for(const I of ISL)for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
-  buildRace();buildHunt();buildSeaLife();buildSkyIsland();buildKartTrack();Tag.build();Outlaw.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
+  buildRace();buildHunt();buildSeaLife();buildSkyIsland();buildKartTrack();Tag.build();Outlaw.build();Farm.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
 }
 function buildSkyIsland(){
   const geo=new THREE.PlaneGeometry(SKY.R*2.8,SKY.R*2.8,72,72);geo.rotateX(-Math.PI/2);
@@ -567,7 +576,7 @@ function explore(dt,t){
   orbs.forEach((o,i)=>{if(!o.on)return;o.m.rotation.y+=dt*2;o.m.position.y=o.y+Math.sin(t/400+i)*.15;
     if(Math.hypot(S.x-o.x,S.z-o.z)<1.6&&Math.abs(S.y+1-o.y)<2.2)take(i,true)});
   Interaction.update();
-  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);ringTick(t);sharkRunTick(t);slalomTick(t);dashTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);WorldMap.tick();
+  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);ringTick(t);sharkRunTick(t);slalomTick(t);dashTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);Farm.tick(dt,t);WorldMap.tick();
   if(!race.on&&!hunt.on&&!slalom.on&&mk)mk.style.display='none';
   if(pulse>0){pulse=Math.max(0,pulse-dt);pil.material.emissive.setRGB(pulse*.6,pulse*.45,pulse*.1)}
 }
@@ -974,17 +983,18 @@ function tick(t){
     o.group.rotation.y=lerpAngle(o.group.rotation.y,o.tr,k);animate(o.group,dt,o.st);
   }
   camY+=(S.y-camY)*(1-Math.exp(-6*dt));
-  const d=9,cp=Math.cos(S.pitch);
-  const cx=S.x+Math.sin(S.yaw)*d*cp,cz=S.z+Math.cos(S.yaw)*d*cp;
-  camera.position.set(cx,Math.max(H(cx,cz)+.8,camY+1.6+Math.sin(S.pitch)*d),cz);
-  camera.lookAt(S.x,camY+1.4,S.z);
+  const ck=typeof CAMX!=='undefined'?CAMX.k:0;                                   // shooter camera blend (set by Outlaw.js)
+  const d=9-5.4*ck,cp=Math.cos(S.pitch),shx=Math.cos(S.yaw)*1.2*ck,shz=-Math.sin(S.yaw)*1.2*ck; // over the right shoulder
+  const cx=S.x+Math.sin(S.yaw)*d*cp+shx,cz=S.z+Math.cos(S.yaw)*d*cp+shz;
+  camera.position.set(cx,Math.max(H(cx,cz)+.8,camY+1.6+.4*ck+Math.sin(S.pitch)*d),cz);
+  camera.lookAt(S.x+shx,camY+1.4+.2*ck,S.z+shz);
   if(sun){sun.target.position.set(S.x,S.y,S.z);sun.position.copy(sun.userData.sd).multiplyScalar(140).add(sun.target.position);sky.position.copy(camera.position);if(seaTex){seaTex.offset.x+=dt*.0006;seaTex.offset.y+=dt*.0004}
     fpsA=fpsA*.97+dt*.03;if(sun.castShadow&&++fpsN>240&&fpsA>.034){sun.castShadow=false;scene.traverse(o=>{if(o.material)o.material.needsUpdate=true})}}
   S.burst=Math.max(0,(S.burst||0)-dt);S.gboost=Math.max(0,(S.gboost||0)-dt);if(!S.flying)S.boost=false;
   if(S.flying!==bvis){bvis=S.flying;$('boost').style.display=bvis?'block':'none';if(!bvis){$('boost').textContent='Boost';$('boost').style.opacity=.75}
     $('smack').style.display=(PAN_ENABLED&&panOn&&!bvis)?'block':'none'}
   else if(!bvis)$('smack').style.display=(PAN_ENABLED&&panOn)?'block':'none';
-  const tf=S.flying?(bst()?95:80):(S.gboost>0?80:65);if(Math.abs(camera.fov-tf)>.1){camera.fov+=(tf-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix()}
+  const tf=(S.flying?(bst()?95:80):(S.gboost>0?80:65))-(typeof CAMX!=='undefined'?CAMX.k*9:0);if(Math.abs(camera.fov-tf)>.1){camera.fov+=(tf-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix()}
   smackTick(dt);
   renderer.render(scene,camera);
   requestAnimationFrame(tick);

@@ -9,11 +9,11 @@ const WorldMap=(()=>{
   const places=()=>{
     const isl=new Set(ISL.map(i=>i.n).concat(['The Floating Island']));
     const l=LOCS.map(L=>({n:L.n,x:L.x,z:L.z,y:L.y,r:L.r,big:isl.has(L.n)}));
-    l.push({n:'Tag Arena',x:Tag.pos.x,z:Tag.pos.z,r:5,icon:'🏃'},{n:'Outlaw Portal',x:PORTAL.x,z:PORTAL.z,r:5,icon:'🌀'},{n:'Bonk Ring',x:RING.x,z:RING.z,r:RING.R,icon:'🍳'},{n:'Treasure Hunt',x:BOARD.x,z:BOARD.z,r:5,icon:'🧰'},{n:'Sky Race',x:WP[0][0],z:WP[0][1],r:7,icon:'✈️'},{n:'Sky Slalom',x:slalom.start.x,z:slalom.start.z,y:slalom.start.y,r:5,icon:'🎯'});
+    l.push({n:'Tag Arena',x:Tag.pos.x,z:Tag.pos.z,r:5,icon:'🏃'},{n:'Gunsmith',x:OUT.x+12,z:OUT.z+23,r:5,icon:'🔫'},{n:'Outlaw Portal',x:PORTAL.x,z:PORTAL.z,r:5,icon:'🌀'},{n:'Bonk Ring',x:RING.x,z:RING.z,r:RING.R,icon:'🍳'},{n:'Treasure Hunt',x:BOARD.x,z:BOARD.z,r:5,icon:'🧰'},{n:'Sky Race',x:WP[0][0],z:WP[0][1],r:7,icon:'✈️'},{n:'Sky Slalom',x:slalom.start.x,z:slalom.start.z,y:slalom.start.y,r:5,icon:'🎯'});
     if(dash.start)l.push({n:'Obstacle Dash',x:dash.start.x,z:dash.start.z,r:5,icon:'🧗'});
     if(srun.start)l.push({n:'Shark Run',x:srun.start.x,z:srun.start.z,r:5,icon:'🦈'});
     return l};
-  const icon=p=>p.icon||(p.n==='Outlaw Isle'?'🤠':p.n==='The Floating Island'?'☁️':p.n==='The Race Track'?'🏁':p.big?'🏝️':'📍');
+  const icon=p=>p.icon||(p.n==='Farm'?'🐄':p.n==='Outlaw Isle'?'🤠':p.n==='The Floating Island'?'☁️':p.n==='The Race Track'?'🏁':p.big?'🏝️':'📍');
   const dist=p=>Math.hypot(S.x-p.x,S.z-p.z);
   const fmt=d=>d<1000?Math.round(d/ (d<100?1:10))*(d<100?1:10)+' m':(d/1000).toFixed(1)+' km';
   const sx=x=>(x-view.cx)*view.s+W/2,sy=z=>(z-view.cz)*view.s+Hh/2;
@@ -108,7 +108,7 @@ const WorldMap=(()=>{
     S.x=x;S.z=z;S.y=Math.max(H(x,z),p.y||-9)+1;S.vy=0;S.kx=0;S.kz=0;banner(p.n,'TRAVELLED');toggle()}
   function fillChips(){
     chips.innerHTML='';
-    for(const p of places().filter(p=>p.big||p.icon||p.n==='Town Square')){
+    for(const p of places().filter(p=>p.big||p.icon||p.n==='Town Square'||p.n==='Farm')){
       const c=E('button','flex:none;border:0;border-radius:16px;padding:7px 12px;background:'+(p.n==='Outlaw Isle'?'#ff5a3d':'#ffffffe0')+';color:'+(p.n==='Outlaw Isle'?'#fff':'#111')+';font:13px sans-serif',icon(p)+' '+p.n);
       c.onclick=()=>{centerOn(p,.25);select(p)};chips.appendChild(c)}}
   function toggle(){
