@@ -79,8 +79,14 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/ui/Journal.js"></script>
 <script src="src/core/Systems.js"></script>
 <script src="src/data/interactables.js"></script>
+<script src="src/world/Fx.js"></script>
+<script src="src/world/Sites.js"></script>
 <script src="src/interaction/VerbAnims.js"></script>
+<script src="src/core/Seeded.js"></script>
+<script src="src/data/puzzles.js"></script>
+<script src="src/interaction/Link.js"></script>
 <script src="src/interaction/Verbs.js"></script>
+<script src="src/world/Vaults.js"></script>
 <script>
 const SUPABASE_URL='https://lzqnxawxehmqgswuzpyn.supabase.co';
 const SUPABASE_KEY='sb_publishable_bAm2KsLV8__Y4nWSFesZeQ_38-Ly6DE';
@@ -590,13 +596,15 @@ function wsPull(quiet){let ch=0,first=null;
   const t=WS.get('treas',0);if(t>treas){treas=t;try{localStorage.setItem('w4t',treas)}catch(e){}ch++}
   if(ch){save();updateHud();if(first&&!quiet)banner(first,'YOUR PARTNER DISCOVERED')}}
 function wsBoot(){
-  try{Verbs.build()}catch(e){console.error('Verbs.build',e)}  // props appear immediately; restored to their saved state once WorldState is ready
+  try{Verbs.build()}catch(e){console.error('Verbs.build',e)}
+  try{Vaults.build()}catch(e){console.error('Vaults.build',e)}  // props appear immediately; restored to their saved state once WorldState is ready
   WS.init(roomCode,myName).then(()=>{
     wsMirror();                 // one-time import of whatever this device already had
     wsPull(true);               // pull in whatever the partner did while we were away
     WS.log('start','founded',{});
     Journal.init();
     try{Verbs.start()}catch(e){console.error('Verbs.start',e)}
+    try{Vaults.start()}catch(e){console.error('Vaults.start',e)}
     WS.onChange((k,v,remote)=>{if(remote&&(k==='*'||k==='disc'||k==='orbs'||k==='treas'))wsPull(k==='*')});
   }).catch(e=>console.warn('wsBoot',e))}
 function banner(t,l){const b=$('banner');b.innerHTML='<small>'+(l||'NEW LOCATION DISCOVERED')+'</small><br>'+t;b.style.opacity=1;clearTimeout(banner.t);banner.t=setTimeout(()=>b.style.opacity=0,3200)}

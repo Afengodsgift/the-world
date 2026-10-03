@@ -1,5 +1,5 @@
 const fs=require('fs'),vm=require('vm');
-const net=fs.readFileSync('/home/claude/the-world/src/core/Net.js','utf8'),wsrc=fs.readFileSync('/home/claude/the-world/src/core/WorldState.js','utf8');
+const net=fs.readFileSync(require('path').join(__dirname,'..','src/core/Net.js'),'utf8'),wsrc=fs.readFileSync(require('path').join(__dirname,'..','src/core/WorldState.js'),'utf8');
 // fake supabase with real-ish semantics (select/eq/in/order, upsert w/ onConflict + ignoreDuplicates)
 const DB={world_state:[],world_log:[]};let dbDown=false;
 function table(n){return {

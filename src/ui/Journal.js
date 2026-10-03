@@ -25,7 +25,7 @@ const Journal=(()=>{
     const x=E('button','float:right;font-size:18px;padding:4px 12px;background:#ffffff33;color:#fff;border:0;border-radius:12px;width:auto','✕');x.onclick=toggle;panel.appendChild(x);
     panel.appendChild(E('h3','margin:4px 0 2px','Our Journal'));
     const es=WS.entries(),t0=es.length?es[0].ts:Date.now();
-    const stat=(typeof got!=='undefined')?('✨ '+got+'/'+orbs.length+'   📍 '+disc.size+'/'+LOCS.length+'   🧰 '+treas+'   🏕️ '+WS.getSet('camps').length+'   🎒 '+WS.getSet('loot').length):'';
+    const stat=(typeof got!=='undefined')?('✨ '+got+'/'+orbs.length+'   📍 '+disc.size+'/'+LOCS.length+'   🧰 '+treas+'   🏕️ '+WS.getSet('camps').length+'   🗝️ '+WS.getSet('solved').length+'   🎒 '+WS.getSet('loot').length):'';
     panel.appendChild(E('div','opacity:.7;font-size:13px;margin-bottom:10px',stat+(es.length?'   · Day '+day(Date.now(),t0)+' together':'')));
     if(!es.length){panel.appendChild(E('p','opacity:.7','Nothing here yet. Go explore — the world remembers.'));return}
     let lastDay=0;

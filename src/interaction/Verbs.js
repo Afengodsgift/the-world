@@ -8,13 +8,12 @@
 //   id of a finished interactable ever travels. Rewards are seeded, so both clients agree.
 // Depends on globals from index.html (S, me, others, scene, H, solids, ISL, TOWN, KT, RING, OUT,
 //   BOARD, roomCode, banner, chime, playEmote, loadEmotes, emoStop, AM, place, Interaction, $, THREE)
-//   plus Net, WS, Systems, hashSeed, mulberry, VERBS, CAMP, LOOT.
+//   plus Net, WS, Systems, Fx, Sites, Seeded, VerbAnims, hashSeed, mulberry, VERBS, CAMP, LOOT.
 const Verbs=(()=>{
-  const items=[],byId=new Map(),camps=[],applied=new Set(),pw=new Map(),fx=[];
+  const items=[],byId=new Map(),camps=[],applied=new Set(),pw=new Map();
   let W=null,cur=null,built=false,started=false,pre=false,bar,barTxt,barFill;
   const near=it=>Math.hypot(S.x-it.x,S.z-it.z);
-  const MAT={},mat=(c,o)=>{const k=c+(o?JSON.stringify(o):'');return MAT[k]||(MAT[k]=new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:1,flatShading:true},o||{})))};
-  const M=(g,m,x,y,z)=>{const o=new THREE.Mesh(g,m);o.position.set(x||0,y||0,z||0);o.castShadow=true;return o};
+  const mat=Fx.mat,M=Fx.M,burst=Fx.burst;
   const safe=f=>{try{return f()}catch(e){return false}};
 
   // ---- visuals: each returns {todo,done} groups; Verbs just toggles them -------------------
@@ -67,12 +66,6 @@ const Verbs=(()=>{
   }
 
   // ---- effects -----------------------------------------------------------------------------
-  const FXG=()=>FXG.g||(FXG.g=new THREE.OctahedronGeometry(.12,0));
-  const FXM={};const fxm=c=>FXM[c]||(FXM[c]=new THREE.MeshBasicMaterial({color:c}));
-  function burst(x,y,z,color,n){
-    for(let i=0;i<(n||14);i++){const m=new THREE.Mesh(FXG(),fxm(color||'#ffe08a')),a=Math.random()*6.283,s=2+Math.random()*3;
-      m.position.set(x,y+.8,z);scene.add(m);fx.push({m,vx:Math.cos(a)*s,vy:3+Math.random()*4,vz:Math.sin(a)*s,life:.9})}
-  }
   function lightCamp(c){
     c.beam.visible=false;
     const lx=c.x,lz=c.z;let L=safe(()=>typeof place==='function'&&AM&&AM.lantern&&place(scene,'lantern',lx,c.y,lz,0,2.2));
@@ -95,13 +88,9 @@ const Verbs=(()=>{
       if(WS.ready()){WS.addToSet('camps',c.id);WS.log('camp',c.id,{text:'Restored the camp on '+c.name,icon:'🏕️',x:c.x,z:c.z})}
     }
   }
-  function pickLoot(table,id){
-    const r=mulberry(hashSeed(roomCode+':loot:'+id)),tot=table.reduce((s,e)=>s+e.w,0);let t=r()*tot;
-    for(const e of table){t-=e.w;if(t<=0)return e}return table[0];
-  }
   function grant(it){ // runs only for the client that actually finished it first
     const V=VERBS[it.verb],table=LOOT[it.verb],c=it.camp;let text,icon=V.icon,color='#ffe08a';
-    if(table){const L=pickLoot(table,it.id);text=(it.verb==='dig'?'Dug up ':'Mined ')+L.n+' on '+c.name;icon=L.ic;color=L.c||color;
+    if(table){const L=Seeded.pick(table,it.id);text=(it.verb==='dig'?'Dug up ':'Mined ')+L.n+' on '+c.name;icon=L.ic;color=L.c||color;
       WS.addToSet('loot',it.id+':'+L.id);if(L.rare)text+=' ✨ (rare!)'}
     else text='Repaired the old fence on '+c.name;
     WS.log('verb',it.id,{text,icon,x:it.x,z:it.z});
@@ -158,8 +147,6 @@ const Verbs=(()=>{
   // ---- per-frame --------------------------------------------------------------------------
   function frame(dt,t){
     if(!built||!S||!me)return;
-    for(let i=fx.length-1;i>=0;i--){const f=fx[i];f.life-=dt;f.vy-=14*dt;f.m.position.x+=f.vx*dt;f.m.position.y+=f.vy*dt;f.m.position.z+=f.vz*dt;f.m.rotation.y+=dt*6;
-      if(f.life<=0){scene.remove(f.m);fx.splice(i,1)}}
     for(const c of camps){const d=Math.hypot(S.x-c.x,S.z-c.z);
       if(!c.cleared)c.beam.visible=d<320;if(c.halo)c.halo.scale.setScalar(1+Math.sin(t/300+c.x)*.06);
       if(!c.seen&&d<140){c.seen=true;if(WS.ready()&&WS.addToSet('seen',c.id)){WS.log('spot',c.id,{text:'Spotted an abandoned camp on '+c.name,icon:'⛺',x:c.x,z:c.z});banner('An abandoned camp… something to dig, mine and mend','⛺ SPOTTED')}}}
