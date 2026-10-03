@@ -5,6 +5,16 @@
 // buildWorld(); seaTick(dt,t) is called once per frame from tick().
 const FISH_TYPES=['Fish1','Fish2','Fish3'],FISH_LEN={Fish1:.65,Fish2:.62,Fish3:.62},FISH_RAW={Fish1:3.19,Fish2:1.97,Fish3:1.58};
 let seaP,seaBufs={},sharkClip,sharks=[],fishState=[],fishInst={},specials=[],_fdum=new THREE.Object3D();
+// The instanced fish used the model's RAW geometry, but the skinned model is only upright/scaled once its node transform and skin are applied (-90deg about X, x100), so
+// the fish came out upside down. This CPU-skins the rest pose once (same maths as the GPU), centres it and normalises its length to 1 (head +Z, up +Y).
+function bakeRestGeometry(root,o){
+  root.updateMatrixWorld(true);o.skeleton.update();
+  const g=o.geometry.clone(),P=g.attributes.position,SI=g.attributes.skinIndex,SW=g.attributes.skinWeight,BM=o.skeleton.boneMatrices,mt=new THREE.Matrix4(),v=new THREE.Vector3(),a=new THREE.Vector3(),b=new THREE.Vector3(),out=new Float32Array(P.count*3);
+  for(let i=0;i<P.count;i++){b.set(P.getX(i),P.getY(i),P.getZ(i)).applyMatrix4(o.bindMatrix);a.set(0,0,0);
+    for(let k=0;k<4;k++){const w=[SW.getX(i),SW.getY(i),SW.getZ(i),SW.getW(i)][k];if(!w)continue;mt.fromArray(BM,[SI.getX(i),SI.getY(i),SI.getZ(i),SI.getW(i)][k]*16);a.addScaledVector(v.copy(b).applyMatrix4(mt),w)} // (r147 has no getComponent)
+    a.applyMatrix4(o.bindMatrixInverse).applyMatrix4(o.matrixWorld);out[i*3]=a.x;out[i*3+1]=a.y;out[i*3+2]=a.z}
+  g.setAttribute('position',new THREE.BufferAttribute(out,3));g.deleteAttribute('skinIndex');g.deleteAttribute('skinWeight');g.deleteAttribute('normal');g.computeVertexNormals();g.computeBoundingBox();
+  const bb=g.boundingBox,c=bb.getCenter(new THREE.Vector3()),L=bb.max.z-bb.min.z;g.translate(-c.x,-c.y,-c.z);g.scale(1/L,1/L,1/L);return g}
 function loadSea(){
   if(!seaP)seaP=(async()=>{if(!THREE.GLTFLoader)throw new Error('no loader');
     for(const t of [...FISH_TYPES,'Shark','Dolphin','Manta_ray'])seaBufs[t]=await(await fetch(AURL+(t==='Shark'?'shark.glb':'fish_'+t+'.glb'))).arrayBuffer();
@@ -24,20 +34,28 @@ function buildSeaLife(){
   loadSea().then(async()=>{
     const gl=new THREE.GLTFLoader(),parse=buf=>new Promise((res,rej)=>gl.parse(buf.slice(0),AURL,res,rej));
     for(const t of FISH_TYPES){const r=await parse(seaBufs[t]);let geo,mat;
-      r.scene.traverse(o=>{if(o.isSkinnedMesh&&!geo){geo=o.geometry;mat=o.material.clone();mat.skinning=false}});
-      if(!geo)continue;const im=new THREE.InstancedMesh(geo,mat,400);im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);im.count=0;im.frustumCulled=false;scene.add(im);
-      fishInst[t]={im,scale:FISH_LEN[t]/FISH_RAW[t]};
+      r.scene.traverse(o=>{if(o.isSkinnedMesh&&!geo){geo=bakeRestGeometry(r.scene,o);mat=o.material.clone();mat.skinning=false}});
+      if(!geo)continue;
+      // swim animation: the tail half of the (unit-length) fish wags sideways, each fish with its own phase
+      const ph=new THREE.InstancedBufferAttribute(new Float32Array(400),1);ph.setUsage(THREE.DynamicDrawUsage);geo.setAttribute('aPh',ph);
+      mat.onBeforeCompile=sh=>{sh.uniforms.uTime={value:0};mat.userData.sh=sh;
+        sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute float aPh;uniform float uTime;')
+          .replace('#include <begin_vertex>','#include <begin_vertex>\nfloat tk=clamp(-transformed.z*2.,0.,1.);tk*=tk;transformed.x+=sin(uTime*9.+aPh+transformed.z*8.)*.11*tk;transformed.z+=abs(sin(uTime*9.+aPh))*.0;')};
+      const im=new THREE.InstancedMesh(geo,mat,400);im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);im.count=0;im.frustumCulled=false;scene.add(im);
+      fishInst[t]={im,ph,mat,scale:FISH_LEN[t]};
     }
+    // a SkinnedMesh clone made with scene.clone(true) keeps pointing at the ORIGINAL skeleton, so the sharks/dolphins/mantas never rendered properly; SkeletonUtils.clone rebinds it
+    const cloneSkinned=async(r,buf)=>THREE.SkeletonUtils?THREE.SkeletonUtils.clone(r.scene):(await parse(buf)).scene;
     const shr=await parse(seaBufs.Shark);sharkClip=shr.animations[0];
     for(const I of zones)for(let tries=0;tries<4;tries++){const pt=findWater(I,true);if(!pt)continue;
-      const m=shr.scene.clone(true),sc=.45+rng()*.2;m.scale.setScalar(sc);m.traverse(c=>{if(c.isMesh)c.castShadow=true});scene.add(m);
+      const m=await cloneSkinned(shr,seaBufs.Shark),sc=.45+rng()*.2;m.scale.setScalar(sc);m.traverse(c=>{if(c.isMesh)c.castShadow=true});scene.add(m);
       const mx=new THREE.AnimationMixer(m),act=mx.clipAction(sharkClip);act.play();
-      sharks.push({m,mx,act,cx:pt.x,cz:pt.z,cy:-.62-rng()*.2,rad:10+rng()*10,ang:rng()*6.283,speed:.35,state:'patrol',bitAt:-9999});
+      sharks.push({m,mx,act,cx:pt.x,cz:pt.z,cy:-.08-rng()*.06,rad:10+rng()*10,ang:rng()*6.283,speed:.35,state:'patrol',bitAt:-9999});
     }
     const dol=await parse(seaBufs.Dolphin),man=await parse(seaBufs.Manta_ray);
-    const specDefs=[{r:dol,clip:dol.animations[0],len:2,raw:9.27,n:2},{r:man,clip:man.animations[0],len:2.6,raw:11.73,n:1}];
+    const specDefs=[{r:dol,buf:seaBufs.Dolphin,clip:dol.animations[0],len:2,raw:9.27,n:2},{r:man,buf:seaBufs.Manta_ray,clip:man.animations[0],len:2.6,raw:11.73,n:1}];
     for(const d of specDefs)for(const I of zones){if(rng()>.4)continue;const pt=findWater(I,true);if(!pt)continue;
-      const m=d.r.scene.clone(true);m.scale.setScalar(d.len/d.raw);m.traverse(c=>{if(c.isMesh)c.castShadow=true});scene.add(m);
+      const m=await cloneSkinned(d.r,d.buf);m.scale.setScalar(d.len/d.raw);m.traverse(c=>{if(c.isMesh)c.castShadow=true});scene.add(m);
       const mx=new THREE.AnimationMixer(m),act=mx.clipAction(d.clip);act.play();
       specials.push({m,mx,act,cx:pt.x,cz:pt.z,cy:H(pt.x,pt.z)-2-rng()*1.5,rad:12+rng()*10,ang:rng()*6.283,speed:.18+rng()*.08});
     }
@@ -60,8 +78,8 @@ function seaTick(dt,t){
     if(f.jt>0){f.jt+=dt;const u=Math.min(1,f.jt/1.1),au=Math.min(1,u+.06);y=-.3+Math.sin(u*Math.PI)*1.7;ty=-.3+Math.sin(au*Math.PI)*1.7;if(u>=1){f.jt=0;f.jc=8+Math.random()*25;splash(x,z,.8,.9)}}
     else{f.jc-=dt;if(f.jc<=0&&Math.hypot(x-S.x,z-S.z)<140){f.jt=.001;f.jc=9;splash(x,z,.8,.9)}else if(f.jc<=0)f.jc=3}
     _fdum.position.set(x,y,z);_fdum.lookAt(tx,ty,tz);_fdum.scale.setScalar(inst.scale*(f.jt>0?1.35:1));_fdum.updateMatrix();
-    const idx=cnt[f.type]++;if(idx<inst.im.count||idx<400)inst.im.setMatrixAt(idx,_fdum.matrix);}
-  for(const t2 in fishInst){fishInst[t2].im.count=Math.min(cnt[t2],400);fishInst[t2].im.instanceMatrix.needsUpdate=true}
+    const idx=cnt[f.type]++;if(idx<400){inst.im.setMatrixAt(idx,_fdum.matrix);inst.ph.array[idx]=f.off*5+f.speed*3}}
+  for(const t2 in fishInst){const fi2=fishInst[t2];fi2.im.count=Math.min(cnt[t2],400);fi2.im.instanceMatrix.needsUpdate=true;fi2.ph.needsUpdate=true;if(fi2.mat.userData.sh)fi2.mat.userData.sh.uniforms.uTime.value=t/1000}
   splashTick(dt);
   // keep life around the player: every ~1.5 s move one far-away school (and shark) to open water 70-190 m from the player, so wherever you swim or fly over the sea something is nearby
   _recT+=dt;if(_recT>1.5){_recT=0;
