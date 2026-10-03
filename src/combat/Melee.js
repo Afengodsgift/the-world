@@ -36,6 +36,7 @@ function smack(){
   if(dot<.35)return;
   bonk();if(navigator.vibrate)navigator.vibrate(40);
   smacks++;try{localStorage.setItem('w4sm',smacks)}catch(e){}updateHud();
+  o.group.userData.hitReq=1; // the victim's flinch is only triggered on their own phone by onSmacked(); play it on this screen too
   banner('You bonked '+(o.group.userData.nm||'them')+'!','🍳');
   if(chan)chan.send({type:'broadcast',event:'sm',payload:{from:myId,dx:nx,dz:nz}});
 }
