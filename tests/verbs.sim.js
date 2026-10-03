@@ -20,16 +20,16 @@ function client(id,name,room){
     performance:{now:()=>Date.now()},requestAnimationFrame:()=>0,
     $:i=>els[i]||(els[i]=stubEl()),
     banner:(t,l)=>log.banners.push(l+': '+t),chime:()=>log.chimes++,
-    loadEmotes:()=>Promise.resolve(),playEmote:e=>log.emotes.push(e),emoStop:q=>log.stops.push(1),
+    EMO:{p:1,clips:{},def:{},menu:[{id:'wave'}]},AURL:'/assets/',fetch:u=>Promise.resolve({ok:true,json:()=>Promise.resolve(JSON.parse(fs.readFileSync(R+u.replace('/assets/','assets/'),'utf8')))}),loadEmotes:()=>Promise.resolve(),playEmote:e=>log.emotes.push(e),emoStop:q=>log.stops.push(1),
     others,AM:{},solids:[],S:{x:0,y:0,z:0,state:'idle',grounded:true,flying:false,hurt:0},me:{userData:{}}};
   vm.createContext(ctx);vm.runInContext(three,ctx);
   const src=[rd('src/utils/random.js'),rd('src/utils/math.js'),rd('src/data/islands.js'),kline,H_SRC,
    'const RING={x:64.3,z:89.5,R:12};let dash={start:null},srun={start:null};',
-   rd('src/interaction/InteractionManager.js'),rd('src/core/Net.js'),rd('src/core/WorldState.js'),rd('src/core/Systems.js'),rd('src/world/Sites.js'),rd('src/data/interactables.js'),rd('src/interaction/Verbs.js'),
-   'this.scene=new THREE.Scene();this.__e={Verbs,WS,Net,Interaction,H,ISL,CAMP,VERBS,LOCS};'].join('\n');
+   rd('src/interaction/InteractionManager.js'),rd('src/core/Net.js'),rd('src/core/WorldState.js'),rd('src/core/Systems.js'),rd('src/world/Sites.js'),rd('src/interaction/VerbAnims.js'),rd('src/data/interactables.js'),rd('src/interaction/Verbs.js'),
+   'this.scene=new THREE.Scene();this.__e={VerbAnims,Verbs,WS,Net,Interaction,H,ISL,CAMP,VERBS,LOCS};'].join('\n');
   vm.runInContext(src,ctx);
   ctx.__e.Net.attach(chan);
-  return Object.assign(ctx.__e,{ctx,log,chan,els,others,store,S:ctx.S,solids:ctx.solids,scene:ctx.scene});
+  return Object.assign(ctx.__e,{ctx,EMO:ctx.EMO,log,chan,els,others,store,S:ctx.S,solids:ctx.solids,scene:ctx.scene});
 }
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));let fails=0;
 const ok=(c,m)=>{if(!c){fails++;console.log('FAIL',m)}else console.log('ok  ',m)};
@@ -53,6 +53,11 @@ function step(c,n,dt){for(let i=0;i<n;i++){c.Verbs._frame(dt||.05,Date.now());c.
   ok(A.Verbs.items().length===ca.length*3,'3 interactables per camp');
   // ---- boot WS
   await A.WS.init(ROOM,'Alex');await B.WS.init(ROOM,'Bee');A.Verbs.start();B.Verbs.start();
+  // ---- verb animations load without touching the emote menu
+  await A.VerbAnims.load();
+  ok(['hammer','pickaxe','dig2','fish','fish_in'].every(n=>A.EMO.clips[n]&&A.EMO.clips[n].duration>0),'verb clips registered as real THREE AnimationClips');
+  ok(A.EMO.def.dig2&&A.EMO.def.dig2.kind==='loop','verb defs registered');
+  ok(A.EMO.menu.length===1,'emote menu untouched ('+A.EMO.menu.length+' entry)');
   // ---- single work flow
   const camp=ca.find(c=>c.name==='the main island'),itA=camp.items[0];
   stand(A,itA.x+1,itA.z+1);step(A,2);

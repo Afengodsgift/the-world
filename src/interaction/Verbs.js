@@ -11,7 +11,7 @@
 //   plus Net, WS, Systems, hashSeed, mulberry, VERBS, CAMP, LOOT.
 const Verbs=(()=>{
   const items=[],byId=new Map(),camps=[],applied=new Set(),pw=new Map(),fx=[];
-  let W=null,cur=null,built=false,started=false,bar,barTxt,barFill;
+  let W=null,cur=null,built=false,started=false,pre=false,bar,barTxt,barFill;
   const near=it=>Math.hypot(S.x-it.x,S.z-it.z);
   const MAT={},mat=(c,o)=>{const k=c+(o?JSON.stringify(o):'');return MAT[k]||(MAT[k]=new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:1,flatShading:true},o||{})))};
   const M=(g,m,x,y,z)=>{const o=new THREE.Mesh(g,m);o.position.set(x||0,y||0,z||0);o.castShadow=true;return o};
@@ -110,7 +110,7 @@ const Verbs=(()=>{
   function sync(withFx){for(const id of WS.getSet('done')){const it=byId.get(id);if(it&&!applied.has(id)){applyDone(it,{fx:withFx,mine:false});if(W&&W.it===it)stopWork(false)}}}
 
   // ---- working -----------------------------------------------------------------------------
-  function startEmote(id){if(typeof loadEmotes==='function'&&typeof playEmote==='function')loadEmotes().then(()=>{if(W&&!W.pending)playEmote(id)}).catch(()=>{})}
+  function startEmote(id){if(typeof playEmote==='function')VerbAnims.load().then(()=>{if(W&&!W.pending)playEmote(id)}).catch(()=>{})}
   function beginWork(){W.pending=false;W.x0=S.x;W.z0=S.z;startEmote(VERBS[W.it.verb].emote);Net.emit('vw',{id:W.it.id,on:true})}
   function stopWork(){
     if(!W)return;const it=W.it;W=null;hideBar();
@@ -163,6 +163,7 @@ const Verbs=(()=>{
     for(const c of camps){const d=Math.hypot(S.x-c.x,S.z-c.z);
       if(!c.cleared)c.beam.visible=d<320;if(c.halo)c.halo.scale.setScalar(1+Math.sin(t/300+c.x)*.06);
       if(!c.seen&&d<140){c.seen=true;if(WS.ready()&&WS.addToSet('seen',c.id)){WS.log('spot',c.id,{text:'Spotted an abandoned camp on '+c.name,icon:'⛺',x:c.x,z:c.z});banner('An abandoned camp… something to dig, mine and mend','⛺ SPOTTED')}}}
+    if(!pre)for(const c of camps)if(Math.hypot(S.x-c.x,S.z-c.z)<220){pre=true;safe(()=>VerbAnims.load().catch(()=>{}));break} // fetch the clips before you need them
     cur=null;
     if(W)cur=W.it;
     else{let best=1e9;for(const it of items){if(it.done)continue;const d=near(it);if(d<it.r&&d<best&&Math.abs(S.y-it.y)<3){best=d;cur=it}}}
@@ -188,7 +189,9 @@ const Verbs=(()=>{
     if(started)return;started=true;
     sync(false);restoreSeen();
     Net.on('vw',(d,from)=>{if(!d)return;
-      if(d.on)pw.set(d.id,{from,t:performance.now()});
+      if(d.on){pw.set(d.id,{from,t:performance.now()});
+        safe(()=>VerbAnims.load().then(()=>{const o=others.get(from),it=byId.get(d.id); // their 'em' may have beaten the clip download: replay it now
+          if(o&&it&&pw.has(d.id)&&!o.group.userData.hold)o.group.userData.emoteReq=VERBS[it.verb].emote}).catch(()=>{}))}
       else{pw.delete(d.id);const o=others.get(from);if(o)safe(()=>emoStop(o.group.userData))}});
     WS.onChange((k,v,remote)=>{if(k==='done'||k==='*')sync(!!remote);if(k==='seen'||k==='*')restoreSeen()});
   }
