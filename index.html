@@ -71,6 +71,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/world/AssetLoader.js"></script>
 <script src="src/input/InputManager.js"></script>
 <script src="src/world/SeaLife.js"></script>
+<script src="src/world/Environment.js"></script>
 <script src="src/combat/Melee.js"></script>
 <script src="src/interaction/InteractionManager.js"></script>
 <script src="src/games/Tag.js"></script>
@@ -163,7 +164,7 @@ function updateHud(){
 }
 
 // ---------- three ----------
-let renderer,scene,camera,me,rng,sun,sky,seaTex;
+let renderer,scene,camera,me,rng,sun,sky,seaTex,hemi,amb,seaMesh;
 
 function label(text){
   const c=document.createElement('canvas');c.width=256;c.height=64;const x=c.getContext('2d');
@@ -416,14 +417,12 @@ function buildWorld(code){
   scene=new THREE.Scene();
   scene.background=new THREE.Color('#cfe3f2');
   scene.fog=new THREE.Fog('#cfe3f2',150,1700);
-  scene.add(new THREE.HemisphereLight('#bcd7ff','#7d7355',.75));scene.add(new THREE.AmbientLight('#ffffff',.12));
+  hemi=new THREE.HemisphereLight('#bcd7ff','#7d7355',.75);amb=new THREE.AmbientLight('#ffffff',.12);scene.add(hemi);scene.add(amb);
   const sd=new THREE.Vector3(.5,.62,.32).normalize();
   sun=new THREE.DirectionalLight('#fff0d2',1.35);sun.userData.sd=sd;sun.position.copy(sd).multiplyScalar(140);
   sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);const sc=sun.shadow.camera;sc.left=-75;sc.right=75;sc.top=75;sc.bottom=-75;sc.near=10;sc.far=320;sun.shadow.bias=-.0004;sun.shadow.normalBias=.6;
   scene.add(sun);scene.add(sun.target);
-  sky=new THREE.Mesh(new THREE.SphereGeometry(2800,32,16),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,fog:false,toneMapped:false,uniforms:{sd:{value:sd}},
-    vertexShader:'varying vec3 vd;void main(){vd=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader:'varying vec3 vd;uniform vec3 sd;void main(){vec3 d=normalize(vd);float h=clamp(d.y,0.,1.);vec3 hor=vec3(.81,.89,.95),zen=vec3(.2,.42,.74);vec3 c=mix(hor,zen,pow(h,.5));float s=max(dot(d,sd),0.);c+=vec3(1.,.86,.62)*(pow(s,700.)*2.5+pow(s,10.)*.22);if(d.y<0.)c=mix(hor,vec3(.6,.72,.8),clamp(-d.y*4.,0.,1.));gl_FragColor=vec4(c,1.);}'}));
+  sky=new THREE.Mesh(new THREE.SphereGeometry(2800,32,16),Env.makeSky(sd)); // sky colours/sun/moon/stars are driven by Env.tick (src/world/Environment.js)
   sky.renderOrder=-1;scene.add(sky);
   terrain(0,0,600,200);
   for(const I of ISL){terrain(I.x,I.z,I.R*2.6,Math.min(120,Math.round(I.R*2.6/6)));
@@ -433,7 +432,7 @@ function buildWorld(code){
   {const cv=document.createElement('canvas');cv.width=cv.height=256;const cx2=cv.getContext('2d'),im2=cx2.createImageData?cx2.createImageData(256,256):null;
    if(im2){for(let y=0;y<256;y++)for(let x=0;x<256;x++){const a=x/256*6.2832,b=y/256*6.2832,v=128+40*Math.sin(a*3+Math.sin(b*2))+30*Math.sin(b*5+a)+20*Math.sin(a*8-b*6);const i=(y*256+x)*4;im2.data[i]=im2.data[i+1]=im2.data[i+2]=v;im2.data[i+3]=255}cx2.putImageData(im2,0,0)}
    seaTex=new THREE.CanvasTexture(cv);seaTex.wrapS=seaTex.wrapT=THREE.RepeatWrapping;seaTex.repeat.set(500,500);sea.material.bumpMap=seaTex;sea.material.bumpScale=.35}
-  sea.rotation.x=-Math.PI/2;sea.position.y=-.3;scene.add(sea);
+  sea.rotation.x=-Math.PI/2;sea.position.y=-.3;scene.add(sea);seaMesh=sea;Env.build();
   rng=mulberry(hashSeed(code));
   if(AM.plant_bushLarge)AM.plant_bushLarge.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.material.side=THREE.DoubleSide;o.material.emissive=new THREE.Color('#2a6a30')}});
   const dist=(x,z)=>Math.hypot(x-TOWN.x,z-TOWN.z),P={};
@@ -1010,7 +1009,7 @@ function tick(t){
   const wasG=S.grounded;
   if(jumpQ){if(wasG&&!S.flying)S.vy=wat?6:9;else{S.flying=!S.flying;if(S.flying&&!S.tipped){S.tipped=1;banner('Drag up to climb · drag down to dive','FLYING')}}}jumpQ=false;
   if(S.flying)S.vy+=((len>.05?Math.max(-20*(bst()?2.4:1),Math.min(14*(bst()?2.4:1),(.4-S.pitch)*40*(bst()?2.4:1))):0)-S.vy)*Math.min(1,dt*6);else S.vy-=25*dt;
-  const imp=-S.vy;S.y+=S.vy*dt;if(S.flying)S.y=Math.min(S.y,260);
+  const imp=-S.vy;S.y+=S.vy*dt;if(S.flying)S.y=Math.min(S.y,900); // ceiling: well above the cloud layers (clouds at ~310-490 and ~620-730)
   if(S.flying&&S.y<=gY)S.flying=false;
   if(S.y<=gY||(wasG&&S.vy<=0&&S.y-gY<.35)){S.y=gY;S.vy=0;S.grounded=true;if(!wasG&&imp>5)me.userData.land=Math.min(.18,imp*.014)}else S.grounded=false;
   S.state=S.flying?'fly':!S.grounded?(S.vy>0?'jump':'fall'):wat?'swim':len>.05?(sprint?'run':'walk'):'idle';
@@ -1026,6 +1025,7 @@ function tick(t){
   const cx=S.x+Math.sin(S.yaw)*d*cp+shx,cz=S.z+Math.cos(S.yaw)*d*cp+shz;
   camera.position.set(cx,Math.max(H(cx,cz)+.8,camY+1.6+.4*ck+Math.sin(S.pitch)*d),cz);
   camera.lookAt(S.x+shx,camY+1.4+.2*ck,S.z+shz);
+  Env.tick(dt,t);
   if(sun){sun.target.position.set(S.x,S.y,S.z);sun.position.copy(sun.userData.sd).multiplyScalar(140).add(sun.target.position);sky.position.copy(camera.position);if(seaTex){seaTex.offset.x+=dt*.0006;seaTex.offset.y+=dt*.0004}
     fpsA=fpsA*.97+dt*.03;if(sun.castShadow&&++fpsN>240&&fpsA>.034){sun.castShadow=false;scene.traverse(o=>{if(o.material)o.material.needsUpdate=true})}}
   S.burst=Math.max(0,(S.burst||0)-dt);S.gboost=Math.max(0,(S.gboost||0)-dt);if(!S.flying)S.boost=false;
