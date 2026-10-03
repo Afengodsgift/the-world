@@ -25,12 +25,13 @@ const UAL_MAP=[['Hips','pelvis',['Spine','spine_01']],['Spine','spine_01',['Ches
 const KAY_MAP=[['Hips','hips',['Spine','spine']],['Spine','spine',['Chest','chest']],['Chest','chest',['Head','head']],['Head','head',null],
   ...sides((S,s)=>[[S+'Arm','upperarm.'+s,[S+'ForeArm','lowerarm.'+s]],[S+'ForeArm','lowerarm.'+s,[S+'Hand','hand.'+s]],[S+'Hand','hand.'+s,null],
     [S+'UpLeg','upperleg.'+s,[S+'Leg','lowerleg.'+s]],[S+'Leg','lowerleg.'+s,[S+'Foot','foot.'+s]],[S+'Foot','foot.'+s,[S+'Toes','toes.'+s]],[S+'Toes','toes.'+s,null]])];
+const DRIVEN=UAL_MAP.map(m=>m[0]);
 const isUpper=n=>!/Hips|UpLeg|Leg$|Foot|Toes/.test(n);
 // ---- clips: name -> {src animation name, from/to seconds, upper:true = upper body only, file (KayKit pack file)}
 const UAL_CLIPS={idle:{src:'Idle_Loop'},walk:{src:'Walk_Loop'},jog:{src:'Jog_Fwd_Loop'},sprint:{src:'Sprint_Loop'},swim:{src:'Swim_Fwd_Loop'},tread:{src:'Swim_Idle_Loop'},
   jump:{src:'Jump_Start',from:.06,to:.7},fall:{src:'Jump_Loop'},land:{src:'Jump_Land',from:0,to:.6},smack:{src:'Sword_Attack',from:.2,to:.9,upper:true},hit:{src:'Hit_Chest'},interact:{src:'Interact',upper:true}}; // also available in the pack: Dance_Loop, Roll, Death01, Crouch_*, Sitting_*, Punch_*
 const KAY_CLIPS={dig:{src:'Dig',file:'Rig_Medium_Tools.glb',from:0,to:2.4},hit2:{src:'Hit_B',file:'Rig_Medium_General.glb'}}; // also available: Waving, Cheering (Simulation), Fishing_*, Throw, PickUp, Death_*, Dodge_*
-function bake(files,MAP,CLIPS,tag,legPair,FPS=24,dg=4,ground=false){
+function bake(files,MAP,CLIPS,tag,legPair,FPS=24,dg=4){
   const out=[],report={};
   for(const [name,cfg] of Object.entries(CLIPS)){
     const S=files[cfg.file||''],SR=rig(S),Wsr=SR.world(null);
@@ -55,17 +56,30 @@ function bake(files,MAP,CLIPS,tag,legPair,FPS=24,dg=4,ground=false){
       for(const [tn] of MAP){const Qt=tw(tn),pn=CR.N[CR.by[tn].par].name;let lq=tw(pn).clone().invert().multiply(Qt).normalize();if(prev[tn]&&prev[tn].dot(lq)<0)lq.set(-lq.x,-lq.y,-lq.z,-lq.w);prev[tn]=lq;(Q[tn]=Q[tn]||[]).push(lq)}
       const pel=wp(W[SR.by[MAP[0][1]].i]).sub(pelvisRest).multiplyScalar(RATIO).applyQuaternion(rootQ.clone().invert()).multiplyScalar(1/rootS),Pf=hipsRest.clone().add(pel);
       const pose2={};for(const tn in Q)pose2[tn]={q:Q[tn][Q[tn].length-1]};pose2.HipsCtrl={t:Pf};let W2=CR.world(pose2);
-      if(ground){ // lying/prone poses: the hip bob is scaled for standing legs, so a body lying flat ends up floating. When the torso is horizontal, lower the whole body until its lowest joint is ~6 cm off the floor.
-        const hd=wp(W2[CR.by.Head.i]).sub(wp(W2[CR.by.Hips.i])).normalize(),sm=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t)},wgt=1-sm(.3,.7,Math.abs(hd.y));
-        let minY=1e9;for(const [tn] of MAP)minY=Math.min(minY,wp(W2[CR.by[tn].i]).y);const sh=wgt*Math.max(0,minY-.12);
-        if(sh>0){Pf.add(new T.Vector3(0,-sh,0).applyQuaternion(rootQ.clone().invert()).multiplyScalar(1/rootS));pose2.HipsCtrl={t:Pf};W2=CR.world(pose2)}}
+      if(cfg.floor&&SKIN){ // lying/sitting/plank poses: skin the real character mesh for this frame and put its lowest vertex on the floor (y=0 is where the avatar's feet stand)
+        const minY=SKIN.lowest(W2);if(minY<1e8){Pf.add(new T.Vector3(0,-(minY-.01),0).applyQuaternion(rootQ.clone().invert()).multiplyScalar(1/rootS));pose2.HipsCtrl={t:Pf};W2=CR.world(pose2)}}
       P.push(Pf); // check: FK the result and compare limb directions with the source
       for(const [tn,sn,dir] of MAP){if(!dir)continue;const dT=wp(W2[CR.by[dir[0]].i]).sub(wp(W2[CR.by[tn].i])).normalize(),dS=wp(W[SR.by[dir[1]].i]).sub(wp(W[SR.by[sn].i])).normalize();const e=Math.acos(Math.max(-1,Math.min(1,dT.dot(dS))))*180/Math.PI;errMax=Math.max(errMax,e);errSum+=e;errN++}}
     const tracks=[];
     for(const tn in Q){if(cfg.upper&&!isUpper(tn))continue;tracks.push({name:tn+'.quaternion',type:'quaternion',times,values:Q[tn].flatMap(q=>[r(q.x,dg),r(q.y,dg),r(q.z,dg),r(q.w,dg)])})}
+    if(!cfg.upper)for(const tn of DRIVEN)if(!Q[tn]) // bones the locomotion clips drive but this pack doesn't (KayKit has no fingers/shoulders/neck): pin them at rest so the idle clip can't leak into lying/plank poses
+      tracks.push({name:tn+'.quaternion',type:'quaternion',times:[0,r(dur,4)],values:[0,1].flatMap(()=>CR.by[tn].q.toArray().map(x=>r(x,dg)))});
     if(!cfg.upper)tracks.push({name:'HipsCtrl.position',type:'vector',times,values:P.flatMap(p=>[r(p.x,dg+1),r(p.y,dg+1),r(p.z,dg+1)])});
     out.push({name,duration:r(dur,4),tracks,uuid:name});report[name]={pack:tag,dur:r(dur,2),frames:n,legRatio:r(RATIO,2),meanErr:r(errSum/errN,2),maxErr:r(errMax,1)}}
   return {out,report}}
+// Real-mesh floor snapping: CPU-skin assets/char.glb with the glTF rule  world = sum(weight * jointWorld * inverseBind) * vertex
+function accAny(G,i){const a=G.j.accessors[i],bv=G.j.bufferViews[a.bufferView],n={SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16}[a.type],sz={5126:4,5125:4,5123:2,5121:1}[a.componentType],st=bv.byteStride||n*sz,o=(bv.byteOffset||0)+(a.byteOffset||0),d=new Float32Array(a.count*n);
+  const rd=(p)=>a.componentType===5126?G.bin.readFloatLE(p):a.componentType===5125?G.bin.readUInt32LE(p):a.componentType===5123?G.bin.readUInt16LE(p)/(a.normalized?65535:1):G.bin.readUInt8(p)/(a.normalized?255:1);
+  for(let k=0;k<a.count;k++)for(let c=0;c<n;c++)d[k*n+c]=rd(o+k*st+c*sz);return {d,n,count:a.count}}
+let SKIN=null;
+(function initSkin(){
+  const j=C.j,node=j.nodes.find(n=>n.mesh!==undefined&&n.skin!==undefined);if(!node){console.warn('no skinned mesh: floor snapping skipped');return}
+  const sk=j.skins[node.skin],ibm=accAny(C,sk.inverseBindMatrices).d,V=[];
+  for(const p of j.meshes[node.mesh].primitives){const P=accAny(C,p.attributes.POSITION).d,J=accAny(C,p.attributes.JOINTS_0).d,Wt=accAny(C,p.attributes.WEIGHTS_0).d;for(let i=0;i<P.length/3;i++)V.push([P[i*3],P[i*3+1],P[i*3+2],J.slice(i*4,i*4+4),Wt.slice(i*4,i*4+4)])}
+  const IB=sk.joints.map((_,k)=>new T.Matrix4().fromArray(ibm,k*16));
+  SKIN={lowest(W){const M=sk.joints.map((jn,k)=>W[jn].clone().multiply(IB[k]).elements);let mn=1e9;
+    for(const [x,y,z,J,Wt] of V){let ws=0,yy=0;for(let k=0;k<4;k++){const w=Wt[k];if(!w)continue;const e=M[J[k]];yy+=w*(e[1]*x+e[5]*y+e[9]*z+e[13]);ws+=w}if(ws>.5&&Number.isFinite(yy)&&yy<mn)mn=yy}return mn}}})();
+(async()=>{
 const ual=bake({'':glb(UAL)},UAL_MAP,UAL_CLIPS,'UAL',['Hips','pelvis','foot_l']);
 let all=ual.out,rep=ual.report;
 if(KAY){const files={};for(const c of Object.values(KAY_CLIPS))if(!files[c.file])files[c.file]=glb(path.join(KAY,c.file));
@@ -84,17 +98,13 @@ const EMOTES=[
   E('Fitness','pushups','💪','Push-ups','loop',['k','Push_Ups',SIM]),E('Fitness','situps','🏋️','Sit-ups','loop',['k','Sit_Ups',SIM]),E('Fitness','roll','🌀','Roll','once',['u','Roll']),
   E('Fitness','flipf','🤸','Dodge forward','once',['k','Dodge_Forward',ADV]),E('Fitness','flipb','🔙','Dodge back','once',['k','Dodge_Backward',ADV]),
   E('Fight','jab','👊','Jab','once',['u','Punch_Jab']),E('Fight','cross','🥊','Cross punch','once',['u','Punch_Cross']),E('Fight','kick','🦵','Kick','once',['k','Melee_Unarmed_Attack_Kick',MEL]),
-  E('Fight','block','🛡️','Block','once',['k','Melee_Block',MEL]),E('Fight','throw','🎯','Throw','once',['k','Throw',GEN]),
-  E('Magic','cast','✨','Cast spell','once',['k','Ranged_Magic_Spellcasting_Long',RNG]),E('Magic','raise','🙌','Raise','once',['k','Ranged_Magic_Raise',RNG]),E('Magic','summon','🔮','Summon','once',['k','Ranged_Magic_Summon',RNG]),
-  E('Actions','pickup','⬇️','Pick up','once',['k','PickUp',GEN]),E('Actions','useitem','🧪','Use item','once',['k','Use_Item',GEN]),E('Actions','push','🧱','Push','loop',['u','Push_Loop']),
-  E('Actions','hammer','🔨','Hammer','loop',['k','Hammering',TOOLS]),E('Actions','saw','🪚','Saw','loop',['k','Sawing',TOOLS]),E('Actions','pickaxe','⛏️','Pickaxe','loop',['k','Pickaxing',TOOLS]),
-  E('Actions','chopw','🪓','Chop wood','loop',['k','Chopping',TOOLS]),E('Actions','lockpick','🔓','Lockpick','loop',['k','Lockpicking',TOOLS]),E('Actions','dig2','🕳️','Dig','loop',['k','Digging',TOOLS]),
-  E('Actions','fish','🎣','Fish','loop',['k','Fishing_Idle',TOOLS],{in:['k','Fishing_Cast',TOOLS]}),E('Actions','fix','🔧','Fix','once',['u','Fixing_Kneeling'])];
-const ualE={},kayE={};
-for(const e of EMOTES)for(const [key,srcDef] of [[e.id,e.src],[e.id+'_in',e.in]]){if(!srcDef)continue;(srcDef[0]==='u'?ualE:kayE)[key]=srcDef[0]==='u'?{src:srcDef[1]}:{src:srcDef[1],file:srcDef[2]}}
-const eu=bake({'':glb(UAL)},UAL_MAP,ualE,'UAL',['Hips','pelvis','foot_l'],20,3,true);
+  E('Fight','block','🛡️','Block','once',['k','Melee_Block',MEL]),E('Fight','throw','🎯','Throw','once',['k','Throw',GEN])];
+const FLOOR=new Set(['sit','lie','playdead','faint','pushups','situps']),ualE={},kayE={}; // FLOOR: body rests on the ground, so snap to it (intros included)
+for(const e of EMOTES)for(const [key,srcDef] of [[e.id,e.src],[e.id+'_in',e.in]]){if(!srcDef)continue;const fl=FLOOR.has(e.id);(srcDef[0]==='u'?ualE:kayE)[key]=srcDef[0]==='u'?{src:srcDef[1],floor:fl}:{src:srcDef[1],file:srcDef[2],floor:fl}}
+const eu=bake({'':glb(UAL)},UAL_MAP,ualE,'UAL',['Hips','pelvis','foot_l'],20,3);
 const kf={};for(const c of Object.values(kayE))if(!kf[c.file])kf[c.file]=glb(path.join(KAY,c.file));
-const ek=bake(kf,KAY_MAP,kayE,'KayKit',['LeftUpLeg','upperleg.l','foot.l'],20,3,true);
+const ek=bake(kf,KAY_MAP,kayE,'KayKit',['LeftUpLeg','upperleg.l','foot.l'],20,3);
 const byId={};for(const c of eu.out.concat(ek.out))byId[c.name]=c;
 fs.writeFileSync(EOUT,JSON.stringify({menu:EMOTES.map(e=>({cat:e.cat,id:e.id,emoji:e.emoji,label:e.label,kind:e.kind,intro:!!e.in})),clips:Object.values(byId)}));
 console.log('wrote',EOUT,(fs.statSync(EOUT).size/1024).toFixed(0)+' KB,',EMOTES.length,'emotes,',Object.keys(byId).length,'clips; worst limb error',Math.max(...Object.values({...eu.report,...ek.report}).map(x=>x.maxErr)),'deg');
+})();

@@ -250,7 +250,7 @@ function playEmote(id){
 function emoStop(q){const h=q.hold;if(!h)return;for(const a of h.acts){a.fadeOut(.2)}q.hold=null}
 function emoStart(q,id){
   const d=EMO.def[id];if(!d)return;emoStop(q);
-  const main=emoAct(q,id);if(!main)return;const acts=[main],setup=(a,loopMode,clampEnd)=>{a.reset();a.setLoop(loopMode,loopMode===THREE.LoopOnce?1:Infinity);a.clampWhenFinished=!!clampEnd;a.setEffectiveTimeScale(1);a.setEffectiveWeight(20)};
+  const main=emoAct(q,id);if(!main)return;const acts=[main],setup=(a,loopMode,clampEnd)=>{a.reset();a.setLoop(loopMode,loopMode===THREE.LoopOnce?1:Infinity);a.clampWhenFinished=!!clampEnd;a.setEffectiveTimeScale(1);a.setEffectiveWeight(300)}; // 300 vs the idle clip's 1 so the lying/plank poses aren't dragged up by the blended idle hips
   if(d.kind==='once'){setup(main,THREE.LoopOnce,false);main.fadeIn(.15).play();q.hold={acts,until:performance.now()/1000+main.getClip().duration,once:true};return}
   const mode=d.kind==='clamp'?THREE.LoopOnce:THREE.LoopRepeat,clampEnd=d.kind==='clamp';
   if(d.intro){const ia=emoAct(q,id+'_in');if(ia){acts.push(ia);setup(ia,THREE.LoopOnce,true);ia.fadeIn(.15).play();q.hold={acts,main,mode,clampEnd,introAt:performance.now()/1000+ia.getClip().duration-.12,ia};return}}
@@ -280,7 +280,7 @@ function animateClips(g,dt,st){
   if(q.emote){const e=q.emote;q.emote=null;emoStop(q);ov(e,1.3,20,.1)}
   if(q.emoteReq){const e=q.emoteReq;q.emoteReq=null;if(st==='idle'||!q.hold)emoStart(q,e)}
   if(q.hold){const h=q.hold,now=performance.now()/1000;
-    if(h.introAt&&now>=h.introAt){const m=h.main;m.reset();m.setLoop(h.mode,h.mode===THREE.LoopOnce?1:Infinity);m.clampWhenFinished=h.clampEnd;m.setEffectiveWeight(20);m.fadeIn(.25).play();h.ia.fadeOut(.25);h.introAt=0} // intro -> loop/hold
+    if(h.introAt&&now>=h.introAt){const m=h.main;m.reset();m.setLoop(h.mode,h.mode===THREE.LoopOnce?1:Infinity);m.clampWhenFinished=h.clampEnd;m.setEffectiveWeight(300);m.fadeIn(.25).play();h.ia.fadeOut(.25);h.introAt=0} // intro -> loop/hold
     if(st!=='idle'||v>.6||(h.once&&now>h.until))emoStop(q)} // moving, jumping, being hit or the clip finishing ends an emote
   if((q.land||0)>.05&&!q.landOn){q.landOn=true;if(v<2.5&&st==='idle')ov('land',1.5,6,.04)}else if((q.land||0)<=0)q.landOn=false;
   for(const k in q.ov){const o=q.ov[k];o.left-=dt;if(o.left<.14&&!o.ending){o.ending=true;o.a.fadeOut(.12)}if(o.left<-.05)delete q.ov[k]}
