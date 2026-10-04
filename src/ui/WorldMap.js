@@ -12,6 +12,9 @@ const WorldMap=(()=>{
     l.push({n:'Tag Arena',x:Tag.pos.x,z:Tag.pos.z,r:5,icon:'🏃'},{n:'Gunsmith',x:OUT.x+12,z:OUT.z+23,r:5,icon:'🔫'},{n:'Outlaw Portal',x:PORTAL.x,z:PORTAL.z,r:5,icon:'🌀'},{n:'Bonk Ring',x:RING.x,z:RING.z,r:RING.R,icon:'🍳'},{n:'Treasure Hunt',x:BOARD.x,z:BOARD.z,r:5,icon:'🧰'},{n:'Sky Race',x:WP[0][0],z:WP[0][1],r:7,icon:'✈️'},{n:'Sky Slalom',x:slalom.start.x,z:slalom.start.z,y:slalom.start.y,r:5,icon:'🎯'});
     if(dash.start)l.push({n:'Obstacle Dash',x:dash.start.x,z:dash.start.z,r:5,icon:'🧗'});
     if(srun.start)l.push({n:'Shark Run',x:srun.start.x,z:srun.start.z,r:5,icon:'🦈'});
+    if(typeof Verbs!=='undefined')try{l.push(...Verbs.places())}catch(e){} // discovered camps (systems add only what you have found)
+    if(typeof Vaults!=='undefined')try{l.push(...Vaults.places())}catch(e){}
+    if(typeof Events!=='undefined')try{l.push(...Events.places())}catch(e){} // a live event shows up once you have noticed it
     return l};
   const icon=p=>p.icon||(p.n==='Farm'?'🐄':p.n==='Outlaw Isle'?'🤠':p.n==='The Floating Island'?'☁️':p.n==='The Race Track'?'🏁':p.big?'🏝️':'📍');
   const dist=p=>Math.hypot(S.x-p.x,S.z-p.z);
@@ -95,9 +98,9 @@ const WorldMap=(()=>{
     select(best)}
   function select(p){
     sel=p;if(!p){card.style.display='none';return}
-    const found=disc.has(p.n),tracking=wp&&wp.n===p.n,canGo=p.n!=='The Floating Island';
+    const found=disc.has(p.n),tracking=wp&&wp.n===p.n,canGo=true;
     card.innerHTML='<b style="font-size:17px">'+icon(p)+' '+p.n+'</b> <small style="opacity:.7">'+(found||p.icon?(found?'discovered ✓':''):'not discovered yet')+'</small><br>'
-      +'<span style="opacity:.85">'+fmt(dist(p))+' away'+(p.n==='The Floating Island'?' · up in the sky, fly there':'')+'</span><div style="display:flex;gap:8px;margin-top:10px">'
+      +'<span style="opacity:.85">'+fmt(dist(p))+' away'+(p.n==='The Floating Island'?' · up in the clouds':'')+'</span><div style="display:flex;gap:8px;margin-top:10px">'
       +'<button id="wmTrack" style="flex:1;padding:10px;border-radius:10px;border:0;background:'+(tracking?'#6b7280':'#ffd24a')+';font:inherit">'+(tracking?'Stop tracking':'📍 Track')+'</button>'
       +(canGo?'<button id="wmGo" style="flex:1;padding:10px;border-radius:10px;border:0;background:#3df59a;font:inherit">🚀 Travel</button>':'')+'</div>';
     card.style.display='block';

@@ -1,3 +1,5 @@
+> **STALE (see DESIGN.md).** This audit describes the repo when `index.html` was a single 828-line file. Since then the repo gained `src/` modules, an `Interaction` registry, Tag, Outlaw, WorldMap, 36 emotes and five more activities. Treat the structure below as history, not the current state.
+
 # ARCHITECTURE_AUDIT.md — THE WORLD
 
 This documents the **current** state of the repository as it actually is today, not the
