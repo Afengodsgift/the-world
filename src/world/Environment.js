@@ -71,7 +71,7 @@ const Env=(()=>{
   // ---------- UI ----------
   function buildUI(){
     const Ee=(t,css,html)=>{const e=document.createElement(t);e.style.cssText=css||'';if(html)e.innerHTML=html;return e};
-    chip=Ee('button','position:fixed;z-index:6;right:var(--wx-r,12px);top:var(--wx-t,calc(env(safe-area-inset-top,0px) + 120px));width:auto;height:var(--T,36px);border-radius:18px;border:0;background:#ffffffd9;font-size:15px;padding:0 12px;white-space:nowrap;font-variant-numeric:tabular-nums','☀️ 12:00');
+    chip=Ee('button','position:fixed;z-index:6;right:var(--wx-r,12px);top:var(--wx-t,calc(env(safe-area-inset-top,0px) + 120px));width:auto;height:var(--T,36px);border-radius:18px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.14);color:#fff;-webkit-backdrop-filter:blur(12px) saturate(1.5);backdrop-filter:blur(12px) saturate(1.5);box-shadow:0 2px 12px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.35);text-shadow:0 1px 3px rgba(0,0,0,.6);font-weight:400;font-size:14px;padding:0 12px;white-space:nowrap;font-variant-numeric:tabular-nums','☀️ 12:00');
     panel=Ee('div','position:fixed;z-index:12;left:0;right:0;bottom:0;max-height:var(--sheet-h,60vh);overflow-y:auto;display:none;padding:12px var(--sheet-px,12px) calc(env(safe-area-inset-bottom,0px) + 16px);background:#0d1330f2;border-radius:18px 18px 0 0;color:#fff;box-shadow:0 -6px 30px #0008;font-size:15px');
     document.body.appendChild(chip);document.body.appendChild(panel);
     const pill=(txt,on,fn)=>{const b=Ee('button','border:0;border-radius:14px;padding:9px 12px;margin:0 8px 8px 0;font:inherit;color:#fff;background:'+(on?'#3b82f6':'#ffffff1f'),txt);b.onclick=fn;return b};
