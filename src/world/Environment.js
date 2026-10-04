@@ -144,7 +144,8 @@ const Env=(()=>{
     let inside=0;const cx=camera.position.x,cy=camera.position.y,cz=camera.position.z,cover=wx.cloud;
     for(let i=0;i<clouds.length;i++){const c=clouds[i];
       let rx=((c.bx+offX-S.x)%CW+CW*1.5)%CW-CW/2,rz=((c.bz+offZ-S.z)%CW+CW*1.5)%CW-CW/2;
-      const vis=sm(c.th,c.th+.18,cover)*(.55+.45*cover),sc=c.w*(.65+.5*cover)*vis,hs=c.hgt*(.7+.6*cover)*vis;c.vis=vis;
+      const clr=Math.abs(c.by-SKY.base)<150?sm(SKY.R+90,SKY.R+190,Math.hypot(S.x+rx-SKY.x,S.z+rz-SKY.z)):1, // keep a clearing in the clouds around the floating island
+        vis=sm(c.th,c.th+.18,cover)*(.55+.45*cover)*clr,sc=c.w*(.65+.5*cover)*vis,hs=c.hgt*(.7+.6*cover)*vis;c.vis=vis;
       _p.set(S.x+rx,c.by,S.z+rz);_e.set(0,c.yaw,0);_q.setFromEuler(_e);_s.set(Math.max(sc,.001),Math.max(hs,.001),Math.max(sc*.8,.001));_m.compose(_p,_q,_s);cloudMesh.setMatrixAt(i,_m);
       if(vis>.05){const dx=(cx-_p.x)/(sc*.95),dy=(cy-_p.y)/(hs*1.25),dz=(cz-_p.z)/(sc*.8*.95),q=Math.sqrt(dx*dx+dy*dy+dz*dz);if(q<1)inside=Math.max(inside,1-q)}}
     cloudMesh.instanceMatrix.needsUpdate=true;

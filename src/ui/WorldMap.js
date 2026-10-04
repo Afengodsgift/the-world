@@ -98,9 +98,9 @@ const WorldMap=(()=>{
     select(best)}
   function select(p){
     sel=p;if(!p){card.style.display='none';return}
-    const found=disc.has(p.n),tracking=wp&&wp.n===p.n,canGo=p.n!=='The Floating Island';
+    const found=disc.has(p.n),tracking=wp&&wp.n===p.n,canGo=true;
     card.innerHTML='<b style="font-size:17px">'+icon(p)+' '+p.n+'</b> <small style="opacity:.7">'+(found||p.icon?(found?'discovered ✓':''):'not discovered yet')+'</small><br>'
-      +'<span style="opacity:.85">'+fmt(dist(p))+' away'+(p.n==='The Floating Island'?' · up in the sky, fly there':'')+'</span><div style="display:flex;gap:8px;margin-top:10px">'
+      +'<span style="opacity:.85">'+fmt(dist(p))+' away'+(p.n==='The Floating Island'?' · up in the clouds':'')+'</span><div style="display:flex;gap:8px;margin-top:10px">'
       +'<button id="wmTrack" style="flex:1;padding:10px;border-radius:10px;border:0;background:'+(tracking?'#6b7280':'#ffd24a')+';font:inherit">'+(tracking?'Stop tracking':'📍 Track')+'</button>'
       +(canGo?'<button id="wmGo" style="flex:1;padding:10px;border-radius:10px;border:0;background:#3df59a;font:inherit">🚀 Travel</button>':'')+'</div>';
     card.style.display='block';
