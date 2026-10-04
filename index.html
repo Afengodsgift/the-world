@@ -463,14 +463,33 @@ function terrainColor(h,x,z,c){
   c.lerp(_csnow,sstep(27,31,h));
   _ct.copy(_csand).lerp(_csand2,h<.1?.85:.2+q*.25);c.lerp(_ct,1-sstep(.3,.95,h));
 }
+// Vegetation is instanced AND chunked into ~320 m cells. three r147 frustum-culls an InstancedMesh by its base geometry only (not by where the
+// instances are), so the old single big InstancedMesh + frustumCulled=false drew every tree/rock on every island on every frame (and again in the
+// shadow pass). Each cell gets its own mesh whose geometry shares the GPU buffers but carries a REAL bounding sphere, so culling works;
+// vegCull() additionally hides cells beyond the point where fog has already swallowed them.
+const VEG=[];
+function vegCull(){
+  const cx=camera.position.x,cz=camera.position.z,lim=Math.max(500,(scene.fog?scene.fog.far:1700)*.72);
+  for(let i=0;i<VEG.length;i++){const v=VEG[i];v.m.visible=Math.hypot(v.x-cx,v.z-cz)-v.r<lim}
+}
 function scatter(name,th,pl){
   const m=AM[name];if(!m||!pl.length)return null;
   m.updateMatrixWorld(true);
-  const bx=new THREE.Box3().setFromObject(m),k=th/(bx.max.y-bx.min.y),V=new THREE.Vector3(),Q=new THREE.Quaternion(),Sc=new THREE.Vector3(),P=new THREE.Matrix4(),M=new THREE.Matrix4(),Y=new THREE.Vector3(0,1,0);
-  m.traverse(o=>{if(!o.isMesh)return;const im=new THREE.InstancedMesh(o.geometry,o.material,pl.length);
-    pl.forEach((p,i)=>{V.set(p.x,p.y-bx.min.y*k*p.s,p.z);Q.setFromAxisAngle(Y,p.ry);Sc.setScalar(k*p.s);P.compose(V,Q,Sc);M.multiplyMatrices(P,o.matrixWorld);im.setMatrixAt(i,M)});
-    im.castShadow=true;im.receiveShadow=true;const tc=new THREE.Color();pl.forEach((p,i)=>im.setColorAt(i,tc.setScalar(.78+((p.x*12.9898+p.z*78.233)%1+1)%1*.4)));
-    im.frustumCulled=false;scene.add(im)});
+  const bx=new THREE.Box3().setFromObject(m),k=th/(bx.max.y-bx.min.y),V=new THREE.Vector3(),Q=new THREE.Quaternion(),Sc=new THREE.Vector3(),P=new THREE.Matrix4(),M=new THREE.Matrix4(),Y=new THREE.Vector3(0,1,0),tc=new THREE.Color();
+  const CELL=320,cells=new Map(),dim=Math.max(bx.max.x-bx.min.x,bx.max.y-bx.min.y,bx.max.z-bx.min.z)*k;
+  for(const p of pl){const key=Math.floor(p.x/CELL)+','+Math.floor(p.z/CELL);let c=cells.get(key);if(!c)cells.set(key,c=[]);c.push(p)}
+  m.traverse(o=>{if(!o.isMesh)return;
+    for(const cell of cells.values()){
+      let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,z0=1e9,z1=-1e9,ms=0;
+      for(const p of cell){x0=Math.min(x0,p.x);x1=Math.max(x1,p.x);y0=Math.min(y0,p.y);y1=Math.max(y1,p.y);z0=Math.min(z0,p.z);z1=Math.max(z1,p.z);ms=Math.max(ms,p.s)}
+      const g=new THREE.BufferGeometry();for(const a in o.geometry.attributes)g.setAttribute(a,o.geometry.attributes[a]);if(o.geometry.index)g.setIndex(o.geometry.index);
+      const mx=(x0+x1)/2,my=(y0+y1)/2+dim*ms*.5,mz=(z0+z1)/2,rad=Math.hypot((x1-x0)/2,(y1-y0)/2+dim*ms*.5,(z1-z0)/2)+dim*ms;
+      g.boundingSphere=new THREE.Sphere(new THREE.Vector3(mx,my,mz),rad);
+      const im=new THREE.InstancedMesh(g,o.material,cell.length);
+      cell.forEach((p,i)=>{V.set(p.x,p.y-bx.min.y*k*p.s,p.z);Q.setFromAxisAngle(Y,p.ry);Sc.setScalar(k*p.s);P.compose(V,Q,Sc);M.multiplyMatrices(P,o.matrixWorld);im.setMatrixAt(i,M);
+        im.setColorAt(i,tc.setScalar(.78+((p.x*12.9898+p.z*78.233)%1+1)%1*.4))});
+      im.castShadow=true;im.receiveShadow=true;im.frustumCulled=true;scene.add(im);VEG.push({m:im,x:mx,z:mz,r:rad});
+    }});
   return {w:Math.max(bx.max.x-bx.min.x,bx.max.z-bx.min.z)*k};
 }
 function place(par,n,x,y,z,ry,sx,sy,sz){
@@ -567,7 +586,7 @@ const S={x:0,y:0,z:0,vy:0,rot:0,yaw:0,pitch:.35,grounded:true,state:'idle',flyin
 async function startGame(){
   $('lobby').style.display='none';
   ['hud','stick'].forEach(i=>$(i).style.display=i==='hud'?'flex':'block');$('jump').style.display='block';$('panbtn').style.display=PAN_ENABLED?'block':'none';$('emobtn').style.display='block';setTimeout(()=>loadEmotes().catch(()=>{}),4000);
-  renderer=new THREE.WebGLRenderer({antialias:(devicePixelRatio||1)<1.75,powerPreference:'high-performance'});renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   Perf.init(renderer);renderer.setSize(innerWidth,innerHeight);
   document.body.appendChild(renderer.domElement);
   camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,4200);
@@ -1084,10 +1103,10 @@ function tick(t){
     const p=o.group.position;p.x+=(o.tx-p.x)*k;p.y+=(o.ty-p.y)*k;p.z+=(o.tz-p.z)*k;
     o.group.rotation.y=lerpAngle(o.group.rotation.y,o.tr,k);animate(o.group,dt,o.st);
   }
-  CameraRig.update(dt);                                                         // orbit / first-person / shoulder + flight FOV, roll, shake (src/camera/CameraRig.js)
+  vegCull();CameraRig.update(dt);                                                         // orbit / first-person / shoulder + flight FOV, roll, shake (src/camera/CameraRig.js)
   Env.tick(dt,t);skyTick(t);
   if(sun){Perf.snapSun(sun,S.x,S.y,S.z);sky.position.copy(camera.position);if(seaTex){seaTex.offset.x+=dt*.0006;seaTex.offset.y+=dt*.0004}
-    fpsA=fpsA*.97+dt*.03;if(sun.castShadow&&++fpsN>240&&fpsA>.034){sun.castShadow=false;scene.traverse(o=>{if(o.material)o.material.needsUpdate=true})}}
+    if(sun.castShadow&&Perf.shadowTooSlow()){sun.castShadow=false;scene.traverse(o=>{if(o.material)o.material.needsUpdate=true})}}
   S.burst=Math.max(0,(S.burst||0)-dt);S.gboost=Math.max(0,(S.gboost||0)-dt);if(!S.flying)S.boost=false;
   if(S.flying!==bvis){bvis=S.flying;$('boost').style.display=bvis?'block':'none';if(!bvis){$('boost').textContent='Boost';$('boost').style.opacity=.75}
     $('smack').style.display=(PAN_ENABLED&&panOn&&!bvis)?'block':'none'}
