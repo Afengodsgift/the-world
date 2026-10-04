@@ -22,7 +22,7 @@ function bindInput(){
   // look
   let lid=null,lx=0,ly=0;const cv=renderer.domElement;
   cv.addEventListener('pointerdown',e=>{lid=e.pointerId;lx=e.clientX;ly=e.clientY;cv.setPointerCapture(lid)});
-  cv.addEventListener('pointermove',e=>{if(e.pointerId!==lid)return;S.yaw-=(e.clientX-lx)*.006;S.pitch=Math.max(.05,Math.min(1.2,S.pitch+(e.clientY-ly)*.005));lx=e.clientX;ly=e.clientY});
+  cv.addEventListener('pointermove',e=>{if(e.pointerId!==lid)return;S.yaw-=(e.clientX-lx)*.006;{const pr=typeof CameraRig!=='undefined'?CameraRig.pitchRange():[.05,1.2];S.pitch=Math.max(pr[0],Math.min(pr[1],S.pitch+(e.clientY-ly)*.005))}lx=e.clientX;ly=e.clientY});
   const endLook=e=>{if(e.pointerId===lid)lid=null};cv.addEventListener('pointerup',endLook);cv.addEventListener('pointercancel',endLook);
   $('share').onclick=async()=>{
     const url=location.origin+location.pathname+'?room='+roomCode;
