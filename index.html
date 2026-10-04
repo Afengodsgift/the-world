@@ -42,6 +42,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 #skinRow button.sel{background:#ffd27a;color:#1a1f3a;border-color:#ffd27a}
 #pmk{position:fixed;z-index:5;transform:translate(-50%,-50%);color:#7fd0ff;text-align:center;font-size:22px;line-height:1;text-shadow:0 0 8px #000,0 2px 6px #000;pointer-events:none;display:none}
 
+#fshint{position:fixed;z-index:7;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 8px);padding:6px 14px;border-radius:14px;background:#000a;color:#fff;font-size:12px;pointer-events:none;display:none;white-space:nowrap}
 /* ===== Landscape-first mobile =====
    THE WORLD is played in landscape on phones. Portrait/desktop keep the original layout above; the block below only applies to
    touch devices held sideways. Everything is sized from viewport height (dvh) + safe-area insets, so it adapts to any phone. */
@@ -188,12 +189,24 @@ let mySkin=1;
 const pre=new URLSearchParams(location.search).get('room');
 if(pre)$('code').value=pre;
 
-// On touch devices, a tap is our chance to go fullscreen and lock to landscape (Android Chrome honours both; iOS ignores them and
-// falls back to the "rotate your phone" overlay). Always best-effort: failure must never block entering the world.
-function wantLandscape(){try{if(!matchMedia('(pointer:coarse)').matches)return;const el=document.documentElement;
-  const fs=el.requestFullscreen?el.requestFullscreen({navigationUI:'hide'}):null;
-  const lock=()=>{try{const r=screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape');if(r&&r.catch)r.catch(()=>{})}catch(e){}};
-  if(fs&&fs.then)fs.then(lock,()=>{});else lock()}catch(e){}}
+// Total fullscreen in landscape on touch devices. Browsers only allow fullscreen from a user tap, so we (a) ask on Create/Join and
+// (b) re-ask on the first tap whenever we're in-game, landscape and not fullscreen (arriving via ?room= link, rotating later, or
+// swiping out of fullscreen). Fullscreen also unlocks screen.orientation.lock('landscape') on Android Chrome. iPhone Safari has no
+// fullscreen API for pages: there, "Add to Home Screen" gives the same result (the apple-mobile-web-app-capable meta is set).
+const fsEl=()=>document.fullscreenElement||document.webkitFullscreenElement;
+const fsCan=()=>{const e=document.documentElement;return !!(e.requestFullscreen||e.webkitRequestFullscreen)};
+const coarse=()=>matchMedia('(pointer:coarse)').matches;
+function wantLandscape(){try{if(!coarse())return;const lock=()=>{try{const r=screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape');if(r&&r.catch)r.catch(()=>{})}catch(e){}};
+  if(fsEl()){lock();return}
+  const el=document.documentElement,r=el.requestFullscreen?el.requestFullscreen({navigationUI:'hide'}):el.webkitRequestFullscreen?el.webkitRequestFullscreen():null;
+  if(r&&r.then)r.then(lock,()=>{});else lock()}catch(e){}}
+const inGame=()=>getComputedStyle($('lobby')).display==='none';
+const landscapeNow=()=>matchMedia('(orientation:landscape)').matches;
+['pointerup','touchend','click'].forEach(ev=>addEventListener(ev,()=>{if(coarse()&&fsCan()&&!fsEl()&&inGame()&&landscapeNow())wantLandscape()},{capture:true,passive:true}));
+// small hint until fullscreen is on
+(()=>{const h=document.createElement('div');h.id='fshint';h.textContent='Tap anywhere for fullscreen';document.body.appendChild(h);
+  const sync=()=>{h.style.display=(coarse()&&fsCan()&&!fsEl()&&inGame()&&landscapeNow())?'block':'none'};
+  ['fullscreenchange','webkitfullscreenchange','resize','orientationchange'].forEach(e=>addEventListener(e,sync));document.addEventListener('fullscreenchange',sync);setInterval(sync,1000)})();
 $('create').onclick=()=>{wantLandscape();enter(genCode())};
 $('join').onclick=()=>{const c=normCode($('code').value);if(!c)return msg('Enter a code like KAMI-7X4P');wantLandscape();enter(c)};
 
