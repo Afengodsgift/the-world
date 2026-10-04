@@ -68,16 +68,16 @@ const WorldMap=(()=>{
   const E=(t,css,html)=>{const e=document.createElement(t);e.style.cssText=css||'';if(html)e.innerHTML=html;return e};
   function build(){
     if(ov)return;
-    btn=E('button','position:fixed;z-index:6;right:12px;top:calc(env(safe-area-inset-top,0px) + 66px);width:46px;height:46px;border-radius:50%;border:0;background:#ffffffd9;font-size:24px;padding:0','🗺️');
-    btn.onclick=toggle;document.body.appendChild(btn);
+    btn=E('button','','🗺️');
+    btn.className='dk dk-map';btn.onclick=toggle;document.body.appendChild(btn);
     ov=E('div','position:fixed;inset:0;z-index:30;display:none;touch-action:none;background:#154560');
     cv=E('canvas','position:absolute;inset:0;width:100%;height:100%;touch-action:none');ov.appendChild(cv);ctx=cv.getContext('2d');
     chips=E('div','position:absolute;left:0;right:56px;top:calc(env(safe-area-inset-top,0px) + 8px);display:flex;gap:6px;overflow-x:auto;padding:4px 8px;-webkit-overflow-scrolling:touch');ov.appendChild(chips);
-    const x=E('button','position:absolute;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);width:40px;height:40px;border-radius:50%;border:0;background:#fffe;font-size:20px;padding:0','✕');x.onclick=toggle;ov.appendChild(x);
-    const zb=(t,b,f)=>{const e=E('button','position:absolute;right:12px;bottom:'+b+';width:44px;height:44px;border-radius:12px;border:0;background:#fffe;font-size:22px;padding:0',t);e.onclick=f;ov.appendChild(e)};
+    const x=E('button','position:absolute;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);width:40px;height:40px;font-size:18px','✕');x.className='mapx';x.onclick=toggle;ov.appendChild(x);
+    const zb=(t,b,f)=>{const e=E('button','position:absolute;right:12px;bottom:'+b+';width:44px;height:44px;font-size:20px',t);e.className='zb';e.onclick=f;ov.appendChild(e)};
     zb('＋','calc(env(safe-area-inset-bottom,0px) + 150px)',()=>view.s*=1.5);zb('－','calc(env(safe-area-inset-bottom,0px) + 100px)',()=>view.s/=1.5);
     zb('◎','calc(env(safe-area-inset-bottom,0px) + 50px)',()=>centerOn({x:S.x,z:S.z},.3));
-    card=E('div','position:absolute;left:10px;right:70px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);background:#1a1f3af2;color:#fff;border-radius:14px;padding:12px;font:15px sans-serif;display:none');ov.appendChild(card);
+    card=E('div','position:absolute;left:10px;right:70px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);padding:14px;display:none');card.className='mapcard';ov.appendChild(card);
     document.body.appendChild(ov);
     // gestures: drag pans, pinch zooms, a short tap selects
     cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=0;pinch0=0});
@@ -101,8 +101,8 @@ const WorldMap=(()=>{
     const found=disc.has(p.n),tracking=wp&&wp.n===p.n,canGo=true;
     card.innerHTML='<b style="font-size:17px">'+icon(p)+' '+p.n+'</b> <small style="opacity:.7">'+(found||p.icon?(found?'discovered ✓':''):'not discovered yet')+'</small><br>'
       +'<span style="opacity:.85">'+fmt(dist(p))+' away'+(p.n==='The Floating Island'?' · up in the clouds':'')+'</span><div style="display:flex;gap:8px;margin-top:10px">'
-      +'<button id="wmTrack" style="flex:1;padding:10px;border-radius:10px;border:0;background:'+(tracking?'#6b7280':'#ffd24a')+';font:inherit">'+(tracking?'Stop tracking':'📍 Track')+'</button>'
-      +(canGo?'<button id="wmGo" style="flex:1;padding:10px;border-radius:10px;border:0;background:#3df59a;font:inherit">🚀 Travel</button>':'')+'</div>';
+      +'<button id="wmTrack" class="btn'+(tracking?'':' gold')+'" style="flex:1;margin:0">'+(tracking?'Stop tracking':'📍 Track')+'</button>'
+      +(canGo?'<button id="wmGo" class="btn go" style="flex:1;margin:0">🚀 Travel</button>':'')+'</div>';
     card.style.display='block';
     card.querySelector('#wmTrack').onclick=()=>{wp=tracking?null:p;if(wp)banner('Tracking '+p.n+' · follow the arrow','MAP');select(p)};
     const go=card.querySelector('#wmGo');if(go)go.onclick=()=>travel(p)}
@@ -112,8 +112,8 @@ const WorldMap=(()=>{
   function fillChips(){
     chips.innerHTML='';
     for(const p of places().filter(p=>p.big||p.icon||p.n==='Town Square'||p.n==='Farm')){
-      const c=E('button','flex:none;border:0;border-radius:16px;padding:7px 12px;background:'+(p.n==='Outlaw Isle'?'#ff5a3d':'#ffffffe0')+';color:'+(p.n==='Outlaw Isle'?'#fff':'#111')+';font:13px sans-serif',icon(p)+' '+p.n);
-      c.onclick=()=>{centerOn(p,.25);select(p)};chips.appendChild(c)}}
+      const c=E('button','',icon(p)+' '+p.n);
+      c.className='mchip'+(p.n==='Outlaw Isle'?' hot':'');c.onclick=()=>{centerOn(p,.25);select(p)};chips.appendChild(c)}}
   function toggle(){
     build();isOpen=!isOpen;ov.style.display=isOpen?'block':'none';
     if(isOpen){size();fit();fillChips();select(wp);cancelAnimationFrame(raf);draw()}else cancelAnimationFrame(raf)}

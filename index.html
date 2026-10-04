@@ -39,9 +39,11 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 #skinRow button.sel{background:#ffd27a;color:#1a1f3a;border-color:#ffd27a}
 #pmk{position:fixed;z-index:5;transform:translate(-50%,-50%);color:#7fd0ff;text-align:center;font-size:22px;line-height:1;text-shadow:0 0 8px #000,0 2px 6px #000;pointer-events:none;display:none}
 </style>
+<link rel="stylesheet" href="src/ui/theme.css">
 </head>
 <body>
 <div id="lobby">
+  <div class="lobby-card">
   <h1>The World</h1>
   <p>A world for two.</p>
   <input id="name" placeholder="Your name" maxlength="16" autocomplete="off">
@@ -50,6 +52,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
   <input id="code" placeholder="Room code (KAMI-7X4P)" maxlength="9" autocomplete="off" style="text-transform:uppercase">
   <button id="join" class="alt">Join with code</button>
   <div id="msg"></div>
+  </div>
 </div>
 <div id="hud"><div id="info"></div><button id="share">Invite</button></div>
 <div id="stick"><div id="knob"></div></div>
@@ -83,6 +86,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/core/Net.js"></script>
 <script src="src/core/WorldState.js"></script>
 <script src="src/ui/Journal.js"></script>
+<script src="src/ui/Theme.js"></script>
 <script src="src/core/Systems.js"></script>
 <script src="src/data/interactables.js"></script>
 <script src="src/world/Fx.js"></script>
@@ -181,7 +185,10 @@ function syncPresence(){
   updateHud();
 }
 function updateHud(){
-  $('info').innerHTML=roomCode+'  ·  '+(others.size?'Together':'Waiting for your partner…')+'<br>✦ '+got+'/'+orbs.length+'  ·  📍 '+disc.size+'/'+LOCS.length+'  ·  🧰 '+treas+'  ·  🥊 '+smacks;
+  const together=others.size>0;
+  $('info').innerHTML='<div class="pill"><i class="dot'+(together?' on':'')+'"></i><span class="code">'+roomCode+'</span><span class="dim">'+(together?'Together':'Waiting\u2026')+'</span></div>'
+    +'<div class="pill stats"><span><i>\u2726</i><b>'+got+'</b><span class="dim">/'+orbs.length+'</span></span><span><i>\u{1F4CD}</i><b>'+disc.size+'</b><span class="dim">/'+LOCS.length+'</span></span>'
+    +(treas?'<span><i>\u{1F9F0}</i><b>'+treas+'</b></span>':'')+(smacks?'<span><i>\u{1F94A}</i><b>'+smacks+'</b></span>':'')+'</div>';
 }
 
 // ---------- three ----------
@@ -575,7 +582,7 @@ function wsBoot(){
     try{Events.start()}catch(e){console.error('Events.start',e)}
     WS.onChange((k,v,remote)=>{if(remote&&(k==='*'||k==='disc'||k==='orbs'||k==='treas'))wsPull(k==='*')});
   }).catch(e=>console.warn('wsBoot',e))}
-function banner(t,l){const b=$('banner');b.innerHTML='<small>'+(l||'NEW LOCATION DISCOVERED')+'</small><br>'+t;b.style.opacity=1;clearTimeout(banner.t);banner.t=setTimeout(()=>b.style.opacity=0,3200)}
+function banner(t,l){const b=$('banner');b.innerHTML='<div class="toast"><small>'+(l||'NEW LOCATION DISCOVERED')+'</small><span>'+t+'</span></div>';b.style.opacity=1;clearTimeout(banner.t);banner.t=setTimeout(()=>b.style.opacity=0,3200)}
 function take(i,local){const o=orbs[i];if(!o||!o.on)return;o.on=false;o.m.visible=false;got++;save();updateHud();if(local&&chan)chan.send({type:'broadcast',event:'c',payload:{i}})}
 function chime(){try{const a=new(window.AudioContext||webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.frequency.value=660;o.connect(g);g.connect(a.destination);g.gain.setValueAtTime(.2,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+1.4);o.start();o.stop(a.currentTime+1.4)}catch(e){}}
 function doUse(){const t=$('use').style.display==='block',id=Interaction.current();Interaction.use();if(t&&me)me.userData.emote=id==='dig'&&me.userData.nact&&me.userData.nact.dig?'dig':'interact'}

@@ -406,25 +406,26 @@ const Outlaw=(()=>{
     xh.style.display=wi>=0?'block':'none';fireBtn.style.display=wi>=0?'block':'none';reloadBtn.style.display=wi>=0?'block':'none';
   }
   function panel(html){
-    if(!shopEl){shopEl=document.createElement('div');shopEl.style.cssText='position:fixed;inset:0;z-index:25;display:none;align-items:center;justify-content:center;background:#000a';
-      shopEl.innerHTML='<div id="owp" style="background:#1d1a2ef5;color:#fff;border-radius:16px;padding:16px;width:min(92vw,400px);max-height:86vh;overflow:auto;font:14px sans-serif"></div>';document.body.appendChild(shopEl);
+    if(!shopEl){shopEl=document.createElement('div');shopEl.className='veil';
+      shopEl.innerHTML='<div id="owp" class="card"></div>';document.body.appendChild(shopEl);
       shopEl.onclick=e=>{const b=e.target.closest('[data-a]');if(b)panelAct(b.dataset.a,b.dataset.v)}}
     $('owp').innerHTML=html;shopEl.style.display='flex'}
   const closePanel=()=>{if(shopEl)shopEl.style.display='none'};
-  const B=(a,v,t,col)=>'<button data-a="'+a+'" data-v="'+v+'" style="padding:10px 12px;margin:3px;border-radius:10px;border:0;background:'+col+';color:#fff;font:inherit">'+t+'</button>';
+  const B=(a,v,t,col)=>'<button class="btn'+(col==='#ff6b3d'?' sel':col==='#2ecc71'?' go':'')+'" data-a="'+a+'" data-v="'+v+'">'+t+'</button>';
   function missionPanel(){
     panel('<h3 style="margin:0 0 8px">🤠 Showdown</h3><b>Mission</b><br>'+B('m','survive','Survive Waves',pick.m==='survive'?'#ff6b3d':'#ffffff22')+B('m','defend','Defend the Bank',pick.m==='defend'?'#ff6b3d':'#ffffff22')
       +'<div style="opacity:.75;margin:4px 0 10px">'+(pick.m==='defend'?'Raiders go for the vault. Hold 8 waves. If the bank falls, you lose.':'Endless waves. A boss every 3rd wave.')+'</div><b>Difficulty</b> <small style="opacity:.7">(coin bonus)</small><br>'
       +DIFF.map((D,i)=>B('d',i,D.n+' ×'+D.coin,pick.d===i?'#ff6b3d':'#ffffff22')).join('')+'<div style="margin-top:14px">'+B('go','','▶ START','#2ecc71')+B('x','','Cancel','#555')+'</div>')}
   function shopPanel(){
-    const row=(t,sub,btn)=>'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-top:1px solid #fff2"><div>'+t+'<br><small style="opacity:.7">'+sub+'</small></div>'+btn+'</div>';
-    const bt=(a,v,c,l)=>'<button data-a="'+a+'" data-v="'+v+'" style="padding:8px 10px;border-radius:9px;border:0;background:'+(SAVE.coins>=c?'#f1c40f':'#666')+';color:#000;font:inherit;white-space:nowrap">'+l+' '+c+'🪙</button>';
-    let h='<h3 style="margin:0">🔫 Gunsmith</h3><div style="margin:4px 0 2px">Coins: <b>'+SAVE.coins+' 🪙</b></div><div style="opacity:.7;margin-bottom:6px">Switch guns: 🔫 button, or keys 1-9 / E</div>';
-    WEAPONS.forEach((W,i)=>{if(!SAVE.own[i])h+=row('🔒 '+W.n,W.mag+' rounds · dmg '+W.d,bt('buyw',i,W.price,'Buy'));
-      else{const L=SAVE.lv[i],c=Math.round(100*(L+1)*(1+i*.25));h+=row(W.n+' <small>Lv '+L+'/5</small>','Damage '+Math.round(dmgOf(i))+' · mag '+magOf(i),L>=5?'<small>MAX</small>':bt('upw',i,c,'Dmg+'))}});
-    h+='<div style="opacity:.7;margin-top:8px">Upgrades</div>';
-    for(const [k,t,sub,mx,base] of [['hp','❤️ Max Health','+20 HP',5,130],['mag','📦 Mag Size','+20% rounds',4,120],['rl','⚡ Fast Reload','−12% time',4,110],['crit','🎯 Crit Chance','+5%',5,140]]){const L=SAVE[k];h+=row(t+' <small>Lv '+L+'/'+mx+'</small>',sub,L>=mx?'<small>MAX</small>':bt('ug',k,base*(L+1),'Up'))}
-    panel(h+'<div style="margin-top:10px;text-align:center">'+B('x','','Close','#555')+'</div>')}
+    const pips=(L,mx)=>'<span class="pips">'+Array.from({length:mx},(_,n)=>'<i'+(n<L?' class="on"':'')+'></i>').join('')+'</span>';
+    const bt=(a,v,c,l)=>'<button class="btn gold'+(SAVE.coins>=c?'':' off')+'" data-a="'+a+'" data-v="'+v+'">'+l+' <b>'+c+'</b> \u{1FA99}</button>';
+    const row=(t,sub,btn,locked)=>'<div class="gs-row'+(locked?' locked':'')+'"><div><div class="gs-name">'+t+'</div><div class="gs-sub">'+sub+'</div></div>'+btn+'</div>';
+    let h='<div class="gs-head"><h3>\u{1F52B} Gunsmith</h3><div class="coins">\u{1FA99} <b>'+SAVE.coins+'</b></div></div><div class="gs-hint">Switch guns with the \u{1F52B} button, or keys 1\u20139 / E</div>';
+    WEAPONS.forEach((W,i)=>{if(!SAVE.own[i])h+=row('\u{1F512} '+W.n,W.mag+' rounds \u00B7 '+W.d+' dmg',bt('buyw',i,W.price,'Buy'),true);
+      else{const L=SAVE.lv[i],c=Math.round(100*(L+1)*(1+i*.25));h+=row(W.n+' '+pips(L,5),Math.round(dmgOf(i))+' dmg \u00B7 '+magOf(i)+' mag',L>=5?'<span class="max">MAX</span>':bt('upw',i,c,'\u2B06'))}});
+    h+='<div class="gs-sec">Upgrades</div>';
+    for(const [k,t,sub,mx,base] of [['hp','❤️ Max Health','+20 HP',5,130],['mag','📦 Mag Size','+20% rounds',4,120],['rl','⚡ Fast Reload','−12% time',4,110],['crit','🎯 Crit Chance','+5%',5,140]]){const L=SAVE[k];h+=row(t+' '+pips(L,mx),sub,L>=mx?'<span class="max">MAX</span>':bt('ug',k,base*(L+1),'\u2B06'))}
+    panel(h+'<div class="gs-foot"><button class="btn" data-a="x" data-v="">Close</button></div>')}
   function panelAct(a,v){
     if(a==='x'){closePanel();return}
     if(a==='m'){pick.m=v;missionPanel();return}if(a==='d'){pick.d=+v;missionPanel();return}

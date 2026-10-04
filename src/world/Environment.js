@@ -71,19 +71,19 @@ const Env=(()=>{
   // ---------- UI ----------
   function buildUI(){
     const Ee=(t,css,html)=>{const e=document.createElement(t);e.style.cssText=css||'';if(html)e.innerHTML=html;return e};
-    chip=Ee('button','position:fixed;z-index:6;right:12px;top:calc(env(safe-area-inset-top,0px) + 120px);height:36px;border-radius:18px;border:0;background:#ffffffd9;font-size:15px;padding:0 12px;font-variant-numeric:tabular-nums','☀️ 12:00');
-    panel=Ee('div','position:fixed;z-index:12;left:0;right:0;bottom:0;max-height:60vh;overflow-y:auto;display:none;padding:12px 12px calc(env(safe-area-inset-bottom,0px) + 16px);background:#0d1330f2;border-radius:18px 18px 0 0;color:#fff;box-shadow:0 -6px 30px #0008;font-size:15px');
+    chip=Ee('button','','☀️ 12:00');
+    panel=Ee('div','display:none');panel.className='sheet';chip.className='dk dk-wx';
     document.body.appendChild(chip);document.body.appendChild(panel);
-    const pill=(txt,on,fn)=>{const b=Ee('button','border:0;border-radius:14px;padding:9px 12px;margin:0 8px 8px 0;font:inherit;color:#fff;background:'+(on?'#3b82f6':'#ffffff1f'),txt);b.onclick=fn;return b};
+    const pill=(txt,on,fn)=>{const b=Ee('button','margin:0 8px 8px 0',txt);b.className='chip'+(on?' on':'');b.onclick=fn;return b};
     const render=()=>{panel.innerHTML='';
-      const head=Ee('div','display:flex;justify-content:space-between;align-items:center;margin:0 4px 4px','<b>Sky &amp; weather</b>');const x=Ee('button','border:0;border-radius:14px;padding:4px 12px;font-size:18px;color:#fff;background:#ffffff33','✕');x.onclick=()=>{panel.style.display='none'};head.appendChild(x);panel.appendChild(head);
-      const sec=(t)=>panel.appendChild(Ee('div','margin:10px 4px 6px;font-size:13px;opacity:.7;letter-spacing:.08em;text-transform:uppercase',t));
+      const head=Ee('div','display:flex;justify-content:space-between;align-items:center;margin:0 4px 4px','<h3 style="margin:0">Sky &amp; weather</h3>');const x=Ee('button','','✕');x.className='xbtn';x.onclick=()=>{panel.style.display='none'};head.appendChild(x);panel.appendChild(head);
+      const sec=(t)=>{const e=Ee('div','',t);e.className='sec';panel.appendChild(e)};
       sec('Time of day');let row=Ee('div','');
       for(const [t,v] of [['Auto',null],['🌅 Dawn',.26],['☀️ Noon',.5],['🌇 Dusk',.74],['🌙 Midnight',0]])row.appendChild(pill(t,E.ovT===v,()=>{E.ovT=v;render()}));panel.appendChild(row);
       sec('Weather');row=Ee('div','');
       for(const [t,v] of [['Auto',null],['☀️ Clear','clear'],['☁️ Cloudy','cloudy'],['🌧️ Rain','rain'],['⛈️ Storm','storm']])row.appendChild(pill(t,E.ovW===v,()=>{E.ovW=v;render()}));panel.appendChild(row);
       sec('Sound');row=Ee('div','');row.appendChild(pill(E.sound?'🔊 Rain & thunder on':'🔇 Rain & thunder off',E.sound,()=>{E.sound=!E.sound;try{localStorage.setItem('w4wxsound',E.sound?'1':'0')}catch(e){}if(!E.sound&&rainG)rainG.gain.value=0;render()}));panel.appendChild(row);
-      panel.appendChild(Ee('div','margin:8px 4px 0;font-size:12px;opacity:.6','Auto is shared: everyone in your room sees the same time and weather. Overrides only change your own screen.'))};
+      {const n=Ee('div','','Auto is shared: everyone in your room sees the same time and weather. Overrides only change your own screen.');n.className='note';panel.appendChild(n)}};
     chip.addEventListener('pointerdown',e=>{e.preventDefault();audio();if(panel.style.display==='block'){panel.style.display='none'}else{render();panel.style.display='block'}});
     addEventListener('pointerdown',()=>{audio();if(AC&&AC.state==='suspended')AC.resume()},{once:true});
   }
