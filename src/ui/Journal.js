@@ -13,9 +13,9 @@ const Journal=(()=>{
   const E=(tag,css,txt)=>{const e=document.createElement(tag);if(css)e.style.cssText=css;if(txt!==undefined)e.textContent=txt;return e};
   function build(){
     if(btn)return;
-    btn=E('button','position:fixed;z-index:6;right:12px;top:calc(env(safe-area-inset-top,0px) + 164px);width:46px;height:46px;border-radius:50%;border:0;background:#ffffffd9;font-size:24px;padding:0','📖');
+    btn=E('button','position:fixed;z-index:6;right:var(--jr-r,12px);top:var(--jr-t,calc(env(safe-area-inset-top,0px) + 164px));width:var(--T,46px);height:var(--T,46px);border-radius:50%;border:0;background:#ffffffd9;font-size:var(--tf,24px);padding:0','📖');
     btn.onclick=toggle;document.body.appendChild(btn);
-    panel=E('div','position:fixed;z-index:12;left:0;right:0;bottom:0;max-height:62vh;overflow-y:auto;display:none;padding:12px 14px calc(env(safe-area-inset-bottom,0px) + 16px);background:#0d1330f2;border-radius:18px 18px 0 0;color:#fff;box-shadow:0 -6px 30px #0008;font:15px sans-serif');
+    panel=E('div','position:fixed;z-index:12;left:0;right:0;bottom:0;max-height:var(--sheet-h,62vh);overflow-y:auto;display:none;padding:12px var(--sheet-px,14px) calc(env(safe-area-inset-bottom,0px) + 16px);background:#0d1330f2;border-radius:18px 18px 0 0;color:#fff;box-shadow:0 -6px 30px #0008;font:15px sans-serif');
     document.body.appendChild(panel);
     addEventListener('keydown',e=>{if(e.code==='KeyJ'&&!e.repeat)toggle()});
   }

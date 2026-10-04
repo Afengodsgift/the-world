@@ -15,11 +15,11 @@ const Tag=(()=>{
   function ui(){
     if(hud)return;
     hud=document.createElement('div');
-    hud.style.cssText='position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 96px);left:0;right:0;text-align:center;font-size:20px;color:#fff;text-shadow:0 2px 8px #000;pointer-events:none;display:none';
+    hud.style.cssText='position:fixed;z-index:6;top:var(--topmsg-tag,calc(env(safe-area-inset-top,0px) + 96px));left:0;right:0;text-align:center;font-size:20px;color:#fff;text-shadow:0 2px 8px #000;pointer-events:none;display:none';
     document.body.appendChild(hud);
     panel=document.createElement('div');
     panel.style.cssText='position:fixed;z-index:20;inset:0;display:none;align-items:center;justify-content:center;background:#0009';
-    panel.innerHTML='<div style="background:#1a1f3af2;color:#fff;border-radius:18px;padding:22px;width:min(88vw,340px);text-align:center"><div id="tgbody"></div><button id="tgok" style="margin-top:14px;font:inherit;padding:12px 28px;border-radius:12px;border:0;background:#ff6b8b;color:#fff">OK</button></div>';
+    panel.innerHTML='<div style="background:#1a1f3af2;color:#fff;border-radius:18px;padding:22px;width:min(88vw,340px);max-height:90dvh;overflow:auto;text-align:center"><div id="tgbody"></div><button id="tgok" style="margin-top:14px;font:inherit;padding:12px 28px;border-radius:12px;border:0;background:#ff6b8b;color:#fff">OK</button></div>';
     document.body.appendChild(panel);document.getElementById('tgok').onclick=()=>{panel.style.display='none';if(A&&A.over&&A.theirs!==null)A=null};
   }
   const result=h=>{ui();document.getElementById('tgbody').innerHTML=h;panel.style.display='flex'};

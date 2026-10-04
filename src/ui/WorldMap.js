@@ -68,7 +68,7 @@ const WorldMap=(()=>{
   const E=(t,css,html)=>{const e=document.createElement(t);e.style.cssText=css||'';if(html)e.innerHTML=html;return e};
   function build(){
     if(ov)return;
-    btn=E('button','position:fixed;z-index:6;right:12px;top:calc(env(safe-area-inset-top,0px) + 66px);width:46px;height:46px;border-radius:50%;border:0;background:#ffffffd9;font-size:24px;padding:0','🗺️');
+    btn=E('button','position:fixed;z-index:6;right:var(--map-r,12px);top:var(--map-t,calc(env(safe-area-inset-top,0px) + 66px));width:var(--T,46px);height:var(--T,46px);border-radius:50%;border:0;background:#ffffffd9;font-size:var(--tf,24px);padding:0','🗺️');
     btn.onclick=toggle;document.body.appendChild(btn);
     ov=E('div','position:fixed;inset:0;z-index:30;display:none;touch-action:none;background:#154560');
     cv=E('canvas','position:absolute;inset:0;width:100%;height:100%;touch-action:none');ov.appendChild(cv);ctx=cv.getContext('2d');

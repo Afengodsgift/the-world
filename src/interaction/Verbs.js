@@ -136,7 +136,7 @@ const Verbs=(()=>{
   // ---- UI ----------------------------------------------------------------------------------
   function ui(){
     if(bar)return;
-    bar=document.createElement('div');bar.style.cssText='position:fixed;z-index:6;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 250px);width:220px;padding:8px 12px;background:#000a;border-radius:12px;color:#fff;font:14px sans-serif;text-align:center;display:none;pointer-events:none';
+    bar=document.createElement('div');bar.style.cssText='position:fixed;z-index:6;left:var(--bar-l,50%);transform:var(--bar-tf,translateX(-50%));bottom:var(--bar-b,calc(env(safe-area-inset-bottom,0px) + 250px));width:var(--barw,220px);padding:8px 12px;background:#000a;border-radius:12px;color:#fff;font:14px sans-serif;text-align:center;display:none;pointer-events:none';
     barTxt=document.createElement('div');const tr=document.createElement('div');tr.style.cssText='height:8px;border-radius:4px;background:#ffffff33;margin-top:6px;overflow:hidden';
     barFill=document.createElement('div');barFill.style.cssText='height:100%;width:0;background:#ffd24a';tr.appendChild(barFill);bar.appendChild(barTxt);bar.appendChild(tr);document.body.appendChild(bar);
   }
