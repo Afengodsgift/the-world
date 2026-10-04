@@ -62,12 +62,12 @@ const Env=(()=>{
   let AC=null,rainG=null,noiseBuf=null;
   function audio(){
     if(AC||!E.sound)return AC;
-    try{AC=new(window.AudioContext||window.webkitAudioContext)();const len=AC.sampleRate*2;noiseBuf=AC.createBuffer(1,len,AC.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+    try{AC=WAudio.get();if(!AC)return null;const len=AC.sampleRate*2;noiseBuf=AC.createBuffer(1,len,AC.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
       const src=AC.createBufferSource();src.buffer=noiseBuf;src.loop=true;const hp=AC.createBiquadFilter();hp.type='highpass';hp.frequency.value=900;const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=7000;rainG=AC.createGain();rainG.gain.value=0;
-      src.connect(hp);hp.connect(lp);lp.connect(rainG);rainG.connect(AC.destination);src.start()}catch(e){AC=null}
+      src.connect(hp);hp.connect(lp);lp.connect(rainG);rainG.connect(WAudio.out());src.start()}catch(e){AC=null}
     return AC}
   function thunder(delay,vol){const a=audio();if(!a||!E.sound)return;try{const t0=a.currentTime+delay,src=a.createBufferSource();src.buffer=noiseBuf;const lp=a.createBiquadFilter();lp.type='lowpass';lp.frequency.setValueAtTime(260,t0);lp.frequency.exponentialRampToValueAtTime(70,t0+2.6);
-      const g=a.createGain();g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(vol,t0+.08);g.gain.exponentialRampToValueAtTime(.001,t0+2.8);src.connect(lp);lp.connect(g);g.connect(a.destination);src.start(t0,Math.random(),3)}catch(e){}}
+      const g=a.createGain();g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(vol,t0+.08);g.gain.exponentialRampToValueAtTime(.001,t0+2.8);src.connect(lp);lp.connect(g);g.connect(WAudio.out());src.start(t0,Math.random(),3)}catch(e){}}
   // ---------- UI ----------
   function buildUI(){
     const Ee=(t,css,html)=>{const e=document.createElement(t);e.style.cssText=css||'';if(html)e.innerHTML=html;return e};
@@ -85,7 +85,7 @@ const Env=(()=>{
       sec('Sound');row=Ee('div','');row.appendChild(pill(E.sound?'🔊 Rain & thunder on':'🔇 Rain & thunder off',E.sound,()=>{E.sound=!E.sound;try{localStorage.setItem('w4wxsound',E.sound?'1':'0')}catch(e){}if(!E.sound&&rainG)rainG.gain.value=0;render()}));panel.appendChild(row);
       panel.appendChild(Ee('div','margin:8px 4px 0;font-size:12px;opacity:.6','Auto is shared: everyone in your room sees the same time and weather. Overrides only change your own screen.'))};
     chip.addEventListener('pointerdown',e=>{e.preventDefault();audio();if(panel.style.display==='block'){panel.style.display='none'}else{render();panel.style.display='block'}});
-    addEventListener('pointerdown',()=>{audio();if(AC&&AC.state==='suspended')AC.resume()},{once:true});
+    addEventListener('pointerdown',()=>{audio();WAudio.resume()},{once:true});
   }
   // ---------- per-frame ----------
   function tick(dt,t){

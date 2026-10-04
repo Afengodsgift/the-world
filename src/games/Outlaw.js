@@ -133,9 +133,9 @@ const Outlaw=(()=>{
     setGun(me,i);send({k:'wg',i});updateHud()}
 
   // ---------- effects ----------
-  let AC=null;const ac=()=>{try{AC=AC||new(window.AudioContext||webkitAudioContext)();if(AC.state==='suspended')AC.resume();return AC}catch(e){return null}};
-  function noise(f,len,vol,type){const a=ac();if(!a)return;const n=a.createBuffer(1,Math.max(1,a.sampleRate*len|0),a.sampleRate),d=n.getChannelData(0);for(let k=0;k<d.length;k++)d[k]=(Math.random()*2-1)*Math.pow(1-k/d.length,3);const o=a.createBufferSource(),g=a.createGain(),fl=a.createBiquadFilter();fl.type=type||'lowpass';fl.frequency.value=f;g.gain.value=vol;o.buffer=n;o.connect(fl);fl.connect(g);g.connect(a.destination);o.start()}
-  function tone(f0,f1,len,vol,type){const a=ac();if(!a)return;const o=a.createOscillator(),g=a.createGain(),t=a.currentTime;o.type=type||'sine';o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+len);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+len);o.connect(g);g.connect(a.destination);o.start();o.stop(t+len)}
+  const ac=()=>WAudio.resume();
+  function noise(f,len,vol,type){const a=ac();if(!a)return;const n=a.createBuffer(1,Math.max(1,a.sampleRate*len|0),a.sampleRate),d=n.getChannelData(0);for(let k=0;k<d.length;k++)d[k]=(Math.random()*2-1)*Math.pow(1-k/d.length,3);const o=a.createBufferSource(),g=a.createGain(),fl=a.createBiquadFilter();fl.type=type||'lowpass';fl.frequency.value=f;g.gain.value=vol;o.buffer=n;o.connect(fl);fl.connect(g);g.connect(WAudio.out());o.start()}
+  function tone(f0,f1,len,vol,type){const a=ac();if(!a)return;const o=a.createOscillator(),g=a.createGain(),t=a.currentTime;o.type=type||'sine';o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+len);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+len);o.connect(g);g.connect(WAudio.out());o.start();o.stop(t+len)}
   function sfx(k){switch(k){
     case 'pistol':noise(2200,.1,.3);tone(220,60,.08,.2,'square');break;
     case 'smg':noise(2600,.06,.22);break;
