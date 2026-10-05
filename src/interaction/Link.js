@@ -11,6 +11,7 @@ const Link=(()=>{
   const groups=[],syncs=new Map(),taps=new Map();let on=false;
   const now=()=>performance.now();
   const partnerPos=()=>{const o=typeof others!=='undefined'&&others.size?others.values().next().value:null;return o&&o.group?o.group.position:null};
+  const partnerHere=()=>typeof others!=='undefined'&&others.size>0;   // these are TWO-player primitives: nothing may complete without a connected partner
   const inZone=(p,z)=>!!p&&Math.hypot(p.x-z.x,p.z-z.z)<z.r&&(z.y===undefined||Math.abs(p.y-z.y)<3);
   function boot(){if(on)return;on=true;Systems.add('link',tick);Net.on('ls',d=>{if(d&&d.id)remote(d.id)})}
 
@@ -22,18 +23,18 @@ const Link=(()=>{
       if(g.when&&!g.when()){g.t=0;continue}
       const me={x:S.x,y:S.y,z:S.z};
       g.occ=g.zones.map(z=>inZone(me,z)?'me':inZone(pp,z)?'them':null);
-      const all=g.occ.every(Boolean)&&new Set(g.occ).size===g.zones.length; // distinct people on distinct zones
+      const all=!!pp&&g.occ.every(Boolean)&&new Set(g.occ).size===g.zones.length; // a partner must be connected, and distinct people must be on distinct zones
       g.t=all?g.t+dt:Math.max(0,g.t-dt*2);                                  // letting go loses progress twice as fast as it gains
       const p=Math.min(1,g.t/(g.holdMs/1000));
       if(g.onProgress)g.onProgress(p,g.occ,dt);
-      if(p>=1){g.done=true;if(g.onDone)g.onDone()}
+      if(p>=1){g.done=true;if(g.onDone)g.onDone(g)}
     }
   }
 
   function sync(def){boot();syncs.set(def.id,Object.assign({windowMs:1500,done:false},def))}
   function evalSync(id){
     const d=syncs.get(id),e=taps.get(id);
-    if(!d||d.done||!e||e.me===undefined||e.them===undefined)return false;
+    if(!d||d.done||!e||e.me===undefined||e.them===undefined||!partnerHere())return false;
     if(Math.abs(e.me-e.them)<=d.windowMs){d.done=true;taps.delete(id);if(d.onDone)d.onDone();return true}
     return false;
   }
@@ -44,5 +45,6 @@ const Link=(()=>{
     return {done:evalSync(id)};
   }
   function remote(id){const d=syncs.get(id);if(!d||d.done)return;const e=taps.get(id)||{};e.them=now();taps.set(id,e);if(d.onPress)d.onPress('them');evalSync(id)}
-  return {both,sync,press,_tick:tick,_groups:groups};
+  function rearm(id){const d=syncs.get(id);if(d){d.done=false;taps.delete(id)}}   // used when a completion was refused (no partner)
+  return {both,sync,press,rearm,_tick:tick,_groups:groups,_syncs:syncs};
 })();

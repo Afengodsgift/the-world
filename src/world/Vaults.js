@@ -56,7 +56,7 @@ const Vaults=(()=>{
       Link.both({zones:v.zones,holdMs:VAULT.plates.holdMs,
         when:()=>!v.solved&&Math.hypot(S.x-v.x,S.z-v.z)<(v.gap||11)+60,
         onProgress:(p,occ,dt)=>{v.p=p;v.rings.forEach((r,i)=>{r.material.opacity=occ[i]?1:.3});const n=occ.filter(Boolean).length;v.lonely=n===1?v.lonely+dt:0},
-        onDone:()=>solve(v)});
+        onDone:g=>solve(v,g)});
     }else{
       const w=toWorld(v,0,-6.5);let sy=H(w.x,w.z);if(!(sy>.5)){const w2=toWorld(v,0,6.5);if(H(w2.x,w2.z)>.5){w.x=w2.x;w.z=w2.z;sy=H(w2.x,w2.z)}else{w.x=v.x+5;w.z=v.z;sy=v.y}}
       const sg=new THREE.Group();sg.position.set(0,0,0);scene.add(sg);sg.position.set(w.x,sy,w.z);v.shrine={x:w.x,z:w.z,y:sy,r:VAULT.shrine.r};
@@ -80,8 +80,16 @@ const Vaults=(()=>{
     WS.addToSet('loot',v.id+':'+L.id);WS.log('vault',v.id,{text,icon:L.ic,x:v.x,z:v.z});
     Fx.burst(v.x,v.y+1,v.z,'#ffe08a',26);banner(text,'🗝️ VAULT OPENED');safe(()=>chime());
   }
-  function solve(v){
+  function solve(v,g){
     if(v.solved)return;
+    // Safety net: a vault needs BOTH of you. Link already refuses to complete without a connected partner, but if anything
+    // ever gets through (a rare self-solve was seen once in headless testing, cause unknown) it must not reward a solo
+    // player. Refuse, say why in the console once (so the cause can be found), and re-arm the puzzle.
+    if(!(others&&others.size)){
+      if(!v.warned){v.warned=true;console.warn('[Vaults] refused to open '+v.id+' ('+v.kind+') with no partner connected',g?{t:g.t,occ:g.occ,zones:g.zones&&g.zones.length}:'(shrine)')}
+      if(g){g.done=false;g.t=0}else Link.rearm(v.id);
+      return;
+    }
     applyDone(v,{fx:true,mine:true});
     const first=WS.ready()?WS.addToSet('solved',v.id):true;
     if(first)grant(v);
