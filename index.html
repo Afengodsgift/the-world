@@ -215,10 +215,11 @@ const landscapeNow=()=>matchMedia('(orientation:landscape)').matches;
 $('create').onclick=()=>{wantLandscape();enter(genCode())};
 $('join').onclick=()=>{const c=normCode($('code').value);if(!c)return msg('Enter a code like KAMI-7X4P');wantLandscape();enter(c)};
 
-let chan,roomCode,myName,entered=false;
+let chan,roomCode,myName,entered=false,joining=false,gameStarted=false;
 const others=new Map(); // id -> {group,tx,ty,tz,tr,meta}
 
 async function enter(code){
+  if(joining||entered)return;joining=true;                      // ignore extra taps on Create/Join while connecting
   myName=($('name').value.trim()||'Player').slice(0,16);
   roomCode=code;msg('Connecting…');
   chan=sb.channel('world:'+code,{config:{broadcast:{self:false},presence:{key:myId}}});
@@ -249,13 +250,14 @@ async function enter(code){
   chan.on('broadcast',{event:'sf'},({payload})=>{if(srun.on)banner('Partner finished in '+fmt(payload.ms),'SHARK RUN')});
   chan.on('broadcast',{event:'sm'},({payload})=>{if(payload.from!==myId)onSmacked(payload)});
   chan.subscribe(async status=>{
-    if(status==='SUBSCRIBED'&&!entered){
+    if(status==='SUBSCRIBED'&&!entered&&!gameStarted){
+      gameStarted=true;                                           // claim the start synchronously: SUBSCRIBED can fire twice (reconnect) within the 700 ms wait below
       await new Promise(r=>setTimeout(r,700));
-      if(Object.keys(chan.presenceState()).length>=2){msg('This world is full (2 players max).');sb.removeChannel(chan);return}
+      if(Object.keys(chan.presenceState()).length>=2){msg('This world is full (2 players max).');sb.removeChannel(chan);joining=false;gameStarted=false;return}
       entered=true;
       await chan.track({name:myName,color:myColor,skin:mySkin});
       startGame();
-    }else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){msg('Could not connect. Check your connection and try again.')}
+    }else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){if(!entered){joining=false;gameStarted=false}msg('Could not connect. Check your connection and try again.')}
   });
 }
 
@@ -592,7 +594,9 @@ function buildWorld(code){
 }
 const S={x:0,y:0,z:0,vy:0,rot:0,yaw:0,pitch:.35,grounded:true,state:'idle',flying:false,kx:0,kz:0,hurt:0,iframe:0};
 
+let startGameRan=false;
 async function startGame(){
+  if(startGameRan)return;startGameRan=true;
   $('lobby').style.display='none';
   ['hud','stick'].forEach(i=>$(i).style.display=i==='hud'?'flex':'block');$('jump').style.display='block';$('panbtn').style.display=PAN_ENABLED?'block':'none';$('emobtn').style.display='block';setTimeout(()=>loadEmotes().catch(()=>{}),4000);
   renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
