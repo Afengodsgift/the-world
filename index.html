@@ -591,7 +591,7 @@ function buildWorld(code){
   while(pts.length<40){const a=rng()*6.283,r=12+rng()*195,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<40&&dist(x,z)>45)pts.push([x,z])}
   for(const I of ISL)for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
-  buildRace();buildHunt();buildSeaLife();buildSkyIsland();buildKartTrack();Tag.build();Outlaw.build();Farm.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
+  buildRace();buildHunt();buildSeaLife();buildKartTrack();Tag.build();Outlaw.build();Farm.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
 }
 const S={x:0,y:0,z:0,vy:0,rot:0,yaw:0,pitch:.35,grounded:true,state:'idle',flying:false,kx:0,kz:0,hurt:0,iframe:0};
 
@@ -619,6 +619,7 @@ async function startGame(){
   history.replaceState(null,'','?room='+roomCode);
   requestAnimationFrame(tick);
   setInterval(send,100);
+  loadPacks().then(()=>{try{buildSkyIsland();updateHud()}catch(e){showErr(e)}}); // the floating island needs the nature+village kits (3.4 MB), so it is built after the world is already playable
   setTimeout(()=>banner('Jump, then tap Jump again in the air to fly','TIP'),6000);
   setTimeout(()=>banner('Glowing beams on the horizon are new islands','TIP'),40000);
 }
@@ -874,11 +875,7 @@ function sharkRunTick(t){
 const SL_N=12,SL_HIT=9,SL_PERFECT=3.5,SL_BONUS=500;
 const slalom={on:false,i:0,pi:0,t0:0,perf:0,gates:[],start:null,el:null,pv:null,beam:null};
 function buildSlalom(){
-  let pad=null; // start pad on the island top: first flat, clear spot on a fixed spiral (same result for everyone in the room, since trees come from the room seed)
-  for(let k=0;k<400&&!pad;k++){const a=k*2.39996,r=25+((k*13)%70),x=SKY.x+Math.cos(a)*r,z=SKY.z+Math.sin(a)*r,y=SKYH(x-SKY.x,z-SKY.z);
-    if(Math.abs(SKYH(x-SKY.x+3,z-SKY.z)-y)>.5||Math.abs(SKYH(x-SKY.x,z-SKY.z+3)-y)>.5)continue;
-    if(solids.some(c=>Math.hypot(c.x-x,c.z-z)<c.r+5))continue;pad={x,y,z}}
-  if(!pad)pad={x:SKY.x,y:SKYH(0,0),z:SKY.z};
+  const pad={x:SKY.x+SKYI.pad.dx,y:SKYH(SKYI.pad.dx,SKYI.pad.dz),z:SKY.z+SKYI.pad.dz}; // a clear meadow patch reserved by SkyIsland.js
   slalom.start=pad;
   const a0=Math.atan2(pad.z-SKY.z,pad.x-SKY.x);
   for(let k=0;k<SL_N;k++){const a=a0+(k+1)*.5,r=k%2?SKY.R*1.1:SKY.R*.5,x=SKY.x+Math.cos(a)*r,z=SKY.z+Math.sin(a)*r; // alternate inner/outer radius and three heights = a weave
@@ -1095,7 +1092,7 @@ function tickFrame(t){
   if(keys.KeyW||keys.ArrowUp)iy-=1;if(keys.KeyS||keys.ArrowDown)iy+=1;
   const len=Math.hypot(ix,iy);if(len>1){ix/=len;iy/=len}
   const sprint=keys.ShiftLeft||len>.9;
-  const speed=S.flying?(bst()?70:34)*Math.min(1,len):(H(S.x,S.z)<-.5?(sprint?16:9):(sprint?12:6))*Math.min(1,len)*kartMul();
+  const speed=S.flying?(bst()?70:34)*Math.min(1,len):(H(S.x,S.z)<-.5&&S.y<3?(sprint?16:9):(sprint?12:6))*Math.min(1,len)*kartMul();
   const sy=Math.sin(S.yaw),cy=Math.cos(S.yaw),px=S.x,pz=S.z;
   const dx=cy*ix+sy*iy,dz=-sy*ix+cy*iy;
   if(S.flying){ // flight has inertia: takeoff ~0.5 s to full speed, glide-out when you let go
@@ -1108,10 +1105,11 @@ function tickFrame(t){
   const rr=Math.hypot(S.x,S.z);const RB=3300;if(rr>RB){S.x*=RB/rr;S.z*=RB/rr}
   let gY=H(S.x,S.z);
   {const dxs=S.x-SKY.x,dzs=S.z-SKY.z;if(Math.hypot(dxs,dzs)<SKY.R*2.8){const sh=SKYG(dxs,dzs);if(sh>-1e8&&S.y>=sh-3)gY=Math.max(gY,sh)}}
-  const wat=gY<-.5;if(wat)gY=-1;
+  let wat=gY<-.5;if(wat)gY=-1;
   const hi=S.flying&&S.y>gY+14&&Math.hypot(S.x-SKY.x,S.z-SKY.z)>SKY.R+60;
   for(const c of solids){if(hi)break;const ax=S.x-c.x,az=S.z-c.z,dd=Math.hypot(ax,az),R=c.r+.4;
     if(dd<R){if(c.h&&S.y>=c.h-.15)gY=Math.max(gY,c.h);else if(!c.noSide&&dd>1e-4){S.x=c.x+ax/dd*R;S.z=c.z+az/dd*R}}}
+  if(wat&&gY>-.5)wat=false; // standing on something (a bridge deck over the sea) is not swimming
   const wasG=S.grounded;
   S.coy=wasG?.12:Math.max(0,(S.coy||0)-dt);                                    // coyote time: a jump pressed just after walking off a ledge still jumps
   if(jumpQ){if((wasG||S.coy>0)&&!S.flying){S.vy=wat?6:9;S.coy=0;if(typeof Ambience!=='undefined')Ambience.jump()}else{S.flying=!S.flying;if(S.flying&&!S.tipped){S.tipped=1;banner('Drag up to climb · drag down to dive','FLYING')}}}jumpQ=false;
