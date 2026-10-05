@@ -5,7 +5,7 @@ const Env=(()=>{
   const CYCLE=720,WSLOT=180,N_CLOUD=150,CW=3000,N_RAIN=1100,TAU=Math.PI*2,AZ0=Math.atan2(.32,.5);
   const sm=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t)},lerp=(a,b,t)=>a+(b-a)*t;
   const col=h=>new THREE.Color(h);
-  const P={horDay:col('#cfe3f2'),horNight:col('#0b1329'),horTw:col('#ff9a62'),zenDay:col('#336bbd'),zenNight:col('#050a1c'),zenTw:col('#4d4d8c'),gndDay:col('#99b8cc'),gndNight:col('#070c18'),
+  const P={spaceHor:col('#02040b'),spaceZen:col('#000103'),horDay:col('#cfe3f2'),horNight:col('#0b1329'),horTw:col('#ff9a62'),zenDay:col('#336bbd'),zenNight:col('#050a1c'),zenTw:col('#4d4d8c'),gndDay:col('#99b8cc'),gndNight:col('#070c18'),
     hsDay:col('#bcd7ff'),hsNight:col('#2a3d73'),hgDay:col('#7d7355'),hgNight:col('#14141c'),sunDay:col('#fff0d2'),sunTw:col('#ff9150'),moon:col('#9fb6ff'),
     seaDay:col('#2f6f9a'),seaNight:col('#0b2238'),cloudDay:col('#ffffff'),cloudTw:col('#ffc9a0'),cloudNight:col('#46507a'),cloudStorm:col('#59616f'),fogGrey:col('#8e99a6'),fogStorm:col('#4a525e')};
   const E={u:.4,h:1,dayF:1,tw:0,wx:{cloud:.12,rain:0,storm:0},tgt:{cloud:.12,rain:0,storm:0},ovT:null,ovW:null,sound:true,inCloud:0,flash:0,label:'',ready:false};
@@ -25,16 +25,16 @@ const Env=(()=>{
   // ---------- builders ----------
   function makeSky(sd){
     return new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,fog:false,toneMapped:false,
-      uniforms:{sd:{value:sd.clone()},md:{value:new THREE.Vector3(0,-1,0)},hor:{value:col('#cfe3f2')},zen:{value:col('#336bbd')},gnd:{value:col('#99b8cc')},sunc:{value:col('#fff0d2')},stars:{value:0},over:{value:0},flash:{value:0},tm:{value:0}},
+      uniforms:{sd:{value:sd.clone()},md:{value:new THREE.Vector3(0,-1,0)},hor:{value:col('#cfe3f2')},zen:{value:col('#336bbd')},gnd:{value:col('#99b8cc')},sunc:{value:col('#fff0d2')},stars:{value:0},over:{value:0},flash:{value:0},tm:{value:0},space:{value:0}},
       vertexShader:'varying vec3 vd;void main(){vd=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-      fragmentShader:'varying vec3 vd;uniform vec3 sd,md,hor,zen,gnd,sunc;uniform float stars,over,flash,tm;'
+      fragmentShader:'varying vec3 vd;uniform vec3 sd,md,hor,zen,gnd,sunc;uniform float stars,over,flash,tm,space;'
         +'float hh(vec3 p){p=fract(p*.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}'
         +'void main(){vec3 d=normalize(vd);float h=clamp(d.y,0.,1.);vec3 c=mix(hor,zen,pow(h,.5));'
         +'float s=max(dot(d,sd),0.);c+=sunc*(pow(s,700.)*2.5+pow(s,10.)*.22)*(1.-over*.85);'
         +'float m=max(dot(d,md),0.);c+=vec3(.85,.9,1.)*(smoothstep(.9995,.9997,m)*1.5+pow(m,70.)*.14)*(1.-over*.8)*step(-.05,md.y);'
-        +'if(d.y>0.&&stars>.01){vec3 g=floor(d*260.);float r=hh(g);float k=.6+.4*sin(tm*3.+r*40.);c+=vec3(.9,.95,1.)*step(.9965,r)*k*stars*smoothstep(0.,.15,d.y);}'
+        +'if((d.y>0.||space>.01)&&stars>.01){vec3 g=floor(d*260.);float r=hh(g);float k=.6+.4*sin(tm*3.+r*40.);c+=vec3(.9,.95,1.)*step(.9965,r)*k*stars*mix(smoothstep(0.,.15,d.y),1.,space);}'
         +'float l=dot(c,vec3(.3,.59,.11));c=mix(c,vec3(l)*.78,over*.8);c+=vec3(flash*.9);'
-        +'if(d.y<0.)c=mix(hor,gnd,clamp(-d.y*4.,0.,1.));gl_FragColor=vec4(c,1.);}'});
+        +'if(d.y<0.)c=mix(c,mix(hor,gnd,clamp(-d.y*4.,0.,1.)),1.-space);gl_FragColor=vec4(c,1.);}'});
   }
   // Clouds: 3 distinct shapes (so the sky isn't one blob stamped 150 times). Each is 6-7 smooth ellipsoid puffs with a flat base; vertex
   // colours darken the underside so it reads as a volume. Same overall bounds as the old blob (fly-through test relies on them).
@@ -112,15 +112,18 @@ const Env=(()=>{
     for(const key of ['cloud','rain','storm'])E.wx[key]+=(w[key]-E.wx[key])*k;
     const wx=E.wx,ov=Math.min(1,sm(.3,1,wx.cloud)+wx.storm*.15);
     const sk=skyAt(u),h=sk.h,dayF=sk.dayF,tw=sk.tw;E.h=h;E.dayF=dayF;E.tw=tw;
+    // space: the atmosphere thins out between ~1.1 km and ~3.4 km; above that the sky is black with stars all round, no haze, no weather
+    const sp=sm(1100,3400,S.y),spF=sm(900,3000,S.y);E.space=sp;
     // colours
     const hor=tmpC.copy(P.horNight).lerp(P.horDay,dayF).lerp(P.horTw,tw*.75*(1-ov*.6));
     const zen=tmpC2.copy(P.zenNight).lerp(P.zenDay,dayF).lerp(P.zenTw,tw*.35*(1-ov*.6));
-    const su=sky.material.uniforms;su.hor.value.copy(hor);su.zen.value.copy(zen);su.gnd.value.copy(P.gndNight).lerp(P.gndDay,dayF);
+    if(sp>0){hor.lerp(P.spaceHor,sp*.97);zen.lerp(P.spaceZen,sp)}
+    const su=sky.material.uniforms;su.hor.value.copy(hor);su.zen.value.copy(zen);su.gnd.value.copy(P.gndNight).lerp(P.gndDay,dayF).lerp(P.spaceZen,sp);su.space.value=sp;
     su.sunc.value.copy(P.sunDay).lerp(P.sunTw,Math.min(1,tw*1.2));su.md.value.copy(sk.moonDir);su.sd.value.copy(sk.sunDir);
-    su.stars.value=(1-sm(-.2,.05,h))*(1-ov*.9);su.over.value=ov*(.55+.45*dayF);su.tm.value=t/1000;
+    su.stars.value=Math.max((1-sm(-.2,.05,h))*(1-ov*.9),sp);su.over.value=ov*(.55+.45*dayF)*(1-sp);su.tm.value=t/1000;
     // lightning
     E.flash=Math.max(0,E.flash-dt*3.2);
-    if(wx.storm>.5){nextFlash-=dt;if(nextFlash<=0){nextFlash=5+Math.random()*10;strike()}}
+    if(wx.storm>.5&&sp<.5){nextFlash-=dt;if(nextFlash<=0){nextFlash=5+Math.random()*10;strike()}}
     if(boltT>0){boltT-=dt;bolt.visible=boltT>0&&((boltT*60|0)%3!==0);if(boltT<=0)bolt.visible=false}
     su.flash.value=E.flash;
     // lights
@@ -131,23 +134,26 @@ const Env=(()=>{
     amb.intensity=.12+(1-dayF)*.06+E.flash*1.4;
     renderer.toneMappingExposure=lerp(1.05,.95,dayF);
     // fog + background follow the horizon colour, greyed and tightened by weather; inside a cloud everything turns white and close
-    const grey=Math.min(1,wx.cloud*.55+wx.rain*.25+wx.storm*.2);
-    const fogC=tmpC.clone();fogC.copy(hor).lerp(tmpC2.copy(P.fogGrey).multiplyScalar(.35+.65*dayF),grey*.8).lerp(tmpC2.copy(P.fogStorm).multiplyScalar(.3+.7*dayF),wx.storm*.5);
+    const grey=Math.min(1,wx.cloud*.55+wx.rain*.25+wx.storm*.2)*(1-sp);   // no weather colour in space
+    const fogC=tmpC.clone();fogC.copy(hor).lerp(tmpC2.copy(P.fogGrey).multiplyScalar(.35+.65*dayF),grey*.8).lerp(tmpC2.copy(P.fogStorm).multiplyScalar(.3+.7*dayF),wx.storm*.5*(1-sp));
     let near=lerp(150,60,Math.min(1,wx.rain*.6+wx.storm*.4)),far=lerp(1700,lerp(900,420,wx.storm),Math.min(1,wx.rain+wx.cloud*.15));
     updateClouds(dt,sk,ov);
     const inC=E.inCloud;if(inC>.01){fogC.lerp(tmpC2.copy(P.cloudDay).multiplyScalar(.25+.75*dayF),Math.min(1,inC*.9));near=lerp(near,2,inC);far=lerp(far,85,inC)}
+    if(spF>0){near=lerp(near,3000,spF);far=lerp(far,18000,spF)}
     scene.fog.color.copy(fogC);scene.fog.near=near;scene.fog.far=far;scene.background.copy(fogC);
+    {const cf=S.y>800?18000:4200;if(camera.far!==cf){camera.far=cf;camera.updateProjectionMatrix()}}   // see the whole world shrink below you
     seaMesh.material.color.copy(P.seaNight).lerp(P.seaDay,dayF);
     // rain
-    updateRain(dt,wx);
+    updateRain(dt,sp>0?Object.assign({},wx,{rain:wx.rain*(1-sp),storm:wx.storm*(1-sp)}):wx);
     // fireflies
     if(fireflies){const a=Math.max(0,1-dayF*1.6)*(1-wx.rain)*(S.y<8?1:0);fireflies.material.opacity=a*.85;fireflies.visible=a>.02;
       if(fireflies.visible){fireflies.position.set(S.x,Math.max(0,H(S.x,S.z)),S.z);const pa=fireflies.geometry.attributes.position.array,b=fireflies.userData.base;for(let i=0;i<pa.length;i+=3){pa[i]=b[i]+Math.sin(t/900+i)*2;pa[i+1]=b[i+1]+Math.sin(t/700+i*1.7)*.8;pa[i+2]=b[i+2]+Math.cos(t/1100+i)*2}fireflies.geometry.attributes.position.needsUpdate=true}}
     // audio
     if(rainG&&AC&&E.sound)rainG.gain.value+=((wx.rain*.05*(S.y>500?.3:1))-rainG.gain.value)*Math.min(1,dt*2);
     // chip text
-    const hh=Math.floor(u*24),mm=Math.floor((u*24-hh)*60),icon=wx.storm>.6?'⛈️':wx.rain>.4?'🌧️':wx.cloud>.5?'☁️':h<-.1?'🌙':tw>.5?(u<.5?'🌅':'🌇'):wx.cloud>.3?'🌤️':'☀️';
-    const txt=icon+' '+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0')+(S.y>250?' · ↑'+Math.round(S.y)+'m':'');if(txt!==E.label){E.label=txt;chip.textContent=txt}
+    if(sp>.6){if(!E.inSpace){E.inSpace=1;if(typeof banner==='function')banner('Welcome to space! Tap Jump to fall back to Earth','ABOVE THE ATMOSPHERE')}}else if(sp<.2)E.inSpace=0;
+    const hh=Math.floor(u*24),mm=Math.floor((u*24-hh)*60),icon=sp>.6?'🚀':wx.storm>.6?'⛈️':wx.rain>.4?'🌧️':wx.cloud>.5?'☁️':h<-.1?'🌙':tw>.5?(u<.5?'🌅':'🌇'):wx.cloud>.3?'🌤️':'☀️';
+    const txt=icon+' '+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0')+(S.y>=1000?' · ↑'+(S.y/1000).toFixed(1)+' km':S.y>250?' · ↑'+Math.round(S.y)+'m':'');if(txt!==E.label){E.label=txt;chip.textContent=txt}
   }
   function strike(){
     E.flash=1;setTimeout(()=>{E.flash=Math.max(E.flash,.7)},140);

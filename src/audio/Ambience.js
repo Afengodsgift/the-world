@@ -62,7 +62,7 @@ const Ambience=(()=>{
     const air=1/(1+alt/60);
     to(L.ocean.gain,(1-under)*Z.ocean*.30*air);
     to(L.surf.gain,(1-under)*Z.beach*.16);
-    to(L.wind.gain,(1-under)*(1-cloud*.5)*(.05+.12*Z.alt+.10*storm+.06*rain+sp01*.5));
+    to(L.wind.gain,(1-under)*(1-sm(1100,3400,alt))*(1-cloud*.5)*(.05+.12*Z.alt+.10*storm+.06*rain+sp01*.5));
     to(L.windF.frequency,380+sp01*1500+Z.alt*300+storm*150,.3);
     to(L.under.gain,under*.2);
     to(L.fount.gain,(1-under)*Z.town*.10*(alt<10?1:0));
