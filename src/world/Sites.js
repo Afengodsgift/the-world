@@ -17,6 +17,7 @@ const Sites=(()=>{
     if(safe(()=>srun.start&&Math.hypot(x-srun.start.x,z-srun.start.z)<30))return false;
     if(safe(()=>Math.hypot(x-FARM.x,z-FARM.z)<FARM.R+16))return false;                       // farm meadow (fence/animals are not solids)
     if(safe(()=>Math.hypot(x-FARM.x,z-(FARM.z+FARM.R+9))<24))return false;                   // barn
+    if(safe(()=>Math.abs(x-PITCH.x)<PITCH.hw+25&&Math.abs(z-PITCH.z)<PITCH.hh+25))return false;   // soccer pitch
     const fp=o.clear||5;
     for(const c of solids)if(Math.hypot(x-c.x,z-c.z)<c.r+fp)return false;
     for(const t of taken){const same=t.tag===o.tag&&t.name===o.name;if(Math.hypot(x-t.x,z-t.z)<Math.max(o.sep||40,t.r+fp,same?(o.sameSep||0):0))return false}

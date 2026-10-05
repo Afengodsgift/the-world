@@ -12,6 +12,11 @@ const LOCS=[{n:'Town Square',x:25,z:62,r:16},{n:'Whispering Forest',x:-110,z:40,
 // Farm: flat meadow on the main island (found by scanning H() for the flattest spot clear of town, forest, cave, Bonk Ring and beach)
 const FARM={x:30,z:120,R:19,clear:26};
 LOCS.push({n:'Farm',x:FARM.x,z:FARM.z,r:28});
+// Soccer pitch: flat rectangle on the main island west of town, found by scanning H() for the flattest 72x48 m meadow clear of
+// town, farm, forest, beach and cave (1.3 m of natural height variation). H() flattens it to y; trees are cleared; Sites keeps other
+// systems off it. hw/hh are the FLAT half-extents (playing surface 26x16 + goals + run-off); the terrain blends out over 9 m.
+const PITCH={x:-43,z:17,y:2.55,hw:31,hh:20,clear:12};
+LOCS.push({n:'Soccer Pitch',x:PITCH.x,z:PITCH.z,r:30});
 LOCS.push({n:'The Race Track',x:KT.x,z:KT.z,r:Math.max(KT.hw,KT.hh)});
 const WP=[[TOWN.x+40*Math.cos(.59),TOWN.z+40*Math.sin(.59)],[0,-137],[900,-300],[1400,750],[550,1000]];
 WP.push(WP[0]);

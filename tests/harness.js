@@ -17,7 +17,7 @@ function client(id,name,room){
   const ctx={console,setTimeout,clearTimeout,JSON,Date,Promise,Math,Map,Set,Array,Object,Number,String,Error,isFinite,
     localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=v},myId:id,sb:{from:table},roomCode:room,
     document:{createElement:()=>stubEl(),body:stubEl(),getElementById:()=>stubEl()},
-    performance:{now:()=>Date.now()},requestAnimationFrame:()=>0,
+    performance:{now:()=>Date.now()},requestAnimationFrame:()=>0,addEventListener(){},
     $:i=>els[i]||(els[i]=stubEl()),
     banner:(t,l)=>log.banners.push(l+': '+t),chime:()=>log.chimes++,
     EMO:{p:1,clips:{},def:{},menu:[{id:'wave'}]},AURL:'/assets/',fetch:u=>Promise.resolve({ok:true,json:()=>Promise.resolve(JSON.parse(fs.readFileSync(R+u.replace('/assets/','assets/'),'utf8')))}),loadEmotes:()=>Promise.resolve(),playEmote:e=>log.emotes.push(e),emoStop:q=>log.stops.push(1),
@@ -26,7 +26,8 @@ function client(id,name,room){
   const src=[rd('src/utils/random.js'),rd('src/utils/math.js'),rd('src/data/islands.js'),kline,H_SRC,
    'const RING={x:64.3,z:89.5,R:12};let dash={start:null},srun={start:null};',
    rd('src/interaction/InteractionManager.js'),rd('src/core/Net.js'),rd('src/core/WorldState.js'),rd('src/core/Systems.js'),rd('src/world/Fx.js'),rd('src/world/Sites.js'),rd('src/core/Seeded.js'),rd('src/interaction/VerbAnims.js'),rd('src/data/interactables.js'),rd('src/data/puzzles.js'),rd('src/interaction/Link.js'),rd('src/interaction/Verbs.js'),rd('src/world/Vaults.js'),rd('src/data/events.js'),rd('src/world/Events.js'),rd('src/world/events/meteor.js'),rd('src/world/events/visitor.js'),rd('src/world/events/rings.js'),
-   'this.scene=new THREE.Scene();this.__e={Events,EVENTS,Fx,VerbAnims,Verbs,Vaults,Link,WS,Net,Interaction,H,ISL,CAMP,VERBS,VAULT,LOCS};'].join('\n');
+   rd('src/data/soccer.js'),rd('src/games/Soccer.js'),
+   'this.scene=new THREE.Scene();this.__e={Soccer,PITCH,SOCCER,Sites,Events,EVENTS,Fx,VerbAnims,Verbs,Vaults,Link,WS,Net,Interaction,H,ISL,CAMP,VERBS,VAULT,LOCS};'].join('\n');
   vm.runInContext(src,ctx);
   ctx.__e.Net.attach(chan);
   return Object.assign(ctx.__e,{ctx,EMO:ctx.EMO,log,chan,els,others,store,S:ctx.S,solids:ctx.solids,scene:ctx.scene});

@@ -102,6 +102,8 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/world/events/meteor.js"></script>
 <script src="src/world/events/visitor.js"></script>
 <script src="src/world/events/rings.js"></script>
+<script src="src/data/soccer.js"></script>
+<script src="src/games/Soccer.js"></script>
 <script>
 const SUPABASE_URL='https://lzqnxawxehmqgswuzpyn.supabase.co';
 const SUPABASE_KEY='sb_publishable_bAm2KsLV8__Y4nWSFesZeQ_38-Ly6DE';
@@ -363,6 +365,7 @@ function H(x,z){
     const v=Math.max(-3,(1-(dd/I.R)**2)*4-.6)+Math.sin(x*.09)*Math.cos(z*.11)*.7+I.pk*Math.exp(-dd*dd/(2*(I.R*.35)**2));
     if(v>h)h=v}
   {const t=1-sstep(48,68,Math.hypot(x-OUT.x,z-OUT.z));if(t>0)h=h*(1-t)+OUT.y*t} // Outlaw Town plateau
+  {const ex=Math.max(0,Math.abs(x-PITCH.x)-PITCH.hw),ez=Math.max(0,Math.abs(z-PITCH.z)-PITCH.hh),t=1-sstep(0,9,Math.hypot(ex,ez));if(t>0)h=h*(1-t)+PITCH.y*t} // soccer pitch
   return h;
 }
 function terrain(cx,cz,size,seg){
@@ -432,7 +435,7 @@ function buildWorld(code){
   rng=mulberry(hashSeed(code));
   if(AM.plant_bushLarge)AM.plant_bushLarge.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.material.side=THREE.DoubleSide;o.material.emissive=new THREE.Color('#2a6a30')}});
   const dist=(x,z)=>Math.hypot(x-TOWN.x,z-TOWN.z),P={};
-  const add=(n,x,z,s)=>{if(Math.hypot(x-OUT.x,z-OUT.z)<OUT.clear||Math.hypot(x-FARM.x,z-FARM.z)<FARM.clear)return;(P[n]=P[n]||[]).push({x,y:H(x,z),z,ry:rng()*6.283,s})};
+  const add=(n,x,z,s)=>{if(Math.hypot(x-OUT.x,z-OUT.z)<OUT.clear||Math.hypot(x-FARM.x,z-FARM.z)<FARM.clear||(Math.abs(x-PITCH.x)<PITCH.hw+PITCH.clear&&Math.abs(z-PITCH.z)<PITCH.hh+PITCH.clear))return;(P[n]=P[n]||[]).push({x,y:H(x,z),z,ry:rng()*6.283,s})};
   // forest (west), scattered trees, beach palms, bushes, rocks
   const kinds=['tree_pineDefaultA','tree_pineRoundA','tree_oak','tree_fat'];
   for(let i=0,n=0;i<1500&&n<300;i++){const a=rng()*6.283,r=rng()*80,x=-110+Math.cos(a)*r,z=40+Math.sin(a)*r,h=H(x,z);
@@ -478,7 +481,7 @@ function buildWorld(code){
   while(pts.length<40){const a=rng()*6.283,r=12+rng()*195,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<40&&dist(x,z)>45)pts.push([x,z])}
   for(const I of ISL)for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
-  buildRace();buildHunt();buildSeaLife();buildSkyIsland();buildKartTrack();Tag.build();Outlaw.build();Farm.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
+  buildRace();buildHunt();buildSeaLife();buildSkyIsland();buildKartTrack();Tag.build();Outlaw.build();Farm.build();Soccer.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
 }
 const S={x:0,y:0,z:0,vy:0,rot:0,yaw:0,pitch:.35,grounded:true,state:'idle',flying:false,kx:0,kz:0,hurt:0,iframe:0};
 
