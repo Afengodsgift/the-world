@@ -136,6 +136,8 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/world/AssetLoader.js"></script>
 <script src="src/input/InputManager.js"></script>
 <script src="src/input/Locomotion.js"></script>
+<script src="src/character/Blend.js"></script>
+<script src="src/core/RemoteSmooth.js"></script>
 <script src="src/world/SeaLife.js"></script>
 <script src="src/world/Environment.js"></script>
 <script src="src/world/SkyIsland.js"></script>
@@ -335,20 +337,21 @@ function playEmote(id){
   if(!me||!me.userData.nact)return;
   if(S.flying||!S.grounded||S.state==='swim'){banner('Land on solid ground to emote','😀');return}
   me.userData.emoteReq=id;if(chan)chan.send({type:'broadcast',event:'em',payload:{from:myId,e:id}})}
-function emoStop(q){const h=q.hold;if(!h)return;for(const a of h.acts){a.fadeOut(.2)}q.hold=null}
+function emoStop(q){const h=q.hold;if(!h)return;(q.rel=q.rel||[]).push({acts:h.acts.slice(),t:0,s0:.997*Blend.ease((h.age||0)/.2)});q.hold=null}   // released with an eased envelope (see Blend.js)
+function unrel(q,a){if(q.rel)for(const r of q.rel)r.acts=r.acts.filter(x=>x!==a)}   // an action being (re)started must not also be fading out
 function emoStart(q,id){
   const d=EMO.def[id];if(!d)return;emoStop(q);
-  const main=emoAct(q,id);if(!main)return;const acts=[main],setup=(a,loopMode,clampEnd)=>{a.reset();a.setLoop(loopMode,loopMode===THREE.LoopOnce?1:Infinity);a.clampWhenFinished=!!clampEnd;a.setEffectiveTimeScale(1);a.setEffectiveWeight(300)}; // 300 vs the idle clip's 1 so the lying/plank poses aren't dragged up by the blended idle hips
-  if(d.kind==='once'){setup(main,THREE.LoopOnce,false);main.fadeIn(.15).play();q.hold={acts,until:performance.now()/1000+main.getClip().duration,once:true};return}
+  const main=emoAct(q,id);if(!main)return;unrel(q,main);const acts=[main],setup=(a,loopMode,clampEnd)=>{a.reset();a.setLoop(loopMode,loopMode===THREE.LoopOnce?1:Infinity);a.clampWhenFinished=!!clampEnd;a.setEffectiveTimeScale(1);a.setEffectiveWeight(300)}; // 300 vs the idle clip's 1 so the lying/plank poses aren't dragged up by the blended idle hips
+  if(d.kind==='once'){setup(main,THREE.LoopOnce,false);main.play();q.hold={acts,age:0,until:performance.now()/1000+main.getClip().duration,once:true};return}
   const mode=d.kind==='clamp'?THREE.LoopOnce:THREE.LoopRepeat,clampEnd=d.kind==='clamp';
-  if(d.intro){const ia=emoAct(q,id+'_in');if(ia){acts.push(ia);setup(ia,THREE.LoopOnce,true);ia.fadeIn(.15).play();q.hold={acts,main,mode,clampEnd,introAt:performance.now()/1000+ia.getClip().duration-.12,ia};return}}
-  setup(main,mode,clampEnd);main.fadeIn(.2).play();q.hold={acts}}
+  if(d.intro){const ia=emoAct(q,id+'_in');if(ia){unrel(q,ia);acts.push(ia);setup(ia,THREE.LoopOnce,true);ia.play();q.hold={acts,age:0,main,mode,clampEnd,introAt:performance.now()/1000+ia.getClip().duration-.12,ia};return}}
+  setup(main,mode,clampEnd);main.play();q.hold={acts,age:0}}
 
 function animateClips(g,dt,st){
   const q=g.userData,A=q.nact,p=g.position;
   const rawU=q.pp&&dt>0?Math.hypot(p.x-q.pp.x,p.z-q.pp.z)/dt:0,raw=Math.min(16,rawU);q.pp={x:p.x,z:p.z};
   q.fs=(q.fs||0)+(rawU-(q.fs||0))*Math.min(1,dt*6);const sf=clamp(q.fs/70,0,1); // unclamped speed (flight is much faster than the 16 m/s clamp above)
-  {const ly=q.lyaw===undefined?g.rotation.y:q.lyaw,yd=Math.atan2(Math.sin(g.rotation.y-ly),Math.cos(g.rotation.y-ly))/Math.max(dt,.001);q.yr=(q.yr||0)+(yd-(q.yr||0))*Math.min(1,dt*5);q.lyaw=g.rotation.y}q.v=(q.v||0)+(raw-(q.v||0))*Math.min(1,dt*10);const v=q.v;
+  {const ly=q.lyaw===undefined?g.rotation.y:q.lyaw,yd=Math.atan2(Math.sin(g.rotation.y-ly),Math.cos(g.rotation.y-ly))/Math.max(dt,.001);q.yr=(q.yr||0)+(yd-(q.yr||0))*Math.min(1,dt*5);q.lyaw=g.rotation.y}const acc=(raw-(q.v||0))*10;q.v=(q.v||0)+(raw-(q.v||0))*Math.min(1,dt*10);const v=q.v;
   let want='idle',ts=1,fade=.18;
   if(st==='swim'){want=v>.8?'swim':'tread';ts=want==='swim'?clamp(v/2.4,.6,2):1;fade=.3}
   else if(st==='fly'){want='fall';ts=1;fade=.3} // base clip while flying; FlightPose takes over the skeleton
@@ -362,21 +365,26 @@ function animateClips(g,dt,st){
     n.setEffectiveWeight(1);n.fadeIn(fade).play();if(q.cur)A[q.cur].fadeOut(fade);q.cur=want}
   n.setEffectiveTimeScale(ts);
   // one-shot overlays
-  const ov=(name,sp,w,fi)=>{const a=A[name]||emoAct(q,name);if(!a)return;a.reset();a.setEffectiveTimeScale(sp);a.setEffectiveWeight(w);a.fadeIn(fi).play();(q.ov=q.ov||{})[name]={a,left:a.getClip().duration/sp,ending:false}};
+  const ov=(name,sp,w,fi)=>{const a=A[name]||emoAct(q,name);if(!a)return;a.reset();a.setEffectiveTimeScale(sp);a.setEffectiveWeight(.0001);a.play();(q.ov=q.ov||{})[name]={a,left:a.getClip().duration/sp,age:0,fi:Math.max(.04,fi),smax:w/(w+1)}};
   if((q.swing||0)>.9){emoStop(q);ov('smack',1.4,24,.05)}
-  if(q.hitReq){emoStop(q);q.hitReq=0;q.hitAlt=!q.hitAlt;ov(q.hitAlt&&A.hit2?'hit2':'hit',q.hitAlt?1.3:.9,24,.02)} // alternate two hit reactions
+  if(q.hitReq){emoStop(q);q.hitReq=0;q.hitAlt=!q.hitAlt;ov(q.hitAlt&&A.hit2?'hit2':'hit',q.hitAlt?1.3:.9,24,.05)} // alternate two hit reactions
   if(q.emote){const e=q.emote;q.emote=null;emoStop(q);ov(e,1.3,20,.1)}
   if(q.emoteReq){const e=q.emoteReq;q.emoteReq=null;if(st==='idle'||!q.hold)emoStart(q,e)}
   if(q.hold){const h=q.hold,now=performance.now()/1000;
     if(h.introAt&&now>=h.introAt){const m=h.main;m.reset();m.setLoop(h.mode,h.mode===THREE.LoopOnce?1:Infinity);m.clampWhenFinished=h.clampEnd;m.setEffectiveWeight(300);m.fadeIn(.25).play();h.ia.fadeOut(.25);h.introAt=0} // intro -> loop/hold
     if(st!=='idle'||v>.6||(h.once&&now>h.until))emoStop(q)} // moving, jumping, being hit or the clip finishing ends an emote
   if((q.land||0)>.05&&!q.landOn){q.landOn=true;if(v<2.5&&st==='idle')ov('land',1.5,6,.04)}else if((q.land||0)<=0)q.landOn=false;
-  for(const k in q.ov){const o=q.ov[k];o.left-=dt;if(o.left<.14&&!o.ending){o.ending=true;o.a.fadeOut(.12)}if(o.left<-.05)delete q.ov[k]}
+  for(const k in q.ov){const o=q.ov[k];o.left-=dt;o.age+=dt;o.a.setEffectiveWeight(Blend.w(o.smax*Math.min(Blend.ease(o.age/o.fi),Blend.ease(o.left/.2)))||.0001);if(o.left<=0){o.a.stop();delete q.ov[k]}}
+  if(q.hold){const h=q.hold;h.age=(h.age||0)+dt;const wv=Blend.w(.997*Blend.ease(h.age/.2))||.0001;for(const a of h.acts)a.setEffectiveWeight(wv)}   // emote ease-in
+  if(q.rel)for(let i=q.rel.length-1;i>=0;i--){const r=q.rel[i];r.t+=dt;const wv=Blend.w(r.s0*(1-Blend.ease(r.t/.25)))||.0001;for(const a of r.acts)a.setEffectiveWeight(wv);if(r.t>=.25){for(const a of r.acts)a.stop();q.rel.splice(i,1)}}   // emote ease-out
   q.swing=Math.max(0,(q.swing||0)-dt*2.6);
   q.land=Math.max(0,(q.land||0)-dt);
   const oy=st==='swim'?.7:(st==='fly'&&want==='swim')?.5:0;q.oy=(q.oy||0)+(oy-(q.oy||0))*Math.min(1,dt*6); // swim clips are authored with the waterline at the chest: lift the body to the surface
   q.lunge=(q.lunge||0)+((q.pan?Math.sin(Math.min(1,q.swing)*Math.PI)*.3:0)-(q.lunge||0))*Math.min(1,dt*10); // small lunge into the pan swing
-  q.model.rotation.set(q.lunge,0,0);q.model.position.set(0,q.oy,0);        // base transform; FlightPose overrides it while flying
+  {const gnd=st==='walk'||st==='run'||st==='idle',lk=Math.min(1,dt*9);   // body language on the ground: lean forward when speeding up / sprinting, back when braking, bank into turns (turning left = yaw rate > 0 = lean toward +x)
+   q.lx=(q.lx||0)+((gnd?clamp(acc*.006,-.06,.10)+(want==='sprint'?.04:0):0)-(q.lx||0))*lk;
+   q.lz=(q.lz||0)+((gnd?-clamp(q.yr*.035,-.14,.14)*clamp(v/5,0,1):0)-(q.lz||0))*lk}
+  q.model.rotation.set(q.lunge+(q.lx||0),0,q.lz||0);q.model.position.set(0,q.oy,0);        // base transform; FlightPose overrides it while flying
   q.model.scale.set(.5*(1+q.land*.3),.5*(1-q.land*.6),.5*(1+q.land*.3));
   q.mixer.update(dt);
   // procedural layers on top of the baked clips: flight (src/character/FlightPose.js) or a held weapon (Outlaw.poseGun)
@@ -620,7 +628,7 @@ function onState(p){
   if(!scene||!me)return;
   let o=others.get(p.id);
   if(!o){const m=(chan.presenceState()[p.id]||[{}])[0];addOther(p.id,m.name,m.color,m.skin);o=others.get(p.id);if(!o)return;o.group.position.set(p.x,p.y,p.z)}
-  o.tx=p.x;o.ty=p.y;o.tz=p.z;o.tr=p.r;if(o.group.userData.pan)o.group.userData.pan.visible=!!p.pn;
+  RemoteSmooth.snap(o,p,performance.now());if(o.group.userData.pan)o.group.userData.pan.visible=!!p.pn;
   if(o.st==='fall'&&p.st!=='fall'&&p.st!=='jump')o.group.userData.land=.15;o.st=p.st||'idle';
 }
 function send(){
@@ -1066,7 +1074,15 @@ function huntTick(dt,t){
 
 // ---------- loop ----------// ---------- loop ----------
 let last=performance.now(),fpsA=.016,fpsN=0;
+let lastErrMsg='',lastErrAt=0;
 function tick(t){
+  try{tickFrame(t)}
+  catch(e){const m=String(e&&e.stack||e).slice(0,600),n=performance.now();
+    if(m!==lastErrMsg||n-lastErrAt>5000){lastErrMsg=m;lastErrAt=n;showErr(e);try{localStorage.setItem('w4lasterr',new Date().toISOString()+'\n'+m)}catch(_){}}   // keep the last error so we can read it after a refresh
+    try{last=t}catch(_){}}
+  requestAnimationFrame(tick);
+}
+function tickFrame(t){
   Perf.frame(t-last);
   const dt=Math.min(.05,(t-last)/1000);last=t;
   let ix=stickV.x,iy=stickV.y;
@@ -1097,12 +1113,12 @@ function tick(t){
   if(S.flying)S.vy+=((len>.05?Math.max(-20*(bst()?2.4:1),Math.min(14*(bst()?2.4:1),(CameraRig.neutralPitch()-S.pitch)*40*(bst()?2.4:1))):0)-S.vy)*Math.min(1,dt*6);else{S.vy-=(S.vy<0?33:25)*dt;if(S.vy<-48)S.vy=-48}   // heavier on the way down = snappier, less floaty jump (same height); terminal velocity
   const imp=-S.vy;S.y+=S.vy*dt;if(S.flying)S.y=Math.min(S.y,900); // ceiling: well above the cloud layers (clouds at ~310-490 and ~620-730)
   if(S.flying&&S.y<=gY)S.flying=false;
-  if(S.y<=gY||(wasG&&S.vy<=0&&S.y-gY<.35)){S.y=gY;S.vy=0;S.grounded=true;if(!wasG&&imp>5){me.userData.land=Math.min(.18,imp*.014);CameraRig.land(imp)}}else S.grounded=false;
+  if(S.y<=gY||(wasG&&S.vy<=0&&S.y-gY<.35)){S.y=gY;S.vy=0;S.grounded=true;if(!wasG&&imp>5){me.userData.land=Math.min(.18,imp*.014);if(CameraRig.land)CameraRig.land(imp)}}else S.grounded=false;
   S.state=S.flying?'fly':!S.grounded?(S.vy>0?'jump':'fall'):wat?'swim':len>.05?(sprint?'run':'walk'):'idle';
   me.position.set(S.x,S.y,S.z);me.rotation.y=S.rot;animate(me,dt,S.state);explore(dt,t);
-  const k=1-Math.exp(-12*dt);
+  const k=1-Math.exp(-20*dt),nowT=performance.now();
   for(const o of others.values()){
-    const p=o.group.position;p.x+=(o.tx-p.x)*k;p.y+=(o.ty-p.y)*k;p.z+=(o.tz-p.z)*k;
+    RemoteSmooth.target(o,nowT,H);const p=o.group.position;p.x+=(o.tx-p.x)*k;p.y+=(o.ty-p.y)*k;p.z+=(o.tz-p.z)*k;
     o.group.rotation.y=lerpAngle(o.group.rotation.y,o.tr,k);animate(o.group,dt,o.st);
   }
   vegCull();CameraRig.update(dt);                                                         // orbit / first-person / shoulder + flight FOV, roll, shake (src/camera/CameraRig.js)
@@ -1116,7 +1132,6 @@ function tick(t){
   FlightFX.screen(dt,CameraRig.speedFrac());                                    // speed lines (src/fx/FlightFX.js)
   smackTick(dt);
   renderer.render(scene,camera);Viewmodel.render(renderer,camera);               // first-person arms + weapon (separate pass, fixed FOV)
-  requestAnimationFrame(tick);
 }
 </script>
 </body>
