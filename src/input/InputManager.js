@@ -8,11 +8,12 @@ function bindInput(){
   addEventListener('keyup',e=>keys[e.code]=false);
   const stick=$('stick'),knob=$('knob');let sid=null;
   const setStick=e=>{const r=stick.getBoundingClientRect();let dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);const m=Math.hypot(dx,dy),max=r.width/2;if(m>max){dx*=max/m;dy*=max/m}
-    knob.style.left=(44+dx)+'px';knob.style.top=(44+dy)+'px';stickV={x:dx/max,y:dy/max}};
+    knob.style.transform='translate('+dx+'px,'+dy+'px)';stickV={x:dx/max,y:dy/max}};
   stick.addEventListener('pointerdown',e=>{sid=e.pointerId;stick.setPointerCapture(sid);setStick(e)});
   stick.addEventListener('pointermove',e=>{if(e.pointerId===sid)setStick(e)});
-  const endStick=e=>{if(e.pointerId===sid){sid=null;stickV={x:0,y:0};knob.style.left='44px';knob.style.top='44px'}};
+  const endStick=e=>{if(e.pointerId===sid){sid=null;stickV={x:0,y:0};knob.style.transform=''}};
   stick.addEventListener('pointerup',endStick);stick.addEventListener('pointercancel',endStick);
+  window.endTouches=()=>{if(sid!==null){try{stick.releasePointerCapture(sid)}catch(e){}}sid=null;stickV={x:0,y:0};knob.style.transform=''};
   $('jump').addEventListener('pointerdown',e=>{jumpQ=true;e.preventDefault()});
   $('use').addEventListener('pointerdown',e=>{doUse();e.preventDefault()});
   $('boost').addEventListener('pointerdown',e=>{S.boost=!S.boost;$('boost').textContent=S.boost?'BOOST ON':'Boost';$('boost').style.opacity=S.boost?1:.75;e.preventDefault()});
@@ -22,7 +23,7 @@ function bindInput(){
   // look
   let lid=null,lx=0,ly=0;const cv=renderer.domElement;
   cv.addEventListener('pointerdown',e=>{lid=e.pointerId;lx=e.clientX;ly=e.clientY;cv.setPointerCapture(lid)});
-  cv.addEventListener('pointermove',e=>{if(e.pointerId!==lid)return;S.yaw-=(e.clientX-lx)*.006;S.pitch=Math.max(.05,Math.min(1.2,S.pitch+(e.clientY-ly)*.005));lx=e.clientX;ly=e.clientY});
+  cv.addEventListener('pointermove',e=>{if(e.pointerId!==lid)return;S.yaw-=(e.clientX-lx)*.006;{const pr=typeof CameraRig!=='undefined'?CameraRig.pitchRange():[.05,1.2];S.pitch=Math.max(pr[0],Math.min(pr[1],S.pitch+(e.clientY-ly)*.005))}lx=e.clientX;ly=e.clientY});
   const endLook=e=>{if(e.pointerId===lid)lid=null};cv.addEventListener('pointerup',endLook);cv.addEventListener('pointercancel',endLook);
   $('share').onclick=async()=>{
     const url=location.origin+location.pathname+'?room='+roomCode;

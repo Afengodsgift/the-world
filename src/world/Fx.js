@@ -18,7 +18,7 @@ const Fx=(()=>{
   // A small centred progress/status bar. const b=Fx.bar(250); b.show('text',0..1); b.hide();
   function bar(bottom){
     const el=document.createElement('div'),tx=document.createElement('div'),tr=document.createElement('div'),fl=document.createElement('div');
-    el.className='pbar';el.style.bottom='calc(env(safe-area-inset-bottom,0px) + '+(bottom||250)+'px)';el.style.display='none';
+    el.className='pbar';el.style.display='none';   // position comes from theme.css (--bar-l/--bar-b/--barw, set per layout in index.html)
     tr.className='trk';fl.className='fill';
     tr.appendChild(fl);el.appendChild(tx);el.appendChild(tr);document.body.appendChild(el);
     return {show(t,p){el.style.display='block';if(tx.textContent!==t)tx.textContent=t;fl.style.width=Math.max(0,Math.min(100,p*100))+'%'},hide(){el.style.display='none'},visible:()=>el.style.display!=='none'};

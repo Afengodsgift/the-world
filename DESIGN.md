@@ -70,3 +70,13 @@ Outlaw Isle: stays specialized · Sky: wind currents, cloud platforms · Main: t
 `tests/run_all.sh` runs the script-order check and four simulations (WorldState, Verbs, Vaults, Events) with
 two fake clients, a fake Supabase and the real terrain/modules. Needs `three@0.147.0` (`npm i three@0.147.0`, set `NODE_PATH`).
 Dev helpers: `Verbs.tp(i)`, `Vaults.tp(i)`, `Events.force('meteor'|'visitor'|'rings')`, or open the game with `?ev=meteor`.
+
+## UI (glass theme)
+`src/ui/theme.css` owns the look of every control: dark-tinted glass (readable on bright sky and at night), tokens prefixed `--w-`.
+- **Landscape phones** are laid out by `index.html` (variables `--T --S --J --map-r --bar-b --sheet-h ...` in `@media (orientation:landscape) and (pointer:coarse)`).
+  The theme only SKINS that layout; our own classes (`.dk`, `.pbar`, `.sheet`) read the same variables.
+- **Portrait/desktop** fallback positions live in `@media not all and (orientation:landscape) and (pointer:coarse)` in theme.css.
+- New UI: use `.gl .pill .dk .sheet .card .btn .veil .toast`, never inline styles for chrome. Don't define custom properties that index.html also defines (`tests/css_theme.check.js` enforces this).
+- `Theme.js` adopts legacy race/activity text lines as glass pills and switches `<html class="lite">` (no blur) if FPS stays low; `?glass=full|lite` forces a mode.
+- Two-player primitives (`Link`) refuse to complete without a connected partner, and `Vaults.solve` double-checks and logs a warning.
+

@@ -15,7 +15,7 @@ const Tag=(()=>{
   function ui(){
     if(hud)return;
     hud=document.createElement('div');
-    hud.style.cssText='position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 96px);left:0;right:0;text-align:center;font-size:20px;color:#fff;text-shadow:0 2px 8px #000;pointer-events:none;display:none';
+    hud.style.cssText='position:fixed;z-index:6;top:var(--topmsg-tag,calc(env(safe-area-inset-top,0px) + 96px));left:0;right:0;text-align:center;font-size:20px;color:#fff;text-shadow:0 2px 8px #000;pointer-events:none;display:none';
     document.body.appendChild(hud);
     panel=document.createElement('div');
     panel.className='veil';
