@@ -13,7 +13,7 @@ const map=u=>{
 const STUB=`window.supabase={createClient:()=>{const mk=()=>{const ch={on:()=>ch,subscribe:cb=>{setTimeout(()=>cb&&cb('SUBSCRIBED'),50);return ch},presenceState:()=>({}),track:async()=>({}),send:()=>{},unsubscribe:()=>{}};return ch};
  const q=()=>{const p=new Proxy(function(){},{get:(t,k)=>k==='then'?undefined:(k==='data'?null:k==='error'?null:p),apply:()=>p});return p};
  return {channel:mk,removeChannel:()=>{},from:q,rpc:q,auth:q()}}};`;
-const b=await puppeteer.launch({args:[...chromium.args,'--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist','--no-sandbox'],executablePath:await chromium.executablePath(),headless:'shell',defaultViewport:{width:900,height:400,isMobile:true,hasTouch:true,deviceScaleFactor:1}});
+const b=await puppeteer.launch({args:[...chromium.args,'--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist','--autoplay-policy=no-user-gesture-required','--no-sandbox'],executablePath:await chromium.executablePath(),headless:'shell',defaultViewport:{width:900,height:400,isMobile:true,hasTouch:true,deviceScaleFactor:1}});
 const pg=await b.newPage();await pg.setRequestInterception(true);
 pg.on('request',r=>{const u=r.url();
   if(u.includes('supabase-js'))return r.respond({status:200,contentType:'application/javascript',body:STUB});
@@ -26,6 +26,10 @@ await pg.goto('http://localhost:'+(process.env.PORT||8123)+'/index.html'+(proces
 await new Promise(r=>setTimeout(r,2500));
 await pg.evaluate(()=>{document.getElementById('create').click()});if(process.argv[3]==='double'){await new Promise(r=>setTimeout(r,300));await pg.evaluate(()=>{document.getElementById('create').click()})}
 await new Promise(r=>setTimeout(r,12000));
+const audio=async()=>pg.evaluate(async()=>{const z=typeof Ambience!=='undefined'?{...Ambience._zones}:null;return {ctx:WAudio.get()&&WAudio.get().state,zones:z&&Object.fromEntries(Object.entries(z).map(([k,v])=>[k,+v.toFixed(2)]))}});
+if(process.argv[3]==='audio'){console.log('AUDIO town :',JSON.stringify(await audio()));
+  await pg.evaluate(()=>{S.x=0;S.z=190;S.y=3;S.vy=0});await new Promise(r=>setTimeout(r,4000));console.log('AUDIO beach:',JSON.stringify(await audio()));
+  await pg.evaluate(()=>{S.x=18;S.z=-86;S.y=8;S.vy=0});await new Promise(r=>setTimeout(r,14000));console.log('AUDIO cave :',JSON.stringify(await audio()));}
 const info=await pg.evaluate(()=>({entered:typeof entered!=='undefined'?entered:'?',frames:typeof Perf!=='undefined'?Perf.state.n:'?',calls:typeof renderer!=='undefined'?renderer.info.render.calls:'?',tris:typeof renderer!=='undefined'?renderer.info.render.triangles:'?',err:(document.getElementById('err')||{}).textContent||null,lasterr:localStorage.getItem('w4lasterr'),boot:!!document.getElementById('boot')}));
 console.log(JSON.stringify(info,null,1));console.log('ERRORS:',errs.length?'\n'+errs.slice(0,8).join('\n'):'none');
 await pg.screenshot({path:'/tmp/pp/shot.png'});await b.close();

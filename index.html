@@ -140,6 +140,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/core/RemoteSmooth.js"></script>
 <script src="src/world/SeaLife.js"></script>
 <script src="src/world/Environment.js"></script>
+<script src="src/audio/Ambience.js"></script>
 <script src="src/world/SkyIsland.js"></script>
 <script src="src/combat/Melee.js"></script>
 <script src="src/interaction/InteractionManager.js"></script>
@@ -1113,13 +1114,16 @@ function tickFrame(t){
     if(dd<R){if(c.h&&S.y>=c.h-.15)gY=Math.max(gY,c.h);else if(!c.noSide&&dd>1e-4){S.x=c.x+ax/dd*R;S.z=c.z+az/dd*R}}}
   const wasG=S.grounded;
   S.coy=wasG?.12:Math.max(0,(S.coy||0)-dt);                                    // coyote time: a jump pressed just after walking off a ledge still jumps
-  if(jumpQ){if((wasG||S.coy>0)&&!S.flying){S.vy=wat?6:9;S.coy=0}else{S.flying=!S.flying;if(S.flying&&!S.tipped){S.tipped=1;banner('Drag up to climb · drag down to dive','FLYING')}}}jumpQ=false;
+  if(jumpQ){if((wasG||S.coy>0)&&!S.flying){S.vy=wat?6:9;S.coy=0;if(typeof Ambience!=='undefined')Ambience.jump()}else{S.flying=!S.flying;if(S.flying&&!S.tipped){S.tipped=1;banner('Drag up to climb · drag down to dive','FLYING')}}}jumpQ=false;
   if(S.flying)S.vy+=((len>.05?Math.max(-20*(bst()?2.4:1),Math.min(14*(bst()?2.4:1),(CameraRig.neutralPitch()-S.pitch)*40*(bst()?2.4:1))):0)-S.vy)*Math.min(1,dt*6);else{S.vy-=(S.vy<0?33:25)*dt;if(S.vy<-48)S.vy=-48}   // heavier on the way down = snappier, less floaty jump (same height); terminal velocity
   const imp=-S.vy;S.y+=S.vy*dt;if(S.flying)S.y=Math.min(S.y,900); // ceiling: well above the cloud layers (clouds at ~310-490 and ~620-730)
   if(S.flying&&S.y<=gY)S.flying=false;
-  if(S.y<=gY||(wasG&&S.vy<=0&&S.y-gY<.35)){S.y=gY;S.vy=0;S.grounded=true;if(!wasG&&imp>5){me.userData.land=Math.min(.18,imp*.014);if(CameraRig.land)CameraRig.land(imp)}}else S.grounded=false;
+  if(S.y<=gY||(wasG&&S.vy<=0&&S.y-gY<.35)){S.y=gY;S.vy=0;S.grounded=true;if(!wasG&&imp>5){me.userData.land=Math.min(.18,imp*.014);if(CameraRig.land)CameraRig.land(imp);if(typeof Ambience!=='undefined')Ambience.land(imp,{x:S.x,z:S.z,H})}}else S.grounded=false;
   S.state=S.flying?'fly':!S.grounded?(S.vy>0?'jump':'fall'):wat?'swim':len>.05?(sprint?'run':'walk'):'idle';
   me.position.set(S.x,S.y,S.z);me.rotation.y=S.rot;animate(me,dt,S.state);explore(dt,t);
+  if(typeof Ambience!=='undefined'){const es=Env.state,gs=Math.hypot(S.gvx||0,S.gvz||0);   // world sound: ocean/wind/birds/steps... (src/audio/Ambience.js); wind follows flight + fall speed
+    Ambience.update(dt,{x:S.x,y:S.y,z:S.z,gy:gY,H,st:S.state,grounded:S.grounded,under:S.under||0,dayF:es.dayF,rain:es.wx.rain,storm:es.wx.storm,cloud:es.inCloud,
+      spd:S.flying?Math.hypot(S.fvx||0,S.fvz||0,(S.vy||0)*1.5):S.grounded?gs:Math.max(gs,Math.abs(S.vy||0)*1.4)})}
   const k=1-Math.exp(-20*dt),nowT=performance.now();
   for(const o of others.values()){
     RemoteSmooth.target(o,nowT,H);const p=o.group.position;p.x+=(o.tx-p.x)*k;p.y+=(o.ty-p.y)*k;p.z+=(o.tz-p.z)*k;

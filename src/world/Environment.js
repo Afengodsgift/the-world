@@ -82,7 +82,8 @@ const Env=(()=>{
       for(const [t,v] of [['Auto',null],['🌅 Dawn',.26],['☀️ Noon',.5],['🌇 Dusk',.74],['🌙 Midnight',0]])row.appendChild(pill(t,E.ovT===v,()=>{E.ovT=v;render()}));panel.appendChild(row);
       sec('Weather');row=Ee('div','');
       for(const [t,v] of [['Auto',null],['☀️ Clear','clear'],['☁️ Cloudy','cloudy'],['🌧️ Rain','rain'],['⛈️ Storm','storm']])row.appendChild(pill(t,E.ovW===v,()=>{E.ovW=v;render()}));panel.appendChild(row);
-      sec('Sound');row=Ee('div','');row.appendChild(pill(E.sound?'🔊 Rain & thunder on':'🔇 Rain & thunder off',E.sound,()=>{E.sound=!E.sound;try{localStorage.setItem('w4wxsound',E.sound?'1':'0')}catch(e){}if(!E.sound&&rainG)rainG.gain.value=0;render()}));panel.appendChild(row);
+      sec('Sound');row=Ee('div','');row.appendChild(pill(E.sound?'🔊 Rain & thunder on':'🔇 Rain & thunder off',E.sound,()=>{E.sound=!E.sound;try{localStorage.setItem('w4wxsound',E.sound?'1':'0')}catch(e){}if(!E.sound&&rainG)rainG.gain.value=0;render()}));
+      if(typeof Ambience!=='undefined')row.appendChild(pill(Ambience.isOn()?'🌊 World ambience on':'🔇 World ambience off',Ambience.isOn(),()=>{Ambience.setOn(!Ambience.isOn());render()}));panel.appendChild(row);
       panel.appendChild(Ee('div','margin:8px 4px 0;font-size:12px;opacity:.6','Auto is shared: everyone in your room sees the same time and weather. Overrides only change your own screen.'))};
     chip.addEventListener('pointerdown',e=>{e.preventDefault();audio();if(panel.style.display==='block'){panel.style.display='none'}else{render();panel.style.display='block'}});
     addEventListener('pointerdown',()=>{audio();WAudio.resume()},{once:true});
