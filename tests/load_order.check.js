@@ -3,6 +3,11 @@ const fs=require('fs');
 const html=fs.readFileSync(__dirname+'/../index.html','utf8');
 const order=[...html.matchAll(/<script src="([^"]+)"/g)].map(m=>m[1].replace(/^src\//,''));
 const DEPS={ // file -> files that must come first
+  'world/Environment.js':['core/Audio.js'],
+  'audio/Ambience.js':['core/Audio.js','data/islands.js'],
+  'combat/Melee.js':['core/Audio.js'],
+  'games/Outlaw.js':['core/Audio.js'],
+  'world/SeaLife.js':['core/Audio.js'],
   'core/WorldState.js':['core/Net.js'],
   'ui/Journal.js':['core/WorldState.js'],
   'world/Fx.js':['core/Systems.js'],

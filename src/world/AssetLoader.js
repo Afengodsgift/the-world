@@ -11,6 +11,15 @@ function loadAssets(){
     assetsP=Promise.all(ALIST.map(n=>new Promise(r=>gl.load(AURL+n+'.glb',g=>{AM[n]=g.scene;r()},undefined,()=>r()))))}
   return assetsP;
 }
+// The Quaternius nature + village kits (assets/nature.glb ~2.4 MB, assets/village.glb ~1 MB) are loaded AFTER the main assets so the world appears first;
+// every top-level piece lands in AM by its own name (CommonTree_3, Wall_Plaster_Straight, ...) so place()/scatter() work on them. The floating island waits for this.
+let packsP;
+function loadPacks(){
+  if(!packsP&&!THREE.GLTFLoader)packsP=Promise.resolve();
+  if(!packsP){const gl=new THREE.GLTFLoader();
+    packsP=Promise.all(['nature','village'].map(n=>new Promise(r=>gl.load(AURL+n+'.glb',g=>{g.scene.children.forEach(c=>{AM[c.name]=c});r()},undefined,()=>r()))))}
+  return packsP;
+}
 let kartAssetsP;
 function loadKartAssets(){
   if(!kartAssetsP&&!THREE.GLTFLoader)kartAssetsP=Promise.resolve();

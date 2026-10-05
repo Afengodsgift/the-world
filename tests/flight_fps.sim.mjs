@@ -21,7 +21,7 @@ for(const n of ['_qa','_qb','_qm'])globalThis[n]=new T.Quaternion();for(const n 
 globalThis.lerpAngle=(a,b,t)=>{let d=b-a;d=Math.atan2(Math.sin(d),Math.cos(d));return a+d*t};
 globalThis.H=()=>2;globalThis.solids=[];globalThis.scene=new T.Scene();globalThis.camera=new T.PerspectiveCamera(65,390/844,.1,3000);
 globalThis.S={x:0,y:2,z:0,yaw:0,pitch:.4,rot:0,flying:false,grounded:true,gboost:0,kx:0,kz:0,hurt:0,vy:0};globalThis.myId='A';globalThis.others=new Map();globalThis.chan={send(){}};
-globalThis.banner=()=>{};globalThis.chime=()=>{};globalThis.panOn=false;globalThis.togglePan=()=>{};globalThis.Interaction={register(){}};globalThis.makeAvatar=()=>new T.Group();globalThis.dress=()=>{};globalThis.animate=()=>{};
+globalThis.banner=()=>{};globalThis.chime=()=>{};globalThis.WAudio={get:()=>null,resume:()=>null,out:()=>null};globalThis.panOn=false;globalThis.togglePan=()=>{};globalThis.Interaction={register(){}};globalThis.makeAvatar=()=>new T.Group();globalThis.dress=()=>{};globalThis.animate=()=>{};
 globalThis.OUT={x:5000,z:5000,y:2,clear:1};
 const load=async f=>{const b=fs.readFileSync(path.join(ROOT,f));return new Promise(r=>new GLTFLoader().parse(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'',r))};
 const gl=await load('assets/char.glb');const mdl=gl.scene;mdl.scale.setScalar(.5);globalThis.me=new T.Group();me.add(mdl);scene.add(me);

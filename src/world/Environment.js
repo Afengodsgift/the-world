@@ -9,7 +9,7 @@ const Env=(()=>{
     hsDay:col('#bcd7ff'),hsNight:col('#2a3d73'),hgDay:col('#7d7355'),hgNight:col('#14141c'),sunDay:col('#fff0d2'),sunTw:col('#ff9150'),moon:col('#9fb6ff'),
     seaDay:col('#2f6f9a'),seaNight:col('#0b2238'),cloudDay:col('#ffffff'),cloudTw:col('#ffc9a0'),cloudNight:col('#46507a'),cloudStorm:col('#59616f'),fogGrey:col('#8e99a6'),fogStorm:col('#4a525e')};
   const E={u:.4,h:1,dayF:1,tw:0,wx:{cloud:.12,rain:0,storm:0},tgt:{cloud:.12,rain:0,storm:0},ovT:null,ovW:null,sound:true,inCloud:0,flash:0,label:'',ready:false};
-  let cloudMesh=null,clouds=[],rain=null,rainPos=null,rainVel=null,bolt=null,chip=null,panel=null,offX=0,offZ=0,nextFlash=6,boltT=0,fireflies=null;
+  let cloudMeshes=[],cloudMat=null,cloudT=0,clouds=[],rain=null,rainPos=null,rainVel=null,bolt=null,chip=null,panel=null,offX=0,offZ=0,nextFlash=6,boltT=0,fireflies=null;
   const tmpC=new THREE.Color(),tmpC2=new THREE.Color(),_m=new THREE.Matrix4(),_q=new THREE.Quaternion(),_p=new THREE.Vector3(),_s=new THREE.Vector3(),_e=new THREE.Euler();
   // ---------- weather schedule (same for everyone): a new weather every WSLOT seconds, hashed from the slot number ----------
   function h01(n){n=Math.imul(n^61,1664525)+1013904223|0;n^=n>>>15;n=Math.imul(n,2246822519)|0;n^=n>>>13;n=Math.imul(n,3266489917)|0;n^=n>>>16;return (n>>>0)/4294967296}
@@ -36,13 +36,28 @@ const Env=(()=>{
         +'float l=dot(c,vec3(.3,.59,.11));c=mix(c,vec3(l)*.78,over*.8);c+=vec3(flash*.9);'
         +'if(d.y<0.)c=mix(hor,gnd,clamp(-d.y*4.,0.,1.));gl_FragColor=vec4(c,1.);}'});
   }
-  function cloudGeo(){ // 5 low-poly puffs merged into one cloud
-    const puffs=[[0,0,0,1],[.95,-.1,.15,.8],[-.9,-.12,-.1,.78],[.3,.28,-.3,.7],[-.25,.2,.45,.62]],pos=[];
-    for(const [x,y,z,r] of puffs){const g=new THREE.IcosahedronGeometry(r,0),a=g.attributes.position;for(let i=0;i<a.count;i++)pos.push(a.getX(i)+x,a.getY(i)*.62+y,a.getZ(i)+z)}
-    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.computeVertexNormals();return geo}
+  // Clouds: 3 distinct shapes (so the sky isn't one blob stamped 150 times). Each is 6-7 smooth ellipsoid puffs with a flat base; vertex
+  // colours darken the underside so it reads as a volume. Same overall bounds as the old blob (fly-through test relies on them).
+  function cloudGeo(v){
+    let sd=1000+v*7919;const r=()=>(sd=(sd*16807)%2147483647)/2147483647,puffs=[];
+    const k=[4,5,3][v],tall=[1,.8,1.3][v];
+    for(let i=0;i<k;i++){const f=k>1?i/(k-1):.5,x=(f-.5)*2.5+(r()-.5)*.3,rad=.95-Math.abs(x)*.2-r()*.08;puffs.push([x,-.08+(r()-.5)*.12,(r()-.5)*.7,rad])}
+    const top=2+(v===0?1:0);for(let i=0;i<top;i++){const x=(r()-.5)*1.5;puffs.push([x,.2+r()*.2*tall,(r()-.5)*.5,.52+r()*.2*tall])}
+    const pos=[],nor=[],col=[],base=-.3;
+    for(const [px,py,pz,rad] of puffs){
+      const g=new THREE.IcosahedronGeometry(rad,1),a=g.attributes.position;
+      for(let q=0;q<a.count;q++){
+        const dx=a.getX(q),dy=a.getY(q)*.7,dz=a.getZ(q);let y=py+dy;
+        const n=Math.hypot(dx,dy/.49,dz)||1;nor.push(dx/n,dy/.49/n,dz/n);          // ellipsoid normal -> smooth shading
+        if(y<base)y=base;                                                           // flat base
+        pos.push(px+dx,y,pz+dz);
+        const t=Math.min(1,Math.max(0,(y-base)/.9)),sh=.62+.38*Math.pow(t,.7);col.push(sh,sh,sh*1.02)}}
+    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+    geo.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(col,3));return geo}
   function build(){
     const rr=()=>Math.random();let seed=1234567;const r2=()=>(seed=(seed*16807)%2147483647)/2147483647; // fixed layout, same for everyone
-    cloudMesh=new THREE.InstancedMesh(cloudGeo(),new THREE.MeshLambertMaterial({color:'#ffffff',flatShading:true}),N_CLOUD);cloudMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);cloudMesh.frustumCulled=false;scene.add(cloudMesh);
+    cloudMat=new THREE.MeshLambertMaterial({color:'#ffffff',vertexColors:true});
+    for(let v=0;v<3;v++){const m=new THREE.InstancedMesh(cloudGeo(v),cloudMat,Math.ceil(N_CLOUD/3));m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);m.frustumCulled=false;m.count=0;scene.add(m);cloudMeshes.push(m)}
     for(let i=0;i<N_CLOUD;i++){const high=r2()<.16;clouds.push({bx:(r2()-.5)*CW,bz:(r2()-.5)*CW,by:high?620+r2()*110:310+r2()*180,w:(high?120:80)+r2()*150,hgt:30+r2()*35,yaw:r2()*TAU,th:r2()*.85,vis:0,rx:0,ry:0})}
     // rain: line segments in a box around the camera
     rainPos=new Float32Array(N_RAIN*6);rainVel=new Float32Array(N_RAIN*3);
@@ -62,12 +77,12 @@ const Env=(()=>{
   let AC=null,rainG=null,noiseBuf=null;
   function audio(){
     if(AC||!E.sound)return AC;
-    try{AC=new(window.AudioContext||window.webkitAudioContext)();const len=AC.sampleRate*2;noiseBuf=AC.createBuffer(1,len,AC.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+    try{AC=WAudio.get();if(!AC)return null;const len=AC.sampleRate*2;noiseBuf=AC.createBuffer(1,len,AC.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
       const src=AC.createBufferSource();src.buffer=noiseBuf;src.loop=true;const hp=AC.createBiquadFilter();hp.type='highpass';hp.frequency.value=900;const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=7000;rainG=AC.createGain();rainG.gain.value=0;
-      src.connect(hp);hp.connect(lp);lp.connect(rainG);rainG.connect(AC.destination);src.start()}catch(e){AC=null}
+      src.connect(hp);hp.connect(lp);lp.connect(rainG);rainG.connect(WAudio.out());src.start()}catch(e){AC=null}
     return AC}
   function thunder(delay,vol){const a=audio();if(!a||!E.sound)return;try{const t0=a.currentTime+delay,src=a.createBufferSource();src.buffer=noiseBuf;const lp=a.createBiquadFilter();lp.type='lowpass';lp.frequency.setValueAtTime(260,t0);lp.frequency.exponentialRampToValueAtTime(70,t0+2.6);
-      const g=a.createGain();g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(vol,t0+.08);g.gain.exponentialRampToValueAtTime(.001,t0+2.8);src.connect(lp);lp.connect(g);g.connect(a.destination);src.start(t0,Math.random(),3)}catch(e){}}
+      const g=a.createGain();g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(vol,t0+.08);g.gain.exponentialRampToValueAtTime(.001,t0+2.8);src.connect(lp);lp.connect(g);g.connect(WAudio.out());src.start(t0,Math.random(),3)}catch(e){}}
   // ---------- UI ----------
   function buildUI(){
     const Ee=(t,css,html)=>{const e=document.createElement(t);e.style.cssText=css||'';if(html)e.innerHTML=html;return e};
@@ -82,10 +97,11 @@ const Env=(()=>{
       for(const [t,v] of [['Auto',null],['🌅 Dawn',.26],['☀️ Noon',.5],['🌇 Dusk',.74],['🌙 Midnight',0]])row.appendChild(pill(t,E.ovT===v,()=>{E.ovT=v;render()}));panel.appendChild(row);
       sec('Weather');row=Ee('div','');
       for(const [t,v] of [['Auto',null],['☀️ Clear','clear'],['☁️ Cloudy','cloudy'],['🌧️ Rain','rain'],['⛈️ Storm','storm']])row.appendChild(pill(t,E.ovW===v,()=>{E.ovW=v;render()}));panel.appendChild(row);
-      sec('Sound');row=Ee('div','');row.appendChild(pill(E.sound?'🔊 Rain & thunder on':'🔇 Rain & thunder off',E.sound,()=>{E.sound=!E.sound;try{localStorage.setItem('w4wxsound',E.sound?'1':'0')}catch(e){}if(!E.sound&&rainG)rainG.gain.value=0;render()}));panel.appendChild(row);
+      sec('Sound');row=Ee('div','');row.appendChild(pill(E.sound?'🔊 Rain & thunder on':'🔇 Rain & thunder off',E.sound,()=>{E.sound=!E.sound;try{localStorage.setItem('w4wxsound',E.sound?'1':'0')}catch(e){}if(!E.sound&&rainG)rainG.gain.value=0;render()}));
+      if(typeof Ambience!=='undefined')row.appendChild(pill(Ambience.isOn()?'🌊 World ambience on':'🔇 World ambience off',Ambience.isOn(),()=>{Ambience.setOn(!Ambience.isOn());render()}));panel.appendChild(row);
       {const n=Ee('div','','Auto is shared: everyone in your room sees the same time and weather. Overrides only change your own screen.');n.className='note';panel.appendChild(n)}};
     chip.addEventListener('pointerdown',e=>{e.preventDefault();audio();if(panel.style.display==='block'){panel.style.display='none'}else{render();panel.style.display='block'}});
-    addEventListener('pointerdown',()=>{audio();if(AC&&AC.state==='suspended')AC.resume()},{once:true});
+    addEventListener('pointerdown',()=>{audio();WAudio.resume()},{once:true});
   }
   // ---------- per-frame ----------
   function tick(dt,t){
@@ -141,16 +157,17 @@ const Env=(()=>{
     bolt.visible=true;boltT=.3;thunder(.4+d/340,.55)}
   function updateClouds(dt,sk,ov){
     const wx=E.wx,wind=5+wx.cloud*4+wx.storm*14;offX+=dt*wind*.8;offZ+=dt*wind*.35;
-    let inside=0;const cx=camera.position.x,cy=camera.position.y,cz=camera.position.z,cover=wx.cloud;
+    let inside=0;const cx=camera.position.x,cy=camera.position.y,cz=camera.position.z,cover=wx.cloud,cnt=[0,0,0];cloudT+=dt;
     for(let i=0;i<clouds.length;i++){const c=clouds[i];
       let rx=((c.bx+offX-S.x)%CW+CW*1.5)%CW-CW/2,rz=((c.bz+offZ-S.z)%CW+CW*1.5)%CW-CW/2;
       const clr=Math.abs(c.by-SKY.base)<150?sm(SKY.R+90,SKY.R+190,Math.hypot(S.x+rx-SKY.x,S.z+rz-SKY.z)):1, // keep a clearing in the clouds around the floating island
         vis=sm(c.th,c.th+.18,cover)*(.55+.45*cover)*clr,sc=c.w*(.65+.5*cover)*vis,hs=c.hgt*(.7+.6*cover)*vis;c.vis=vis;
-      _p.set(S.x+rx,c.by,S.z+rz);_e.set(0,c.yaw,0);_q.setFromEuler(_e);_s.set(Math.max(sc,.001),Math.max(hs,.001),Math.max(sc*.8,.001));_m.compose(_p,_q,_s);cloudMesh.setMatrixAt(i,_m);
+      _p.set(S.x+rx,c.by+Math.sin(cloudT*.1+i*1.7)*2.5,S.z+rz);
+      if(vis>.02){const v=i%3;_e.set(0,c.yaw,0);_q.setFromEuler(_e);_s.set(Math.max(sc,.001),Math.max(hs*(1+.03*Math.sin(cloudT*.07+i)),.001),Math.max(sc*.8,.001));_m.compose(_p,_q,_s);cloudMeshes[v].setMatrixAt(cnt[v]++,_m)}
       if(vis>.05){const dx=(cx-_p.x)/(sc*.95),dy=(cy-_p.y)/(hs*1.25),dz=(cz-_p.z)/(sc*.8*.95),q=Math.sqrt(dx*dx+dy*dy+dz*dz);if(q<1)inside=Math.max(inside,1-q)}}
-    cloudMesh.instanceMatrix.needsUpdate=true;
+    for(let v=0;v<3;v++){cloudMeshes[v].count=cnt[v];cloudMeshes[v].instanceMatrix.needsUpdate=true}
     E.inCloud+=(Math.min(1,inside*2.2)-E.inCloud)*Math.min(1,dt*3);
-    const m=cloudMesh.material;m.color.copy(P.cloudNight).lerp(P.cloudDay,sk.dayF).lerp(P.cloudTw,sk.tw*.8).lerp(P.cloudStorm,Math.min(1,wx.rain*.35+wx.storm*.6));
+    const m=cloudMat;m.color.copy(P.cloudNight).lerp(P.cloudDay,sk.dayF).lerp(P.cloudTw,sk.tw*.8).lerp(P.cloudStorm,Math.min(1,wx.rain*.35+wx.storm*.6));
     m.emissive.copy(m.color).multiplyScalar(.12+.2*E.flash)}
   function updateRain(dt,wx){
     const dens=Math.min(1,wx.rain),on=dens>.04;rain.visible=on;if(!on)return;
