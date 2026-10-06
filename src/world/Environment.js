@@ -10,7 +10,7 @@ const Env=(()=>{
     seaDay:col('#2f6f9a'),seaNight:col('#0b2238'),cloudDay:col('#ffffff'),cloudTw:col('#ffc9a0'),cloudNight:col('#46507a'),cloudStorm:col('#59616f'),fogGrey:col('#8e99a6'),fogStorm:col('#4a525e')};
   const E={u:.4,h:1,dayF:1,tw:0,wx:{cloud:.12,rain:0,storm:0},tgt:{cloud:.12,rain:0,storm:0},ovT:null,ovW:null,sound:true,inCloud:0,flash:0,label:'',ready:false};
   let cloudMeshes=[],cloudMat=null,cloudT=0,clouds=[],rain=null,rainPos=null,rainVel=null,bolt=null,chip=null,panel=null,offX=0,offZ=0,nextFlash=6,boltT=0,fireflies=null;
-  const tmpC=new THREE.Color(),tmpC2=new THREE.Color(),_m=new THREE.Matrix4(),_q=new THREE.Quaternion(),_p=new THREE.Vector3(),_s=new THREE.Vector3(),_e=new THREE.Euler();
+  const tmpC=new THREE.Color(),tmpC2=new THREE.Color(),_col=new THREE.Color(),_m=new THREE.Matrix4(),_q=new THREE.Quaternion(),_p=new THREE.Vector3(),_s=new THREE.Vector3(),_e=new THREE.Euler();
   // ---------- weather schedule (same for everyone): a new weather every WSLOT seconds, hashed from the slot number ----------
   function h01(n){n=Math.imul(n^61,1664525)+1013904223|0;n^=n>>>15;n=Math.imul(n,2246822519)|0;n^=n>>>13;n=Math.imul(n,3266489917)|0;n^=n>>>16;return (n>>>0)/4294967296}
   const WX={clear:{cloud:.12,rain:0,storm:0,e:'☀️',n:'Clear'},cloudy:{cloud:.72,rain:0,storm:0,e:'☁️',n:'Cloudy'},rain:{cloud:.92,rain:.85,storm:0,e:'🌧️',n:'Rain'},storm:{cloud:1,rain:1,storm:1,e:'⛈️',n:'Storm'}};
@@ -57,8 +57,8 @@ const Env=(()=>{
   function build(){
     const rr=()=>Math.random();let seed=1234567;const r2=()=>(seed=(seed*16807)%2147483647)/2147483647; // fixed layout, same for everyone
     cloudMat=new THREE.MeshLambertMaterial({color:'#ffffff',vertexColors:true});
-    for(let v=0;v<3;v++){const m=new THREE.InstancedMesh(cloudGeo(v),cloudMat,Math.ceil(N_CLOUD/3));m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);m.frustumCulled=false;m.count=0;scene.add(m);cloudMeshes.push(m)}
-    for(let i=0;i<N_CLOUD;i++){const high=r2()<.16;clouds.push({bx:(r2()-.5)*CW,bz:(r2()-.5)*CW,by:high?620+r2()*110:310+r2()*180,w:(high?120:80)+r2()*150,hgt:30+r2()*35,yaw:r2()*TAU,th:r2()*.85,vis:0,rx:0,ry:0})}
+    for(let v=0;v<3;v++){const m=new THREE.InstancedMesh(cloudGeo(v),cloudMat,Math.ceil(N_CLOUD/3));m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);m.frustumCulled=false;m.setColorAt(0,tmpC.set('#ffffff'));m.count=0;scene.add(m);cloudMeshes.push(m)}
+    for(let i=0;i<N_CLOUD;i++){const high=r2()<.16;clouds.push({bx:(r2()-.5)*CW,bz:(r2()-.5)*CW,by:high?620+r2()*110:310+r2()*180,w:(high?100:70)+r2()*130,hgt:38+r2()*52,yaw:r2()*TAU,th:r2()*.85,vis:0,rx:0,ry:0})}
     // rain: line segments in a box around the camera
     rainPos=new Float32Array(N_RAIN*6);rainVel=new Float32Array(N_RAIN*3);
     for(let i=0;i<N_RAIN;i++){rainVel[i*3]=0;rainVel[i*3+1]=-1;rainVel[i*3+2]=0;rainPos[i*6]=(Math.random()-.5)*46;rainPos[i*6+1]=Math.random()*26-8;rainPos[i*6+2]=(Math.random()-.5)*46}
@@ -127,12 +127,12 @@ const Env=(()=>{
     if(boltT>0){boltT-=dt;bolt.visible=boltT>0&&((boltT*60|0)%3!==0);if(boltT<=0)bolt.visible=false}
     su.flash.value=E.flash;
     // lights
-    const sunW=1.35*sm(-.08,.2,h)*(1-.55*ov),moonW=.42*(1-sm(-.1,.12,h))*(1-.45*ov); // sun and moon overlap around the horizon so sunrise/sunset never dip to black
+    const stm=wx.storm*SF.weather,sunW=1.35*sm(-.08,.2,h)*(1-.62*ov-.28*stm),moonW=.5*(1-sm(-.1,.12,h))*(1-.45*ov); // sun and moon overlap around the horizon so sunrise/sunset never dip to black
     const ld=sun.userData.sd;ld.set(0,0,0).addScaledVector(sk.sunDir,sunW).addScaledVector(sk.moonDir,moonW);if(ld.lengthSq()<1e-6)ld.copy(sk.sunDir);ld.normalize();if(ld.y<.24){ld.y=.24;ld.normalize()}
     sun.intensity=sunW+moonW;sun.color.copy(P.sunDay).lerp(P.sunTw,Math.min(1,tw*1.2)).lerp(P.moon,moonW/Math.max(.001,sunW+moonW));
-    hemi.color.copy(P.hsNight).lerp(P.hsDay,dayF);hemi.groundColor.copy(P.hgNight).lerp(P.hgDay,dayF);hemi.intensity=(.38+.37*dayF)*(1-.18*ov)+E.flash*.6+.5*SF.dark*(.4+.6*dayF);   // up high the sunlit world below fills the shadows, so you stay readable against the dark sky
-    amb.intensity=.12+(1-dayF)*.06+E.flash*1.4;
-    renderer.toneMappingExposure=lerp(1.05,.95,dayF);
+    hemi.color.copy(P.hsNight).lerp(P.hsDay,dayF);hemi.groundColor.copy(P.hgNight).lerp(P.hgDay,dayF);hemi.intensity=(.22+.53*dayF)*(1-.25*ov-.3*stm)+E.flash*.6+.5*SF.dark*(.4+.6*dayF);   // up high the sunlit world below fills the shadows, so you stay readable against the dark sky
+    amb.intensity=.12-(1-dayF)*.03+E.flash*1.4;
+    renderer.toneMappingExposure=lerp(1.05,.95,dayF)*(1-.14*stm);
     // fog + background follow the horizon colour, greyed and tightened by weather; inside a cloud everything turns white and close
     const grey=Math.min(1,wx.cloud*.55+wx.rain*.25+wx.storm*.2)*SF.weather;   // above the weather the haze is the sky's own colour
     const fogC=tmpC.clone();fogC.copy(hor).lerp(tmpC2.copy(P.fogGrey).multiplyScalar(.35+.65*dayF),grey*.8).lerp(tmpC2.copy(P.fogStorm).multiplyScalar(.3+.7*dayF),wx.storm*.5*SF.weather);
@@ -161,15 +161,19 @@ const Env=(()=>{
     bolt.visible=true;boltT=.3;thunder(.4+d/340,.55)}
   function updateClouds(dt,sk,ov){
     const SF=typeof Space!=='undefined'?Space.f:NOSPACE,wx=E.wx,wind=5+wx.cloud*4+wx.storm*14;offX+=dt*wind*.8;offZ+=dt*wind*.35;
+    const sdx=sk.sunDir.x,sdz=sk.sunDir.z,sdl=Math.hypot(sdx,sdz)||1,gl=sk.dayF*(1-sm(.05,.62,sk.h))*(1-ov*.5);   // golden-hour factor + horizontal sun direction: clouds on the sun side glow warm
     let inside=0;const cx=camera.position.x,cy=camera.position.y,cz=camera.position.z,cover=wx.cloud,cnt=[0,0,0];cloudT+=dt;
     for(let i=0;i<clouds.length;i++){const c=clouds[i];
       let rx=((c.bx+offX-S.x)%CW+CW*1.5)%CW-CW/2,rz=((c.bz+offZ-S.z)%CW+CW*1.5)%CW-CW/2;
       const clr=Math.abs(c.by-SKY.base)<150?sm(SKY.R+90,SKY.R+190,Math.hypot(S.x+rx-SKY.x,S.z+rz-SKY.z)):1, // keep a clearing in the clouds around the floating island
         vis=sm(c.th,c.th+.18,cover)*(.55+.45*cover)*clr*(1-SF.above),sc=c.w*(.65+.5*cover)*vis,hs=c.hgt*(.7+.6*cover)*vis;c.vis=vis;
       _p.set(S.x+rx,c.by+Math.sin(cloudT*.1+i*1.7)*2.5,S.z+rz);
-      if(vis>.02){const v=i%3;_e.set(0,c.yaw,0);_q.setFromEuler(_e);_s.set(Math.max(sc,.001),Math.max(hs*(1+.03*Math.sin(cloudT*.07+i)),.001),Math.max(sc*.8,.001));_m.compose(_p,_q,_s);cloudMeshes[v].setMatrixAt(cnt[v]++,_m)}
+      if(vis>.02){const v=i%3;_e.set(0,c.yaw,0);_q.setFromEuler(_e);_s.set(Math.max(sc,.001),Math.max(hs*(1+.03*Math.sin(cloudT*.07+i)),.001),Math.max(sc*.8,.001));_m.compose(_p,_q,_s);cloudMeshes[v].setMatrixAt(cnt[v],_m);
+        // per-cloud tint (no extra draw calls): thick/low clouds greyer underneath, high ones whiter, sun-side ones warm and bright at golden hour
+        const rl=Math.hypot(rx,rz)||1,sd=Math.max(0,(rx*sdx+rz*sdz)/(rl*sdl)),glow=Math.pow(sd,3)*gl*vis,b=(c.by>600?1.06:.94-.16*c.th)+.14*glow;
+        _col.setRGB(b*(1+.22*glow),b*(1-.06*glow),b*(1-.30*glow));cloudMeshes[v].setColorAt(cnt[v]++,_col)}
       if(vis>.05){const dx=(cx-_p.x)/(sc*.95),dy=(cy-_p.y)/(hs*1.25),dz=(cz-_p.z)/(sc*.8*.95),q=Math.sqrt(dx*dx+dy*dy+dz*dz);if(q<1)inside=Math.max(inside,1-q)}}
-    for(let v=0;v<3;v++){cloudMeshes[v].count=cnt[v];cloudMeshes[v].instanceMatrix.needsUpdate=true}
+    for(let v=0;v<3;v++){cloudMeshes[v].count=cnt[v];cloudMeshes[v].instanceMatrix.needsUpdate=true;if(cloudMeshes[v].instanceColor)cloudMeshes[v].instanceColor.needsUpdate=true}
     E.inCloud+=(Math.min(1,inside*2.2)-E.inCloud)*Math.min(1,dt*3);
     const m=cloudMat;m.color.copy(P.cloudNight).lerp(P.cloudDay,sk.dayF).lerp(P.cloudTw,sk.tw*.8).lerp(P.cloudStorm,Math.min(1,wx.rain*.35+wx.storm*.6));
     if(SF.above>0)m.color.lerp(cloudSun.set('#ffffff').multiplyScalar(.5+.5*sk.dayF),SF.above*.75);   // seen from above they are lit by the sun, not grey with weather
