@@ -82,4 +82,9 @@ ok(SF.moveMulH(900)===1&&SF.moveMulH(20000)<SF.moveMul(20000)/3&&SF.moveMulH(200
  for(let i=1;i<=50;i++){t+=100;y+=sp*.1;const before={...o};RS.snap(o,{x:i*130,y,z:0,r:0},t);if(o.vx===0&&o.vy===0&&i>2)snapped++;vmax=Math.max(vmax,Math.hypot(o.vx||0,o.vy||0))}
  ok(snapped===0,'partner at 1.3 km/s is smoothed, not teleported every packet');ok(vmax>500,'partner velocity estimate follows (>500 m/s, was clamped to 100)');
  const o2={};RS.snap(o2,{x:0,y:100,z:0},0);RS.snap(o2,{x:200,y:100,z:0},100);ok(o2.vx===0,'on the ground a 200 m jump is still treated as a teleport (unchanged)')}
+// 7) regression: Jump switches flying on AFTER the look-direction command (fp) is computed, so fp is null on the take-off frame. It must never be
+// dereferenced directly (it threw 'Cannot read properties of null (reading v)' every time you took off while moving).
+{const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
+ ok(!/\bfp\.v\b/.test(html),'index.html never reads fp.v directly (null on the frame flying starts)');
+ ok(/\(fp\|\|SpaceFlight\.vertical\(/.test(html),'the vertical command falls back to computing it when fp is null')}
 console.log(bad?bad+' failed':'space ok');process.exit(bad?1:0);
