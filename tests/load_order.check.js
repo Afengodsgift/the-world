@@ -4,6 +4,8 @@ const html=fs.readFileSync(__dirname+'/../index.html','utf8');
 const order=[...html.matchAll(/<script src="([^"]+)"/g)].map(m=>m[1].replace(/^src\//,''));
 const DEPS={ // file -> files that must come first
   'world/Environment.js':['core/Audio.js'],
+  'space/SpaceManager.js':['space/SpaceFlight.js'],
+  'space/SpaceEnvironment.js':['space/SpaceManager.js','world/Environment.js'],
   'audio/Ambience.js':['core/Audio.js','data/islands.js'],
   'combat/Melee.js':['core/Audio.js'],
   'games/Outlaw.js':['core/Audio.js'],

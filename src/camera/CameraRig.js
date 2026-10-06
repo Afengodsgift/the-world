@@ -53,11 +53,12 @@ const CameraRig=(()=>{
   function update(dt){
     st.t+=dt;
     if(!st.init){st.ay=S.y;st.px=S.x;st.pz=S.z;st.init=true}
-    st.ay+=(S.y-st.ay)*(1-Math.exp(-6*dt));
+    st.ay+=(S.y-st.ay)*(1-Math.exp(-6*dt*(typeof SpaceFlight!=='undefined'?SpaceFlight.moveMul(S.y):1)));   // follow height at the same *relative* lag at any climb speed
 
     // ---- motion estimate: smoothed horizontal velocity, speed and turn rate ----
     const di=Math.max(dt,.001),k=1-Math.exp(-7*dt);
-    st.vx+=((S.x-st.px)/di-st.vx)*k;st.vz+=((S.z-st.pz)/di-st.vz)*k;st.px=S.x;st.pz=S.z;
+    const dk=typeof Space!=='undefined'?Space.f.dark:0,mm=typeof SpaceFlight!=='undefined'?SpaceFlight.moveMulH(S.y):1;   // altitude: openness + normalised sideways speed
+    st.vx+=((S.x-st.px)/di/mm-st.vx)*k;st.vz+=((S.z-st.pz)/di/mm-st.vz)*k;st.px=S.x;st.pz=S.z;
     st.spd=Math.hypot(st.vx,st.vz);
     if(st.spd>3){const h=Math.atan2(st.vx,st.vz);let d=h-st.hd;d=Math.atan2(Math.sin(d),Math.cos(d));st.turn+=(clamp(d/di,-4,4)-st.turn)*Math.min(1,dt*6);st.hd=h}
     else st.turn*=1-Math.min(1,dt*6);
@@ -83,7 +84,7 @@ const CameraRig=(()=>{
     _f.set(-sY*cP,-sP,-cY*cP);
 
     // ---- orbit / shoulder camera ----
-    const d=9+2.4*st.boost-5.4*st.tpsK,sh=1.2*st.tpsK,shx=Math.cos(yaw)*sh,shz=-Math.sin(yaw)*sh;
+    const d=9+2.4*st.boost-5.4*st.tpsK+5*dk,sh=1.2*st.tpsK,shx=Math.cos(yaw)*sh,shz=-Math.sin(yaw)*sh;
     const lag=fly?Math.min(2.2,st.spd*.03):Math.min(.7,st.spd*.045),lx=st.spd>.1?-st.vx/st.spd*lag:0,lz=st.spd>.1?-st.vz/st.spd*lag:0;  // chase-cam trails at speed
     const ay=st.ay+1.6+.4*st.tpsK;
     _p.set(S.x+lx-_f.x*d+shx,ay-_f.y*d,S.z+lz-_f.z*d+shz);
@@ -104,14 +105,14 @@ const CameraRig=(()=>{
 
     // ---- flight feel: banking, buffet ----
     spring(st.roll,clamp(-st.turn*.045*(st.cruise*.6+st.boost),-.14,.14)*(1-.35*st.fpsK),dt,5,.8);
-    const buf=st.boost*(1-.5*st.fpsK);
+    const buf=st.boost*(1-.5*st.fpsK)*(1-dk);
     if(buf>.02){_p.x+=(Math.sin(st.t*31)+Math.sin(st.t*47+1.3))*.012*buf;_p.y+=Math.sin(st.t*37+.4)*.012*buf}
     camera.position.copy(_p);camera.lookAt(_l);camera.rotateZ(st.roll.x);
     if(buf>.02)camera.rotateX(Math.sin(st.t*29)*.003*buf);
 
     // ---- FOV: speed widens it, first-person trims a little ----
     const gf=clamp((st.spd-5.5)/7,0,1);                                   // ground sprint: a touch wider
-    const tf=(fly?66+14*st.cruise+18*st.boost:(S.gboost>0?80:65+4.5*gf))-4*st.fpsK;
+    const tf=(fly?66+14*st.cruise+18*st.boost*(1-.6*dk)+6*dk:(S.gboost>0?80:65+4.5*gf))-4*st.fpsK;
     if(Math.abs(camera.fov-tf)>.05){camera.fov+=(tf-camera.fov)*Math.min(1,dt*4.5);camera.updateProjectionMatrix()}
   }
 
