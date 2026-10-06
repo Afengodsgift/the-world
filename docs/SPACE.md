@@ -15,9 +15,15 @@ Other systems only *read* `Space.f`: `Environment.js` (sky colour, stars, fog, w
 `Space.update`, `SpaceEnv.update`, `Space.render`, and uses `SpaceFlight` in the flight integration. Below 900 m every function is the
 original behaviour (multiplier 1, 48 m/s terminal; covered by `tests/space.sim.mjs`).
 
-## Altitude profile (`Space.f`)
-`above` 0.9-3 km (over the clouds) / `weather` 0.75-1.3 km (rain is below you) / `thin` 0.9-12 km (haze clears) / `dark` 2.5-20 km (blue -> black) /
-`stars` 5-24 km / `space` 9-26 km / `quiet` 2.5-15 km (world sound fades). Ceiling 90 km.
+## Altitude profile (`Space.f`), paced like the reference sheet
+`above` 0.9-3 km (over the clouds) / `weather` 0.75-1.3 km (rain is below you) / `thin` 0.9-20 km (haze clears) / `deep` 1.5-20 km (blue deepens) /
+`stars` 14-100 km (very gradual) / `dark` 30-100 km (violet haze, then black) / `space` 40-110 km / `quiet` 3-45 km (world sound fades). Ceiling 140 km.
+Sky colour above the clouds ignores the weather below you; beyond the world's rim is sky/space, never a grey floor.
+
+## Flying where you look
+`SpaceFlight.vertical(e,bm,fwd)`: inside the original look range (view elevation -0.8..0.35) it is bit-identical to the original climb/dive clamp.
+Looking further up/down (third person allows pitch -1.35..1.5 while flying) fades the horizontal speed out and raises climb/dive speed to the forward
+speed: look straight up and you go straight up (900 m -> 100 km in ~40 s with Boost). `tests/space.sim.mjs` covers this.
 
 ## Why two render slices
 One depth buffer cannot hold "the avatar 9 m away" and "the world 20 km below": islands shimmer and stripe. Above 900 m the frame is drawn

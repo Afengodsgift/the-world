@@ -5,7 +5,7 @@ const Env=(()=>{
   const NOSPACE={alt:0,above:0,weather:1,thin:0,dark:0,stars:0,space:0,quiet:0},cloudSun=new THREE.Color(),CYCLE=720,WSLOT=180,N_CLOUD=150,CW=3000,N_RAIN=1100,TAU=Math.PI*2,AZ0=Math.atan2(.32,.5);
   const sm=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t)},lerp=(a,b,t)=>a+(b-a)*t;
   const col=h=>new THREE.Color(h);
-  const P={spaceHor:col('#02040b'),spaceZen:col('#000103'),horDay:col('#cfe3f2'),horNight:col('#0b1329'),horTw:col('#ff9a62'),zenDay:col('#336bbd'),zenNight:col('#050a1c'),zenTw:col('#4d4d8c'),gndDay:col('#99b8cc'),gndNight:col('#070c18'),
+  const P={deepHor:col('#3b78d8'),deepZen:col('#0b2160'),upperHor:col('#8a62d6'),spaceHor:col('#02040b'),spaceZen:col('#000103'),horDay:col('#cfe3f2'),horNight:col('#0b1329'),horTw:col('#ff9a62'),zenDay:col('#336bbd'),zenNight:col('#050a1c'),zenTw:col('#4d4d8c'),gndDay:col('#99b8cc'),gndNight:col('#070c18'),
     hsDay:col('#bcd7ff'),hsNight:col('#2a3d73'),hgDay:col('#7d7355'),hgNight:col('#14141c'),sunDay:col('#fff0d2'),sunTw:col('#ff9150'),moon:col('#9fb6ff'),
     seaDay:col('#2f6f9a'),seaNight:col('#0b2238'),cloudDay:col('#ffffff'),cloudTw:col('#ffc9a0'),cloudNight:col('#46507a'),cloudStorm:col('#59616f'),fogGrey:col('#8e99a6'),fogStorm:col('#4a525e')};
   const E={u:.4,h:1,dayF:1,tw:0,wx:{cloud:.12,rain:0,storm:0},tgt:{cloud:.12,rain:0,storm:0},ovT:null,ovW:null,sound:true,inCloud:0,flash:0,label:'',ready:false};
@@ -117,8 +117,10 @@ const Env=(()=>{
     // colours
     const hor=tmpC.copy(P.horNight).lerp(P.horDay,dayF).lerp(P.horTw,tw*.75*(1-ov*.6));
     const zen=tmpC2.copy(P.zenNight).lerp(P.zenDay,dayF).lerp(P.zenTw,tw*.35*(1-ov*.6));
+    if(SF.deep>0){const dy=.35+.65*dayF;hor.lerp(P.deepHor,SF.deep*.55*dy);zen.lerp(P.deepZen,SF.deep*.9*dy);               // above the clouds the sky is a clean deep blue whatever the weather below
+      hor.lerp(P.upperHor,SF.deep*SF.deep*(1-SF.dark)*.5*dy)}                                                          // upper atmosphere: violet haze along the horizon
     if(SF.dark>0){hor.lerp(P.spaceHor,SF.dark*.97);zen.lerp(P.spaceZen,SF.dark)}
-    const su=sky.material.uniforms;su.hor.value.copy(hor);su.zen.value.copy(zen);su.gnd.value.copy(P.gndNight).lerp(P.gndDay,dayF).lerp(P.spaceZen,SF.dark);su.space.value=SF.stars;
+    const su=sky.material.uniforms;su.hor.value.copy(hor);su.zen.value.copy(zen);su.gnd.value.copy(P.gndNight).lerp(P.gndDay,dayF).lerp(zen,SF.above*.9).lerp(P.spaceZen,SF.dark);   // beyond the world's rim there is sky/space, not a grey floorsu.space.value=SF.stars;
     su.sunc.value.copy(P.sunDay).lerp(P.sunTw,Math.min(1,tw*1.2));su.md.value.copy(sk.moonDir);su.sd.value.copy(sk.sunDir);
     su.stars.value=Math.max((1-sm(-.2,.05,h))*(1-ov*.9),SF.stars);su.over.value=ov*(.55+.45*dayF)*(1-SF.above);   // overcast is below you once you are above the cloudssu.tm.value=t/1000;
     // lightning
@@ -177,7 +179,7 @@ const Env=(()=>{
     E.inCloud+=(Math.min(1,inside*2.2)-E.inCloud)*Math.min(1,dt*3);
     const m=cloudMat;m.color.copy(P.cloudNight).lerp(P.cloudDay,sk.dayF).lerp(P.cloudTw,sk.tw*.8).lerp(P.cloudStorm,Math.min(1,wx.rain*.35+wx.storm*.6));
     if(SF.above>0)m.color.lerp(cloudSun.set('#ffffff').multiplyScalar(.5+.5*sk.dayF),SF.above*.75);   // seen from above they are lit by the sun, not grey with weather
-    m.emissive.copy(m.color).multiplyScalar(.12+.2*E.flash+.16*SF.above)}
+    m.emissive.copy(m.color).multiplyScalar(.12+.2*E.flash+.08*SF.above)}
   function updateRain(dt,wx){
     const dens=Math.min(1,wx.rain),on=dens>.04;rain.visible=on;if(!on)return;
     rain.geometry.setDrawRange(0,Math.floor(N_RAIN*dens)*2);rain.material.opacity=.28+.3*dens;rain.material.color.copy(tmpC.set('#7e8fb0')).lerp(tmpC2.set('#d8e4f4'),E.dayF);

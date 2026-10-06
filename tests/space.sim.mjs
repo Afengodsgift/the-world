@@ -15,16 +15,18 @@ ok(SF.terminal(0)===48&&SF.terminal(900)===48,'terminal velocity is exactly 48 m
 ok(SF.dy(10,300,true,.1)===1&&SF.dy(-10,300,false,.1)===-1,'vertical step below the clouds is plain vy*dt');
 
 // 2) smooth, monotonic profile
-const keys=['above','thin','dark','stars','space','quiet'];let mono=true,range=true;let prev=Space.profile(0,{});
-for(let y=0;y<=95000;y+=50){const p=Space.profile(y,{});for(const k of keys){if(p[k]<prev[k]-1e-12)mono=false;if(p[k]<0||p[k]>1)range=false}if(p.weather>prev.weather+1e-12)mono=false;prev=p}
+const keys=['above','thin','deep','dark','stars','space','quiet'];let mono=true,range=true;let prev=Space.profile(0,{});
+for(let y=0;y<=145000;y+=50){const p=Space.profile(y,{});for(const k of keys){if(p[k]<prev[k]-1e-12)mono=false;if(p[k]<0||p[k]>1)range=false}if(p.weather>prev.weather+1e-12)mono=false;prev=p}
 ok(mono&&range,'profile factors are monotonic and within 0..1 at every altitude');
 {const p0=Space.profile(0,{}),p1=Space.profile(500,{});ok(keys.every(k=>p0[k]===0)&&p0.weather===1&&keys.every(k=>p1[k]===0)&&p1.weather===1,'ground and low flight: no space effects at all')}
-{const a=Space.profile(1000,{}),b=Space.profile(3000,{}),c=Space.profile(10000,{}),d=Space.profile(25000,{});
- ok(a.weather<.7&&Space.profile(1300,{}).weather===0&&b.weather===0,'rain/storm fade out by 1.3 km (you are above the weather)');
- ok(b.above===1&&b.dark<.05&&b.stars===0,'at 3 km you are over the clouds but the sky is still blue, no stars');
- ok(c.dark>.3&&c.dark<.6&&c.stars>.1&&c.stars<.4&&c.space<.2,'at 10 km: deep blue, first stars, not space yet');
- ok(d.dark===1&&d.stars>.9&&d.space>.9,'at 25 km: black sky, stars, space');
- ok(c.stars<c.dark,'stars fade in after the sky starts darkening')}
+{const P=y=>Space.profile(y,{}),a=P(1000),b=P(3000),c=P(12000),d=P(40000),e=P(70000),g=P(110000);
+ ok(a.weather<.7&&P(1300).weather===0&&b.weather===0,'rain/storm fade out by 1.3 km (you are above the weather)');
+ ok(b.above===1&&b.dark===0&&b.stars===0&&b.deep<.1,'3 km: over the clouds, sky still blue, no stars');
+ ok(c.deep>.3&&c.dark===0&&c.stars===0,'12 km: blue is deepening, no stars yet');
+ ok(d.stars>.01&&d.stars<.3&&d.dark<.15,'40 km: first faint stars, still atmosphere (not thousands at once)');
+ ok(e.dark>.3&&e.dark<.8&&e.stars>.3&&e.stars<.9,'70 km: haze fading to black, stars building');
+ ok(g.dark>.97&&g.stars>.97&&g.space>.9,'110 km: black sky, full stars, space');
+ ok(d.stars<d.deep,'stars arrive long after the sky starts deepening')}
 
 // 3) the climb takes about a minute with boost, and the fall back is a fall
 {const climb=(vy,target)=>{let y=900,t=0;const dt=.02;while(y<target&&t<2000){y+=SF.dy(vy,y,true,dt);t+=dt}return t};
@@ -33,21 +35,35 @@ ok(mono&&range,'profile factors are monotonic and within 0..1 at every altitude'
  ok(tn>tb&&tn<240,'normal climb 900 m -> 20 km takes '+tn.toFixed(0)+' s');
  let y=30000,v=0,t=0,vmax=0;const dt=.02;while(y>0&&t<1000){v=SF.fall(v,y,dt);y+=v*dt;vmax=Math.max(vmax,-v);t+=dt}
  ok(t>40&&t<120,'falling from 30 km takes '+t.toFixed(0)+' s');
- ok(vmax>300&&vmax<=900,'peak fall speed '+vmax.toFixed(0)+' m/s (a real re-entry, capped)');
+ ok(vmax>300&&vmax<=2700,'peak fall speed '+vmax.toFixed(0)+' m/s (a real re-entry, capped)');
  ok(-v<=60,'speed at the ground is '+(-v).toFixed(0)+' m/s (air has slowed it)');
  ok(SF.landImpact(900)===60&&SF.landImpact(10)===10,'landing effects are capped (no fall damage)');
  ok(Math.abs(SF.dy(-48,30000,true,1))<=SF.terminal(30000)*1.3+1e-9,'a flying dive from orbit is capped by air density')}
-ok(SF.dy(14,200000,true,1)>0&&SF.moveMul(1e9)===120,'multiplier is capped');
-ok(SF.bound(0)===3300&&SF.bound(1500)===3300&&SF.bound(30000)>40000&&SF.bound(90000)<150000,'world edge: 3.3 km on the ground, opens up with altitude');
+ok(SF.dy(14,200000,true,1)>0&&SF.moveMul(1e9)===300,'multiplier is capped');
+ok(SF.bound(0)===3300&&SF.bound(1500)===3300&&SF.bound(30000)>40000&&SF.bound(140000)<220000,'world edge: 3.3 km on the ground, opens up with altitude');
 ok(SF.moveMulH(900)===1&&SF.moveMulH(20000)<SF.moveMul(20000)/3&&SF.moveMulH(20000)>4,'sideways speed scales as sqrt of the climb multiplier');
 
+// 3b) looking up flies up; inside the old look range nothing changes
+{let same=true,hOne=true;for(const bm of [1,2.4])for(let e=-.8;e<=.35;e+=.01){const o=Math.max(-20*bm,Math.min(14*bm,e*40*bm)),r=SF.vertical(e,bm,bm>1?70:34);if(Math.abs(r.v-o)>1e-9)same=false;if(r.h!==1)hOne=false}
+ ok(same&&hOne,'inside the original look range the flight command is bit-identical (and full horizontal speed)');
+ const up=SF.vertical(1.5,2.4,70),dn=SF.vertical(-1.4,2.4,70),mid=SF.vertical(.8,2.4,70);
+ ok(up.h<1e-6&&Math.abs(up.v-70)<1e-9,'looking straight up: no horizontal motion, climbing at full forward speed');
+ ok(dn.h<1e-6&&Math.abs(dn.v+70)<1e-9,'looking straight down: dives at full speed');
+ ok(mid.h>0&&mid.h<1&&mid.v>33.6&&mid.v<70,'in between it blends (diagonal climb)');
+ let mono=true,pv=SF.vertical(.35,1,34);for(let e=.36;e<=1.6;e+=.01){const r=SF.vertical(e,1,34);if(r.h>pv.h+1e-12||r.v<pv.v-1e-12)mono=false;pv=r}
+ ok(mono,'the blend is monotonic (steeper look = more vertical, less horizontal)');
+ const climb=(vy,target)=>{let y=900,t=0;const dt=.02;while(y<target&&t<2000){y+=SF.dy(vy,y,true,dt);t+=dt}return t};
+ const ts=climb(70,100000);ok(ts>20&&ts<70,'straight up at boost: 900 m -> 100 km in '+ts.toFixed(0)+' s');
+ let y=100000,v=0,t=0,vmax=0;const dt=.02;while(y>0&&t<1000){v=SF.fall(v,y,dt);y+=v*dt;vmax=Math.max(vmax,-v);t+=dt}
+ ok(t>60&&t<200,'falling from 100 km takes '+t.toFixed(0)+' s');ok(-v<=60,'and you hit the ground at '+(-v).toFixed(0)+' m/s')}
+
 // 4) depth slicing: every altitude is covered, nothing important is clipped, precision stays sane
-{let cover=true,skyOk=true,prec=true;for(let y=900;y<=90000;y+=100){const s=Space.slices(y);
+{let cover=true,skyOk=true,prec=true;for(let y=900;y<=140000;y+=100){const s=Space.slices(y);
    if(!(s.farNear<s.nearFar))cover=false;                                                      // slices overlap: no gap
    if(!(s.farNear<2800&&s.nearFar<2800))skyOk=false;                                             // sky dome (r=2800) is inside the far slice, clipped from the near slice
    const dist=y-0,far=dist*dist/(s.farNear*16777216),near=s.nearFar*s.nearFar/(.1*16777216);   // depth resolution (m) of the ground / of the far edge of the near slice
-   if(far>.5||near>4)prec=false}
- ok(cover,'near and far depth slices overlap at every altitude');ok(skyOk,'sky dome stays inside the far slice and out of the near slice');ok(prec,'depth resolution stays under 0.5 m for the world and 4 m at the near slice edge, 0.9-90 km')}
+   if(far>1||near>4)prec=false}
+ ok(cover,'near and far depth slices overlap at every altitude');ok(skyOk,'sky dome stays inside the far slice and out of the near slice');ok(prec,'depth resolution stays under 1 m for the world and 4 m at the near slice edge, 0.9-140 km')}
 
 // 5) render sequence
 {const calls=[];const cam={near:.1,far:4200,position:{y:0},updateProjectionMatrix(){calls.push(['proj',cam.near,cam.far])}};

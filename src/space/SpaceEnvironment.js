@@ -28,7 +28,7 @@ const SpaceEnv=(()=>{
     if(typeof Env!=='undefined'&&Env.cloudGeo&&Env.cloudMat){
       let sd=4242;const r=()=>(sd=(sd*16807)%2147483647)/2147483647;
       for(let v=0;v<3;v++){const m=new THREE.InstancedMesh(Env.cloudGeo(v),Env.cloudMat,Math.ceil(N_DECK/3));m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);m.frustumCulled=false;m.count=0;m.renderOrder=1;scene.add(m);deck.push(m)}
-      for(let i=0;i<N_DECK;i++)deckData.push({bx:(r()-.5)*2*BOX,bz:(r()-.5)*2*BOX,y:360+r()*300,w:110+r()*260,h:34+r()*52,yaw:r()*6.283,th:r()*.8})}
+      for(let i=0;i<N_DECK;i++)deckData.push({bx:(r()-.5)*2*BOX,bz:(r()-.5)*2*BOX,y:360+r()*300,w:110+r()*260,h:60+r()*90,yaw:r()*6.283,th:r()*.8})}
   }
   function update(dt,t){
     const F=Space.f;

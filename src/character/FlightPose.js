@@ -46,7 +46,7 @@ const FlightPose=(()=>{
     const spd=m.speed||0,B=q.bones;
 
     // ---- measured motion: vertical speed, acceleration ----
-    if(f.py!==null&&dt>0)f.vy+=(((g.position.y-f.py)/dt)-f.vy)*Math.min(1,dt*5);f.py=g.position.y;
+    if(f.py!==null&&dt>0)f.vy+=(((g.position.y-f.py)/dt/(typeof SpaceFlight!=='undefined'?SpaceFlight.moveMul(g.position.y):1))-f.vy)*Math.min(1,dt*5);f.py=g.position.y;
     const acc=(spd-f.sp)/Math.max(dt,.001);f.a+=(acc-f.a)*Math.min(1,dt*8);f.sp=spd;
     const elev=Math.atan2(f.vy,Math.max(spd,4));                       // climb (+) / dive (-) angle of the flight path
 
