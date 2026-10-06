@@ -39,6 +39,8 @@ const Ambience=(()=>{
     // cave: low rumble + an echo line for the drips
     {const s=noise(),f=filt('lowpass',110,.7),lv=gain(0);s.connect(f);f.connect(lv);lv.connect(bus);L.cave=lv}
     {dripIn=gain(1);const dl=A.createDelay(1),fb=gain(.42),wet=gain(.55);dl.delayTime.value=.23;dripIn.connect(bus);dripIn.connect(dl);dl.connect(fb);fb.connect(dl);dl.connect(wet);wet.connect(bus)}
+    // space pad: a slow, wide drone (open fifths, softly breathing). Silent unless you are far above the world: mysterious and calm, not sci-fi
+    {const lv=gain(0),lp=filt('lowpass',520,.4);for(const [fr,dt] of [[55,0],[82.6,4],[110.3,-5],[164.9,3]]){const o=A.createOscillator();o.type='sine';o.frequency.value=fr;o.detune.value=dt;const g=gain(fr>100?.25:.5);o.connect(g);g.connect(lp);lfo(.03+fr*.0002,.18,g.gain);o.start()}lp.connect(lv);lv.connect(bus);L.pad=lv}
     // crickets: two detuned, fast-tremolo sines
     {const lv=gain(0);for(const [fr,tr] of [[4300,26],[4700,31]]){const o=A.createOscillator();o.frequency.value=fr;const t=gain(.5);o.connect(t);t.connect(lv);lfo(tr,.5,t.gain);o.start()}lv.connect(bus);L.cricket=lv}
   }
@@ -62,7 +64,8 @@ const Ambience=(()=>{
     const air=1/(1+alt/60);
     to(L.ocean.gain,(1-under)*Z.ocean*.30*air);
     to(L.surf.gain,(1-under)*Z.beach*.16);
-    to(L.wind.gain,(1-under)*(1-sm(1100,3400,alt))*(1-cloud*.5)*(.05+.12*Z.alt+.10*storm+.06*rain+sp01*.5));
+    to(L.wind.gain,(1-under)*(1-(typeof Space!=='undefined'?Space.f.quiet:0))*(1-cloud*.5)*(.05+.12*Z.alt+.10*storm+.06*rain+sp01*.5));
+    if(L.pad&&typeof Space!=='undefined')to(L.pad.gain,Space.f.space*Space.f.space*.07,1.8);
     to(L.windF.frequency,380+sp01*1500+Z.alt*300+storm*150,.3);
     to(L.under.gain,under*.2);
     to(L.fount.gain,(1-under)*Z.town*.10*(alt<10?1:0));

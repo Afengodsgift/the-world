@@ -144,6 +144,9 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/world/SeaLife.js"></script>
 <script src="src/world/Environment.js"></script>
 <script src="src/audio/Ambience.js"></script>
+<script src="src/space/SpaceFlight.js"></script>
+<script src="src/space/SpaceManager.js"></script>
+<script src="src/space/SpaceEnvironment.js"></script>
 <script src="src/world/SkyIsland.js"></script>
 <script src="src/combat/Melee.js"></script>
 <script src="src/interaction/InteractionManager.js"></script>
@@ -548,7 +551,7 @@ function buildWorld(code){
   {const cv=document.createElement('canvas');cv.width=cv.height=256;const cx2=cv.getContext('2d'),im2=cx2.createImageData?cx2.createImageData(256,256):null;
    if(im2){for(let y=0;y<256;y++)for(let x=0;x<256;x++){const a=x/256*6.2832,b=y/256*6.2832,v=128+40*Math.sin(a*3+Math.sin(b*2))+30*Math.sin(b*5+a)+20*Math.sin(a*8-b*6);const i=(y*256+x)*4;im2.data[i]=im2.data[i+1]=im2.data[i+2]=v;im2.data[i+3]=255}cx2.putImageData(im2,0,0)}
    seaTex=new THREE.CanvasTexture(cv);seaTex.wrapS=seaTex.wrapT=THREE.RepeatWrapping;seaTex.repeat.set(500,500);sea.material.bumpMap=seaTex;sea.material.bumpScale=.35}
-  sea.rotation.x=-Math.PI/2;sea.position.y=-.3;scene.add(sea);seaMesh=sea;Env.build();
+  sea.rotation.x=-Math.PI/2;sea.position.y=-.3;scene.add(sea);seaMesh=sea;Env.build();SpaceEnv.build();
   rng=mulberry(hashSeed(code));
   if(AM.plant_bushLarge)AM.plant_bushLarge.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.material.side=THREE.DoubleSide;o.material.emissive=new THREE.Color('#2a6a30')}});
   const dist=(x,z)=>Math.hypot(x-TOWN.x,z-TOWN.z),P={};
@@ -1093,7 +1096,7 @@ function tick(t){
 }
 function tickFrame(t){
   Perf.frame(t-last);
-  const dt=Math.min(.05,(t-last)/1000);last=t;
+  const dt=Math.max(0,Math.min(.05,(t-last)/1000));last=t;                   // never negative: springs use exp(-k*dt)
   let ix=stickV.x,iy=stickV.y;
   if(keys.KeyA||keys.ArrowLeft)ix-=1;if(keys.KeyD||keys.ArrowRight)ix+=1;
   if(keys.KeyW||keys.ArrowUp)iy-=1;if(keys.KeyS||keys.ArrowDown)iy+=1;
@@ -1104,12 +1107,12 @@ function tickFrame(t){
   const dx=cy*ix+sy*iy,dz=-sy*ix+cy*iy;
   if(S.flying){ // flight has inertia: takeoff ~0.5 s to full speed, glide-out when you let go
     const tx=len>.05?dx*speed:0,tz=len>.05?dz*speed:0,cur=Math.hypot(S.fvx||0,S.fvz||0),kk=1-Math.exp(-(Math.hypot(tx,tz)>cur?4:3.2)*dt);
-    S.fvx=(S.fvx||0)+(tx-(S.fvx||0))*kk;S.fvz=(S.fvz||0)+(tz-(S.fvz||0))*kk;S.x+=S.fvx*dt;S.z+=S.fvz*dt;Locomotion.carry(S);
+    S.fvx=(S.fvx||0)+(tx-(S.fvx||0))*kk;S.fvz=(S.fvz||0)+(tz-(S.fvz||0))*kk;{const sMul=SpaceFlight.moveMulH(S.y);S.x+=S.fvx*dt*sMul;S.z+=S.fvz*dt*sMul}Locomotion.carry(S);
     if(len>.05)S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt));
   }else{S.fvx=S.fvz=0;Locomotion.move(S,len>.05?dx*speed:0,len>.05?dz*speed:0,dt,!S.grounded?'air':H(S.x,S.z)<-.5?'swim':'ground');if(len>.05)S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt))}
   S.x+=S.kx*dt;S.z+=S.kz*dt;const kd=Math.exp(-4*dt);S.kx*=kd;S.kz*=kd;
   S.iframe=Math.max(0,S.iframe-dt);S.hurt=Math.max(0,S.hurt-dt);{const fo=S.hurt>0?Math.min(.35,S.hurt*.7):0;if(fo!==S._fo){S._fo=fo;$('flash').style.opacity=fo}}
-  const rr=Math.hypot(S.x,S.z);const RB=3300;if(rr>RB){S.x*=RB/rr;S.z*=RB/rr}
+  const rr=Math.hypot(S.x,S.z);const RB=SpaceFlight.bound(S.y);if(rr>RB){S.x*=RB/rr;S.z*=RB/rr}
   let gY=H(S.x,S.z);
   {const dxs=S.x-SKY.x,dzs=S.z-SKY.z;if(Math.hypot(dxs,dzs)<SKY.R*2.8){const sh=SKYG(dxs,dzs);if(sh>-1e8&&S.y>=sh-3)gY=Math.max(gY,sh)}}
   let wat=gY<-.5;if(wat)gY=-1;
@@ -1120,9 +1123,8 @@ function tickFrame(t){
   const wasG=S.grounded;
   S.coy=wasG?.12:Math.max(0,(S.coy||0)-dt);                                    // coyote time: a jump pressed just after walking off a ledge still jumps
   if(jumpQ){if((wasG||S.coy>0)&&!S.flying){S.vy=wat?6:9;S.coy=0;if(typeof Ambience!=='undefined')Ambience.jump()}else{S.flying=!S.flying;if(S.flying&&!S.tipped){S.tipped=1;banner('Drag up to climb · drag down to dive','FLYING')}}}jumpQ=false;
-  if(S.flying)S.vy+=((len>.05?Math.max(-20*(bst()?2.4:1),Math.min(14*(bst()?2.4:1),(CameraRig.neutralPitch()-S.pitch)*40*(bst()?2.4:1))):0)-S.vy)*Math.min(1,dt*6);else{S.vy-=(S.vy<0?33:25)*dt;if(S.vy<-48)S.vy=-48}   // heavier on the way down = snappier, less floaty jump (same height); terminal velocity
-  const imp=-S.vy;const spaceMul=S.flying?1+Math.min(5,Math.max(0,(S.y-900)/700)):1; // above the clouds (~310-730 m) the climb accelerates: space (~3.4 km) is about a minute away
-  S.y+=S.vy*dt*spaceMul;if(S.flying)S.y=Math.min(S.y,9000); // ceiling: deep space
+  if(S.flying)S.vy+=((len>.05?Math.max(-20*(bst()?2.4:1),Math.min(14*(bst()?2.4:1),(CameraRig.neutralPitch()-S.pitch)*40*(bst()?2.4:1))):0)-S.vy)*Math.min(1,dt*6);else S.vy=SpaceFlight.fall(S.vy,S.y,dt);   // heavier on the way down = snappier, less floaty jump (same height); terminal velocity
+  const imp=SpaceFlight.landImpact(-S.vy);S.y+=SpaceFlight.dy(S.vy,S.y,S.flying,dt);if(S.flying)S.y=Math.min(S.y,SpaceFlight.CEIL); // above ~900 m flight scales with altitude (src/space/SpaceFlight.js); ceiling 90 km
   if(S.flying&&S.y<=gY)S.flying=false;
   if(S.y<=gY||(wasG&&S.vy<=0&&S.y-gY<.35)){S.y=gY;S.vy=0;S.grounded=true;if(!wasG&&imp>5){me.userData.land=Math.min(.18,imp*.014);if(CameraRig.land)CameraRig.land(imp);if(typeof Ambience!=='undefined')Ambience.land(imp,{x:S.x,z:S.z,H})}}else S.grounded=false;
   S.state=S.flying?'fly':!S.grounded?(S.vy>0?'jump':'fall'):wat?'swim':len>.05?(sprint?'run':'walk'):'idle';
@@ -1136,7 +1138,7 @@ function tickFrame(t){
     o.group.rotation.y=lerpAngle(o.group.rotation.y,o.tr,k);animate(o.group,dt,o.st);
   }
   vegCull();CameraRig.update(dt);                                                         // orbit / first-person / shoulder + flight FOV, roll, shake (src/camera/CameraRig.js)
-  Env.tick(dt,t);skyTick(t);
+  Space.update(dt,t);Env.tick(dt,t);SpaceEnv.update(dt,t);skyTick(t);
   if(sun){Perf.snapSun(sun,S.x,S.y,S.z);sky.position.copy(camera.position);if(seaTex){seaTex.offset.x+=dt*.0006;seaTex.offset.y+=dt*.0004}
     if(sun.castShadow&&Perf.shadowTooSlow()){sun.castShadow=false;scene.traverse(o=>{if(o.material)o.material.needsUpdate=true})}}
   S.burst=Math.max(0,(S.burst||0)-dt);S.gboost=Math.max(0,(S.gboost||0)-dt);if(!S.flying)S.boost=false;
@@ -1145,7 +1147,7 @@ function tickFrame(t){
   else if(!bvis)$('smack').style.display=(PAN_ENABLED&&panOn)?'block':'none';
   FlightFX.screen(dt,CameraRig.speedFrac());                                    // speed lines (src/fx/FlightFX.js)
   smackTick(dt);
-  renderer.render(scene,camera);Viewmodel.render(renderer,camera);               // first-person arms + weapon (separate pass, fixed FOV)
+  Space.render(renderer,scene,camera);Viewmodel.render(renderer,camera);               // first-person arms + weapon (separate pass, fixed FOV)
 }
 </script>
 </body>
