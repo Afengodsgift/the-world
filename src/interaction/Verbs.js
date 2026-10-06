@@ -162,7 +162,7 @@ const Verbs=(()=>{
     const mk=(name,key,cx,cz,rmin,rmax)=>{const st=Sites.find({tag:'camp',key,name,cx,cz,rmin,rmax,clear:5,sameSep:CAMP.minSep});if(st)makeCamp(name,key,st)};
     mk('the main island','main0',0,0,55,175);mk('the main island','main1',0,0,55,175);
     for(const I of ISL){if(CAMP.skip.includes(I.n))continue;
-      for(let i=0;i<CAMP.perIsland;i++)mk(I.n,I.n.replace(/\W+/g,'').toLowerCase()+i,I.x,I.z,0,I.R*.75)}
+      for(let i=0;i<CAMP.perIsland;i++)mk(I.n,I.n.replace(/\W+/g,'').toLowerCase()+i,I.x,I.z,0,I.R*(i?1.25:.75))}   // camp 0 keeps its original spot; extra camps use the extension land
     for(const k of Object.keys(VERBS))
       Interaction.register('verb:'+k,VERBS[k].label,()=>!!cur&&cur.verb===k&&S.grounded&&!S.flying,activate);
     Systems.add('verbs',frame);

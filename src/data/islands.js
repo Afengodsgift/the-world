@@ -16,3 +16,28 @@ LOCS.push({n:'The Race Track',x:KT.x,z:KT.z,r:Math.max(KT.hw,KT.hh)});
 const WP=[[TOWN.x+40*Math.cos(.59),TOWN.z+40*Math.sin(.59)],[0,-137],[900,-300],[1400,750],[550,1000]];
 WP.push(WP[0]);
 const BOARD={x:TOWN.x,z:TOWN.z-8.5};
+
+// ISLX: "extension land" for the outer islands. Every outer island keeps its ORIGINAL dome (H() in index.html is unchanged inside 0.94 R), so everything derived from
+// the dome (trees, star shards, hunt sites, camps) stays exactly where it was. Beyond that rim the island continues as a wide, wavy shelf with gentle hills and a couple of
+// headlands out to ~1.3-1.6 R, so the islands are roughly 3x the area, with a wadeable (never swim-deep) join between the dome and the new land.
+// Pure maths (no THREE/DOM). Outlaw Isle keeps its exact shape (it is a specialised arena). Used by H() and by src/world/Isles.js.
+const ISLX=(()=>{
+  const SKIP=['Outlaw Isle'],cache=new Map();
+  const P=I=>{let p=cache.get(I);if(!p){let s=0;for(const ch of I.n)s=(s*31+ch.charCodeAt(0))%997;const f=s/997*6.283;
+    p={f,hills:[[f,1.2,5+I.pk*.1,.2],[f+2.5,1.16,4,.17],[f+4.4,1.1,3,.15]]};cache.set(I,p)}return p};
+  const on=I=>!SKIP.includes(I.n);
+  const coast=(I,a)=>{const f=P(I).f;return I.R*(1.5+.15*Math.sin(3*a+f)+.09*Math.sin(5*a+f*1.7)+.05*Math.sin(8*a+f*.6))}; // shore radius ~1.21..1.79 R (the beach slope reaches 1.12x that)
+  function h(I,x,z){
+    if(!on(I))return -9;
+    const dx=x-I.x,dz=z-I.z,d=Math.hypot(dx,dz);
+    if(d<I.R*.94)return -9;                                   // the original dome owns everything inside
+    const p=P(I),a=Math.atan2(dz,dx),S=coast(I,a);
+    if(d>S*1.12)return -3;
+    const inner=sstep(.94*I.R,1.1*I.R,d);
+    let pl=2.2+1.1*Math.sin(x*.017+p.f)*Math.cos(z*.015+p.f*.5)+.7*Math.sin(x*.043+z*.037+p.f);
+    for(const [ha,hd,amp,sg] of p.hills){const hx=I.x+Math.cos(ha)*hd*I.R,hz=I.z+Math.sin(ha)*hd*I.R,q=((x-hx)*(x-hx)+(z-hz)*(z-hz))/(2*sg*sg*I.R*I.R);if(q<9)pl+=amp*Math.exp(-q)}
+    const base=-.3+(pl+.3)*inner;                             // starts at -0.3 (wadeable) where it meets the dome, rises to the plateau
+    return base+(-3-base)*sstep(.86*S,1.12*S,d);              // plateau, then a beach slope down to the sea floor
+  }
+  return {h,coast,on,reach:I=>I.R*2.05};
+})();

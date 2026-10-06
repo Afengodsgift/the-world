@@ -12,6 +12,7 @@ const DEPS={ // file -> files that must come first
   'ui/Journal.js':['core/WorldState.js'],
   'world/Fx.js':['core/Systems.js'],
   'world/Sites.js':['utils/random.js'],
+  'world/Isles.js':['world/Sites.js','data/islands.js','utils/random.js'],
   'core/Seeded.js':['utils/random.js'],
   'interaction/Link.js':['core/Net.js','core/Systems.js'],
   'interaction/Verbs.js':['core/Net.js','core/WorldState.js','core/Systems.js','world/Fx.js','world/Sites.js','core/Seeded.js','interaction/VerbAnims.js','data/interactables.js','interaction/InteractionManager.js','utils/random.js'],

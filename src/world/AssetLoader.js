@@ -20,6 +20,14 @@ function loadPacks(){
     packsP=Promise.all(['nature','village'].map(n=>new Promise(r=>gl.load(AURL+n+'.glb',g=>{g.scene.children.forEach(c=>{AM[c.name]=c});r()},undefined,()=>r()))))}
   return packsP;
 }
+// assets/isle.glb (0.4 MB): hand-picked low-poly KayKit Forest Nature Pack (CC0) + LowPoly Environment Pack pieces for the OUTER islands (src/world/Isles.js).
+// Every top-level node lands in AM as KK_<name> / LP_<name>. The Quaternius kits above stay only for the floating island.
+let isleP;
+function loadIsle(){
+  if(!isleP&&!THREE.GLTFLoader)isleP=Promise.resolve();
+  if(!isleP)isleP=new Promise(r=>new THREE.GLTFLoader().load(AURL+'isle.glb',g=>{g.scene.children.forEach(c=>{AM[c.name]=c});r()},undefined,()=>r()));
+  return isleP;
+}
 let kartAssetsP;
 function loadKartAssets(){
   if(!kartAssetsP&&!THREE.GLTFLoader)kartAssetsP=Promise.resolve();

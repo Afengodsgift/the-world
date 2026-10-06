@@ -14,7 +14,7 @@ const VERBS={
 const CAMP={
   radius:3.2,                   // how close you must stand to work
   parts:[{verb:'dig',dx:3.4,dz:.4,vis:'mound'},{verb:'pickaxe',dx:-3.2,dz:1.4,vis:'rock'},{verb:'hammer',dx:.2,dz:-3.6,vis:'fence'}],
-  perIsland:1, main:2,          // how many camps per outer island / on the main island
+  perIsland:2, main:2,          // how many camps per outer island / on the main island
   minSep:90,                    // metres between camps on the main island
   skip:['Outlaw Isle']          // islands that keep their own identity (Outlaw has the showdown town)
 };

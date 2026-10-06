@@ -38,7 +38,7 @@ const WorldMap=(()=>{
     for(let z=Math.ceil((view.cz-Hh/2/view.s)/500)*500;z<view.cz+Hh/2/view.s;z+=500){ctx.moveTo(0,sy(z));ctx.lineTo(W,sy(z))}ctx.stroke();
     const disc2=(x,z,r,col,beach)=>{ctx.beginPath();ctx.arc(sx(x),sy(z),Math.max(2,r*view.s*(beach?1.12:1)),0,6.283);ctx.fillStyle=col;ctx.fill()};
     disc2(0,0,R0(),'#f0dca0',1);disc2(0,0,R0(),'#79b86a');                       // main island
-    for(const I of ISL){disc2(I.x,I.z,I.R*.82,'#f0dca0',1);disc2(I.x,I.z,I.R*.82,I.n==='Outlaw Isle'?'#d9a24a':I.c+'cc')}
+    for(const I of ISL){{const mr=I.R*(ISLX.on(I)?1.4:.82);disc2(I.x,I.z,mr,'#f0dca0',1);disc2(I.x,I.z,mr,I.n==='Outlaw Isle'?'#d9a24a':I.c+'cc')}}
     ctx.save();ctx.globalAlpha=.9;disc2(SKY.x,SKY.z,SKY.R,'#ffffffcc');ctx.restore();   // floating island
     ctx.strokeStyle='#ffe066';ctx.lineWidth=2;ctx.strokeRect(sx(KT.x-KT.hw),sy(KT.z-KT.hh),KT.hw*2*view.s,KT.hh*2*view.s); // race track
     if(typeof hunt!=='undefined'&&hunt.on){ctx.font='16px sans-serif';ctx.textAlign='center';ctx.fillText('🧰',sx(hunt.x),sy(hunt.z))}

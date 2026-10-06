@@ -61,6 +61,14 @@ basin in `H()`) · Palm Atoll: speed/time, ghost replays · Far Reef: marine san
 Storm Cay: wind (`S.kx/kz`) + lightning rods · Boneyard: relics, ghost bandits, vault ·
 Outlaw Isle: stays specialized · Sky: wind currents, cloud platforms · Main: town restoration, cave hub.
 
+## Bigger, denser outer islands (Isles)
+- **Land:** `ISLX` (end of `src/data/islands.js`) adds extension land around every outer island except Outlaw Isle: a wavy shore at ~1.2-1.8 R, gentle hills, headlands, ~2.1-2.4x the land area. H() is untouched inside 0.94 R, so trees, shards, hunt sites and camp 0 never move (`tests/isles.check.js` proves it against the previous H, also that the join with the dome is wadeable).
+- **Content:** `src/world/Isles.js` fills it from `assets/isle.glb` (0.4 MB: hand-picked KayKit Forest Nature Pack (CC0) + LowPoly Environment Pack pieces; the Quaternius nature/village kits stay floating-island only). Forest patches, meadows, rocks per island theme, plus 1-2 hamlets each (existing Kenney wall/roof pieces + lanterns + stall) that are named discoveries (`LOCS.push`).
+- **Determinism:** private rng stream per island (`code:isle:<slug>`) and `Sites.find` tags, no networking.
+- **Perf:** foliage is baked into merged per-chunk meshes (big chunks 220 m, range 700 m; small bushes/grass 130 m, range 280 m via `VEG[i].lim`). Measured with `tools/headless_smoke.mjs`-style runs at an island: about +62k triangles / +31 draw calls vs before.
+- **Seabed:** terrain meshes deepen the seabed in a circle and cut below -6 m with a deep-tone fade (shader patch in `terrain()`), so no square shelf shows through the water. Visual only; physics uses H().
+- **Camps:** 2 per outer island now (the second uses the extension land; camp 0 keeps its place).
+
 ## Roadmap
 0 Net adapter ✔ · 1 WorldState + Journal ✔ · 2 Verbs v1 ✔ (cave interior still open) ·
 3 Link ✔ (twin plates, synced shrine; lockpick+lookout later) · 4 Event Director ✔ (meteor, visitor, golden rings; shark surge later) · 5 Zones (Storm Cay wind, Frost friction first) · 6 Home v1 (trophy shelf, aquarium) ·
