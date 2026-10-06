@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d1533">
 <title>The World</title>
 <style>
 :root{--ink:#eef2ff;--deep:#0d1533;--sky:#7fb2ff;--glow:#ffd27a}
@@ -21,7 +24,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 #hud{position:fixed;z-index:5;top:calc(env(safe-area-inset-top,0px) + 10px);left:12px;right:12px;display:none;justify-content:space-between;align-items:flex-start;font-size:15px;text-shadow:0 1px 4px #000;pointer-events:none}
 #hud button{pointer-events:auto;width:auto;padding:8px 14px;font-size:14px;background:#00000066;color:var(--ink);font-weight:400}
 #stick{position:fixed;z-index:5;left:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 36px);width:128px;height:128px;border-radius:50%;background:#ffffff1a;outline:1px solid #ffffff33;display:none}
-#knob{position:absolute;left:44px;top:44px;width:40px;height:40px;border-radius:50%;background:#ffffffaa}
+#knob{position:absolute;left:calc(50% - 20px);top:calc(50% - 20px);width:40px;height:40px;border-radius:50%;background:#ffffffaa;pointer-events:none}
 #jump{position:fixed;z-index:5;right:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 52px);width:88px;height:88px;border-radius:50%;padding:0;display:none;background:#ffd27acc}
 #banner{position:fixed;z-index:6;top:22%;left:0;right:0;text-align:center;font-size:26px;font-style:italic;text-shadow:0 2px 10px #000;opacity:0;transition:opacity .6s;pointer-events:none}#banner small{font-size:12px;letter-spacing:.25em;font-style:normal;opacity:.8}
 #boost{position:fixed;z-index:5;right:126px;bottom:calc(env(safe-area-inset-bottom,0px) + 58px);width:76px;height:76px;border-radius:50%;padding:0;display:none;background:#7fd0ffdd;color:#06304a;font-size:13px;opacity:.75}
@@ -38,10 +41,72 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 #skinRow button{flex:1;padding:8px 4px;font-size:12px;border-radius:10px;background:#ffffff14;border:1px solid #ffffff33;color:#fff}
 #skinRow button.sel{background:#ffd27a;color:#1a1f3a;border-color:#ffd27a}
 #pmk{position:fixed;z-index:5;transform:translate(-50%,-50%);color:#7fd0ff;text-align:center;font-size:22px;line-height:1;text-shadow:0 0 8px #000,0 2px 6px #000;pointer-events:none;display:none}
+
+#fshint{position:fixed;z-index:7;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 8px);padding:6px 14px;border-radius:14px;background:#000a;color:#fff;font-size:12px;pointer-events:none;display:none;white-space:nowrap}
+/* ===== Landscape-first mobile =====
+   THE WORLD is played in landscape on phones. Portrait/desktop keep the original layout above; the block below only applies to
+   touch devices held sideways. Everything is sized from viewport height (dvh) + safe-area insets, so it adapts to any phone. */
+:root{--sl:env(safe-area-inset-left,0px);--sr:env(safe-area-inset-right,0px);--st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px)}
+#rotate{position:fixed;inset:0;z-index:200;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;background:radial-gradient(120% 80% at 50% 110%,#ff9a6b 0,#5a4a9e 35%,var(--deep) 75%)}
+#rotate .ic{font-size:64px;line-height:1;animation:wlrot 2.4s ease-in-out infinite}
+#rotate b{font-size:24px;font-weight:400;font-style:italic}#rotate span{opacity:.75;font-size:15px}
+@keyframes wlrot{0%,15%{transform:rotate(0)}55%,100%{transform:rotate(-90deg)}}
+@media (pointer:coarse) and (orientation:portrait) and (max-width:700px){#rotate{display:flex}}
+@media (orientation:landscape) and (max-height:520px){
+  #lobby{overflow-y:auto;justify-content:flex-start;gap:8px;padding:calc(var(--st) + 12px) calc(var(--sr) + 16px) calc(var(--sb) + 12px) calc(var(--sl) + 16px)}
+  #lobby>:first-child{margin-top:auto}#lobby>:last-child{margin-bottom:auto}
+  #lobby h1{font-size:30px;margin:0}#lobby p{margin:0 0 4px;font-size:14px}
+  input,button{padding:10px 14px;font-size:16px}
+  #skinRow{margin:2px 0!important}
+}
+@media (orientation:landscape) and (pointer:coarse){
+  :root{
+    --m:14px;--g:8px;
+    --J:clamp(58px,22dvh,78px);   /* jump */
+    --B:clamp(50px,18dvh,64px);   /* boost / smack */
+    --F:clamp(54px,20dvh,70px);   /* fire */
+    --S:clamp(40px,14dvh,50px);   /* small round buttons */
+    --T:clamp(38px,12dvh,44px); /* top utility buttons */
+    --SK:clamp(96px,38dvh,128px); /* joystick */
+    --R0:calc(var(--sr) + var(--m));--L0:calc(var(--sl) + var(--m) + 4px);--B0:calc(var(--sb) + var(--m));
+    --tf:18px;
+    /* top-right utility row, right to left: Invite, map, journal, weather */
+    --map-r:calc(var(--sr) + 12px + 76px + var(--g));--map-t:calc(var(--st) + 8px);
+    --jr-r:calc(var(--map-r) + var(--T) + var(--g));--jr-t:var(--map-t);
+    --wx-r:calc(var(--jr-r) + var(--T) + var(--g));--wx-t:var(--map-t);
+    --topmsg:calc(var(--st) + 56px);--topmsg-tag:calc(var(--st) + 60px);--msgfs:15px;
+    --bar-b:calc(var(--sb) + var(--m));--bar-l:calc(var(--L0) + var(--SK) + 12px);--bar-tf:none;--barw:min(180px,24vw);
+    --sheet-h:86dvh;--sheet-px:calc(max(var(--sl),var(--sr)) + 14px);
+  }
+  body #hud{top:calc(var(--st) + 8px);left:calc(var(--sl) + 12px);right:calc(var(--sr) + 12px);font-size:13px;line-height:1.3}
+  body #hud button{height:var(--T);padding:0;width:76px;font-size:13px}
+  body #banner{top:26%;font-size:20px}
+  body #owhud{left:calc(var(--sl) + 12px);top:calc(var(--st) + 52px)}
+  /* left thumb: joystick, with a row of small buttons above it */
+  body #stick{left:var(--L0);bottom:var(--B0);width:var(--SK);height:var(--SK)}
+  body #emobtn,body #panbtn,body #owshop,body #owview{right:auto;bottom:calc(var(--B0) + var(--SK) + var(--g));width:var(--S);height:var(--S);font-size:20px}
+  body #emobtn{left:var(--L0)}
+  body #panbtn{left:calc(var(--L0) + var(--S) + var(--g))}
+  body #owshop{left:calc(var(--L0) + 2*(var(--S) + var(--g)))}
+  body #owview{left:calc(var(--L0) + 3*(var(--S) + var(--g)))}
+  /* right thumb: jump + boost/smack/use on the bottom row, fire/reload/weapon above */
+  body #jump{right:var(--R0);bottom:var(--B0);width:var(--J);height:var(--J);font-size:15px}
+  body #boost,body #smack{right:calc(var(--R0) + var(--J) + var(--g));bottom:var(--B0);width:var(--B);height:var(--B);font-size:12px}
+  body #use{right:calc(var(--R0) + var(--J) + var(--B) + 2*var(--g));bottom:calc(var(--B0) + 4px);min-height:44px;padding:10px 16px;font-size:15px}
+  body #owfire{right:var(--R0);bottom:calc(var(--B0) + var(--J) + var(--g));width:var(--F);height:var(--F)}
+  body #sockick{right:var(--R0);bottom:calc(var(--B0) + var(--J) + var(--F) + 2*var(--g));width:var(--F);height:var(--F);font-size:24px}
+  body #owrl,body #owgun{bottom:calc(var(--B0) + var(--J) + var(--g) + (var(--F) - var(--S))/2);width:var(--S);height:var(--S);font-size:20px}
+  body #owrl{right:calc(var(--R0) + var(--F) + var(--g))}
+  body #owgun{right:calc(var(--R0) + var(--F) + var(--S) + 2*var(--g))}
+  body #emopanel{max-height:var(--sheet-h);padding-left:var(--sheet-px);padding-right:var(--sheet-px)}
+}
 </style>
+<link rel="stylesheet" href="src/ui/theme.css">
 </head>
 <body>
+<div id="rotate"><div class="ic">📱</div><b>Rotate your phone</b><span>The World is played in landscape.</span></div>
 <div id="lobby">
+  <div class="lobby-card">
   <h1>The World</h1>
   <p>A world for two.</p>
   <input id="name" placeholder="Your name" maxlength="16" autocomplete="off">
@@ -50,6 +115,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
   <input id="code" placeholder="Room code (KAMI-7X4P)" maxlength="9" autocomplete="off" style="text-transform:uppercase">
   <button id="join" class="alt">Join with code</button>
   <div id="msg"></div>
+  </div>
 </div>
 <div id="hud"><div id="info"></div><button id="share">Invite</button></div>
 <div id="stick"><div id="knob"></div></div>
@@ -68,11 +134,17 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/utils/random.js"></script>
 <script src="src/utils/math.js"></script>
 <script src="src/utils/helpers.js"></script>
+<script src="src/core/Audio.js"></script>
+<script src="src/core/Perf.js"></script>
 <script src="src/data/islands.js"></script>
 <script src="src/world/AssetLoader.js"></script>
 <script src="src/input/InputManager.js"></script>
+<script src="src/input/Locomotion.js"></script>
+<script src="src/character/Blend.js"></script>
+<script src="src/core/RemoteSmooth.js"></script>
 <script src="src/world/SeaLife.js"></script>
 <script src="src/world/Environment.js"></script>
+<script src="src/audio/Ambience.js"></script>
 <script src="src/world/SkyIsland.js"></script>
 <script src="src/combat/Melee.js"></script>
 <script src="src/interaction/InteractionManager.js"></script>
@@ -87,6 +159,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/core/Net.js"></script>
 <script src="src/core/WorldState.js"></script>
 <script src="src/ui/Journal.js"></script>
+<script src="src/ui/Theme.js"></script>
 <script src="src/core/Systems.js"></script>
 <script src="src/data/interactables.js"></script>
 <script src="src/world/Fx.js"></script>
@@ -129,13 +202,32 @@ let mySkin=1;
 const pre=new URLSearchParams(location.search).get('room');
 if(pre)$('code').value=pre;
 
-$('create').onclick=()=>enter(genCode());
-$('join').onclick=()=>{const c=normCode($('code').value);if(!c)return msg('Enter a code like KAMI-7X4P');enter(c)};
+// Total fullscreen in landscape on touch devices. Browsers only allow fullscreen from a user tap, so we (a) ask on Create/Join and
+// (b) re-ask on the first tap whenever we're in-game, landscape and not fullscreen (arriving via ?room= link, rotating later, or
+// swiping out of fullscreen). Fullscreen also unlocks screen.orientation.lock('landscape') on Android Chrome. iPhone Safari has no
+// fullscreen API for pages: there, "Add to Home Screen" gives the same result (the apple-mobile-web-app-capable meta is set).
+const fsEl=()=>document.fullscreenElement||document.webkitFullscreenElement;
+const fsCan=()=>{const e=document.documentElement;return !!(e.requestFullscreen||e.webkitRequestFullscreen)};
+const coarse=()=>matchMedia('(pointer:coarse)').matches;
+function wantLandscape(){try{if(!coarse())return;const lock=()=>{try{const r=screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape');if(r&&r.catch)r.catch(()=>{})}catch(e){}};
+  if(fsEl()){lock();return}
+  const el=document.documentElement,r=el.requestFullscreen?el.requestFullscreen({navigationUI:'hide'}):el.webkitRequestFullscreen?el.webkitRequestFullscreen():null;
+  if(r&&r.then)r.then(lock,()=>{});else lock()}catch(e){}}
+const inGame=()=>getComputedStyle($('lobby')).display==='none';
+const landscapeNow=()=>matchMedia('(orientation:landscape)').matches;
+['pointerup','touchend','click'].forEach(ev=>addEventListener(ev,()=>{if(coarse()&&fsCan()&&!fsEl()&&inGame()&&landscapeNow())wantLandscape()},{capture:true,passive:true}));
+// small hint until fullscreen is on
+(()=>{const h=document.createElement('div');h.id='fshint';h.textContent='Tap anywhere for fullscreen';document.body.appendChild(h);
+  const sync=()=>{h.style.display=(coarse()&&fsCan()&&!fsEl()&&inGame()&&landscapeNow())?'block':'none'};
+  ['fullscreenchange','webkitfullscreenchange','resize','orientationchange'].forEach(e=>addEventListener(e,sync));document.addEventListener('fullscreenchange',sync);setInterval(sync,1000)})();
+$('create').onclick=()=>{wantLandscape();enter(genCode())};
+$('join').onclick=()=>{const c=normCode($('code').value);if(!c)return msg('Enter a code like KAMI-7X4P');wantLandscape();enter(c)};
 
-let chan,roomCode,myName,entered=false;
+let chan,roomCode,myName,entered=false,joining=false,gameStarted=false;
 const others=new Map(); // id -> {group,tx,ty,tz,tr,meta}
 
 async function enter(code){
+  if(joining||entered)return;joining=true;                      // ignore extra taps on Create/Join while connecting
   myName=($('name').value.trim()||'Player').slice(0,16);
   roomCode=code;msg('Connecting…');
   chan=sb.channel('world:'+code,{config:{broadcast:{self:false},presence:{key:myId}}});
@@ -166,13 +258,14 @@ async function enter(code){
   chan.on('broadcast',{event:'sf'},({payload})=>{if(srun.on)banner('Partner finished in '+fmt(payload.ms),'SHARK RUN')});
   chan.on('broadcast',{event:'sm'},({payload})=>{if(payload.from!==myId)onSmacked(payload)});
   chan.subscribe(async status=>{
-    if(status==='SUBSCRIBED'&&!entered){
+    if(status==='SUBSCRIBED'&&!entered&&!gameStarted){
+      gameStarted=true;                                           // claim the start synchronously: SUBSCRIBED can fire twice (reconnect) within the 700 ms wait below
       await new Promise(r=>setTimeout(r,700));
-      if(Object.keys(chan.presenceState()).length>=2){msg('This world is full (2 players max).');sb.removeChannel(chan);return}
+      if(Object.keys(chan.presenceState()).length>=2){msg('This world is full (2 players max).');sb.removeChannel(chan);joining=false;gameStarted=false;return}
       entered=true;
       await chan.track({name:myName,color:myColor,skin:mySkin});
       startGame();
-    }else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){msg('Could not connect. Check your connection and try again.')}
+    }else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){if(!entered){joining=false;gameStarted=false}msg('Could not connect. Check your connection and try again.')}
   });
 }
 
@@ -187,7 +280,10 @@ function syncPresence(){
   updateHud();
 }
 function updateHud(){
-  $('info').innerHTML=roomCode+'  ·  '+(others.size?'Together':'Waiting for your partner…')+'<br>✦ '+got+'/'+orbs.length+'  ·  📍 '+disc.size+'/'+LOCS.length+'  ·  🧰 '+treas+'  ·  🥊 '+smacks;
+  const together=others.size>0;
+  $('info').innerHTML='<div class="pill"><i class="dot'+(together?' on':'')+'"></i><span class="code">'+roomCode+'</span><span class="dim">'+(together?'Together':'Waiting\u2026')+'</span></div>'
+    +'<div class="pill stats"><span><i>\u2726</i><b>'+got+'</b><span class="dim">/'+orbs.length+'</span></span><span><i>\u{1F4CD}</i><b>'+disc.size+'</b><span class="dim">/'+LOCS.length+'</span></span>'
+    +(treas?'<span><i>\u{1F9F0}</i><b>'+treas+'</b></span>':'')+(smacks?'<span><i>\u{1F94A}</i><b>'+smacks+'</b></span>':'')+'</div>';
 }
 
 // ---------- three ----------
@@ -254,20 +350,21 @@ function playEmote(id){
   if(!me||!me.userData.nact)return;
   if(S.flying||!S.grounded||S.state==='swim'){banner('Land on solid ground to emote','😀');return}
   me.userData.emoteReq=id;if(chan)chan.send({type:'broadcast',event:'em',payload:{from:myId,e:id}})}
-function emoStop(q){const h=q.hold;if(!h)return;for(const a of h.acts){a.fadeOut(.2)}q.hold=null}
+function emoStop(q){const h=q.hold;if(!h)return;(q.rel=q.rel||[]).push({acts:h.acts.slice(),t:0,s0:.997*Blend.ease((h.age||0)/.2)});q.hold=null}   // released with an eased envelope (see Blend.js)
+function unrel(q,a){if(q.rel)for(const r of q.rel)r.acts=r.acts.filter(x=>x!==a)}   // an action being (re)started must not also be fading out
 function emoStart(q,id){
   const d=EMO.def[id];if(!d)return;emoStop(q);
-  const main=emoAct(q,id);if(!main)return;const acts=[main],setup=(a,loopMode,clampEnd)=>{a.reset();a.setLoop(loopMode,loopMode===THREE.LoopOnce?1:Infinity);a.clampWhenFinished=!!clampEnd;a.setEffectiveTimeScale(1);a.setEffectiveWeight(300)}; // 300 vs the idle clip's 1 so the lying/plank poses aren't dragged up by the blended idle hips
-  if(d.kind==='once'){setup(main,THREE.LoopOnce,false);main.fadeIn(.15).play();q.hold={acts,until:performance.now()/1000+main.getClip().duration,once:true};return}
+  const main=emoAct(q,id);if(!main)return;unrel(q,main);const acts=[main],setup=(a,loopMode,clampEnd)=>{a.reset();a.setLoop(loopMode,loopMode===THREE.LoopOnce?1:Infinity);a.clampWhenFinished=!!clampEnd;a.setEffectiveTimeScale(1);a.setEffectiveWeight(300)}; // 300 vs the idle clip's 1 so the lying/plank poses aren't dragged up by the blended idle hips
+  if(d.kind==='once'){setup(main,THREE.LoopOnce,false);main.play();q.hold={acts,age:0,until:performance.now()/1000+main.getClip().duration,once:true};return}
   const mode=d.kind==='clamp'?THREE.LoopOnce:THREE.LoopRepeat,clampEnd=d.kind==='clamp';
-  if(d.intro){const ia=emoAct(q,id+'_in');if(ia){acts.push(ia);setup(ia,THREE.LoopOnce,true);ia.fadeIn(.15).play();q.hold={acts,main,mode,clampEnd,introAt:performance.now()/1000+ia.getClip().duration-.12,ia};return}}
-  setup(main,mode,clampEnd);main.fadeIn(.2).play();q.hold={acts}}
+  if(d.intro){const ia=emoAct(q,id+'_in');if(ia){unrel(q,ia);acts.push(ia);setup(ia,THREE.LoopOnce,true);ia.play();q.hold={acts,age:0,main,mode,clampEnd,introAt:performance.now()/1000+ia.getClip().duration-.12,ia};return}}
+  setup(main,mode,clampEnd);main.play();q.hold={acts,age:0}}
 
 function animateClips(g,dt,st){
   const q=g.userData,A=q.nact,p=g.position;
   const rawU=q.pp&&dt>0?Math.hypot(p.x-q.pp.x,p.z-q.pp.z)/dt:0,raw=Math.min(16,rawU);q.pp={x:p.x,z:p.z};
   q.fs=(q.fs||0)+(rawU-(q.fs||0))*Math.min(1,dt*6);const sf=clamp(q.fs/70,0,1); // unclamped speed (flight is much faster than the 16 m/s clamp above)
-  {const ly=q.lyaw===undefined?g.rotation.y:q.lyaw,yd=Math.atan2(Math.sin(g.rotation.y-ly),Math.cos(g.rotation.y-ly))/Math.max(dt,.001);q.yr=(q.yr||0)+(yd-(q.yr||0))*Math.min(1,dt*5);q.lyaw=g.rotation.y}q.v=(q.v||0)+(raw-(q.v||0))*Math.min(1,dt*10);const v=q.v;
+  {const ly=q.lyaw===undefined?g.rotation.y:q.lyaw,yd=Math.atan2(Math.sin(g.rotation.y-ly),Math.cos(g.rotation.y-ly))/Math.max(dt,.001);q.yr=(q.yr||0)+(yd-(q.yr||0))*Math.min(1,dt*5);q.lyaw=g.rotation.y}const acc=(raw-(q.v||0))*10;q.v=(q.v||0)+(raw-(q.v||0))*Math.min(1,dt*10);const v=q.v;
   let want='idle',ts=1,fade=.18;
   if(st==='swim'){want=v>.8?'swim':'tread';ts=want==='swim'?clamp(v/2.4,.6,2):1;fade=.3}
   else if(st==='fly'){want='fall';ts=1;fade=.3} // base clip while flying; FlightPose takes over the skeleton
@@ -281,21 +378,26 @@ function animateClips(g,dt,st){
     n.setEffectiveWeight(1);n.fadeIn(fade).play();if(q.cur)A[q.cur].fadeOut(fade);q.cur=want}
   n.setEffectiveTimeScale(ts);
   // one-shot overlays
-  const ov=(name,sp,w,fi)=>{const a=A[name]||emoAct(q,name);if(!a)return;a.reset();a.setEffectiveTimeScale(sp);a.setEffectiveWeight(w);a.fadeIn(fi).play();(q.ov=q.ov||{})[name]={a,left:a.getClip().duration/sp,ending:false}};
+  const ov=(name,sp,w,fi)=>{const a=A[name]||emoAct(q,name);if(!a)return;a.reset();a.setEffectiveTimeScale(sp);a.setEffectiveWeight(.0001);a.play();(q.ov=q.ov||{})[name]={a,left:a.getClip().duration/sp,age:0,fi:Math.max(.04,fi),smax:w/(w+1)}};
   if((q.swing||0)>.9){emoStop(q);ov('smack',1.4,24,.05)}
-  if(q.hitReq){emoStop(q);q.hitReq=0;q.hitAlt=!q.hitAlt;ov(q.hitAlt&&A.hit2?'hit2':'hit',q.hitAlt?1.3:.9,24,.02)} // alternate two hit reactions
+  if(q.hitReq){emoStop(q);q.hitReq=0;q.hitAlt=!q.hitAlt;ov(q.hitAlt&&A.hit2?'hit2':'hit',q.hitAlt?1.3:.9,24,.05)} // alternate two hit reactions
   if(q.emote){const e=q.emote;q.emote=null;emoStop(q);ov(e,1.3,20,.1)}
   if(q.emoteReq){const e=q.emoteReq;q.emoteReq=null;if(st==='idle'||!q.hold)emoStart(q,e)}
   if(q.hold){const h=q.hold,now=performance.now()/1000;
     if(h.introAt&&now>=h.introAt){const m=h.main;m.reset();m.setLoop(h.mode,h.mode===THREE.LoopOnce?1:Infinity);m.clampWhenFinished=h.clampEnd;m.setEffectiveWeight(300);m.fadeIn(.25).play();h.ia.fadeOut(.25);h.introAt=0} // intro -> loop/hold
     if(st!=='idle'||v>.6||(h.once&&now>h.until))emoStop(q)} // moving, jumping, being hit or the clip finishing ends an emote
   if((q.land||0)>.05&&!q.landOn){q.landOn=true;if(v<2.5&&st==='idle')ov('land',1.5,6,.04)}else if((q.land||0)<=0)q.landOn=false;
-  for(const k in q.ov){const o=q.ov[k];o.left-=dt;if(o.left<.14&&!o.ending){o.ending=true;o.a.fadeOut(.12)}if(o.left<-.05)delete q.ov[k]}
+  for(const k in q.ov){const o=q.ov[k];o.left-=dt;o.age+=dt;o.a.setEffectiveWeight(Blend.w(o.smax*Math.min(Blend.ease(o.age/o.fi),Blend.ease(o.left/.2)))||.0001);if(o.left<=0){o.a.stop();delete q.ov[k]}}
+  if(q.hold){const h=q.hold;h.age=(h.age||0)+dt;const wv=Blend.w(.997*Blend.ease(h.age/.2))||.0001;for(const a of h.acts)a.setEffectiveWeight(wv)}   // emote ease-in
+  if(q.rel)for(let i=q.rel.length-1;i>=0;i--){const r=q.rel[i];r.t+=dt;const wv=Blend.w(r.s0*(1-Blend.ease(r.t/.25)))||.0001;for(const a of r.acts)a.setEffectiveWeight(wv);if(r.t>=.25){for(const a of r.acts)a.stop();q.rel.splice(i,1)}}   // emote ease-out
   q.swing=Math.max(0,(q.swing||0)-dt*2.6);
   q.land=Math.max(0,(q.land||0)-dt);
   const oy=st==='swim'?.7:(st==='fly'&&want==='swim')?.5:0;q.oy=(q.oy||0)+(oy-(q.oy||0))*Math.min(1,dt*6); // swim clips are authored with the waterline at the chest: lift the body to the surface
   q.lunge=(q.lunge||0)+((q.pan?Math.sin(Math.min(1,q.swing)*Math.PI)*.3:0)-(q.lunge||0))*Math.min(1,dt*10); // small lunge into the pan swing
-  q.model.rotation.set(q.lunge,0,0);q.model.position.set(0,q.oy,0);        // base transform; FlightPose overrides it while flying
+  {const gnd=st==='walk'||st==='run'||st==='idle',lk=Math.min(1,dt*9);   // body language on the ground: lean forward when speeding up / sprinting, back when braking, bank into turns (turning left = yaw rate > 0 = lean toward +x)
+   q.lx=(q.lx||0)+((gnd?clamp(acc*.006,-.06,.10)+(want==='sprint'?.04:0):0)-(q.lx||0))*lk;
+   q.lz=(q.lz||0)+((gnd?-clamp(q.yr*.035,-.14,.14)*clamp(v/5,0,1):0)-(q.lz||0))*lk}
+  q.model.rotation.set(q.lunge+(q.lx||0),0,q.lz||0);q.model.position.set(0,q.oy,0);        // base transform; FlightPose overrides it while flying
   q.model.scale.set(.5*(1+q.land*.3),.5*(1-q.land*.6),.5*(1+q.land*.3));
   q.mixer.update(dt);
   // procedural layers on top of the baked clips: flight (src/character/FlightPose.js) or a held weapon (Outlaw.poseGun)
@@ -384,14 +486,33 @@ function terrainColor(h,x,z,c){
   c.lerp(_csnow,sstep(27,31,h));
   _ct.copy(_csand).lerp(_csand2,h<.1?.85:.2+q*.25);c.lerp(_ct,1-sstep(.3,.95,h));
 }
+// Vegetation is instanced AND chunked into ~320 m cells. three r147 frustum-culls an InstancedMesh by its base geometry only (not by where the
+// instances are), so the old single big InstancedMesh + frustumCulled=false drew every tree/rock on every island on every frame (and again in the
+// shadow pass). Each cell gets its own mesh whose geometry shares the GPU buffers but carries a REAL bounding sphere, so culling works;
+// vegCull() additionally hides cells beyond the point where fog has already swallowed them.
+const VEG=[];
+function vegCull(){
+  const cx=camera.position.x,cz=camera.position.z,lim=Math.max(500,(scene.fog?scene.fog.far:1700)*.72);
+  for(let i=0;i<VEG.length;i++){const v=VEG[i];v.m.visible=Math.hypot(v.x-cx,v.z-cz)-v.r<lim}
+}
 function scatter(name,th,pl){
   const m=AM[name];if(!m||!pl.length)return null;
   m.updateMatrixWorld(true);
-  const bx=new THREE.Box3().setFromObject(m),k=th/(bx.max.y-bx.min.y),V=new THREE.Vector3(),Q=new THREE.Quaternion(),Sc=new THREE.Vector3(),P=new THREE.Matrix4(),M=new THREE.Matrix4(),Y=new THREE.Vector3(0,1,0);
-  m.traverse(o=>{if(!o.isMesh)return;const im=new THREE.InstancedMesh(o.geometry,o.material,pl.length);
-    pl.forEach((p,i)=>{V.set(p.x,p.y-bx.min.y*k*p.s,p.z);Q.setFromAxisAngle(Y,p.ry);Sc.setScalar(k*p.s);P.compose(V,Q,Sc);M.multiplyMatrices(P,o.matrixWorld);im.setMatrixAt(i,M)});
-    im.castShadow=true;im.receiveShadow=true;const tc=new THREE.Color();pl.forEach((p,i)=>im.setColorAt(i,tc.setScalar(.78+((p.x*12.9898+p.z*78.233)%1+1)%1*.4)));
-    im.frustumCulled=false;scene.add(im)});
+  const bx=new THREE.Box3().setFromObject(m),k=th/(bx.max.y-bx.min.y),V=new THREE.Vector3(),Q=new THREE.Quaternion(),Sc=new THREE.Vector3(),P=new THREE.Matrix4(),M=new THREE.Matrix4(),Y=new THREE.Vector3(0,1,0),tc=new THREE.Color();
+  const CELL=320,cells=new Map(),dim=Math.max(bx.max.x-bx.min.x,bx.max.y-bx.min.y,bx.max.z-bx.min.z)*k;
+  for(const p of pl){const key=Math.floor(p.x/CELL)+','+Math.floor(p.z/CELL);let c=cells.get(key);if(!c)cells.set(key,c=[]);c.push(p)}
+  m.traverse(o=>{if(!o.isMesh)return;
+    for(const cell of cells.values()){
+      let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,z0=1e9,z1=-1e9,ms=0;
+      for(const p of cell){x0=Math.min(x0,p.x);x1=Math.max(x1,p.x);y0=Math.min(y0,p.y);y1=Math.max(y1,p.y);z0=Math.min(z0,p.z);z1=Math.max(z1,p.z);ms=Math.max(ms,p.s)}
+      const g=new THREE.BufferGeometry();for(const a in o.geometry.attributes)g.setAttribute(a,o.geometry.attributes[a]);if(o.geometry.index)g.setIndex(o.geometry.index);
+      const mx=(x0+x1)/2,my=(y0+y1)/2+dim*ms*.5,mz=(z0+z1)/2,rad=Math.hypot((x1-x0)/2,(y1-y0)/2+dim*ms*.5,(z1-z0)/2)+dim*ms;
+      g.boundingSphere=new THREE.Sphere(new THREE.Vector3(mx,my,mz),rad);
+      const im=new THREE.InstancedMesh(g,o.material,cell.length);
+      cell.forEach((p,i)=>{V.set(p.x,p.y-bx.min.y*k*p.s,p.z);Q.setFromAxisAngle(Y,p.ry);Sc.setScalar(k*p.s);P.compose(V,Q,Sc);M.multiplyMatrices(P,o.matrixWorld);im.setMatrixAt(i,M);
+        im.setColorAt(i,tc.setScalar(.78+((p.x*12.9898+p.z*78.233)%1+1)%1*.4))});
+      im.castShadow=true;im.receiveShadow=true;im.frustumCulled=true;scene.add(im);VEG.push({m:im,x:mx,z:mz,r:rad});
+    }});
   return {w:Math.max(bx.max.x-bx.min.x,bx.max.z-bx.min.z)*k};
 }
 function place(par,n,x,y,z,ry,sx,sy,sz){
@@ -481,15 +602,17 @@ function buildWorld(code){
   while(pts.length<40){const a=rng()*6.283,r=12+rng()*195,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<40&&dist(x,z)>45)pts.push([x,z])}
   for(const I of ISL)for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
-  buildRace();buildHunt();buildSeaLife();buildSkyIsland();buildKartTrack();Tag.build();Outlaw.build();Farm.build();Soccer.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
+  buildRace();buildHunt();buildSeaLife();buildKartTrack();Tag.build();Outlaw.build();Farm.build();Soccer.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
 }
 const S={x:0,y:0,z:0,vy:0,rot:0,yaw:0,pitch:.35,grounded:true,state:'idle',flying:false,kx:0,kz:0,hurt:0,iframe:0};
 
+let startGameRan=false;
 async function startGame(){
+  if(startGameRan)return;startGameRan=true;
   $('lobby').style.display='none';
   ['hud','stick'].forEach(i=>$(i).style.display=i==='hud'?'flex':'block');$('jump').style.display='block';$('panbtn').style.display=PAN_ENABLED?'block':'none';$('emobtn').style.display='block';setTimeout(()=>loadEmotes().catch(()=>{}),4000);
-  renderer=new THREE.WebGLRenderer({antialias:true});renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-  renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);
+  renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  Perf.init(renderer);renderer.setSize(innerWidth,innerHeight);
   document.body.appendChild(renderer.domElement);
   camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,4200);
   boot('Loading world…');
@@ -499,11 +622,15 @@ async function startGame(){
   me=makeAvatar(myName,myColor);scene.add(me);dress(me,mySkin);
   // spawn: slot by join order (offset so partners don't overlap)
   S.x=TOWN.x+(Math.random()-.5)*4;S.z=TOWN.z+7+(Math.random()-.5)*2;S.y=H(S.x,S.z)+.1;
-  addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()});
+  // Keep renderer + camera matched to the real viewport. Rotation can report stale sizes for a moment, so re-fit a few times.
+  let fitW=0,fitH=0;const fit=()=>{if(innerWidth===fitW&&innerHeight===fitH)return;fitW=innerWidth;fitH=innerHeight;renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/Math.max(1,innerHeight);camera.updateProjectionMatrix()};
+  const refit=()=>{if(window.endTouches)endTouches();fit();[120,350,800].forEach(t=>setTimeout(fit,t))};
+  addEventListener('resize',fit);addEventListener('orientationchange',refit);if(window.visualViewport)visualViewport.addEventListener('resize',fit);
   bindInput();syncPresence();updateHud();
   history.replaceState(null,'','?room='+roomCode);
   requestAnimationFrame(tick);
   setInterval(send,100);
+  loadPacks().then(()=>{try{buildSkyIsland();updateHud()}catch(e){showErr(e)}}); // the floating island needs the nature+village kits (3.4 MB), so it is built after the world is already playable
   setTimeout(()=>banner('Jump, then tap Jump again in the air to fly','TIP'),6000);
   setTimeout(()=>banner('Glowing beams on the horizon are new islands','TIP'),40000);
 }
@@ -518,7 +645,7 @@ function onState(p){
   if(!scene||!me)return;
   let o=others.get(p.id);
   if(!o){const m=(chan.presenceState()[p.id]||[{}])[0];addOther(p.id,m.name,m.color,m.skin);o=others.get(p.id);if(!o)return;o.group.position.set(p.x,p.y,p.z)}
-  o.tx=p.x;o.ty=p.y;o.tz=p.z;o.tr=p.r;if(o.group.userData.pan)o.group.userData.pan.visible=!!p.pn;
+  RemoteSmooth.snap(o,p,performance.now());if(o.group.userData.pan)o.group.userData.pan.visible=!!p.pn;
   if(o.st==='fall'&&p.st!=='fall'&&p.st!=='jump')o.group.userData.land=.15;o.st=p.st||'idle';
 }
 function send(){
@@ -555,9 +682,9 @@ function wsBoot(){
     try{Events.start()}catch(e){console.error('Events.start',e)}
     WS.onChange((k,v,remote)=>{if(remote&&(k==='*'||k==='disc'||k==='orbs'||k==='treas'))wsPull(k==='*')});
   }).catch(e=>console.warn('wsBoot',e))}
-function banner(t,l){const b=$('banner');b.innerHTML='<small>'+(l||'NEW LOCATION DISCOVERED')+'</small><br>'+t;b.style.opacity=1;clearTimeout(banner.t);banner.t=setTimeout(()=>b.style.opacity=0,3200)}
+function banner(t,l){const b=$('banner');b.innerHTML='<div class="toast"><small>'+(l||'NEW LOCATION DISCOVERED')+'</small><span>'+t+'</span></div>';b.style.opacity=1;clearTimeout(banner.t);banner.t=setTimeout(()=>b.style.opacity=0,3200)}
 function take(i,local){const o=orbs[i];if(!o||!o.on)return;o.on=false;o.m.visible=false;got++;save();updateHud();if(local&&chan)chan.send({type:'broadcast',event:'c',payload:{i}})}
-function chime(){try{const a=new(window.AudioContext||webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.frequency.value=660;o.connect(g);g.connect(a.destination);g.gain.setValueAtTime(.2,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+1.4);o.start();o.stop(a.currentTime+1.4)}catch(e){}}
+function chime(){try{const a=WAudio.get();if(!a)return;const o=a.createOscillator(),g=a.createGain();o.frequency.value=660;o.connect(g);g.connect(WAudio.out());g.gain.setValueAtTime(.2,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+1.4);o.start();o.stop(a.currentTime+1.4)}catch(e){}}
 function doUse(){const t=$('use').style.display==='block',id=Interaction.current();Interaction.use();if(t&&me)me.userData.emote=id==='dig'&&me.userData.nact&&me.userData.nact.dig?'dig':'interact'}
 Interaction.register('dig','Dig!',
   ()=>hunt.on&&Math.hypot(S.x-hunt.x,S.z-hunt.z)<6&&Math.abs(S.y-hunt.y)<20,
@@ -640,7 +767,7 @@ function buildKartTrack(){
    for(const t of KPADS){const p=kartPt(t),g=new THREE.Group(),pl=new THREE.Mesh(new THREE.PlaneGeometry(7,9),pm);pl.rotation.x=Math.PI/2;g.add(pl);
      g.position.set(p.x,H(p.x,p.z)+.14,p.z);g.rotation.y=Math.atan2(p.tx,p.tz);scene.add(g);kart.pads.push({g,x:p.x,z:p.z,last:-9999})}}
   {const gh=new THREE.Group();gh.add(new THREE.Mesh(new THREE.CapsuleGeometry(.3,.8,4,8),new THREE.MeshBasicMaterial({color:'#aef0ff',transparent:true,opacity:.45,depthWrite:false})));gh.visible=false;scene.add(gh);kart.ghost=gh}
-  if(!kart.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 92px);left:0;right:0;text-align:center;font-size:18px;text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);kart.el=d}
+  if(!kart.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:var(--topmsg,calc(env(safe-area-inset-top,0px) + 92px));left:0;right:0;text-align:center;font-size:var(--msgfs,18px);text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);kart.el=d}
   paintKart();
 }
 function paintKart(){const ai=kart.i%Math.max(1,kart.gates.length);kart.gates.forEach((g,i)=>{const on=kart.on,act=on&&i===ai;g.m.visible=!(on&&i<ai);
@@ -687,7 +814,7 @@ function buildBonkRing(){
   const beam=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.2,70,12,1,true),new THREE.MeshBasicMaterial({color:'#ff8fa3',transparent:true,opacity:.2,depthWrite:false,fog:false,side:THREE.DoubleSide}));beam.position.y=H(RING.x,RING.z)+35;g.add(beam);
   scene.add(g);brg.mesh=g;
   for(let i=0;i<4;i++){const a=i/4*6.283+.785,x=RING.x+Math.cos(a)*(RING.R+1.8),z=RING.z+Math.sin(a)*(RING.R+1.8);place(scene,'lantern',x,H(x,z),z,0,2.2)}
-  if(!brg.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 92px);left:0;right:0;text-align:center;font-size:18px;text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);brg.el=d}
+  if(!brg.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:var(--topmsg,calc(env(safe-area-inset-top,0px) + 92px));left:0;right:0;text-align:center;font-size:var(--msgfs,18px);text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);brg.el=d}
 }
 function ringSpawn(ms){ // each player starts on their own side of the ring, facing the middle
   const oid=others.size?others.keys().next().value:'',side=myId<oid?-1:1;
@@ -728,7 +855,7 @@ function buildSharkRun(){
     const beam=new THREE.Mesh(new THREE.CylinderGeometry(.35,.35,30,8,1,true),new THREE.MeshBasicMaterial({color:'#ffb066',transparent:true,opacity:.35,depthWrite:false,fog:false,side:THREE.DoubleSide}));beam.position.y=15;g.add(beam);
     const ring=new THREE.Mesh(new THREE.TorusGeometry(6,.25,8,32),new THREE.MeshBasicMaterial({color:'#ffffff'}));ring.rotation.x=Math.PI/2;ring.position.y=.2;g.add(ring);
     g.visible=false;scene.add(g);srun.gates.push({g,x:p.x,z:p.z})}
-  if(!srun.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 92px);left:0;right:0;text-align:center;font-size:18px;text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);srun.el=d}
+  if(!srun.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:var(--topmsg,calc(env(safe-area-inset-top,0px) + 92px));left:0;right:0;text-align:center;font-size:var(--msgfs,18px);text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);srun.el=d}
 }
 function startSharkRun(local){
   if(!srun.gates.length||srun.on)return;
@@ -759,11 +886,7 @@ function sharkRunTick(t){
 const SL_N=12,SL_HIT=9,SL_PERFECT=3.5,SL_BONUS=500;
 const slalom={on:false,i:0,pi:0,t0:0,perf:0,gates:[],start:null,el:null,pv:null,beam:null};
 function buildSlalom(){
-  let pad=null; // start pad on the island top: first flat, clear spot on a fixed spiral (same result for everyone in the room, since trees come from the room seed)
-  for(let k=0;k<400&&!pad;k++){const a=k*2.39996,r=25+((k*13)%70),x=SKY.x+Math.cos(a)*r,z=SKY.z+Math.sin(a)*r,y=SKYH(x-SKY.x,z-SKY.z);
-    if(Math.abs(SKYH(x-SKY.x+3,z-SKY.z)-y)>.5||Math.abs(SKYH(x-SKY.x,z-SKY.z+3)-y)>.5)continue;
-    if(solids.some(c=>Math.hypot(c.x-x,c.z-z)<c.r+5))continue;pad={x,y,z}}
-  if(!pad)pad={x:SKY.x,y:SKYH(0,0),z:SKY.z};
+  const pad={x:SKY.x+SKYI.pad.dx,y:SKYH(SKYI.pad.dx,SKYI.pad.dz),z:SKY.z+SKYI.pad.dz}; // a clear meadow patch reserved by SkyIsland.js
   slalom.start=pad;
   const a0=Math.atan2(pad.z-SKY.z,pad.x-SKY.x);
   for(let k=0;k<SL_N;k++){const a=a0+(k+1)*.5,r=k%2?SKY.R*1.1:SKY.R*.5,x=SKY.x+Math.cos(a)*r,z=SKY.z+Math.sin(a)*r; // alternate inner/outer radius and three heights = a weave
@@ -772,7 +895,7 @@ function buildSlalom(){
     g.m.position.set(g.x,g.y,g.z);const n=A[i+1]||{x:g.x+(g.x-A[i-1].x),y:g.y,z:g.z+(g.z-A[i-1].z)},nl=Math.hypot(n.x-g.x,n.y-g.y,n.z-g.z)||1;g.n={x:(n.x-g.x)/nl,y:(n.y-g.y)/nl,z:(n.z-g.z)/nl};g.m.lookAt(n.x,n.y,n.z);scene.add(g.m)});
   const padm=new THREE.Mesh(new THREE.CylinderGeometry(3.5,3.5,.3,24),new THREE.MeshStandardMaterial({color:'#7fd0ff',emissive:'#2f9fff',emissiveIntensity:.8}));padm.position.set(pad.x,pad.y+.2,pad.z);scene.add(padm);
   const sb=new THREE.Mesh(new THREE.CylinderGeometry(.5,.5,60,10,1,true),new THREE.MeshBasicMaterial({color:'#7fd0ff',transparent:true,opacity:.28,depthWrite:false,fog:false,side:THREE.DoubleSide}));sb.position.set(pad.x,pad.y+30,pad.z);scene.add(sb);
-  if(!slalom.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 92px);left:0;right:0;text-align:center;font-size:18px;text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);slalom.el=d}
+  if(!slalom.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:var(--topmsg,calc(env(safe-area-inset-top,0px) + 92px));left:0;right:0;text-align:center;font-size:var(--msgfs,18px);text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);slalom.el=d}
 }
 function slPaint(){slalom.gates.forEach((g,i)=>{const on=slalom.on,act=on&&i===slalom.i;g.m.visible=!(on&&i<slalom.i);g.m.material.color.set(act?'#ffd24a':'#7fd0ff');g.m.material.opacity=act?1:on?.5:.45;g.m.scale.setScalar(act?1.12:1)})}
 function startSlalom(local){
@@ -838,7 +961,7 @@ function buildDash(){
           const fl=new THREE.Mesh(new THREE.PlaneGeometry(2.4,1.4),new THREE.MeshBasicMaterial({color:'#ffd24a',side:THREE.DoubleSide}));fl.position.set(w.x+1.2*Math.cos(dash.th+1.57),top+4.2,w.z+1.2*Math.sin(dash.th+1.57));fl.rotation.y=-dash.th;scene.add(fl)}}
       solids.push(q);p.c.push(q)}
     dash.plats.push(p)}
-  if(!dash.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 92px);left:0;right:0;text-align:center;font-size:18px;text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);dash.el=d}
+  if(!dash.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:var(--topmsg,calc(env(safe-area-inset-top,0px) + 92px));left:0;right:0;text-align:center;font-size:var(--msgfs,18px);text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);dash.el=d}
 }
 function startDash(local){
   if(!dash.start||dash.on)return;
@@ -880,7 +1003,7 @@ function buildRace(){
     m.lookAt(i<pts.length-1?q[0]:p[0]+(p[0]-r[0]),i<pts.length-1?q[1]:p[1],i<pts.length-1?q[2]:p[2]+(p[2]-r[2]));scene.add(m);return {m,x:p[0],y:p[1],z:p[2]}});
   const pad=new THREE.Mesh(new THREE.CylinderGeometry(4,4,.3,24),new THREE.MeshStandardMaterial({color:'#ffd24a',emissive:'#ff9d00',emissiveIntensity:.8}));
   pad.position.set(WP[0][0],H(WP[0][0],WP[0][1])+.2,WP[0][1]);scene.add(pad);
-  if(!race.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 92px);left:0;right:0;text-align:center;font-size:18px;text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);race.el=d}
+  if(!race.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:var(--topmsg,calc(env(safe-area-inset-top,0px) + 92px));left:0;right:0;text-align:center;font-size:var(--msgfs,18px);text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);race.el=d}
   race.beam=new THREE.Mesh(new THREE.CylinderGeometry(2.5,2.5,500,12,1,true),new THREE.MeshBasicMaterial({color:'#ffd24a',transparent:true,opacity:.3,fog:false,depthWrite:false,side:THREE.DoubleSide}));race.beam.visible=false;scene.add(race.beam);
   paint();
 }
@@ -964,47 +1087,62 @@ function huntTick(dt,t){
 
 // ---------- loop ----------// ---------- loop ----------
 let last=performance.now(),fpsA=.016,fpsN=0;
+let lastErrMsg='',lastErrAt=0;
 function tick(t){
+  try{tickFrame(t)}
+  catch(e){const m=String(e&&e.stack||e).slice(0,600),n=performance.now();
+    if(m!==lastErrMsg||n-lastErrAt>5000){lastErrMsg=m;lastErrAt=n;showErr(e);try{localStorage.setItem('w4lasterr',new Date().toISOString()+'\n'+m)}catch(_){}}   // keep the last error so we can read it after a refresh
+    try{last=t}catch(_){}}
+  requestAnimationFrame(tick);
+}
+function tickFrame(t){
+  Perf.frame(t-last);
   const dt=Math.min(.05,(t-last)/1000);last=t;
   let ix=stickV.x,iy=stickV.y;
   if(keys.KeyA||keys.ArrowLeft)ix-=1;if(keys.KeyD||keys.ArrowRight)ix+=1;
   if(keys.KeyW||keys.ArrowUp)iy-=1;if(keys.KeyS||keys.ArrowDown)iy+=1;
   const len=Math.hypot(ix,iy);if(len>1){ix/=len;iy/=len}
   const sprint=keys.ShiftLeft||len>.9;
-  const speed=S.flying?(bst()?70:34)*Math.min(1,len):(H(S.x,S.z)<-.5?(sprint?16:9):(sprint?12:6))*Math.min(1,len)*kartMul();
+  const speed=S.flying?(bst()?70:34)*Math.min(1,len):(H(S.x,S.z)<-.5&&S.y<3?(sprint?16:9):(sprint?12:6))*Math.min(1,len)*kartMul();
   const sy=Math.sin(S.yaw),cy=Math.cos(S.yaw),px=S.x,pz=S.z;
   const dx=cy*ix+sy*iy,dz=-sy*ix+cy*iy;
   if(S.flying){ // flight has inertia: takeoff ~0.5 s to full speed, glide-out when you let go
     const tx=len>.05?dx*speed:0,tz=len>.05?dz*speed:0,cur=Math.hypot(S.fvx||0,S.fvz||0),kk=1-Math.exp(-(Math.hypot(tx,tz)>cur?4:3.2)*dt);
-    S.fvx=(S.fvx||0)+(tx-(S.fvx||0))*kk;S.fvz=(S.fvz||0)+(tz-(S.fvz||0))*kk;S.x+=S.fvx*dt;S.z+=S.fvz*dt;
+    S.fvx=(S.fvx||0)+(tx-(S.fvx||0))*kk;S.fvz=(S.fvz||0)+(tz-(S.fvz||0))*kk;S.x+=S.fvx*dt;S.z+=S.fvz*dt;Locomotion.carry(S);
     if(len>.05)S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt));
-  }else{S.fvx=S.fvz=0;if(len>.05){S.x+=dx*speed*dt;S.z+=dz*speed*dt;S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt))}}
+  }else{S.fvx=S.fvz=0;Locomotion.move(S,len>.05?dx*speed:0,len>.05?dz*speed:0,dt,!S.grounded?'air':H(S.x,S.z)<-.5?'swim':'ground');if(len>.05)S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt))}
   S.x+=S.kx*dt;S.z+=S.kz*dt;const kd=Math.exp(-4*dt);S.kx*=kd;S.kz*=kd;
-  S.iframe=Math.max(0,S.iframe-dt);S.hurt=Math.max(0,S.hurt-dt);$('flash').style.opacity=S.hurt>0?Math.min(.35,S.hurt*.7):0;
+  S.iframe=Math.max(0,S.iframe-dt);S.hurt=Math.max(0,S.hurt-dt);{const fo=S.hurt>0?Math.min(.35,S.hurt*.7):0;if(fo!==S._fo){S._fo=fo;$('flash').style.opacity=fo}}
   const rr=Math.hypot(S.x,S.z);const RB=3300;if(rr>RB){S.x*=RB/rr;S.z*=RB/rr}
   let gY=H(S.x,S.z);
   {const dxs=S.x-SKY.x,dzs=S.z-SKY.z;if(Math.hypot(dxs,dzs)<SKY.R*2.8){const sh=SKYG(dxs,dzs);if(sh>-1e8&&S.y>=sh-3)gY=Math.max(gY,sh)}}
-  const wat=gY<-.5;if(wat)gY=-1;
+  let wat=gY<-.5;if(wat)gY=-1;
   const hi=S.flying&&S.y>gY+14&&Math.hypot(S.x-SKY.x,S.z-SKY.z)>SKY.R+60;
   for(const c of solids){if(hi)break;const ax=S.x-c.x,az=S.z-c.z,dd=Math.hypot(ax,az),R=c.r+.4;
     if(dd<R){if(c.h&&S.y>=c.h-.15)gY=Math.max(gY,c.h);else if(!c.noSide&&dd>1e-4){S.x=c.x+ax/dd*R;S.z=c.z+az/dd*R}}}
+  if(wat&&gY>-.5)wat=false; // standing on something (a bridge deck over the sea) is not swimming
   const wasG=S.grounded;
-  if(jumpQ){if(wasG&&!S.flying)S.vy=wat?6:9;else{S.flying=!S.flying;if(S.flying&&!S.tipped){S.tipped=1;banner('Drag up to climb · drag down to dive','FLYING')}}}jumpQ=false;
-  if(S.flying)S.vy+=((len>.05?Math.max(-20*(bst()?2.4:1),Math.min(14*(bst()?2.4:1),(CameraRig.neutralPitch()-S.pitch)*40*(bst()?2.4:1))):0)-S.vy)*Math.min(1,dt*6);else S.vy-=25*dt;
-  const imp=-S.vy;S.y+=S.vy*dt;if(S.flying)S.y=Math.min(S.y,900); // ceiling: well above the cloud layers (clouds at ~310-490 and ~620-730)
+  S.coy=wasG?.12:Math.max(0,(S.coy||0)-dt);                                    // coyote time: a jump pressed just after walking off a ledge still jumps
+  if(jumpQ){if((wasG||S.coy>0)&&!S.flying){S.vy=wat?6:9;S.coy=0;if(typeof Ambience!=='undefined')Ambience.jump()}else{S.flying=!S.flying;if(S.flying&&!S.tipped){S.tipped=1;banner('Drag up to climb · drag down to dive','FLYING')}}}jumpQ=false;
+  if(S.flying)S.vy+=((len>.05?Math.max(-20*(bst()?2.4:1),Math.min(14*(bst()?2.4:1),(CameraRig.neutralPitch()-S.pitch)*40*(bst()?2.4:1))):0)-S.vy)*Math.min(1,dt*6);else{S.vy-=(S.vy<0?33:25)*dt;if(S.vy<-48)S.vy=-48}   // heavier on the way down = snappier, less floaty jump (same height); terminal velocity
+  const imp=-S.vy;const spaceMul=S.flying?1+Math.min(5,Math.max(0,(S.y-900)/700)):1; // above the clouds (~310-730 m) the climb accelerates: space (~3.4 km) is about a minute away
+  S.y+=S.vy*dt*spaceMul;if(S.flying)S.y=Math.min(S.y,9000); // ceiling: deep space
   if(S.flying&&S.y<=gY)S.flying=false;
-  if(S.y<=gY||(wasG&&S.vy<=0&&S.y-gY<.35)){S.y=gY;S.vy=0;S.grounded=true;if(!wasG&&imp>5)me.userData.land=Math.min(.18,imp*.014)}else S.grounded=false;
+  if(S.y<=gY||(wasG&&S.vy<=0&&S.y-gY<.35)){S.y=gY;S.vy=0;S.grounded=true;if(!wasG&&imp>5){me.userData.land=Math.min(.18,imp*.014);if(CameraRig.land)CameraRig.land(imp);if(typeof Ambience!=='undefined')Ambience.land(imp,{x:S.x,z:S.z,H})}}else S.grounded=false;
   S.state=S.flying?'fly':!S.grounded?(S.vy>0?'jump':'fall'):wat?'swim':len>.05?(sprint?'run':'walk'):'idle';
   me.position.set(S.x,S.y,S.z);me.rotation.y=S.rot;animate(me,dt,S.state);explore(dt,t);
-  const k=1-Math.exp(-12*dt);
+  if(typeof Ambience!=='undefined'){const es=Env.state,gs=Math.hypot(S.gvx||0,S.gvz||0);   // world sound: ocean/wind/birds/steps... (src/audio/Ambience.js); wind follows flight + fall speed
+    Ambience.update(dt,{x:S.x,y:S.y,z:S.z,gy:gY,H,st:S.state,grounded:S.grounded,under:S.under||0,dayF:es.dayF,rain:es.wx.rain,storm:es.wx.storm,cloud:es.inCloud,
+      spd:S.flying?Math.hypot(S.fvx||0,S.fvz||0,(S.vy||0)*1.5):S.grounded?gs:Math.max(gs,Math.abs(S.vy||0)*1.4)})}
+  const k=1-Math.exp(-20*dt),nowT=performance.now();
   for(const o of others.values()){
-    const p=o.group.position;p.x+=(o.tx-p.x)*k;p.y+=(o.ty-p.y)*k;p.z+=(o.tz-p.z)*k;
+    RemoteSmooth.target(o,nowT,H);const p=o.group.position;p.x+=(o.tx-p.x)*k;p.y+=(o.ty-p.y)*k;p.z+=(o.tz-p.z)*k;
     o.group.rotation.y=lerpAngle(o.group.rotation.y,o.tr,k);animate(o.group,dt,o.st);
   }
-  CameraRig.update(dt);                                                         // orbit / first-person / shoulder + flight FOV, roll, shake (src/camera/CameraRig.js)
+  vegCull();CameraRig.update(dt);                                                         // orbit / first-person / shoulder + flight FOV, roll, shake (src/camera/CameraRig.js)
   Env.tick(dt,t);skyTick(t);
-  if(sun){sun.target.position.set(S.x,S.y,S.z);sun.position.copy(sun.userData.sd).multiplyScalar(140).add(sun.target.position);sky.position.copy(camera.position);if(seaTex){seaTex.offset.x+=dt*.0006;seaTex.offset.y+=dt*.0004}
-    fpsA=fpsA*.97+dt*.03;if(sun.castShadow&&++fpsN>240&&fpsA>.034){sun.castShadow=false;scene.traverse(o=>{if(o.material)o.material.needsUpdate=true})}}
+  if(sun){Perf.snapSun(sun,S.x,S.y,S.z);sky.position.copy(camera.position);if(seaTex){seaTex.offset.x+=dt*.0006;seaTex.offset.y+=dt*.0004}
+    if(sun.castShadow&&Perf.shadowTooSlow()){sun.castShadow=false;scene.traverse(o=>{if(o.material)o.material.needsUpdate=true})}}
   S.burst=Math.max(0,(S.burst||0)-dt);S.gboost=Math.max(0,(S.gboost||0)-dt);if(!S.flying)S.boost=false;
   if(S.flying!==bvis){bvis=S.flying;$('boost').style.display=bvis?'block':'none';if(!bvis){$('boost').textContent='Boost';$('boost').style.opacity=.75}
     $('smack').style.display=(PAN_ENABLED&&panOn&&!bvis)?'block':'none'}
@@ -1012,7 +1150,6 @@ function tick(t){
   FlightFX.screen(dt,CameraRig.speedFrac());                                    // speed lines (src/fx/FlightFX.js)
   smackTick(dt);
   renderer.render(scene,camera);Viewmodel.render(renderer,camera);               // first-person arms + weapon (separate pass, fixed FOV)
-  requestAnimationFrame(tick);
 }
 </script>
 </body>

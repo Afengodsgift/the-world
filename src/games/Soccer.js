@@ -197,8 +197,12 @@ const Soccer=(()=>{
     // team rings under the players during a match
     for(const c of ['#4aa3ff','#ff5a5a']){const r=new THREE.Mesh(new THREE.RingGeometry(.5,.68,28).rotateX(-Math.PI/2),bas(c,{transparent:true,opacity:.85,side:THREE.DoubleSide}));r.visible=false;scene.add(r);rings.push(r)}
     // HUD + kick button
-    hud=document.createElement('div');hud.style.cssText='position:fixed;z-index:6;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 112px);padding:6px 14px;border-radius:14px;background:#000a;color:#fff;font:600 17px sans-serif;text-align:center;display:none;pointer-events:none;white-space:nowrap';document.body.appendChild(hud);
-    kickBtn=document.createElement('button');kickBtn.textContent='🦶';kickBtn.style.cssText='position:fixed;z-index:5;right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 322px);width:78px;height:78px;border-radius:50%;border:0;background:#3ddc84cc;font-size:34px;display:none;touch-action:none';document.body.appendChild(kickBtn);
+    // fallback look + position (theme.css / the landscape block in index.html override these: they use `html #id` / `body #id`)
+    const css=document.createElement('style');css.textContent='#sochud{position:fixed;z-index:6;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 112px);padding:6px 14px;border-radius:14px;background:#000a;color:#fff;font:600 17px sans-serif;text-align:center;display:none;pointer-events:none;white-space:nowrap}'
+      +'#sockick{position:fixed;z-index:5;right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 280px);width:72px;height:72px;border-radius:50%;border:0;background:#3ddc84cc;font-size:28px;display:none;touch-action:none;padding:0}'
+      +'@media (orientation:landscape) and (pointer:coarse){#sochud{top:calc(var(--st,0px) + 92px)}}';(document.head||document.body).appendChild(css);
+    hud=document.createElement('div');hud.id='sochud';document.body.appendChild(hud);
+    kickBtn=document.createElement('button');kickBtn.id='sockick';kickBtn.textContent='🦶';document.body.appendChild(kickBtn);
     kickBtn.addEventListener('pointerdown',e=>{pressKick();e.preventDefault()});for(const ev of ['pointerup','pointercancel'])kickBtn.addEventListener(ev,()=>releaseKick());
     addEventListener('keydown',e=>{if(e.code==='KeyK'&&!e.repeat)pressKick()});addEventListener('keyup',e=>{if(e.code==='KeyK')releaseKick()});
     bar=Fx.bar(410);bar.hide();

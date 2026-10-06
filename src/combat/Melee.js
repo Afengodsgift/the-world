@@ -24,7 +24,7 @@ function panSwingDelta(s){const p=1-Math.min(1,s);if(p<=0||p>=1)return 0;
   return 1.9*Math.cos((p-.5)/.5*Math.PI/2)}
 let panOn=false; // pan starts holstered; togglePan() equips/unequips (synced to partner in the 's' state broadcast)
 function togglePan(){panOn=!panOn;$('panbtn').style.opacity=panOn?1:.6}
-function bonk(){try{const a=new(window.AudioContext||webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.type='square';o.frequency.setValueAtTime(180,a.currentTime);o.frequency.exponentialRampToValueAtTime(60,a.currentTime+.15);o.connect(g);g.connect(a.destination);g.gain.setValueAtTime(.35,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.2);o.start();o.stop(a.currentTime+.2)}catch(e){}}
+function bonk(){try{const a=WAudio.get();if(!a)return;const o=a.createOscillator(),g=a.createGain();o.type='square';o.frequency.setValueAtTime(180,a.currentTime);o.frequency.exponentialRampToValueAtTime(60,a.currentTime+.15);o.connect(g);g.connect(WAudio.out());g.gain.setValueAtTime(.35,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.2);o.start();o.stop(a.currentTime+.2)}catch(e){}}
 function smack(){
   if(!panOn||S.flying)return;
   const t=performance.now()/1000;if(t-lastSmack<.55)return;lastSmack=t;

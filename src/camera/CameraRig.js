@@ -9,7 +9,7 @@
 // Other systems talk to it only through the API at the bottom (setShooter, kick, pitchRange, neutralPitch ...).
 // Globals used at runtime: S, camera, me, H, THREE, sstep.
 const CameraRig=(()=>{
-  const st={view:'fps',shooter:false,fpsK:0,tpsK:0,ay:0,init:false,px:0,pz:0,vx:0,vz:0,spd:0,hd:0,turn:0,
+  const st={sInit:false,sy:0,sp:0,arm:1,dip:{x:0,v:0},view:'fps',shooter:false,fpsK:0,tpsK:0,ay:0,init:false,px:0,pz:0,vx:0,vz:0,spd:0,hd:0,turn:0,
             roll:{x:0,v:0},kp:{x:0,v:0},ky:{x:0,v:0},t:0,bob:0,eye:new THREE.Vector3(),eInit:false,prevFps:false,cruise:0,boost:0};
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const _f=new THREE.Vector3(),_p=new THREE.Vector3(),_l=new THREE.Vector3(),_h=new THREE.Vector3(),_a=new THREE.Vector3(),_b=new THREE.Vector3();
@@ -30,6 +30,24 @@ const CameraRig=(()=>{
     out.copy(st.eye);out.x+=S.x;out.y+=S.y;out.z+=S.z;
     if(S.grounded){st.bob+=dt*st.spd*.9;out.y+=Math.sin(st.bob*2)*.018*Math.min(1,st.spd/6)*(1-fw)}   // walking head bob
     return out;
+  }
+
+  // ---- obstruction helpers ----
+  // walkable surface height at (x,z) for a camera at height y: terrain, or the floating island's top if we are above it
+  function ground(x,z,y){let g=H(x,z);if(typeof SKY!=='undefined'&&typeof SKYG==='function'){const dx=x-SKY.x,dz=z-SKY.z;if(dx*dx+dz*dz<(SKY.R*2.8)**2){const sh=SKYG(dx,dz);if(sh>-1e8&&y>=sh-3)g=Math.max(g,sh)}}return g}
+  const _near=[];
+  // fraction (0.15..1) of the arm from target a to desired camera b that is free of ground and solid obstacles
+  function armFree(a,b){
+    const len=Math.hypot(b.x-a.x,b.y-a.y,b.z-a.z);if(len<.01)return 1;
+    _near.length=0;
+    if(typeof solids!=='undefined')for(let i=0;i<solids.length&&_near.length<24;i++){const c=solids[i];     // thin trunks are ignored: only houses, rocks, props and the like
+      if(c.r<1||c.noSide)continue;const dx=c.x-a.x,dz=c.z-a.z;if(dx*dx+dz*dz<(c.r+len+1)**2)_near.push(c)}
+    const N=12;
+    for(let i=1;i<=N;i++){const t=i/N,x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t,z=a.z+(b.z-a.z)*t;
+      if(y<ground(x,z,a.y)+.55)return Math.max(.15,t-1.5/N);
+      for(let k=0;k<_near.length;k++){const c=_near[k],dx=x-c.x,dz=z-c.z,top=c.h!==undefined?c.h:H(c.x,c.z)+9;
+        if(dx*dx+dz*dz<(c.r+.25)**2&&y<top)return Math.max(.15,t-1.5/N)}}
+    return 1;
   }
 
   function update(dt){
@@ -56,17 +74,25 @@ const CameraRig=(()=>{
     spring(st.kp,0,dt,18,.5);spring(st.ky,0,dt,18,.5);                    // recoil kick recovers by itself
 
     // ---- view direction (what the player is looking along) ----
-    const yaw=S.yaw+st.ky.x,pit=S.pitch-st.kp.x;                          // positive S.pitch looks DOWN; kick lifts the muzzle
+    // third-person look is eased (removes touch-drag stepping); shooter views track the raw aim exactly so the crosshair stays true
+    if(!st.sInit){st.sy=S.yaw;st.sp=S.pitch;st.sInit=true}
+    const ks=1-Math.exp(-dt*(22+400*Math.max(st.fpsK,st.tpsK)));st.sy+=(S.yaw-st.sy)*ks;st.sp+=(S.pitch-st.sp)*ks;
+    spring(st.dip,0,dt,14,.45);                                           // landing dip recovers by itself
+    const yaw=st.sy+st.ky.x,pit=st.sp-st.kp.x;                            // positive S.pitch looks DOWN; kick lifts the muzzle
     const sY=Math.sin(yaw),cY=Math.cos(yaw),sP=Math.sin(pit),cP=Math.cos(pit);
     _f.set(-sY*cP,-sP,-cY*cP);
 
     // ---- orbit / shoulder camera ----
     const d=9+2.4*st.boost-5.4*st.tpsK,sh=1.2*st.tpsK,shx=Math.cos(yaw)*sh,shz=-Math.sin(yaw)*sh;
-    const lag=fly?Math.min(2.2,st.spd*.03):0,lx=st.spd>.1?-st.vx/st.spd*lag:0,lz=st.spd>.1?-st.vz/st.spd*lag:0;  // chase-cam trails at speed
+    const lag=fly?Math.min(2.2,st.spd*.03):Math.min(.7,st.spd*.045),lx=st.spd>.1?-st.vx/st.spd*lag:0,lz=st.spd>.1?-st.vz/st.spd*lag:0;  // chase-cam trails at speed
     const ay=st.ay+1.6+.4*st.tpsK;
     _p.set(S.x+lx-_f.x*d+shx,ay-_f.y*d,S.z+lz-_f.z*d+shz);
-    _p.y=Math.max(_p.y,H(_p.x,_p.z)+.8);
-    _l.set(S.x+shx,st.ay+1.4+.2*st.tpsK,S.z+shz);
+    _l.set(S.x+shx,st.ay+1.4+.2*st.tpsK+st.dip.x*.6,S.z+shz);
+    _p.y+=st.dip.x;
+    _p.y=Math.max(_p.y,ground(_p.x,_p.z,_l.y)+.8);
+    // obstruction: pull the camera in so it never ends up inside a house/rock or under the ground; snaps in fast, eases back out slowly
+    const free=st.fpsK<.01?armFree(_l,_p):1;st.arm+=(free-st.arm)*(free<st.arm?1:1-Math.exp(-2.4*dt));
+    if(st.arm<.999)_p.lerpVectors(_l,_p,st.arm);
 
     // ---- first-person: blend position to the eye, look straight along the view direction ----
     if(st.fpsK>.001){
@@ -84,7 +110,8 @@ const CameraRig=(()=>{
     if(buf>.02)camera.rotateX(Math.sin(st.t*29)*.003*buf);
 
     // ---- FOV: speed widens it, first-person trims a little ----
-    const tf=(fly?66+14*st.cruise+18*st.boost:(S.gboost>0?80:65))-4*st.fpsK;
+    const gf=clamp((st.spd-5.5)/7,0,1);                                   // ground sprint: a touch wider
+    const tf=(fly?66+14*st.cruise+18*st.boost:(S.gboost>0?80:65+4.5*gf))-4*st.fpsK;
     if(Math.abs(camera.fov-tf)>.05){camera.fov+=(tf-camera.fov)*Math.min(1,dt*4.5);camera.updateProjectionMatrix()}
   }
 
@@ -98,7 +125,8 @@ const CameraRig=(()=>{
     shooterActive:()=>st.shooter,
     pitchRange:()=>st.fpsK>.5||(st.shooter&&st.view==='fps')?[-1.45,1.45]:[.05,1.2],   // can look straight up/down in first person
     neutralPitch:()=>(st.fpsK>.5||(st.shooter&&st.view==='fps'))?0:.4,                  // the pitch that means "level" for flight climb/dive
-    kick(p,y){st.kp.v+=p*40;st.ky.v+=(y||0)*40},        // recoil impulse in radians of peak rotation
+    kick(p,y){st.kp.v+=p*40;st.ky.v+=(y||0)*40},
+    land(imp){st.dip.v-=Math.min(4,Math.max(0,(imp-4)*.22))},   // landing impact: a short downward dip of the view (imp = fall speed in m/s)        // recoil impulse in radians of peak rotation
     speedFrac:()=>({cruise:st.cruise,boost:st.boost}),
     speed:()=>st.spd
   };

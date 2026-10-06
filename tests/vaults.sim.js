@@ -71,6 +71,32 @@ const run=(cs,sec,dt)=>{dt=dt||.05;for(let i=0;i<Math.round(sec/dt);i++)for(cons
   ok(SV.solved&&SF.solved,'two calls within the window open the vault for both');
   ok(E.WS.getSet('loot').filter(x=>x.startsWith(SV.id)).length===1,'one reward');
 
+  // ---------- the two-player rule holds even if something unexpected completes a puzzle
+  {
+    const R4='VAULT-GUARD',G=client('a','Alex',R4);G.others.clear();                 // nobody else is connected
+    G.Verbs.build();G.Vaults.build();await G.WS.init(R4,'Alex');G.Verbs.start();G.Vaults.start();
+    const pv=G.Vaults.vaults().find(v=>v.kind==='plates'),sv=G.Vaults.vaults().find(v=>v.kind==='shrine');
+    const warns=[],ow=console.warn;console.warn=(...a)=>warns.push(a.join(' '));
+    if(pv){const grp=G.Link._groups.find(g=>g.zones===pv.zones);grp.done=true;grp.t=1.6;grp.onDone(grp);   // simulate the rare unexplained self-solve
+      ok(!pv.solved&&G.WS.getSet('solved').length===0&&G.WS.getSet('loot').length===0&&!G.WS.entries().some(e=>e.kind==='vault'),'plates: a completion with no partner opens nothing and rewards nothing');
+      ok(grp.done===false&&grp.t===0,'plates: the puzzle is re-armed, not stuck');}
+    if(sv){const d=G.Link._syncs.get(sv.id);d.done=true;d.onDone();
+      ok(!sv.solved&&G.WS.getSet('solved').length===0,'shrine: a completion with no partner opens nothing');
+      ok(d.done===false,'shrine: re-armed, not stuck');}
+    console.warn=ow;
+    ok(warns.length>=1&&warns.every(w=>w.includes('refused to open')),'a diagnostic is logged so the cause can be found ('+warns.length+' warning'+(warns.length===1?'':'s')+')');
+    // a partner who leaves mid-hold stops the progress, and coming back lets it finish
+    const R5='VAULT-LEAVE',C=client('a','Alex',R5),D=client('b','Bee',R5);
+    C.others.get('b').group.position=D.S;D.others.get('a').group.position=C.S;
+    C.Verbs.build();D.Verbs.build();C.Vaults.build();D.Vaults.build();await C.WS.init(R5,'Alex');await D.WS.init(R5,'Bee');C.Verbs.start();D.Verbs.start();C.Vaults.start();D.Vaults.start();
+    const Q2=C.Vaults.vaults().find(v=>v.kind==='plates');
+    onZone(C,Q2.zones[0]);onZone(D,Q2.zones[1]);run([C,D],.8);
+    ok(Q2.p>.3&&!Q2.solved,'(both holding, progress building: '+Q2.p.toFixed(2)+')');
+    const partner=C.others.get('b');C.others.clear();                                  // partner disconnects
+    run([C],3);ok(!Q2.solved&&Q2.p===0,'partner disconnects mid-hold: progress drops to zero and nothing opens');
+    C.others.set('b',partner);run([C,D],2.4);ok(Q2.solved,'partner reconnects and holds again: it opens');
+  }
+
   // ---------- spotted, map, late join
   const far=va.find(v=>v!==P&&v.name!=='the main island');at(A,far.x+80,undefined,far.z);run([A],.1);
   ok(far.seen&&A.WS.getSet('seen').includes(far.id),'approaching a vault spots it');

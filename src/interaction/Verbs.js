@@ -11,7 +11,7 @@
 //   plus Net, WS, Systems, Fx, Sites, Seeded, VerbAnims, hashSeed, mulberry, VERBS, CAMP, LOOT.
 const Verbs=(()=>{
   const items=[],byId=new Map(),camps=[],applied=new Set(),pw=new Map();
-  let W=null,cur=null,built=false,started=false,pre=false,bar,barTxt,barFill;
+  let W=null,cur=null,built=false,started=false,pre=false,bar;
   const near=it=>Math.hypot(S.x-it.x,S.z-it.z);
   const mat=Fx.mat,M=Fx.M,burst=Fx.burst;
   const safe=f=>{try{return f()}catch(e){return false}};
@@ -134,14 +134,9 @@ const Verbs=(()=>{
   }
 
   // ---- UI ----------------------------------------------------------------------------------
-  function ui(){
-    if(bar)return;
-    bar=document.createElement('div');bar.style.cssText='position:fixed;z-index:6;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 250px);width:220px;padding:8px 12px;background:#000a;border-radius:12px;color:#fff;font:14px sans-serif;text-align:center;display:none;pointer-events:none';
-    barTxt=document.createElement('div');const tr=document.createElement('div');tr.style.cssText='height:8px;border-radius:4px;background:#ffffff33;margin-top:6px;overflow:hidden';
-    barFill=document.createElement('div');barFill.style.cssText='height:100%;width:0;background:#ffd24a';tr.appendChild(barFill);bar.appendChild(barTxt);bar.appendChild(tr);document.body.appendChild(bar);
-  }
-  function showBar(t,p){ui();bar.style.display='block';if(barTxt.textContent!==t)barTxt.textContent=t;barFill.style.width=Math.min(100,p*100)+'%'}
-  function hideBar(){if(bar)bar.style.display='none'}
+  function ui(){if(!bar)bar=Fx.bar(250)}
+  function showBar(t,p){ui();bar.show(t,p)}
+  function hideBar(){if(bar)bar.hide()}
   const labelFor=it=>{const V=VERBS[it.verb];if(W&&W.it===it)return'✋ Stop';return(pw.has(it.id)?'Help ':'')+V.icon+' '+V.label};
 
   // ---- per-frame --------------------------------------------------------------------------
@@ -158,7 +153,7 @@ const Verbs=(()=>{
     if(!others.size)pw.clear();else for(const [k,v] of pw)if(t-v.t>9000)pw.delete(k);
     const id=Interaction.current();
     if(cur&&id&&id.indexOf('verb:')===0){const l=labelFor(cur);if($('use').textContent!==l)$('use').textContent=l}
-    if(W)work(dt);else if(bar&&bar.style.display!=='none')hideBar();
+    if(W)work(dt);else if(bar&&bar.visible())hideBar();
   }
 
   // ---- lifecycle ---------------------------------------------------------------------------

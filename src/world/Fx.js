@@ -17,9 +17,9 @@ const Fx=(()=>{
   }
   // A small centred progress/status bar. const b=Fx.bar(250); b.show('text',0..1); b.hide();
   function bar(bottom){
-    const el=document.createElement('div');el.style.cssText='position:fixed;z-index:6;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + '+(bottom||250)+'px);width:220px;padding:8px 12px;background:#000a;border-radius:12px;color:#fff;font:14px sans-serif;text-align:center;display:none;pointer-events:none';
-    const tx=document.createElement('div'),tr=document.createElement('div'),fl=document.createElement('div');
-    tr.style.cssText='height:8px;border-radius:4px;background:#ffffff33;margin-top:6px;overflow:hidden';fl.style.cssText='height:100%;width:0;background:#ffd24a';
+    const el=document.createElement('div'),tx=document.createElement('div'),tr=document.createElement('div'),fl=document.createElement('div');
+    el.className='pbar';el.style.display='none';   // position comes from theme.css (--bar-l/--bar-b/--barw, set per layout in index.html)
+    tr.className='trk';fl.className='fill';
     tr.appendChild(fl);el.appendChild(tx);el.appendChild(tr);document.body.appendChild(el);
     return {show(t,p){el.style.display='block';if(tx.textContent!==t)tx.textContent=t;fl.style.width=Math.max(0,Math.min(100,p*100))+'%'},hide(){el.style.display='none'},visible:()=>el.style.display!=='none'};
   }
