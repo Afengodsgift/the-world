@@ -33,3 +33,13 @@ three.js would clear the far pass). Shadow maps are not rendered twice.
 ## Next (not built yet)
 Space flight model (momentum/stabilisation), debris, the satellite and asteroid discoveries, two-player interactions through `Net`,
 space map, and the architecture hooks for a second planet. Create them as `SpaceObjects.js` / `SpaceEvents.js` etc. next to these files.
+
+## Flight camera (`CameraRig.js`)
+Designed from third-person camera practice: a tight chase camera for fast action (damping that is too loose feels floaty and lets the target leave the
+frame), a chest pivot with a framing offset (Cinemachine's "vertical arm"), distance that depends on pitch, look-ahead, and a moderate damped FOV.
+Everything is blended by a smooth flying weight, so the walking camera is unchanged (9 m).
+- 4.6 m behind (3.4 m looking straight up, 5.2 m looking down, +1 m at boost); the old camera was 9-16 m
+- height follow is stiff in flight (lag = speed/k; the old loose follow trailed by more than the camera distance at climb speed)
+- camera raised along its own up axis (target too): same view direction, character low in frame, the sky you are heading into above it
+- speed effects use total 3D speed, so flying straight up counts as flying fast; FOV 66 -> 76 cruise -> 89 boost (was 98); no extra pull-back in space
+- `tests/camera_flight.sim.mjs` checks framing at ground level and at 20/60/120 km (up to 16 km/s), distances, FOV, no NaN

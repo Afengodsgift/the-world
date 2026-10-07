@@ -10,9 +10,9 @@
 // Globals used at runtime: S, camera, me, H, THREE, sstep.
 const CameraRig=(()=>{
   const st={sInit:false,sy:0,sp:0,arm:1,dip:{x:0,v:0},view:'fps',shooter:false,fpsK:0,tpsK:0,ay:0,init:false,px:0,pz:0,vx:0,vz:0,spd:0,hd:0,turn:0,
-            roll:{x:0,v:0},kp:{x:0,v:0},ky:{x:0,v:0},t:0,bob:0,eye:new THREE.Vector3(),eInit:false,prevFps:false,cruise:0,boost:0};
+            roll:{x:0,v:0},kp:{x:0,v:0},ky:{x:0,v:0},t:0,bob:0,eye:new THREE.Vector3(),eInit:false,prevFps:false,cruise:0,boost:0,fw:0,py:0,vyn:0};
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-  const _f=new THREE.Vector3(),_p=new THREE.Vector3(),_l=new THREE.Vector3(),_h=new THREE.Vector3(),_a=new THREE.Vector3(),_b=new THREE.Vector3();
+  const _u=new THREE.Vector3(),_f=new THREE.Vector3(),_p=new THREE.Vector3(),_l=new THREE.Vector3(),_h=new THREE.Vector3(),_a=new THREE.Vector3(),_b=new THREE.Vector3();
   function spring(s,t,dt,w,z){const a=w*w*(t-s.x)-2*z*w*s.v;s.v+=a*dt;s.x+=s.v*dt}
 
   // eye position: upright = fixed eye height above the feet; flying = the actual head (follows lean, bob and banking)
@@ -52,18 +52,22 @@ const CameraRig=(()=>{
 
   function update(dt){
     st.t+=dt;
-    if(!st.init){st.ay=S.y;st.px=S.x;st.pz=S.z;st.init=true}
-    st.ay+=(S.y-st.ay)*(1-Math.exp(-6*dt*(typeof SpaceFlight!=='undefined'?SpaceFlight.moveMul(S.y):1)));   // follow height at the same *relative* lag at any climb speed
+    if(!st.init){st.ay=S.y;st.py=S.y;st.px=S.x;st.pz=S.z;st.init=true}
+    st.fw+=((S.flying?1:0)-st.fw)*(1-Math.exp(-8*dt));                    // 0 on the ground .. 1 flying: every flight-camera change below is blended by this
+    const ymm=typeof SpaceFlight!=='undefined'?SpaceFlight.moveMul(S.y):1;
+    st.ay+=(S.y-st.ay)*(1-Math.exp(-(6+70*st.fw)*dt*ymm));   // height follow: soft on the ground (hides landing steps), stiff in flight so a fast climb keeps the character framed (lag = v/k)
 
     // ---- motion estimate: smoothed horizontal velocity, speed and turn rate ----
     const di=Math.max(dt,.001),k=1-Math.exp(-7*dt);
     const dk=typeof Space!=='undefined'?Space.f.dark:0,mm=typeof SpaceFlight!=='undefined'?SpaceFlight.moveMulH(S.y):1;   // altitude: openness + normalised sideways speed
     st.vx+=((S.x-st.px)/di/mm-st.vx)*k;st.vz+=((S.z-st.pz)/di/mm-st.vz)*k;st.px=S.x;st.pz=S.z;
     st.spd=Math.hypot(st.vx,st.vz);
+    st.vyn+=(((S.y-st.py)/di/ymm)-st.vyn)*k;st.py=S.y;                   // smoothed vertical speed (normalised like the horizontal one)
+    const sp3=Math.hypot(st.spd,st.vyn);                                  // total flight speed: straight up is as fast as straight ahead
     if(st.spd>3){const h=Math.atan2(st.vx,st.vz);let d=h-st.hd;d=Math.atan2(Math.sin(d),Math.cos(d));st.turn+=(clamp(d/di,-4,4)-st.turn)*Math.min(1,dt*6);st.hd=h}
     else st.turn*=1-Math.min(1,dt*6);
     const fly=!!S.flying;
-    st.cruise=fly?clamp(st.spd/34,0,1):0;st.boost=fly?sstep(40,66,st.spd):0;
+    st.cruise=fly?clamp(sp3/34,0,1):0;st.boost=fly?sstep(40,66,sp3):0;
 
     // ---- mode blends ----
     const wantFps=st.shooter&&st.view==='fps',wantTps=st.shooter&&st.view==='tps';
@@ -85,11 +89,23 @@ const CameraRig=(()=>{
     _f.set(-sY*cP,-sP,-cY*cP);
 
     // ---- orbit / shoulder camera ----
-    const d=9+2.4*st.boost-5.4*st.tpsK+5*dk,sh=1.2*st.tpsK,shx=Math.cos(yaw)*sh,shz=-Math.sin(yaw)*sh;
-    const lag=fly?Math.min(2.2,st.spd*.03):Math.min(.7,st.spd*.045),lx=st.spd>.1?-st.vx/st.spd*lag:0,lz=st.spd>.1?-st.vz/st.spd*lag:0;  // chase-cam trails at speed
+    // Flight camera (blended by fe, so the ground camera is untouched): a close chase camera, tighter than walking, that pulls in further as you look up
+    // (the sky ahead matters, not the view of your feet), pivots about the chest, and is raised along the camera's own up axis so the character sits low
+    // in the frame with the space you're heading into above it (Cinemachine's 'vertical arm'). Trails slightly along the full 3D velocity.
+    const fe=st.fw*(1-st.tpsK)*(1-st.fpsK),el=clamp(-pit,-1.2,1.2);       // el > 0 = looking up
+    const dGround=9+2.4*st.boost-5.4*st.tpsK+5*dk;
+    const dFly=4.6+1.0*st.boost+1.0*dk-(el>0?1.2*el/1.2:.6*el/1.2);       // 3.4 m looking straight up .. 5.2 m looking down at the world (walking is 9 m)
+    const d=dGround+(dFly-dGround)*fe,sh=1.2*st.tpsK,shx=Math.cos(yaw)*sh,shz=-Math.sin(yaw)*sh;
+    const lagG=Math.min(.7,st.spd*.045),lagF=Math.min(.6,sp3*.008),lag=lagG+(lagF-lagG)*fe;
+    const lx=st.spd>.1?-st.vx/st.spd*lag*(1-fe):0,lz=st.spd>.1?-st.vz/st.spd*lag*(1-fe):0;   // ground: horizontal trail (unchanged)
     const ay=st.ay+1.6+.4*st.tpsK;
     _p.set(S.x+lx-_f.x*d+shx,ay-_f.y*d,S.z+lz-_f.z*d+shz);
     _l.set(S.x+shx,st.ay+1.4+.2*st.tpsK+st.dip.x*.6,S.z+shz);
+    if(fe>.001){
+      if(sp3>.5){const kk=-lag*fe/sp3;_p.x+=st.vx*kk;_p.y+=st.vyn*kk;_p.z+=st.vz*kk}               // flight trail along the 3D velocity
+      _u.set(0,1,0).addScaledVector(_f,-_f.y).normalize();                                          // camera 'up' (world up made perpendicular to the view)
+      const h=d*fe*(.14+.14*Math.max(0,el)/1.2);_p.addScaledVector(_u,h);_l.addScaledVector(_u,h);  // raise camera + target together: same view direction, character lower in frame
+    }
     _p.y+=st.dip.x;
     _p.y=Math.max(_p.y,ground(_p.x,_p.z,_l.y)+.8);
     // obstruction: pull the camera in so it never ends up inside a house/rock or under the ground; snaps in fast, eases back out slowly
@@ -113,7 +129,7 @@ const CameraRig=(()=>{
 
     // ---- FOV: speed widens it, first-person trims a little ----
     const gf=clamp((st.spd-5.5)/7,0,1);                                   // ground sprint: a touch wider
-    const tf=(fly?66+14*st.cruise+18*st.boost*(1-.6*dk)+6*dk:(S.gboost>0?80:65+4.5*gf))-4*st.fpsK;
+    const tf=(fly?66+10*st.cruise+13*st.boost*(1-.6*dk)+4*dk:(S.gboost>0?80:65+4.5*gf))-4*st.fpsK;
     if(Math.abs(camera.fov-tf)>.05){camera.fov+=(tf-camera.fov)*Math.min(1,dt*4.5);camera.updateProjectionMatrix()}
   }
 
