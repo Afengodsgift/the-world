@@ -69,6 +69,14 @@ Outlaw Isle: stays specialized · Sky: wind currents, cloud platforms · Main: t
 - Net: layout is a fixed seed (identical everywhere, so breakable ids match). Events on the existing `og` channel: `cv` client damage -> host, `cb` break (host -> all), `fr` fronts, `rs` regrow. The train follows the wall clock and is re-synced to the host's phase (`tr` in the 10 Hz snapshot).
 - Tests: `tests/outlaw_arena.sim.js` (relief, break/regrow host + client, chain, train, fronts). Slices still to do: shooting feel, wave variety (train robbery, stagecoach escort, jailbreak); a mounted gatling is a candidate obstacle.
 
+## Combat Feel V2 (Outlaw) - slice 1: aim + camera
+- **Hold fire + drag the same thumb = shoot while aiming**: `#owfire` captures its pointer and feeds `lookBy(dx,dy,1.15)` (src/input/InputManager.js, shared with the canvas look area); firing continues until release. No more lifting the thumb to look.
+- **Aim is the camera's**: `aimPoint()` casts the CAMERA ray (starting past the player so nothing between camera and player intercepts it) to find what is under the crosshair; bullets then leave the muzzle toward that point. The old "snap to the nearest raider" redirect and the view drift toward targets are gone; `lockTarget` is now only a marker for a raider you already aim near (< .1 rad).
+- **Body is independent of movement while armed**: movement stays camera-relative, but `S.rot` follows the aim, so you can strafe/backpedal/circle while aiming (the locomotion rotate-to-heading is skipped when `CameraRig.shooterActive()`).
+- **Combat camera**: the armed default is now the over-the-shoulder view (`view:'tps'`; the eye button still toggles first person): ~4.1 m behind, 1.0 m shoulder offset, +3 deg FOV, pitch range -0.95..1.25 so you can aim up at the ridge/tower.
+- **Reticle**: four small ticks that open with recoil and movement, flash red on a hit and gold + bigger on a crit.
+- Next slices: hit zones + cover-aware rays, combat locomotion/animation, hit reactions + death, AI roles/cover/LOS/flanking, weapon feedback, two-player balancing.
+
 ## Roadmap
 0 Net adapter ✔ · 1 WorldState + Journal ✔ · 2 Verbs v1 ✔ (cave interior still open) ·
 3 Link ✔ (twin plates, synced shrine; lockpick+lookout later) · 4 Event Director ✔ (meteor, visitor, golden rings; shark surge later) · 5 Zones (Storm Cay wind, Frost friction first) · 6 Home v1 (trophy shelf, aquarium) ·
