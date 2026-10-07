@@ -5,20 +5,21 @@
 //
 //   above   900 m -> 3 km    you are over the clouds (near clouds hand over to the world-fixed cloud deck)
 //   weather 750 m -> 1.3 km  rain/storm are below you  (1 = in the weather, 0 = above it)
-//   thin    0.9 km -> 12 km  haze thins out, the world is visible through clear air
-//   dark    2.5 km -> 20 km  sky deepens from blue to black
-//   stars   5 km -> 24 km    stars fade in gradually
-//   space   9 km -> 26 km    ambience hands over to silence + the space drone
-//   quiet   2.5 km -> 15 km  world sound fades out (wind peaks on the way)
+//   thin    0.9 km -> 20 km  haze thins out, the world is visible through clear air
+//   deep    1.5 km -> 20 km  blue deepens (cloud layer, then high altitude)
+//   dark    30 km -> 100 km  upper atmosphere: violet haze, then black
+//   stars   14 km -> 100 km  stars fade in very gradually
+//   space   40 km -> 110 km  ambience hands over to silence + the space drone
+//   quiet   3 km -> 45 km    world sound fades out (wind peaks on the way)
 //
 // Rendering: above ~900 m a single depth buffer cannot cover both "the avatar 9 m away" and "the world 20 km below" (the islands shimmer and
 // stripe), so the frame is drawn in two depth slices: far (everything beyond the partition) then near (depth cleared, colour kept).
 const Space=(()=>{
   const sm=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t)};
-  const f={alt:0,above:0,weather:1,thin:0,dark:0,stars:0,space:0,quiet:0};
+  const f={alt:0,above:0,weather:1,thin:0,deep:0,dark:0,stars:0,space:0,quiet:0};
   const BASE_NEAR=.1,BASE_FAR=4200,SPLIT_FROM=900;
   function profile(y,o){o=o||f;y=Math.max(0,y);o.alt=y;
-    o.above=sm(900,3000,y);o.weather=1-sm(750,1300,y);o.thin=sm(900,12000,y);o.dark=sm(2500,20000,y);o.stars=sm(5000,24000,y);o.space=sm(9000,26000,y);o.quiet=sm(2500,15000,y);return o}
+    o.above=sm(900,3000,y);o.weather=1-sm(750,1300,y);o.thin=sm(900,20000,y);o.deep=sm(1500,20000,y);o.dark=sm(30000,100000,y);o.stars=sm(14000,100000,y);o.space=sm(40000,110000,y);o.quiet=sm(3000,45000,y);return o}
   function update(dt,t){profile(S.y)}
   // the two depth slices for an altitude (also used by the tests)
   function slices(y){const part=Math.min(2400,Math.max(150,y*.03));return {part,farNear:part*.9,farFar:400000,nearNear:BASE_NEAR,nearFar:part}}
