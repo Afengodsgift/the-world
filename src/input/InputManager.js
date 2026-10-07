@@ -6,6 +6,7 @@ const keys={};let stickV={x:0,y:0},jumpQ=false;
 function bindInput(){
   addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Space')jumpQ=true;if(e.code==='KeyE')doUse();if(e.code==='KeyB')S.boost=!S.boost;if(e.code==='KeyF')smack();if(e.code==='KeyQ')togglePan();if(e.code==='KeyG')openEmotes()});
   addEventListener('keyup',e=>keys[e.code]=false);
+  for(const ev of ['pointerup','pointercancel','lostpointercapture'])$('boost').addEventListener(ev,()=>{S.diveHeld=false});   // Dive is hold-to-sink
   const stick=$('stick'),knob=$('knob');let sid=null;
   const setStick=e=>{const r=stick.getBoundingClientRect();let dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);const m=Math.hypot(dx,dy),max=r.width/2;if(m>max){dx*=max/m;dy*=max/m}
     knob.style.transform='translate('+dx+'px,'+dy+'px)';stickV={x:dx/max,y:dy/max}};
@@ -16,7 +17,7 @@ function bindInput(){
   window.endTouches=()=>{if(sid!==null){try{stick.releasePointerCapture(sid)}catch(e){}}sid=null;stickV={x:0,y:0};knob.style.transform=''};
   $('jump').addEventListener('pointerdown',e=>{jumpQ=true;e.preventDefault()});
   $('use').addEventListener('pointerdown',e=>{doUse();e.preventDefault()});
-  $('boost').addEventListener('pointerdown',e=>{S.boost=!S.boost;$('boost').textContent=S.boost?'BOOST ON':'Boost';$('boost').style.opacity=S.boost?1:.75;e.preventDefault()});
+  $('boost').addEventListener('pointerdown',e=>{if(S.state==='swim'&&!S.flying){S.diveHeld=true;try{$('boost').setPointerCapture(e.pointerId)}catch(_){}e.preventDefault();return}S.boost=!S.boost;$('boost').textContent=S.boost?'BOOST ON':'Boost';$('boost').style.opacity=S.boost?1:.75;e.preventDefault()});
   $('smack').addEventListener('pointerdown',e=>{smack();e.preventDefault()});
   $('panbtn').addEventListener('pointerdown',e=>{togglePan();e.preventDefault()});
   $('emobtn').addEventListener('pointerdown',e=>{openEmotes();e.preventDefault()});

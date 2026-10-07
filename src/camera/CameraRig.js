@@ -141,7 +141,7 @@ const CameraRig=(()=>{
     view:()=>st.view,
     isFPS:()=>st.fpsK>.5,
     shooterActive:()=>st.shooter,
-    pitchRange:()=>st.fpsK>.5||(st.shooter&&st.view==='fps')?[-1.45,1.45]:(S.flying?[-1.35,1.5]:[.05,1.2]),   // first person: straight up/down; flying in third person: look well above/below the horizon too (to climb straight up)
+    pitchRange:()=>st.fpsK>.5||(st.shooter&&st.view==='fps')?[-1.45,1.45]:(S.flying?[-1.35,1.5]:S.dv?[-.75,1.2]:[.05,1.2]),   // first person: straight up/down; flying in third person: look well above/below the horizon too (to climb straight up)
     neutralPitch:()=>(st.fpsK>.5||(st.shooter&&st.view==='fps'))?0:.4,                  // the pitch that means "level" for flight climb/dive
     kick(p,y){st.kp.v+=p*40;st.ky.v+=(y||0)*40},
     land(imp){st.dip.v-=Math.min(4,Math.max(0,(imp-4)*.22))},   // landing impact: a short downward dip of the view (imp = fall speed in m/s)        // recoil impulse in radians of peak rotation

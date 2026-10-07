@@ -142,10 +142,17 @@ const Env=(()=>{
     updateClouds(dt,sk,ov);
     const inC=E.inCloud;if(inC>.01){fogC.lerp(tmpC2.copy(P.cloudDay).multiplyScalar(.25+.75*dayF),Math.min(1,inC*.9));near=lerp(near,2,inC);far=lerp(far,85,inC)}
     if(SF.thin>0){near=lerp(near,6000,SF.thin);far=lerp(far,200000,SF.thin)}   // the air thins out: the world stays visible far below
+    // underwater: tight teal fog that darkens with depth (S.under = how submerged the camera is; S.y = depth, surface -1)
+    const un=S.under||0;
+    if(un>.001){const dep=Math.min(1,Math.max(0,(-1-S.y)/16));tmpC2.set('#1b8c9a').multiplyScalar(.28+.72*dayF).lerp(tmpC.set('#031826'),dep*.7);fogC.lerp(tmpC2,Math.min(1,un*1.1));near=lerp(near,1,un);far=lerp(far,34+40*dayF*(1-dep*.7),un)}
+    sun.intensity*=1-.5*un;hemi.intensity*=1-.25*un;                                                    // less light under the surface
+    sky.visible=un<.5;                                                                                   // the sky is not visible from under the sea
+    seaMesh.material.emissive.set('#2aa3b4').multiplyScalar(un*(.12+.5*dayF));                           // sea surface seen from below glows (it is lit by the sun above)
     scene.fog.color.copy(fogC);scene.fog.near=near;scene.fog.far=far;scene.background.copy(fogC);
     seaMesh.material.color.copy(P.seaNight).lerp(P.seaDay,dayF);
     // rain
     updateRain(dt,SF.weather<1?Object.assign({},wx,{rain:wx.rain*SF.weather,storm:wx.storm*SF.weather}):wx);
+    if(un>.3)rain.visible=false;
     // fireflies
     if(fireflies){const a=Math.max(0,1-dayF*1.6)*(1-wx.rain)*(S.y<8?1:0);fireflies.material.opacity=a*.85;fireflies.visible=a>.02;
       if(fireflies.visible){fireflies.position.set(S.x,Math.max(0,H(S.x,S.z)),S.z);const pa=fireflies.geometry.attributes.position.array,b=fireflies.userData.base;for(let i=0;i<pa.length;i+=3){pa[i]=b[i]+Math.sin(t/900+i)*2;pa[i+1]=b[i+1]+Math.sin(t/700+i*1.7)*.8;pa[i+2]=b[i+2]+Math.cos(t/1100+i)*2}fireflies.geometry.attributes.position.needsUpdate=true}}
