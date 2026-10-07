@@ -1124,8 +1124,8 @@ function tickFrame(t){
   if(S.flying){ // flight has inertia: takeoff ~0.5 s to full speed, glide-out when you let go
     const tx=len>.05?dx*speed:0,tz=len>.05?dz*speed:0,cur=Math.hypot(S.fvx||0,S.fvz||0),kk=1-Math.exp(-(Math.hypot(tx,tz)>cur?4:3.2)*dt);
     S.fvx=(S.fvx||0)+(tx-(S.fvx||0))*kk;S.fvz=(S.fvz||0)+(tz-(S.fvz||0))*kk;{const sMul=SpaceFlight.moveMulH(S.y);S.x+=S.fvx*dt*sMul;S.z+=S.fvz*dt*sMul}Locomotion.carry(S);
-    if(len>.05)S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt));
-  }else{S.fvx=S.fvz=0;Locomotion.move(S,len>.05?dx*speed:0,len>.05?dz*speed:0,dt,S.dv?'swim':!S.grounded?'air':H(S.x,S.z)<-.5?'swim':'ground');if(len>.05)S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt))}
+    if(len>.05&&!CameraRig.shooterActive())S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt));
+  }else{S.fvx=S.fvz=0;Locomotion.move(S,len>.05?dx*speed:0,len>.05?dz*speed:0,dt,S.dv?'swim':!S.grounded?'air':H(S.x,S.z)<-.5?'swim':'ground');if(len>.05&&!CameraRig.shooterActive())S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt))}
   S.x+=S.kx*dt;S.z+=S.kz*dt;const kd=Math.exp(-4*dt);S.kx*=kd;S.kz*=kd;
   S.iframe=Math.max(0,S.iframe-dt);S.hurt=Math.max(0,S.hurt-dt);{const fo=S.hurt>0?Math.min(.35,S.hurt*.7):0;if(fo!==S._fo){S._fo=fo;$('flash').style.opacity=fo}}
   const rr=Math.hypot(S.x,S.z);const RB=SpaceFlight.bound(S.y);if(rr>RB){S.x*=RB/rr;S.z*=RB/rr}

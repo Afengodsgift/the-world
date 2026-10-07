@@ -11,7 +11,7 @@ const R=f=>fs.readFileSync(path.join(ROOT,f),'utf8');
 // ---- minimal browser/world stubs ----
 class DiskGLTFLoader extends GLTFLoader{load(u,ok,_p,err){try{const b=fs.readFileSync(path.join(ROOT,u));this.parse(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'',ok,err)}catch(e){err&&err(e)}}} // the game fetches by URL; here we read from disk
 globalThis.THREE={...T,GLTFLoader:DiskGLTFLoader};
-const el=()=>({getContext:()=>({createRadialGradient:()=>({addColorStop(){}}),fillRect(){},fillText(){},strokeText(){},clearRect(){},beginPath(){},moveTo(){},lineTo(){},stroke(){}}),style:{},appendChild(){},addEventListener(){}});
+const el=()=>({getContext:()=>({createRadialGradient:()=>({addColorStop(){}}),fillRect(){},fillText(){},strokeText(){},clearRect(){},beginPath(){},moveTo(){},lineTo(){},stroke(){}}),style:{setProperty(){}},appendChild(){},addEventListener(){}});
 globalThis.document={createElement:el,head:el(),body:el(),getElementById:()=>el()};globalThis.$=()=>el();globalThis.window={innerWidth:390,innerHeight:844};globalThis.addEventListener=()=>{};
 globalThis.localStorage={getItem(){return null},setItem(){}};
 (0,eval)(R('src/data/islands.js').replace(/^const /gm,'var ')+';var K=2.5;');(0,eval)(R('src/utils/math.js').replace(/^const /gm,'var '));
@@ -60,7 +60,8 @@ const step=(n,fn)=>{for(let i=0;i<n;i++){const dt=1/60;fn&&fn(i);Outlaw.tick(dt,
 const fwdY=()=>camera.getWorldDirection(new T.Vector3()).y;
 S.flying=false;mdl.rotation.set(0,0,0);mdl.position.set(0,0,0);me.position.set(0,2,0);
 step(60);ok(me.visible&&!CameraRig.isFPS(),'unarmed: third-person orbit, avatar visible');
-Outlaw.equip(0);step(90);
+ok(CameraRig.view()==='tps','combat camera defaults to the over-the-shoulder view');
+Outlaw.equip(0);step(90);if(CameraRig.view()!=='fps'){CameraRig.toggleView();step(90)}
 ok(CameraRig.isFPS()&&!me.visible,'weapon out: first-person, own avatar hidden');
 ok(Math.abs(camera.position.y-(S.y+1.64))<.05&&Math.hypot(camera.position.x,camera.position.z)<.05,'camera sits at eye height (1.64 m)');
 S.pitch=-1.4;step(30);ok(fwdY()>.95,'can look straight up in first person');S.pitch=1.4;step(30);ok(fwdY()<-.95,'can look straight down');S.pitch=0;step(30);

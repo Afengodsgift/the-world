@@ -38,7 +38,7 @@ const Outlaw=(()=>{
   const DIFF=[{n:'Normal',hp:1,dmg:1,cnt:1,coin:1},{n:'Hard',hp:1.4,dmg:1.25,cnt:1.3,coin:1.5},{n:'Outlaw',hp:2,dmg:1.6,cnt:1.7,coin:2.2}];
   const cover=[],npcs=new Map(),cache={};
   let wiped=false,clock=0,C=null,active=false,host=null,wave=0,kills=0,best=0,nextWave=0,queue=[],spawnT=0,nid=1,snapT=0;
-  let wi=-1,hp=100,down=false,downT=0,cdT=0,firing=false,pdown=false,pw=-1,hudEl,hpEl,xh,fireBtn,gunBtn,hitT=0,fx=[];
+  let wi=-1,hp=100,down=false,downT=0,cdT=0,firing=false,pdown=false,pw=-1,hudEl,hpEl,xh,fireBtn,gunBtn,hitT=0,xSp=0,critT=0,fx=[];
   const prev={x:0,z:0,vx:0,vz:0},pprev={x:0,z:0,vx:0,vz:0};
   let diff=1,mode='survive',bank={x:0,z:0,hp:1500,max:1500},ammo=[],reloadT=0,reloading=false,dyn=[],drops=[],reloadBtn,shopEl,pick={m:'survive',d:1};
   let SAVE={coins:0,own:WEAPONS.map((_,i)=>FREE.includes(i)?1:0),lv:WEAPONS.map(()=>0),hp:0,mag:0,rl:0,crit:0,v:0};
@@ -186,12 +186,13 @@ const Outlaw=(()=>{
   const camDir=new THREE.Vector3();
   // Aim assist: lock the best live NPC near the crosshair (cone ~34 deg, must be visible, not behind cover).
   let lockM=null,lockN=null;
-  function lockTarget(range){
+  function lockTarget(range){ // marks a raider you are already aiming near (ang < .1 rad); it does NOT auto-aim
+
     camera.getWorldDirection(camDir);const o=camera.position;let best=null,bs=1e9;
     for(const n of npcs.values()){if(n.dead||!n.group)continue;const p=n.group.position,sc=TYPES[n.type].sc,
       vx=p.x-o.x,vy=p.y+sc-o.y,vz=p.z-o.z,L=Math.hypot(vx,vy,vz);if(L>range||L<1)continue;
       const ang=Math.acos(Math.max(-1,Math.min(1,(vx*camDir.x+vy*camDir.y+vz*camDir.z)/L)));
-      if(ang>(CameraRig.isFPS()?.2:.6)||!los(S.x,S.z,p.x,p.z))continue;const sc2=ang+L*.004;if(sc2<bs){bs=sc2;best=n}}
+      if(ang>.1||!los(S.x,S.z,p.x,p.z))continue;const sc2=ang+L*.004;if(sc2<bs){bs=sc2;best=n}}
     return best}
   function aoe(pt,dmg,rad){ // explosion: damages every enemy near the impact point
     boom(pt[0],pt[2],rad*.8);OutlawArena.blast(pt[0],pt[2],rad,dmg*.6);
@@ -201,10 +202,10 @@ const Outlaw=(()=>{
     if(wi<0||down||!camera||reloading)return;const W=WEAPONS[wi];if(cdT>0)return;
     if(am(wi)<=0){reload();return}
     cdT=W.cd;ammo[wi]=am(wi)-1;
-    const lk=lockTarget(W.rng),o=camera.position.clone(),base=camDir.clone();
-    let lp=null,lsc=1;if(lk){lp=lk.group.position;lsc=TYPES[lk.type].sc;S.rot=Math.atan2(lp.x-S.x,lp.z-S.z)}else S.rot=Math.atan2(camDir.x,camDir.z);
-    me.rotation.y=S.rot;const M=CameraRig.isFPS()?Viewmodel.muzzleWorld(camera):muzzle(me,wi);
-    if(lk){o.set(M.x,M.y,M.z);base.set(lp.x-M.x,lp.y+lsc-M.y,lp.z-M.z).normalize()}
+    camera.getWorldDirection(camDir);const P=aimPoint(W.rng);   // the aim is the camera's: what is under the crosshair is what you hit
+    S.rot=Math.atan2(camDir.x,camDir.z);me.rotation.y=S.rot;
+    const M=CameraRig.isFPS()?Viewmodel.muzzleWorld(camera):muzzle(me,wi),o=new THREE.Vector3(M.x,M.y,M.z),base=P.clone().sub(o);
+    if(base.lengthSq()<.04||base.dot(camDir)<.3*base.length())base.copy(camDir);base.normalize();
     let anyHit=false,anyCrit=false,endp=null;
     for(let p=0;p<W.pel;p++){
       const d=base.clone();if(W.sp){d.x+=rnd(-W.sp,W.sp);d.y+=rnd(-W.sp,W.sp);d.z+=rnd(-W.sp,W.sp);d.normalize()}
@@ -219,10 +220,17 @@ const Outlaw=(()=>{
         if(p<3)popText(endp[0],endp[1]+.7,endp[2],(crit?'💥':'')+dmg,crit?'#ffd24a':'#fff',crit?1.25:1)}
       if(p<3)tracer(M.x,M.y,M.z,endp[0],endp[1],endp[2]);
     }
-    me.userData.recoil=1;Viewmodel.kick(RECOIL[wi]);CameraRig.kick(.016*RECOIL[wi],rnd(-.004,.004)*RECOIL[wi]);sfx(W.snd);if(anyHit){hitT=.18;sfx(anyCrit?'crit':'hit')}
+    me.userData.recoil=1;Viewmodel.kick(RECOIL[wi]);CameraRig.kick(.016*RECOIL[wi],rnd(-.004,.004)*RECOIL[wi]);sfx(W.snd);if(anyHit){hitT=.18;if(anyCrit)critT=.24;sfx(anyCrit?'crit':'hit')}xSp=Math.min(16,xSp+3+RECOIL[wi]*2.2);
     if(clock-lastF>110){lastF=clock;send({k:'f',w:wi,m:[M.x,M.y,M.z],e:endp})}
     if(am(wi)<=0)reload();else updateHud();
   }
+  // where the crosshair points: the first cover/raider along the CAMERA ray (starting past the player, so nothing between camera and player intercepts it), else max range
+  function aimPoint(range){
+    const back=Math.min(6,Math.hypot(camera.position.x-S.x,camera.position.y-(S.y+1.4),camera.position.z-S.z)),o=camera.position.clone().addScaledVector(camDir,back);
+    let t=rayCover(o,camDir,range);
+    for(const n of npcs.values()){if(n.dead||!n.group)continue;const p3=n.group.position,sc=TYPES[n.type].sc,
+      tt=raySphere(o,camDir,p3.x,p3.y+1*sc,p3.z,.95*sc+Math.min(1.6,Math.hypot(p3.x-o.x,p3.z-o.z)*.025));if(tt!==null&&tt<t)t=tt}
+    return o.addScaledVector(camDir,t)}
   function lockMarker(){
     const lk=wi>=0&&!down?lockTarget(WEAPONS[wi].rng):null;lockN=lk;
     if(!lockM){lockM=new THREE.Mesh(new THREE.RingGeometry(.55,.7,28),new THREE.MeshBasicMaterial({color:'#ff3030',depthTest:false,transparent:true,opacity:.9,side:THREE.DoubleSide}));lockM.renderOrder=10;lockM.visible=false;scene.add(lockM)}
@@ -447,18 +455,22 @@ const Outlaw=(()=>{
   function ui(){
     if(hudEl)return;
     const st=document.createElement('style');st.textContent='#owhud{position:fixed;z-index:6;left:12px;top:calc(env(safe-area-inset-top,0px) + 88px);color:#fff;font-size:13px;text-shadow:0 1px 4px #000;pointer-events:none;display:none}#owhud .bar{width:150px;height:10px;background:#0008;border-radius:6px;overflow:hidden;margin-bottom:4px}#owhp{height:100%}'
-      +'#owxh{position:fixed;z-index:6;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;pointer-events:none;display:none}#owxh:before,#owxh:after{content:"";position:absolute;background:#fff;box-shadow:0 0 3px #000}#owxh:before{left:10px;top:0;width:2px;height:22px}#owxh:after{top:10px;left:0;height:2px;width:22px}'
+      +'#owxh{position:fixed;z-index:6;left:50%;top:50%;width:0;height:0;pointer-events:none;display:none;--g:4px;transition:transform .08s}#owxh i{position:absolute;background:#fff;box-shadow:0 0 2px #000;opacity:.92}#owxh i:nth-child(1){left:-1px;top:calc(-1*var(--g) - 8px);width:2px;height:8px}#owxh i:nth-child(2){left:-1px;top:var(--g);width:2px;height:8px}#owxh i:nth-child(3){top:-1px;left:calc(-1*var(--g) - 8px);height:2px;width:8px}#owxh i:nth-child(4){top:-1px;left:var(--g);height:2px;width:8px}#owxh:after{content:\"\";position:absolute;left:-1px;top:-1px;width:2px;height:2px;border-radius:50%;background:#fff;box-shadow:0 0 2px #000}#owxh.hit i{background:#ff5a4e}#owxh.crit{transform:scale(1.4)}#owxh.crit i{background:#ffd24a}'
       +'.owb{position:fixed;z-index:5;border-radius:50%;border:0;color:#fff;font-size:26px}#owfire{right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 232px);width:78px;height:78px;background:#e0443ecc;display:none;touch-action:none}#owview{right:264px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#bfe3ffcc}#owshop{right:200px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#ffd24acc}#owrl{right:136px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#ffffffcc}#owgun{right:200px;bottom:calc(env(safe-area-inset-bottom,0px) + 144px);width:56px;height:56px;background:#ffffffcc}';
     document.head.appendChild(st);
     hudEl=document.createElement('div');hudEl.id='owhud';hudEl.innerHTML='<div class="bar"><div id="owhp" style="width:100%"></div></div><div id="owtxt"></div>';document.body.appendChild(hudEl);hpEl=$('owhp');
-    xh=document.createElement('div');xh.id='owxh';document.body.appendChild(xh);
+    xh=document.createElement('div');xh.id='owxh';xh.innerHTML='<i></i><i></i><i></i><i></i>';document.body.appendChild(xh);
     fireBtn=document.createElement('button');fireBtn.id='owfire';fireBtn.className='owb';fireBtn.textContent='🔥';document.body.appendChild(fireBtn);
     reloadBtn=document.createElement('button');reloadBtn.id='owrl';reloadBtn.className='owb';reloadBtn.textContent='🔄';document.body.appendChild(reloadBtn);reloadBtn.addEventListener('pointerdown',e=>{reload();e.preventDefault()});
     const viewBtn=document.createElement('button');viewBtn.id='owview';viewBtn.className='owb';viewBtn.textContent='👁';document.body.appendChild(viewBtn);
     viewBtn.addEventListener('pointerdown',e=>{const v=CameraRig.toggleView();banner(v==='fps'?'First-person view':'Third-person view','CAMERA');e.preventDefault()});
     const shopBtn=document.createElement('button');shopBtn.id='owshop';shopBtn.className='owb';shopBtn.textContent='🛒';document.body.appendChild(shopBtn);shopBtn.addEventListener('pointerdown',e=>{shopPanel();e.preventDefault()});
     gunBtn=document.createElement('button');gunBtn.id='owgun';gunBtn.className='owb';gunBtn.textContent='🔫';document.body.appendChild(gunBtn);
-    fireBtn.addEventListener('pointerdown',e=>{firing=true;e.preventDefault()});['pointerup','pointercancel','pointerleave'].forEach(ev=>fireBtn.addEventListener(ev,()=>firing=false));
+    { // HOLD FIRE + DRAG THE SAME THUMB = shoot while aiming: the button captures its pointer, so dragging keeps firing and turns the camera (no need to lift to look)
+      let fid=null,fx0=0,fy0=0;fireBtn.style.touchAction='none';
+      fireBtn.addEventListener('pointerdown',e=>{firing=true;fid=e.pointerId;fx0=e.clientX;fy0=e.clientY;try{fireBtn.setPointerCapture(fid)}catch(_){}e.preventDefault()});
+      fireBtn.addEventListener('pointermove',e=>{if(e.pointerId!==fid)return;const dx=e.clientX-fx0,dy=e.clientY-fy0;fx0=e.clientX;fy0=e.clientY;lookBy(dx,dy,1.15);e.preventDefault()});
+      const stopF=e=>{if(e.pointerId===fid){fid=null;firing=false}};['pointerup','pointercancel','lostpointercapture'].forEach(ev=>fireBtn.addEventListener(ev,stopF))}
     gunBtn.addEventListener('pointerdown',e=>{equip(nextW());e.preventDefault()});
     addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;
       if(e.code.startsWith('Digit')){const k=+e.code.slice(5);if(k===0){if(wi>=0)equip(wi)}else if(k<=WEAPONS.length)equip(k-1)}
@@ -499,7 +511,7 @@ const Outlaw=(()=>{
     prev.vx=(S.x-prev.x)/Math.max(dt,.001);prev.vz=(S.z-prev.z)/Math.max(dt,.001);prev.x=S.x;prev.z=S.z;
     const p=partner();if(p){const g=p[1].group.position;pprev.vx=(g.x-pprev.x)/Math.max(dt,.001);pprev.vz=(g.z-pprev.z)/Math.max(dt,.001);pprev.x=g.x;pprev.z=g.z;if(p[1].group.userData.gunI!==pw)setGun(p[1].group,pw)}
     if(clock-lastH>100){lastH=clock;for(const id in hitBuf){send({k:'h',id:+id,d:hitBuf[id]});delete hitBuf[id]}}
-    cdT-=dt;hitT=Math.max(0,hitT-dt);if(xh)xh.style.filter=hitT>0?'hue-rotate(160deg) saturate(8)':'none';
+    cdT-=dt;hitT=Math.max(0,hitT-dt);critT=Math.max(0,critT-dt);xSp*=Math.exp(-9*dt);if(xh){xh.className=hitT>0?(critT>0?'crit':'hit'):'';xh.style.setProperty('--g',(4+xSp+Math.min(3,Math.hypot(prev.vx,prev.vz)*.35))+'px')} // reticle: opens with recoil and movement, flashes on a hit
     if(firing)fire();
     lockMarker();
     // a weapon is out (and you're not swimming): CameraRig picks first-person or shoulder view; Viewmodel draws the arms + gun
@@ -507,8 +519,6 @@ const Outlaw=(()=>{
     if(wi>=0&&!down){
       camera.getWorldDirection(camDir);const tp=camera.position.clone().addScaledVector(camDir,30);
       let ap=Math.atan2(tp.y-(S.y+1.3),Math.hypot(tp.x-S.x,tp.z-S.z)),face=Math.atan2(camDir.x,camDir.z);
-      if(lockN&&(firing||cdT>-.35)){const lp=lockN.group.position,dx=lp.x-S.x,dz=lp.z-S.z;ap=Math.atan2(lp.y+TYPES[lockN.type].sc-(S.y+1.3),Math.hypot(dx,dz));face=Math.atan2(dx,dz);
-        if(armed&&!CameraRig.isFPS()){let dy=Math.atan2(-dx,-dz)-S.yaw;dy=Math.atan2(Math.sin(dy),Math.cos(dy));S.yaw+=dy*Math.min(1,dt*3)}} // third-person view drifts toward your target; first person never steals your aim
       if(armed){S.rot=lerpAngle(S.rot,face,1-Math.exp(-18*dt));me.rotation.y=S.rot}  // the body always faces the crosshair
       me.userData.aimP=Math.max(-.7,Math.min(.7,ap))}
     Viewmodel.update(dt,{vis:CameraRig.isFPS()&&wi>=0&&!down,wi,len:wi>=0?WEAPONS[wi].len:.5,reload:reloading&&wi>=0?1-reloadT/(WEAPONS[wi].rl*(1-.12*SAVE.rl)):-1});
@@ -521,5 +531,5 @@ const Outlaw=(()=>{
 
   Interaction.register('ow-start','Start Showdown',()=>C&&!active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>missionPanel());
   Interaction.register('ow-end','End Showdown',()=>C&&active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>{send({k:'end'});onMsg({k:'end'})});
-  return {build,tick,onMsg,equip,fire,lockTarget,poseGun,loadGun,_t:()=>({addNpc,panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
+  return {build,tick,onMsg,equip,fire,lockTarget,poseGun,loadGun,_t:()=>({aimPoint,fire,addNpc,panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
 })();
