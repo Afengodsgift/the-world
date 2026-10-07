@@ -8,7 +8,7 @@ const Env=(()=>{
   const P={deepHor:col('#3b78d8'),deepZen:col('#0b2160'),upperHor:col('#8a62d6'),spaceHor:col('#02040b'),spaceZen:col('#000103'),horDay:col('#cfe3f2'),horNight:col('#0b1329'),horTw:col('#ff9a62'),zenDay:col('#336bbd'),zenNight:col('#050a1c'),zenTw:col('#4d4d8c'),gndDay:col('#99b8cc'),gndNight:col('#070c18'),
     hsDay:col('#bcd7ff'),hsNight:col('#2a3d73'),hgDay:col('#7d7355'),hgNight:col('#14141c'),sunDay:col('#fff0d2'),sunTw:col('#ff9150'),moon:col('#9fb6ff'),
     seaDay:col('#2f6f9a'),seaNight:col('#0b2238'),cloudDay:col('#ffffff'),cloudTw:col('#ffc9a0'),cloudNight:col('#46507a'),cloudStorm:col('#59616f'),fogGrey:col('#8e99a6'),fogStorm:col('#4a525e')};
-  const E={u:.4,h:1,dayF:1,tw:0,wx:{cloud:.12,rain:0,storm:0},tgt:{cloud:.12,rain:0,storm:0},ovT:null,ovW:null,sound:true,inCloud:0,flash:0,label:'',ready:false};
+  const E={cloudLod:1,u:.4,h:1,dayF:1,tw:0,wx:{cloud:.12,rain:0,storm:0},tgt:{cloud:.12,rain:0,storm:0},ovT:null,ovW:null,sound:true,inCloud:0,flash:0,label:'',ready:false};
   let cloudMeshes=[],cloudMat=null,cloudT=0,clouds=[],rain=null,rainPos=null,rainVel=null,bolt=null,chip=null,panel=null,offX=0,offZ=0,nextFlash=6,boltT=0,fireflies=null;
   const tmpC=new THREE.Color(),tmpC2=new THREE.Color(),_col=new THREE.Color(),_m=new THREE.Matrix4(),_q=new THREE.Quaternion(),_p=new THREE.Vector3(),_s=new THREE.Vector3(),_e=new THREE.Euler();
   // ---------- weather schedule (same for everyone): a new weather every WSLOT seconds, hashed from the slot number ----------
@@ -175,7 +175,8 @@ const Env=(()=>{
     for(let i=0;i<clouds.length;i++){const c=clouds[i];
       let rx=((c.bx+offX-S.x)%CW+CW*1.5)%CW-CW/2,rz=((c.bz+offZ-S.z)%CW+CW*1.5)%CW-CW/2;
       const clr=Math.abs(c.by-SKY.base)<150?sm(SKY.R+90,SKY.R+190,Math.hypot(S.x+rx-SKY.x,S.z+rz-SKY.z)):1, // keep a clearing in the clouds around the floating island
-        vis=sm(c.th,c.th+.18,cover)*(.55+.45*cover)*clr*(1-SF.above),sc=c.w*(.65+.5*cover)*vis,hs=c.hgt*(.7+.6*cover)*vis;c.vis=vis;
+        vis=sm(c.th,c.th+.18,cover)*(.55+.45*cover)*clr*(1-SF.above)*(i<N_CLOUD*E.cloudLod?1:0), // cloudLod: island quality tiers drop clouds when the frame rate is low
+       sc=c.w*(.65+.5*cover)*vis,hs=c.hgt*(.7+.6*cover)*vis;c.vis=vis;
       _p.set(S.x+rx,c.by+Math.sin(cloudT*.1+i*1.7)*2.5,S.z+rz);
       if(vis>.02){const v=i%3;_e.set(0,c.yaw,0);_q.setFromEuler(_e);_s.set(Math.max(sc,.001),Math.max(hs*(1+.03*Math.sin(cloudT*.07+i)),.001),Math.max(sc*.8,.001));_m.compose(_p,_q,_s);cloudMeshes[v].setMatrixAt(cnt[v],_m);
         // per-cloud tint (no extra draw calls): thick/low clouds greyer underneath, high ones whiter, sun-side ones warm and bright at golden hour
