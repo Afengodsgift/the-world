@@ -5,7 +5,7 @@
 // 3 draw calls total. Tuning knobs: counts at the top, lifetimes/radii in splash()/wake()/rain().
 const WaterFX=(()=>{
   const SEA=-.3,NR=48,NS=64,NB=44;
-  let rings=null,spray=null,bub=null,rr=0,sr=0,br=0,wakeT=0,exhaleT=2,ready=false,dayK=1;
+  let rings=null,spray=null,bub=null,floorM=null,rr=0,sr=0,br=0,wakeT=0,exhaleT=2,ready=false,dayK=1;
   const R={x:new Float32Array(NR),z:new Float32Array(NR),age:new Float32Array(NR).fill(9),life:new Float32Array(NR).fill(1),max:new Float32Array(NR),amp:new Float32Array(NR)};
   const SP={vx:new Float32Array(NS),vy:new Float32Array(NS),vz:new Float32Array(NS),life:new Float32Array(NS)};
   const BU={vy:new Float32Array(NB),ph:new Float32Array(NB),on:new Uint8Array(NB)};
@@ -17,6 +17,9 @@ const WaterFX=(()=>{
     rings=new THREE.InstancedMesh(rg,new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}),NR);
     rings.frustumCulled=false;rings.renderOrder=3;_s.set(0,0,0);_m.compose(_p.set(0,-999,0),_q.identity(),_s);for(let i=0;i<NR;i++){rings.setMatrixAt(i,_m);rings.setColorAt(i,_c.setScalar(0))}
     scene.add(rings);
+    // ocean floor: the seabed mesh only exists around the islands, so its dark deep-blue edge used to show as a hard 'wave' shape against plain sea.
+    // One big disk in the same deep blue under the whole sea makes that edge vanish and gives open-water dives a floor (matches the -12 m clamp in H).
+    floorM=new THREE.Mesh(new THREE.CircleGeometry(6000,48),new THREE.MeshLambertMaterial({color:'#17607f'}));floorM.rotation.x=-Math.PI/2;floorM.position.y=-12.06;floorM.renderOrder=-2;scene.add(floorM);
     const tex=dotTex();
     const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.BufferAttribute(new Float32Array(NS*3).fill(-999),3));
     spray=new THREE.Points(sg,new THREE.PointsMaterial({map:tex,size:.34,sizeAttenuation:true,transparent:true,opacity:.9,depthWrite:false,color:'#ffffff'}));spray.frustumCulled=false;spray.renderOrder=3;scene.add(spray);
@@ -36,6 +39,7 @@ const WaterFX=(()=>{
   // c: {x,y,z,heading(rad, 0 = +z),speed,swim(surface swimming),dv(diving),under(0..1),camX,camY,camZ,dayF,rain,over(fn:(x,z)=>bool over open sea)}
   function update(dt,c){
     if(!ready)return;dayK=.35+.65*(c.dayF===undefined?1:c.dayF);
+    floorM.visible=c.y<250;                                          // not needed (and not wanted) from high up / space
     // swim wake: a small ring every ~0.2 s behind a swimmer moving at the surface
     if(c.swim&&!c.dv&&c.speed>1){wakeT-=dt;if(wakeT<=0){wakeT=.2;ring(c.x-Math.sin(c.heading)*.6,c.z-Math.cos(c.heading)*.6,.8+Math.min(.8,c.speed*.07),.75,.5,0)}}
     // rain ripples on the sea around the player
