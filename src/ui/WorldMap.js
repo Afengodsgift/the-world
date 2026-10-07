@@ -16,7 +16,7 @@ const WorldMap=(()=>{
     if(typeof Vaults!=='undefined')try{l.push(...Vaults.places())}catch(e){}
     if(typeof Events!=='undefined')try{l.push(...Events.places())}catch(e){} // a live event shows up once you have noticed it
     return l};
-  const icon=p=>p.icon||(p.n==='Soccer Pitch'?'⚽':p.n==='Farm'?'🐄':p.n==='Outlaw Isle'?'🤠':p.n==='The Floating Island'?'☁️':p.n==='The Race Track'?'🏁':p.big?'🏝️':'📍');
+  const icon=p=>p.icon||((p.n==='Soccer Pitch'||p.n==='Stadium Isle')?'⚽':p.n==='Farm'?'🐄':p.n==='Outlaw Isle'?'🤠':p.n==='The Floating Island'?'☁️':p.n==='The Race Track'?'🏁':p.big?'🏝️':'📍');
   const dist=p=>Math.hypot(S.x-p.x,S.z-p.z);
   const fmt=d=>d<1000?Math.round(d/ (d<100?1:10))*(d<100?1:10)+' m':(d/1000).toFixed(1)+' km';
   const sx=x=>(x-view.cx)*view.s+W/2,sy=z=>(z-view.cz)*view.s+Hh/2;
@@ -107,7 +107,7 @@ const WorldMap=(()=>{
     card.querySelector('#wmTrack').onclick=()=>{wp=tracking?null:p;if(wp)banner('Tracking '+p.n+' · follow the arrow','MAP');select(p)};
     const go=card.querySelector('#wmGo');if(go)go.onclick=()=>travel(p)}
   function travel(p){
-    const x=p.x,z=p.z+(p.n==='Outlaw Isle'?14:0);
+    const x=p.x,z=p.z+(p.n==='Outlaw Isle'?14:0)+((p.n==='Soccer Pitch'||p.n==='Stadium Isle')?PITCH.hh+5:0); // football: land beside the kick-off pad, not on the centre spot
     S.x=x;S.z=z;S.y=Math.max(H(x,z),p.y||-9)+1;S.vy=0;S.kx=0;S.kz=0;banner(p.n,'TRAVELLED');toggle()}
   function fillChips(){
     chips.innerHTML='';

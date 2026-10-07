@@ -559,7 +559,9 @@ function buildWorld(code){
   rng=mulberry(hashSeed(code));
   if(AM.plant_bushLarge)AM.plant_bushLarge.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.material.side=THREE.DoubleSide;o.material.emissive=new THREE.Color('#2a6a30')}});
   const dist=(x,z)=>Math.hypot(x-TOWN.x,z-TOWN.z),P={};
-  const add=(n,x,z,s)=>{if(Math.hypot(x-OUT.x,z-OUT.z)<OUT.clear||Math.hypot(x-FARM.x,z-FARM.z)<FARM.clear||(Math.abs(x-PITCH.x)<PITCH.hw+PITCH.clear&&Math.abs(z-PITCH.z)<PITCH.hh+PITCH.clear))return;(P[n]=P[n]||[]).push({x,y:H(x,z),z,ry:rng()*6.283,s})};
+  const add=(n,x,z,s)=>{if(Math.hypot(x-OUT.x,z-OUT.z)<OUT.clear||Math.hypot(x-FARM.x,z-FARM.z)<FARM.clear||(Math.abs(x-PITCH.x)<PITCH.hw+PITCH.clear&&Math.abs(z-PITCH.z)<PITCH.hh+PITCH.clear))return;
+    const legacy=Math.abs(x-LEGACY_PITCH.x)<LEGACY_PITCH.hw+LEGACY_PITCH.clear&&Math.abs(z-LEGACY_PITCH.z)<LEGACY_PITCH.hh+LEGACY_PITCH.clear; // old pitch ground: no rng draw (keeps the stream identical)
+    (P[n]=P[n]||[]).push({x,y:H(x,z),z,ry:legacy?(((x*12.9898+z*78.233)%6.283)+6.283)%6.283:rng()*6.283,s})};
   // forest (west), scattered trees, beach palms, bushes, rocks
   const kinds=['tree_pineDefaultA','tree_pineRoundA','tree_oak','tree_fat'];
   for(let i=0,n=0;i<1500&&n<300;i++){const a=rng()*6.283,r=rng()*80,x=-110+Math.cos(a)*r,z=40+Math.sin(a)*r,h=H(x,z);
@@ -572,7 +574,7 @@ function buildWorld(code){
     if(h<.6||h>26||dist(x,z)<40)continue;add('plant_bushLarge',x,z,.7+rng()*.7);n++}
   for(let i=0,n=0;i<900&&n<60;i++){const a=rng()*6.283,r=15+rng()*200,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);
     if(h<-.2||dist(x,z)<40)continue;add(rng()<.5?'stone_largeA':'rock_tallB',x,z,.5+rng()*.9);n++}
-  for(const I of ISL){const palm=I.pk<15;
+  for(const I of ISL){if(I.bare)continue;const palm=I.pk<15;   // bare islands (Stadium Isle) draw nothing from the shared rng, so existing worlds do not reshuffle
     for(let i=0,n=0;i<1500&&n<Math.round(I.R*.6);i++){const a=rng()*6.283,r=rng()*I.R*.95,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r,h=H(x,z);
       if(h<(palm?.4:1.2)||h>16)continue;add(palm?'tree_palmTall':kinds[rng()*4|0],x,z,.8+rng()*.5);n++}
     for(let i=0,n=0;i<600&&n<24;i++){const a=rng()*6.283,r=rng()*I.R*.9,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;
@@ -603,7 +605,7 @@ function buildWorld(code){
   const om=new THREE.MeshStandardMaterial({color:'#ffe08a',emissive:'#ffb020',emissiveIntensity:.9}),pts=[[0,-137],[18,-83]];
   for(let i=0;i<3;i++){const a=rng()*6.283;pts.push([Math.cos(a)*235,Math.sin(a)*235])}
   while(pts.length<40){const a=rng()*6.283,r=12+rng()*195,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<40&&dist(x,z)>45)pts.push([x,z])}
-  for(const I of ISL)for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
+  for(const I of ISL)if(!I.bare)for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
   buildRace();buildHunt();buildSeaLife();buildKartTrack();Tag.build();Outlaw.build();Farm.build();Soccer.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
 }
@@ -1063,7 +1065,7 @@ function buildHunt(){
 if(!mk){mk=document.createElement('div');mk.style.cssText='position:fixed;z-index:5;transform:translate(-50%,-50%);color:#ffd24a;text-align:center;font-size:28px;line-height:1;text-shadow:0 0 8px #000,0 2px 6px #000;pointer-events:none;display:none';mk.innerHTML='<div>◆</div><small style="font-size:13px"></small>';document.body.appendChild(mk)}
 }
 function pickTarget(n){
-  const r=mulberry(hashSeed(roomCode+':hunt:'+n)),lands=[{x:0,z:0,R:200}].concat(ISL.map(I=>({x:I.x,z:I.z,R:I.R*.8})));
+  const r=mulberry(hashSeed(roomCode+':hunt:'+n)),lands=[{x:0,z:0,R:200}].concat(ISL.filter(I=>!I.bare).map(I=>({x:I.x,z:I.z,R:I.R*.8})));
   for(let i=0;i<400;i++){const L=lands[r()*lands.length|0],a=r()*6.283,d=Math.sqrt(r())*L.R,x=L.x+Math.cos(a)*d,z=L.z+Math.sin(a)*d,h=H(x,z);
     if(h>1&&h<14&&Math.hypot(x-TOWN.x,z-TOWN.z)>60&&Math.hypot(x-WP[0][0],z-WP[0][1])>25)return {x,z,y:h}}
   return {x:-110,z:40,y:H(-110,40)};

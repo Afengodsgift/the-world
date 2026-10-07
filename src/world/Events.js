@@ -34,7 +34,7 @@ const Events=(()=>{
   const rng=(ev,salt)=>mulberry(hashSeed(ev.id+':'+salt));
   function site(ev,o){ // deterministic spot: 40% main island, else a random outer island (never Outlaw); falls back so an event is never silently lost
     if(ev.dev&&ev.at)return Object.assign({},ev.at,{name:'here'});
-    const r=rng(ev,'site'),isl=ISL.filter(i=>i.n!=='Outlaw Isle'),main={n:'the main island',x:0,z:0,R:190};
+    const r=rng(ev,'site'),isl=ISL.filter(i=>!i.ded),main={n:'the main island',x:0,z:0,R:190};
     const first=(ev.dev||r()<.4)?main:isl[Math.floor(r()*isl.length)];
     const order=[first,main,...isl].filter((b,i,a)=>a.indexOf(b)===i);   // chosen island, then main, then the rest: same order on both phones
     for(let i=0;i<order.length;i++){

@@ -1,6 +1,6 @@
 // Data for Vaults (two-player puzzle sites). Edit here to retune; Vaults.js has the machinery.
 const VAULT={
-  perIsland:1, main:1, skip:['Outlaw Isle'],
+  perIsland:1, main:1, skip:['Outlaw Isle','Stadium Isle'],
   clear:9,                       // footprint kept free of trees/other sites
   sep:70,                        // metres from any other site
   plates:{gap:11,r:1.8,holdMs:1500},   // two plates 2*gap apart: you cannot do this alone

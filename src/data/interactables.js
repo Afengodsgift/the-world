@@ -16,7 +16,7 @@ const CAMP={
   parts:[{verb:'dig',dx:3.4,dz:.4,vis:'mound'},{verb:'pickaxe',dx:-3.2,dz:1.4,vis:'rock'},{verb:'hammer',dx:.2,dz:-3.6,vis:'fence'}],
   perIsland:1, main:2,          // how many camps per outer island / on the main island
   minSep:90,                    // metres between camps on the main island
-  skip:['Outlaw Isle']          // islands that keep their own identity (Outlaw has the showdown town)
+  skip:['Outlaw Isle','Stadium Isle']          // islands that keep their own identity (Outlaw has the showdown town)
 };
 const LOOT={
   dig:[{id:'shell',n:'an odd seashell',ic:'🐚',w:36},{id:'coin',n:'an old coin',ic:'🪙',w:30},{id:'bone',n:'an ancient bone',ic:'🦴',w:16},

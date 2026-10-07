@@ -5,17 +5,25 @@ const SKY={x:-1900,z:2350,R:140,base:430}; // the floating island sits up in the
 const ISL=[{n:'Ember Isle',x:-1400,z:-850,R:320,pk:55,c:'#ff6a3d'},{n:'Sunken Isle',x:1250,z:-420,R:270,pk:16,c:'#3dd6ff'},{n:'Palm Atoll',x:760,z:1400,R:230,pk:0,c:'#ffe066'},{n:'Frost Isle',x:-980,z:1450,R:300,pk:60,c:'#d9f0ff'},{n:'Far Reef',x:1950,z:1050,R:260,pk:20,c:'#b06bff'},{n:'Storm Cay',x:0,z:1750,R:180,pk:10,c:'#8bffb0'},{n:'The Boneyard',x:1700,z:-1150,R:200,pk:24,c:'#ffab5e'}];
 // Outlaw Isle: dedicated island for the Outlaw Town shooter. Terrain is flattened to y near the center; vegetation is cleared within `clear`.
 const OUT={x:-600,z:-1250,R:230,y:3.2,clear:70};
-ISL.push({n:'Outlaw Isle',x:OUT.x,z:OUT.z,R:OUT.R,pk:0,c:'#e0a040'});
+ISL.push({n:'Outlaw Isle',x:OUT.x,z:OUT.z,R:OUT.R,pk:0,c:'#e0a040',ded:true});
+// Stadium Isle: dedicated island for football, far to the west in open sea (about 1.2 km from the nearest island, 2.2 km from the main island).
+// `ded` = dedicated (camps, vaults, events and treasure hunts never land here). `bare` = no trees, rocks or shards at all. The world build skips bare
+// islands WITHOUT drawing from the shared random stream, so adding this island does not move a single shard, tree or hunt in existing worlds.
+const STAD={x:-2100,z:500,R:200};
+ISL.push({n:'Stadium Isle',x:STAD.x,z:STAD.z,R:STAD.R,pk:0,c:'#6fd18a',ded:true,bare:true});
 const KT={x:760,z:1400,hw:95,hh:65,rc:34};
 // (The Floating Island's x/z below is a spot on its path, so Travel lands you on solid ground.)
 const LOCS=[{n:'Town Square',x:25,z:62,r:16},{n:'Whispering Forest',x:-110,z:40,r:45},{n:'Shell Beach',x:0,z:182,r:26},{n:'Sky Peak',x:0,z:-137,r:22,y:32},{n:'The Cave',x:18,z:-88,r:9}].concat(ISL.map(I=>({n:I.n,x:I.x,z:I.z,r:I.R*.7}))).concat([{n:'The Floating Island',x:SKY.x+50,z:SKY.z+6,r:SKY.R*.8,y:SKY.base+6}]);
 // Farm: flat meadow on the main island (found by scanning H() for the flattest spot clear of town, forest, cave, Bonk Ring and beach)
 const FARM={x:30,z:120,R:19,clear:26};
 LOCS.push({n:'Farm',x:FARM.x,z:FARM.z,r:28});
-// Soccer pitch: flat rectangle on the main island west of town, found by scanning H() for the flattest 72x48 m meadow clear of
-// town, farm, forest, beach and cave (1.3 m of natural height variation). H() flattens it to y; trees are cleared; Sites keeps other
-// systems off it. hw/hh are the FLAT half-extents (playing surface 26x16 + goals + run-off); the terrain blends out over 9 m.
-const PITCH={x:-43,z:17,y:2.55,hw:31,hh:20,clear:12};
+// Soccer pitch: flat rectangle at the centre of Stadium Isle. Natural terrain there varies 2.6-4.1 m, so H() flattens it to y (a blend of at most
+// ~0.7 m) and eases back to the island over 9 m. hw/hh are the FLAT half-extents (playing surface 26x16 + goals + run-off). Sites keeps other systems off it.
+const PITCH={x:STAD.x,z:STAD.z,y:3.3,hw:31,hh:20,clear:12};
+// The pitch used to sit on the main island here. The world build is a single seeded random stream, and trees inside this zone used to SKIP one draw,
+// so the zone must keep skipping it or every shard/tree after it would move in existing worlds. Trees may now grow here again, but they take their
+// rotation from their position instead of the stream (see `add` in buildWorld). Do not delete this without a world-version bump.
+const LEGACY_PITCH={x:-43,z:17,hw:31,hh:20,clear:12};
 LOCS.push({n:'Soccer Pitch',x:PITCH.x,z:PITCH.z,r:30});
 LOCS.push({n:'The Race Track',x:KT.x,z:KT.z,r:Math.max(KT.hw,KT.hh)});
 const WP=[[TOWN.x+40*Math.cos(.59),TOWN.z+40*Math.sin(.59)],[0,-137],[900,-300],[1400,750],[550,1000]];
