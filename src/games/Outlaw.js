@@ -59,10 +59,11 @@ const Outlaw=(()=>{
     const b=2*(fx*dx+fz*dz),k=fx*fx+fz*fz-c.r*c.r,D=b*b-4*a*k;if(D<0)return false;
     const s=Math.sqrt(D);return (-b-s)/(2*a)<1&&(-b+s)/(2*a)>.02}
   const los=(ax,az,bx,bz)=>!cover.some(c=>segCircle(ax,az,bx,bz,c));
+  let rcHit=null; // the cover entry the last rayCover() hit (breakable cover reacts to bullets)
   function rayCover(o,d,max){ // nearest cover hit distance along 3D ray (horizontal test), or max
-    let best=max;const a=d.x*d.x+d.z*d.z;if(a<1e-8)return best;
+    rcHit=null;let best=max;const a=d.x*d.x+d.z*d.z;if(a<1e-8)return best;
     for(const c of cover){const fx=o.x-c.x,fz=o.z-c.z,b=2*(fx*d.x+fz*d.z),k=fx*fx+fz*fz-c.r*c.r,D=b*b-4*a*k;if(D<0)continue;
-      const t=(-b-Math.sqrt(D))/(2*a);if(t>0&&t<best)best=t}
+      const t=(-b-Math.sqrt(D))/(2*a);if(t>0&&t<best){best=t;rcHit=c}}
     return best}
   function raySphere(o,d,cx,cy,cz,r){const lx=cx-o.x,ly=cy-o.y,lz=cz-o.z,tca=lx*d.x+ly*d.y+lz*d.z;if(tca<0)return null;
     const d2=lx*lx+ly*ly+lz*lz-tca*tca;if(d2>r*r)return null;return tca-Math.sqrt(r*r-d2)}
@@ -97,6 +98,9 @@ const Outlaw=(()=>{
     const pad=new THREE.Mesh(new THREE.CylinderGeometry(2.2,2.4,.3,24),new THREE.MeshStandardMaterial({color:'#c0392b',emissive:'#7a1a10',emissiveIntensity:.6}));pad.position.set(C.x,C.y+.15,C.z+1);scene.add(pad);
     const sg=label('OUTLAW TOWN',6,1.5);sg.position.set(C.x,5,C.z+1);sg.userData.bb=1;scene.add(sg);fx.push({sign:sg});
     portals();
+    OutlawArena.build({C,cover,solids,scene,send:o=>send(o),isHost,boom,sfx,spark,hurtMe:(d,x,z)=>hurt(d,x,z),
+      dropAt:(x,z)=>{const id=nid++;send({k:'dr',id,x,z});addDrop(id,x,z)},
+      aoeNpc:(x,z,rad,dmg)=>{for(const n of npcs.values()){if(n.dead)continue;const d=Math.hypot(n.x-x,n.z-z);if(d<rad+1)damageNpc(n.id,Math.max(1,Math.round(dmg*(1-d/(rad+1)))))}}}); // zones, breakable cover, train (src/games/OutlawArena.js)
   }
 
   // ---------- portals: town <-> Outlaw Isle ----------
@@ -190,7 +194,7 @@ const Outlaw=(()=>{
       if(ang>(CameraRig.isFPS()?.2:.6)||!los(S.x,S.z,p.x,p.z))continue;const sc2=ang+L*.004;if(sc2<bs){bs=sc2;best=n}}
     return best}
   function aoe(pt,dmg,rad){ // explosion: damages every enemy near the impact point
-    boom(pt[0],pt[2],rad*.8);
+    boom(pt[0],pt[2],rad*.8);OutlawArena.blast(pt[0],pt[2],rad,dmg*.6);
     for(const n of npcs.values()){if(n.dead||!n.group)continue;const p=n.group.position,d=Math.hypot(p.x-pt[0],p.y+1-pt[1],p.z-pt[2]);if(d<rad+1.5)reportHit(n.id,Math.max(1,Math.round(dmg*(1-d/(rad+1.5)))))}}
   function reload(){if(wi<0||reloading||am(wi)>=magOf(wi))return;reloading=true;reloadT=WEAPONS[wi].rl*(1-.12*SAVE.rl);sfx('reload');updateHud()}
   function fire(){
@@ -204,11 +208,12 @@ const Outlaw=(()=>{
     let anyHit=false,anyCrit=false,endp=null;
     for(let p=0;p<W.pel;p++){
       const d=base.clone();if(W.sp){d.x+=rnd(-W.sp,W.sp);d.y+=rnd(-W.sp,W.sp);d.z+=rnd(-W.sp,W.sp);d.normalize()}
-      const wall=rayCover(o,d,W.rng);let tn=wall,hit=null;
+      const wall=rayCover(o,d,W.rng),wc=rcHit;let tn=wall,hit=null;
       for(const n of npcs.values()){if(n.dead)continue;const p3=n.group.position,sc=TYPES[n.type].sc,
         t=raySphere(o,d,p3.x,p3.y+1*sc,p3.z,.95*sc+Math.min(1.6,(Math.hypot(p3.x-o.x,p3.z-o.z))*.025));
         if(t!==null&&t<tn){tn=t;hit=n}}
       endp=[o.x+d.x*tn,o.y+d.y*tn,o.z+d.z*tn];
+      if(!hit&&wc&&tn===wall&&!W.rocket&&wc.brk!==undefined){OutlawArena.hitCover(wc,dmgOf(wi));spark(endp[0],endp[1],endp[2],'#d8b45a');anyHit=true}
       if(W.rocket){aoe(endp,dmgOf(wi),W.rad||6);tracer(M.x,M.y,M.z,endp[0],endp[1],endp[2],'#ff9a2e');anyHit=true;continue}
       if(hit){const crit=Math.random()<.08+.05*SAVE.crit,dmg=Math.round(dmgOf(wi)*(crit?2:1));anyHit=true;if(crit)anyCrit=true;reportHit(hit.id,dmg);spark(endp[0],endp[1],endp[2]);
         if(p<3)popText(endp[0],endp[1]+.7,endp[2],(crit?'💥':'')+dmg,crit?'#ffd24a':'#fff',crit?1.25:1)}
@@ -263,13 +268,14 @@ const Outlaw=(()=>{
     const n={id:nid++,type,x,z,hp:hv,max:hv,dm:D.dmg*(1+wave*.03),r:0,st:'idle',cd:rnd(.5,1.5),react:T.react,t:0,ph:rnd(0,6),flank:Math.random()<.5?1:-1,mode:'advance',dec:0,pt:0,peek:0,tid:null,aim:0,seen:false,dead:0,
       raider:mode==='defend'&&(type<3||type===4||type===5)?Math.random()<.55:false};
     n.group=null;npcs.set(n.id,n);spawnVisual(n);n.group.position.set(x,H(x,z),z)}
-  function spawnPoint(){for(let i=0;i<20;i++){const a=Math.random()*6.283,x=C.x+Math.cos(a)*62,z=C.z+Math.sin(a)*62;if(H(x,z)>1)return [x,z]}return [C.x+30,C.z]}
+  function spawnPoint(type){if(type!==undefined)return OutlawArena.front(type);for(let i=0;i<20;i++){const a=Math.random()*6.283,x=C.x+Math.cos(a)*62,z=C.z+Math.sin(a)*62;if(H(x,z)>1)return [x,z]}return [C.x+30,C.z]}
   function startWave(){
     wave++;const D=DIFF[diff],q=[],boss=wave%3===0;
     if(boss)q.push(wave%6===3?3:7);
     const pool=[0,0];if(wave>=2)pool.push(1,5);if(wave>=3)pool.push(0,5);if(wave>=4)pool.push(2,4);if(wave>=5)pool.push(4,1,6);if(wave>=7)pool.push(2,5,6);
     const n=Math.round(Math.min(2+wave*1.9,22)*D.cnt);for(let i=0;i<n;i++)q.push(pool[Math.random()*pool.length|0]);
     queue=q;banner('Wave '+wave+(boss?' · BOSS!':''),'OUTLAW TOWN');sfx('horn');send({k:'wv',n:wave});
+    {const fr=OutlawArena.pickFronts(wave);OutlawArena.setFronts(fr,true);send({k:'fr',f:fr});OutlawArena.reset();send({k:'rs'})} // raiders come from 1-3 of the island's fronts; cover grows back
   }
   function pickCover(n,t){
     let b=null,bs=1e9;
@@ -287,7 +293,7 @@ const Outlaw=(()=>{
   function dynTick(dt){
     for(let i=dyn.length-1;i>=0;i--){const e=dyn[i],p=e.p,u=Math.min(1,e.t/e.fuse);e.t+=dt;
       e.m.position.set(p.x0+(p.x1-p.x0)*u,H(p.x0,p.z0)+1.4+Math.sin(u*Math.PI)*6*(1-u*.3)-1.2*u,p.z0+(p.z1-p.z0)*u);e.m.rotation.x+=dt*12;e.r.material.opacity=.35+.3*Math.sin(e.t*14);
-      if(e.t>=e.fuse){scene.remove(e.m);scene.remove(e.r);dyn.splice(i,1);boom(p.x1,p.z1,5);
+      if(e.t>=e.fuse){scene.remove(e.m);scene.remove(e.r);dyn.splice(i,1);boom(p.x1,p.z1,5);if(isHost())OutlawArena.blast(p.x1,p.z1,5,p.d*2);
         const dd=Math.hypot(S.x-p.x1,S.z-p.z1);if(!down&&dd<5.2)hurt(Math.max(1,Math.round(p.d*(1-dd/6.5))),p.x1,p.z1);
         if(isHost()&&mode==='defend'&&Math.hypot(bank.x-p.x1,bank.z-p.z1)<9)bank.hp=Math.max(0,bank.hp-p.d*2)}}}
   function enemyShoot(n,t,d,T){
@@ -347,16 +353,18 @@ const Outlaw=(()=>{
     }
     // separation from other NPCs
     for(const o of npcs.values()){if(o===n||o.dead)continue;const ox=n.x-o.x,oz=n.z-o.z,od=Math.hypot(ox,oz);if(od<2.6&&od>.01){mx+=ox/od*.8;mz+=oz/od*.8}}
+    if(d>70)sp*=1+Math.min(1,(d-70)/90)*.9; // raiders hurry across the island
     const ml=Math.hypot(mx,mz)||1;n.x+=mx/ml*sp*dt;n.z+=mz/ml*sp*dt;
     for(const c of solids){const ox=n.x-c.x,oz=n.z-c.z;if(Math.abs(ox)>c.r+1||Math.abs(oz)>c.r+1)continue;const od=Math.hypot(ox,oz),m=c.r+.45;if(od<m&&od>.001){n.x=c.x+ox/od*m;n.z=c.z+oz/od*m}}
-    const lr=Math.hypot(n.x-C.x,n.z-C.z);if(lr>90){n.x=C.x+(n.x-C.x)/lr*90;n.z=C.z+(n.z-C.z)/lr*90}
+    const lr=Math.hypot(n.x-C.x,n.z-C.z);if(lr>195){n.x=C.x+(n.x-C.x)/lr*195;n.z=C.z+(n.z-C.z)/lr*195}
+    if(H(n.x,n.z)<.3){n.x+=(C.x-n.x)/lr*1.5;n.z+=(C.z-n.z)/lr*1.5} // stay on land (the arena is the whole island now)
     n.r=Math.atan2(ux,uz);if(sp===0&&n.st==='run')n.st='idle';
   }
   function hostTick(dt){
     const pl=players();
     for(const n of npcs.values())if(!n.dead)think(n,dt,pl);
     spawnT-=dt;const live=[...npcs.values()].filter(n=>!n.dead).length;
-    if(queue.length&&spawnT<=0&&live<8+diff*3){spawnT=1.1;const [x,z]=spawnPoint();addNpc(queue.shift(),x,z)}
+    if(queue.length&&spawnT<=0&&live<8+diff*3){spawnT=1.1;const ty=queue.shift(),[x,z]=spawnPoint(ty);addNpc(ty,x,z)}
     if(!queue.length&&live===0){if(nextWave===0){nextWave=clock+4500;if(wave>0){const c=Math.round((40+wave*12)*DIFF[diff].coin);send({k:'wc',c});earn(c);banner('Wave '+wave+' cleared! +'+c+' 🪙','OUTLAW TOWN');
         if(mode==='defend'){bank.hp=Math.min(bank.max,bank.hp+bank.max*.15);if(wave>=8){const w={k:'win',c:Math.round(400*DIFF[diff].coin)};send(w);onMsg(w);return}}}}
       else if(clock>nextWave){nextWave=0;best=Math.max(best,wave);try{localStorage.setItem('w4ow',best)}catch(e){}startWave()}}
@@ -365,11 +373,12 @@ const Outlaw=(()=>{
     else if(!wiped){wiped=true; // everyone down: reset the current wave
       for(const n of npcs.values())n.dead=1;queue=[];wave=Math.max(0,wave-1);nextWave=clock+6000;banner('Wiped out! Retrying…','OUTLAW TOWN');send({k:'wv',n:-1})}
     snapT-=dt;if(snapT<=0){snapT=.1;
-      send({k:'n',w:wave,kl:kills,bk:Math.round(bank.hp),a:[...npcs.values()].map(n=>[n.id,n.type,+n.x.toFixed(2),+n.z.toFixed(2),+n.r.toFixed(2),Math.round(n.hp),Math.round(n.max),n.st,n.dead])})}
+      send({k:'n',tr:OutlawArena.trainQ(),w:wave,kl:kills,bk:Math.round(bank.hp),a:[...npcs.values()].map(n=>[n.id,n.type,+n.x.toFixed(2),+n.z.toFixed(2),+n.r.toFixed(2),Math.round(n.hp),Math.round(n.max),n.st,n.dead])})}
   }
 
   // ---------- CLIENT: snapshot ----------
   function applySnap(p){
+    if(p.tr!==undefined)OutlawArena.trainSync(p.tr);
     wave=p.w;kills=p.kl;bank.hp=p.bk;const seen=new Set();
     for(const [id,type,x,z,r,h,mh,st,dead] of p.a){seen.add(id);let n=npcs.get(id);
       if(!n){n={id,type,x,z,r,hp:h,max:mh,st,dead:0,group:null};npcs.set(id,n);spawnVisual(n);n.group.position.set(x,H(x,z),z)}
@@ -459,9 +468,10 @@ const Outlaw=(()=>{
   }
 
   // ---------- messages ----------
-  function stopGame(){active=false;for(const n of npcs.values())removeVisual(n);npcs.clear();for(const d of drops)scene.remove(d.m);drops=[];for(const e of dyn){scene.remove(e.m);scene.remove(e.r)}dyn=[];updateHud()}
+  function stopGame(){active=false;OutlawArena.reset();for(const n of npcs.values())removeVisual(n);npcs.clear();for(const d of drops)scene.remove(d.m);drops=[];for(const e of dyn){scene.remove(e.m);scene.remove(e.r)}dyn=[];updateHud()}
   function onMsg(p){
     if(!p)return;
+    if(p.k==='cv'||p.k==='cb'||p.k==='fr'||p.k==='rs'){OutlawArena.onMsg(p);return}
     switch(p.k){
       case 'start':stopGame();active=true;host=p.host;mode=p.mode||'survive';diff=p.diff===undefined?1:p.diff;wave=0;kills=0;queue=[];nextWave=0;hp=maxHp();down=false;ammo=[];reloading=false;bank.max=bank.hp=1500;
         banner((mode==='defend'?'Defend the bank! ':'')+DIFF[diff].n+' · '+(isHost()?'you are hosting':'get ready'),'SHOWDOWN');if(isHost())nextWave=clock+3000;updateHud();break;
@@ -485,7 +495,7 @@ const Outlaw=(()=>{
   }
 
   function tick(dt,t){
-    if(!C||!me)return;ui();clock+=dt*1000;
+    if(!C||!me)return;ui();clock+=dt*1000;OutlawArena.tick(dt);
     prev.vx=(S.x-prev.x)/Math.max(dt,.001);prev.vz=(S.z-prev.z)/Math.max(dt,.001);prev.x=S.x;prev.z=S.z;
     const p=partner();if(p){const g=p[1].group.position;pprev.vx=(g.x-pprev.x)/Math.max(dt,.001);pprev.vz=(g.z-pprev.z)/Math.max(dt,.001);pprev.x=g.x;pprev.z=g.z;if(p[1].group.userData.gunI!==pw)setGun(p[1].group,pw)}
     if(clock-lastH>100){lastH=clock;for(const id in hitBuf){send({k:'h',id:+id,d:hitBuf[id]});delete hitBuf[id]}}

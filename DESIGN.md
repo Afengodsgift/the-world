@@ -61,6 +61,14 @@ basin in `H()`) · Palm Atoll: speed/time, ghost replays · Far Reef: marine san
 Storm Cay: wind (`S.kx/kz`) + lightning rods · Boneyard: relics, ghost bandits, vault ·
 Outlaw Isle: stays specialized · Sky: wind currents, cloud platforms · Main: town restoration, cave hub.
 
+## Outlaw arena (whole-island battlefield)
+- `src/games/OutlawArena.js` (built by `Outlaw.build()`): the whole of Outlaw Isle is the arena, not just the 46 m town. Relief in `H()` (Lookout Ridge west ~13 m, Mine Mesa east ~9 m), desert ground colour, no vegetation within `OUT.clear` (175 m).
+- Zones: Old Mine, Lookout Ridge (watchtower), Dry Gulch Ranch (barn, corral, windmill), a railroad along the north with a shuttling train (5 units, each 2 moving cover circles; standing on the tracks as it passes hurts), cacti + tumbleweeds. Four new named discoveries.
+- Breakable cover (crates, hay, barrels) has HP and is real cover (bullets, NPC cover logic); red barrels explode and chain; everything grows back at each wave start. Bullets/rockets/dynamite damage it.
+- Fronts: each wave the raiders come from 1 (waves 1-2), 2 (3-5) or 3 (6+) of five spawn points; snipers prefer the ridge; raiders sprint when far. NPC roaming limit is 195 m and land-checked.
+- Net: layout is a fixed seed (identical everywhere, so breakable ids match). Events on the existing `og` channel: `cv` client damage -> host, `cb` break (host -> all), `fr` fronts, `rs` regrow. The train follows the wall clock and is re-synced to the host's phase (`tr` in the 10 Hz snapshot).
+- Tests: `tests/outlaw_arena.sim.js` (relief, break/regrow host + client, chain, train, fronts). Slices still to do: shooting feel, wave variety (train robbery, stagecoach escort, jailbreak); a mounted gatling is a candidate obstacle.
+
 ## Roadmap
 0 Net adapter ✔ · 1 WorldState + Journal ✔ · 2 Verbs v1 ✔ (cave interior still open) ·
 3 Link ✔ (twin plates, synced shrine; lockpick+lookout later) · 4 Event Director ✔ (meteor, visitor, golden rings; shark surge later) · 5 Zones (Storm Cay wind, Frost friction first) · 6 Home v1 (trophy shelf, aquarium) ·
