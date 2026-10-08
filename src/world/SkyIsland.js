@@ -18,7 +18,7 @@ function SKYH(dx,dz){const d=Math.hypot(dx,dz);return d<=skyRim(Math.atan2(dz,dx
 function SKYG(dx,dz){ // ground you can stand on: the main island, the satellite, or nothing (step off the edge and you fall)
   const d=Math.hypot(dx,dz);if(d<=skyRim(Math.atan2(dz,dx))-.2)return skyTop(dx,dz);
   const c=satCentre(),ex=dx-c.x,ez=dz-c.z;if(Math.hypot(ex,ez)<=skyRim2(Math.atan2(ez,ex))-.2)return skyTop2(ex,ez);return -Infinity}
-const skyAnim={floaters:[],smoke:[],glow:[],flames:[],falls:[],bob:[],recv:[],tier:0,slow:0,fast:0,lastT:0,mul:1};
+const skyAnim={roofs:[],floaters:[],smoke:[],glow:[],flames:[],falls:[],bob:[],recv:[],tier:0,slow:0,fast:0,lastT:0,mul:1};
 function _hash3(x,y,z){const s=Math.sin(x*127.1+y*311.7+z*74.7)*43758.5453;return s-Math.floor(s)}
 function _noise3(x,y,z){const xi=Math.floor(x),yi=Math.floor(y),zi=Math.floor(z),xf=x-xi,yf=y-yi,zf=z-zi,u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf),w=zf*zf*(3-2*zf),L=(a,b,t)=>a+(b-a)*t;
   return L(L(L(_hash3(xi,yi,zi),_hash3(xi+1,yi,zi),u),L(_hash3(xi,yi+1,zi),_hash3(xi+1,yi+1,zi),u),v),L(L(_hash3(xi,yi,zi+1),_hash3(xi+1,yi,zi+1),u),L(_hash3(xi,yi+1,zi+1),_hash3(xi+1,yi+1,zi+1),u),v),w)}
@@ -62,8 +62,8 @@ function _cscatter(name,th,pl,cls){
       im.frustumCulled=false;im.castShadow=false;im.receiveShadow=false;im.visible=false;scene.add(im);_chunks.push({im,x:cx,y:sy/list.length+th*.5,z:cz,r:rad,lim:SKY_LIM[cls]||200})})});
   return {w:Math.max(bx.max.x-bx.min.x,bx.max.z-bx.min.z)*k}}
 const _clsOf=nm=>/Tree|Pine/.test(nm)?'tree':/Bush/.test(nm)?'bush':/Rock/.test(nm)?'rock':/Flower|Mushroom/.test(nm)?'flower':'grass';
-function _bake(g){ // merge every mesh under g (world-space) into one mesh per material, then drop g
-  g.updateMatrixWorld(true);const by=new Map(),nm=new THREE.Matrix3(),v=new THREE.Vector3();
+function _bake(g){ // merge every mesh under g (world-space) into one mesh per material, then drop g; returns the merged meshes
+  g.updateMatrixWorld(true);const made=[];const by=new Map(),nm=new THREE.Matrix3(),v=new THREE.Vector3();
   g.traverse(o=>{if(o.isMesh&&!o.isInstancedMesh&&o.geometry){const k=o.material.isMeshStandardMaterial?_lam(o.material):o.material;if(!by.has(k))by.set(k,[]);by.get(k).push(o)}});
   by.forEach((meshes,mat)=>{let nv=0,ni=0;for(const m of meshes){nv+=m.geometry.attributes.position.count;ni+=m.geometry.index?m.geometry.index.count:m.geometry.attributes.position.count}
     const pos=new Float32Array(nv*3),nor=new Float32Array(nv*3),uv=new Float32Array(nv*2),colA=meshes.some(m=>m.geometry.attributes.color)?new Float32Array(nv*3).fill(1):null,idx=nv>65535?new Uint32Array(ni):new Uint16Array(ni);let vo=0,io=0;
@@ -73,8 +73,8 @@ function _bake(g){ // merge every mesh under g (world-space) into one mesh per m
         if(U){uv[(vo+i)*2]=U.getX(i);uv[(vo+i)*2+1]=U.getY(i)}if(C&&colA){colA[o]=C.getX(i);colA[o+1]=C.getY(i);colA[o+2]=C.getZ(i)}}
       if(G.index)for(let i=0;i<G.index.count;i++)idx[io++]=G.index.getX(i)+vo;else for(let i=0;i<P.count;i++)idx[io++]=vo+i;vo+=P.count}
     const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('normal',new THREE.BufferAttribute(nor,3));geo.setAttribute('uv',new THREE.BufferAttribute(uv,2));if(colA)geo.setAttribute('color',new THREE.BufferAttribute(colA,3));
-    geo.setIndex(new THREE.BufferAttribute(idx,1));geo.computeBoundingSphere();const mesh=new THREE.Mesh(geo,mat);mesh.castShadow=true;mesh.receiveShadow=true;scene.add(mesh)});
-  if(g.parent)g.parent.remove(g)}
+    geo.setIndex(new THREE.BufferAttribute(idx,1));geo.computeBoundingSphere();const mesh=new THREE.Mesh(geo,mat);mesh.castShadow=true;mesh.receiveShadow=true;scene.add(mesh);made.push(mesh)});
+  if(g.parent)g.parent.remove(g);return made}
 function _updateChunks(){ // called every frame while the island is within range
   if(typeof camera==='undefined')return;const cp=camera.position,f=_cdir||(_cdir=new THREE.Vector3());camera.getWorldDirection(f);
   const half=Math.atan(Math.tan(camera.fov*Math.PI/360)*Math.max(1,camera.aspect||1))+.12,cs=Math.cos(Math.min(half,2.2)); // widest half-angle of the view (portrait phones: the vertical one) + a margin
@@ -114,19 +114,47 @@ function buildSkyIsland(){
   // ---- cottages from the village kit ----
   const COT_S=1.35,mossRoof=new THREE.MeshLambertMaterial({color:'#6f9d3a',flatShading:true});
   function cottage(par,cx,cz,y,ry,W2,D2,o){ // W2 x D2 wall modules (2 m each, drawn at COT_S x); front (door) faces +z locally
-    const g=new THREE.Group();g.position.set(cx,y,cz);g.rotation.y=ry;par.add(g);const hw=W2,hd=D2,WH=3.12;
-    const P=(n,x,yy,z,rot,s)=>place(g,n,x*COT_S,yy*COT_S,z*COT_S,rot,(s||1)*COT_S);
+    const g=new THREE.Group();g.position.set(cx,y,cz);g.rotation.y=ry;par.add(g);const rg=new THREE.Group();rg.position.copy(g.position);rg.rotation.y=ry;par.add(rg);const hw=W2,hd=D2,WH=3.12;
+    const P=(n,x,yy,z,rot,s)=>place(g,n,x*COT_S,yy*COT_S,z*COT_S,rot,(s||1)*COT_S),PR=(n,x,yy,z,rot,s)=>place(rg,n,x*COT_S,yy*COT_S,z*COT_S,rot,(s||1)*COT_S);
     for(let i=0;i<W2;i++){const x=-hw+1+2*i;P(i===(W2>>1)?'Wall_Plaster_Door_Round':'Wall_Plaster_Window_Wide_Round',x,0,hd,0);P(i===(W2>>1)?'Wall_Plaster_Window_Thin_Round':'Wall_Plaster_Straight',x,0,-hd,Math.PI)}
     for(let j=0;j<D2;j++){const z=-hd+1+2*j;P(j===1?'Wall_Plaster_Window_Thin_Round':'Wall_Plaster_Straight',hw,0,z,Math.PI/2);P(j===D2-2?'Wall_Plaster_Window_Wide_Round':'Wall_Plaster_Straight',-hw,0,z,-Math.PI/2)}
     for(const [x,z] of [[hw,hd],[-hw,hd],[hw,-hd],[-hw,-hd]])P('Corner_Exterior_Wood',x,0,z,0);
-    const roof=P(W2===3?'Roof_RoundTiles_6x8':'Roof_RoundTiles_4x6',0,WH,0,0);if(roof&&o.moss)roof.traverse(c=>{if(c.isMesh)c.material=mossRoof});
-    P(W2===3?'Roof_Front_Brick6':'Roof_Front_Brick4',0,WH,hd,0);P(W2===3?'Roof_Front_Brick6':'Roof_Front_Brick4',0,WH,-hd,Math.PI);
-    P('Prop_Chimney',-hw*.42,WH+1.7,-hd*.25,0);
+    const roof=PR(W2===3?'Roof_RoundTiles_6x8':'Roof_RoundTiles_4x6',0,WH,0,0);if(roof&&o.moss)roof.traverse(c=>{if(c.isMesh)c.material=mossRoof});
+    PR(W2===3?'Roof_Front_Brick6':'Roof_Front_Brick4',0,WH,hd,0);PR(W2===3?'Roof_Front_Brick6':'Roof_Front_Brick4',0,WH,-hd,Math.PI);
+    PR('Prop_Chimney',-hw*.42,WH+1.7,-hd*.25,0);
     P('Floor_Brick',0,.03,hd+1.4,0);P('Floor_Brick',0,.03,hd+3.4,0);
-    _bake(g);return g}
+    if(o.walk){ // a furnished, walk-in interior: wood floor, hearth, bed, table + stools, bookshelf, rug (the roof hides while you are inside)
+      for(let i=0;i<W2;i++)for(let j=0;j<D2;j++)P('Floor_WoodDark',-hw+1+2*i,.04,-hd+1+2*j,0);
+      const bx=(w,h,d,x,yy,z,col,par2)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),stdM(col));m.position.set(x,yy,z);(par2||g).add(m);return m},cyl=(rt,rb,h,x,yy,z,col,seg)=>{const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg||14),stdM(col));m.position.set(x,yy,z);g.add(m);return m};
+      const wood='#8a5a2e',dark='#5b3b22',stone='#9d948b';
+      // hearth against the west wall
+      bx(1.2,1.5,2.4,-3.45,.75,-1.6,stone);bx(1.5,.16,2.7,-3.4,1.58,-1.6,dark);bx(.12,.85,1.2,-2.84,.5,-1.6,'#2a2420');bx(.7,.3,1.2,-2.3,.15,-1.6,'#7d756b');
+      // bed in the back-east corner
+      bx(2.1,.45,3.3,2.7,.22,-3.6,wood);bx(1.9,.3,3.05,2.7,.6,-3.6,'#f1e6cf');bx(1.9,.12,1.7,2.7,.82,-3.05,'#3f8fa3');bx(1.2,.2,.6,2.7,.85,-4.9,'#ffffff');bx(.14,1.1,3.4,1.72,.55,-3.6,dark);bx(2.1,1.3,.14,2.7,.65,-5.32,dark);
+      // bookshelf on the back wall
+      bx(3.1,2.4,.5,-.4,1.2,-5.1,wood);for(const yy of [.55,1.15,1.75]){bx(2.8,.06,.46,-.4,yy-.3,-5.05,dark);const cols=['#c0392b','#2e86c1','#27ae60','#d4ac0d','#8e44ad','#ecf0f1','#e67e22'];for(let k=0;k<13;k++){const h=.42+((k*7)%3)*.07,m=bx(.17,h,.34,-1.65+k*.2,yy-.3+h/2+.03,-5.0,cols[(k*5+Math.round(yy*10))%7]);m.rotation.z=(k%5===0?.12:0)}}
+      // round table, stools, lamp, bowl
+      cyl(.85,.85,.1,-1.2,.86,2.0,wood,20);cyl(.12,.16,.82,-1.2,.42,2.0,dark,8);for(let k=0;k<3;k++){const a=k*2.1+.4;cyl(.3,.3,.5,-1.2+Math.cos(a)*1.45,.25,2.0+Math.sin(a)*1.45,wood,10)}
+      cyl(.2,.17,.2,-1.0,.98,1.8,'#c9b98a',10);const lampM=new THREE.MeshLambertMaterial({color:'#fff2c0',emissive:'#ffcf70',emissiveIntensity:.35});skyAnim.glow.push({mat:lampM,k:1.4,base:.35});const lamp=new THREE.Mesh(new THREE.IcosahedronGeometry(.16,0),lampM);lamp.position.set(-1.4,1.05,2.2);g.add(lamp);
+      // rug + plants + crates
+      cyl(2.0,2.0,.02,.3,.07,.6,'#b5473a',28);cyl(1.4,1.4,.02,.3,.085,.6,'#e8c26b',28);cyl(.5,.5,.02,.3,.1,.6,'#b5473a',16);
+      cyl(.38,.28,.55,3.4,.28,4.2,'#b4663a',10);const bush=new THREE.Mesh(new THREE.IcosahedronGeometry(.62,0),stdM('#4fa83a'));bush.position.set(3.4,.95,4.2);g.add(bush);
+      place(g,'Prop_Crate',3.45,.55,2.2,.2,1);place(g,'Prop_Crate',3.4,1.65,2.25,.5,.9);
+      // collision: perimeter walls (with the door gap), furniture; solids need h so the camera also respects them (it ignores thin / low circles)
+      const hwm=hw*COT_S,hdm=hd*COT_S,top=y+9,cs=Math.cos(ry),sn=Math.sin(ry),W=(lx,lz)=>({x:cx+lx*cs+lz*sn,z:cz-lx*sn+lz*cs});
+      const wall=(lx,lz)=>{const p=W(lx,lz);solids.push({x:p.x,z:p.z,r:1.2,h:top})};
+      for(let x=-hwm;x<=hwm+.01;x+=2.2){wall(x,-hdm);if(Math.abs(x)>2.6)wall(x,hdm)}for(let z=-hdm+2.2;z<hdm-1;z+=2.2){wall(-hwm,z);wall(hwm,z)}
+      const fur=(lx,lz,rr,h)=>{const p=W(lx,lz);solids.push({x:p.x,z:p.z,r:rr,h:y+h})};
+      fur(-3.2,-1.6,1.1,1.5);fur(-3.2,-.5,.9,1.5);fur(-3.2,-2.7,.9,1.5);fur(-1.2,2.0,.95,.9);fur(-.4,-4.8,1.0,2.3);fur(-1.5,-4.8,.9,2.3);fur(.7,-4.8,.9,2.3);fur(3.4,4.2,.5,1.0);fur(3.4,2.2,.7,2.3);
+      // the bed top is walkable (h = mattress top): the Lie down interaction puts you on it
+      for(const dz of [-4.6,-3.6,-2.6]){const p=W(2.7,dz);solids.push({x:p.x,z:p.z,r:.8,h:y+.9})}
+      const bedP=W(2.7,-3.6),hearthP=W(-2.5,-1.6),fl=new THREE.Mesh(new THREE.ConeGeometry(.28,.8,6),new THREE.MeshBasicMaterial({color:'#ffb030',transparent:true,opacity:.9}));const fp=W(-2.9,-1.6);fl.position.set(fp.x,y+.65,fp.z);scene.add(fl);skyAnim.flames.push({m:fl});
+      skyAnim.cozy={bed:bedP,hearth:hearthP,y,cx,cz,hwm,hdm};
+    }
+    const made=_bake(g),roofs=_bake(rg);if(o.walk)skyAnim.roofs.push({meshes:roofs,cx,cz,hw:hw*COT_S,hd:hd*COT_S,y,inside:false});
+    return g}
   const cy=skyTop(HX,HZ);
-  cottage(scene,SKY.x+HX,SKY.z+HZ,cy,0,3,4,{moss:true});
-  for(const dz of [-4.4,0,4.4])solids.push({x:SKY.x+HX,z:SKY.z+HZ+dz,r:5.8});
+  cottage(scene,SKY.x+HX,SKY.z+HZ,cy,0,3,4,{moss:true,walk:true});
   {const smokeM=new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.5,depthWrite:false});
    for(let i=0;i<8;i++){const m=new THREE.Mesh(new THREE.IcosahedronGeometry(.6,0),smokeM.clone());scene.add(m);skyAnim.smoke.push({m,age:i*.65,x:SKY.x+HX-3*.42*COT_S,y:cy+(3.12+1.7+3.2)*COT_S+.4,z:SKY.z+HZ-4*.25*COT_S})}}
   for(const [bx,bz,ry,W2,D2,moss] of [[HX-40,HZ+8,.5,2,3,false],[HX+44,HZ+26,-.45,2,3,false],[HX-22,HZ-34,.2,3,3,true]]){const by=skyTop(bx,bz),cs=Math.cos(ry),sn=Math.sin(ry);cottage(scene,SKY.x+bx,SKY.z+bz,by,ry,W2,D2,{moss});for(let k=-1;k<=1;k++)solids.push({x:SKY.x+bx+sn*k*D2*COT_S*.8,z:SKY.z+bz+cs*k*D2*COT_S*.8,r:W2*COT_S*1.15})}
@@ -237,6 +265,10 @@ function buildSkyIsland(){
    for(let k=0;k<300&&spots.length<8;k++){const a=r()*TAU,rr=R*(.2+r()*.65),x=Math.cos(a)*rr,z=Math.sin(a)*rr;if(!noRim(x,z,10)||!free(x,z,{hub:26}))continue;spots.push([SKY.x+x,SKY.z+z,skyTop(x,z)+1.5])}
    for(const [dx,dz] of [[-14,6],[12,10]])spots.push([cx2+dx,cz2+dz,skyTop2(dx,dz)+1.5]);
    for(const [x,z,y] of spots){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.55),shard);m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}}
+  // cosy-cottage interactions: lie on the bed, sit by the fire (uses the emote system)
+  if(typeof Interaction!=='undefined'&&skyAnim.cozy){const z=skyAnim.cozy,inside=()=>Math.abs(S.x-z.cx)<z.hwm+1&&Math.abs(S.z-z.cz)<z.hdm+1&&S.y<z.y+6&&S.y>z.y-5,emo=id=>{loadEmotes().then(()=>playEmote(id)).catch(()=>{})};
+    Interaction.register('cozy-bed','Lie down',()=>!S.flying&&inside()&&S.y<z.y+.5&&Math.hypot(S.x-z.bed.x,S.z-z.bed.z)<3.6,()=>{S.x=z.bed.x;S.z=z.bed.z;S.y=z.y+.95;S.vy=0;S.kx=0;S.kz=0;S.rot=Math.PI;setTimeout(()=>emo('lie'),180)});
+    Interaction.register('cozy-fire','Warm up by the fire',()=>!S.flying&&inside()&&S.y<z.y+.5&&Math.hypot(S.x-z.hearth.x,S.z-z.hearth.z)<3.4,()=>{S.rot=-Math.PI/2;emo('sit')})}
   skyAnim.objs=scene.children.slice(n0).filter(o=>!orbs.some(b=>b.m===o)&&!_chunks.some(c=>c.im===o)); // everything except the collectible shards; hidden while you are far away (see skyTick)
 }
 // Adaptive island quality: if the frame time stays high while you are on/near the island, step down (shorter draw distances, then no grass/flowers, fewer clouds,
@@ -252,6 +284,8 @@ function skyTick(t){
     if(vis!==skyAnim.vis){skyAnim.vis=vis;for(const o of skyAnim.objs)o.visible=vis;if(!vis)for(const c of _chunks)c.im.visible=false}
     if(skyAnim.vis){_adapt(t);_updateChunks()}}
   for(const f of skyAnim.floaters){f.m.position.y=f.y0+Math.sin(s*f.sp+f.ph)*f.amp;f.m.rotation.y+=f.rs*.016}
+  if(typeof S!=='undefined')for(const rf of skyAnim.roofs){const dx=Math.abs(S.x-rf.cx),dz=Math.abs(S.z-rf.cz),ins=dx<rf.hw+(rf.inside?1.8:.2)&&dz<rf.hd+(rf.inside?1.8:.2)&&S.y<rf.y+8&&S.y>rf.y-6;if(ins!==rf.inside){rf.inside=ins;for(const m of rf.meshes)m.visible=!ins}} // the roof lifts off while you are inside
+  { const nt=(typeof Env!=='undefined'&&Env.state)?1-Env.state.dayF:0;for(const g of skyAnim.glow)g.mat.emissiveIntensity=(g.base||0)+nt*g.k }
   for(const b of skyAnim.bob)b.g.position.y=b.y0+Math.sin(s*b.sp+b.ph)*b.amp;
   for(const p of skyAnim.smoke){p.age=(p.age+.016)%5.2;const u=p.age/5.2;p.m.position.set(p.x+u*3.4+Math.sin(s+p.age)*.28,p.y+u*10,p.z+Math.cos(s*.7+p.age)*.22);p.m.scale.setScalar(.5+u*2.4);p.m.material.opacity=.5*(1-u)*(1-u)}
   for(const f of skyAnim.flames){f.m.scale.set(1+Math.sin(s*14)*.1,1+Math.sin(s*11+1)*.2,1+Math.cos(s*13)*.1);f.m.material.opacity=.75+Math.sin(s*17)*.15}

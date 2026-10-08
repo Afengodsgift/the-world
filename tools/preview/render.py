@@ -10,6 +10,8 @@ VIEWS={ # name: (cam, target, fov)  (offsets are relative to the island centre; 
  'village':((SKY[0]+46+10,SKY[1]+30,SKY[2]+60),(SKY[0]+46,SKY[1]+3,SKY[2]),55),
  'cottage':((SKY[0]+46+20,SKY[1]+9,SKY[2]-18+32),(SKY[0]+46,SKY[1]+3,SKY[2]-18),52),
  'bridge':((SKY[0]+190,SKY[1]+16,SKY[2]+60),(SKY[0]+260,SKY[1]-2,SKY[2]+120),58),
+ 'interior':((SKY[0]+46+1,SKY[1]+12.5,SKY[2]-18+13),(SKY[0]+46,SKY[1]+0.5,SKY[2]-18-1),58),
+ 'interior2':((SKY[0]+46-7,SKY[1]+6.5,SKY[2]-18+8.5),(SKY[0]+46+1.5,SKY[1]+0.8,SKY[2]-18-2),70),
  'ground':((SKY[0]+10,SKY[1]+3,SKY[2]+60),(SKY[0]+46,SKY[1]+6,SKY[2]-15),70),
 }
 night=len(sys.argv)>3 and sys.argv[3]=='night'
