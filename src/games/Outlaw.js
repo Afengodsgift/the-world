@@ -220,7 +220,7 @@ const Outlaw=(()=>{
     if(am(wi)<=0)reload();else updateHud();
   }
   // debug overlay for the hit zones: add ?hz=1 to the URL (or Outlaw._t().dbgZones(true)); rebuilt every frame, so only ever used while tuning
-  let dbgOn=/[?&]hz=1/.test(location.search),dbgG=null;const dbgMat=new THREE.MeshBasicMaterial({color:'#ff3b30',wireframe:true,depthTest:false,transparent:true,opacity:.75});
+  let dbgOn=typeof location!=='undefined'&&/[?&]hz=1/.test(location.search),dbgG=null;const dbgMat=new THREE.MeshBasicMaterial({color:'#ff3b30',wireframe:true,depthTest:false,transparent:true,opacity:.75});
   function zoneDebug(){
     if(!dbgG){dbgG=new THREE.Group();dbgG.renderOrder=999;scene.add(dbgG)}
     while(dbgG.children.length){const m=dbgG.children[0];dbgG.remove(m);m.geometry.dispose()}
