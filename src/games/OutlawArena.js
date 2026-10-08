@@ -16,12 +16,12 @@ const OutlawArena=(()=>{
   const M={crate:mat('#a9803f'),barrel:mat('#7a4a22'),xbarrel:mat('#b0261c',{emissive:'#4a0a06',emissiveIntensity:.5}),stripe:mat('#f2e6c8'),hay:mat('#d8b45a'),
     rock:mat('#8d7a66'),rock2:mat('#a08a70'),wood:mat('#6b4a2a'),dark:mat('#1d1610'),metal:mat('#4a4a52'),train:mat('#3b3f48'),red:mat('#8a2a22'),cargo:mat('#7a5a34'),
     roof:mat('#5a3a1e'),barn:mat('#8c3a2a'),white:mat('#e9e2d0'),ore:mat('#3d3a3a'),rail:mat('#6a6a72'),tie:mat('#4a3520'),cactus:mat('#4f7f3a')};
-  const KIND={crate:{hp:45,r:.95,drop:.22},barrel:{hp:35,r:.7,drop:.1},xbarrel:{hp:28,r:.75,drop:0},hay:{hp:90,r:1.5,drop:.12}};
+  const KIND={crate:{hp:45,r:.95,h:1.3,drop:.22},barrel:{hp:35,r:.7,h:1.2,drop:.1},xbarrel:{hp:28,r:.75,h:1.2,drop:0},hay:{hp:90,r:1.5,h:1.7,drop:.12}};
   const gy=(x,z)=>H(x,z);
   const add=m=>{m.castShadow=m.receiveShadow=true;G.add(m);return m};
   const box=(w,h,d,m,x,y,z,ry)=>{const o=add(new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m));o.position.set(x,y,z);if(ry)o.rotation.y=ry;return o};
   const cyl=(r0,r1,h,m,x,y,z,seg)=>{const o=add(new THREE.Mesh(new THREE.CylinderGeometry(r0,r1,h,seg||10),m));o.position.set(x,y,z);return o};
-  const cov=(x,z,r)=>{const c={x,z,r};X.solids.push(c);X.cover.push(c);return c};
+  const cov=(x,z,r,h)=>{const c={x,z,r,y:gy(x,z),h};X.solids.push(c);X.cover.push(c);return c}; // h = cover height (undefined = unlimited): bullets pass over low cover
   const rm=(arr,c)=>{const i=arr.indexOf(c);if(i>=0)arr.splice(i,1)};
   const land=(x,z,min)=>gy(x,z)>(min===undefined?.8:min);
 
@@ -31,7 +31,7 @@ const OutlawArena=(()=>{
     if(kind==='crate'){m=box(1.4,1.3,1.4,M.crate,x,y+.65,z,R()*3)}
     else if(kind==='hay'){m=cyl(1.3,1.3,1.7,M.hay,x,y+.85,z,12);const t=add(new THREE.Mesh(new THREE.ConeGeometry(1.2,.7,12),M.hay));t.position.y=1.2;m.add(t);m.rotation.y=R()*3}
     else{m=cyl(.55,.55,1.2,kind==='xbarrel'?M.xbarrel:M.barrel,x,y+.6,z,10);if(kind==='xbarrel'){const s=add(new THREE.Mesh(new THREE.CylinderGeometry(.57,.57,.22,10),M.stripe));s.position.y=.1;m.add(s)}}
-    const c=cov(x,z,K.r),b={id,kind,hp:K.hp,max:K.hp,m,c,x,z,dead:false};c.brk=id;brk.push(b);return b}
+    const c=cov(x,z,K.r,K.h),b={id,kind,hp:K.hp,max:K.hp,m,c,x,z,dead:false};c.brk=id;brk.push(b);return b}
   function damageBrk(id,d){
     const b=brk[id];if(!b||b.dead)return;b.hp-=d;b.m.scale.setScalar(.94+.06*Math.max(0,b.hp/b.max));
     if(b.hp<=0){X.send({k:'cb',i:id});applyBreak(b)}}
@@ -52,7 +52,7 @@ const OutlawArena=(()=>{
   function reset(){for(const b of brk){b.hp=b.max;b.m.scale.setScalar(1);if(b.dead){b.dead=false;G.add(b.m);X.cover.push(b.c);X.solids.push(b.c)}}}
 
   // ---------- decor helpers ----------
-  function boulder(x,z,r){const m=add(new THREE.Mesh(new THREE.DodecahedronGeometry(r,0),R()<.5?M.rock:M.rock2));m.scale.set(1,.7+R()*.3,1);m.position.set(x,gy(x,z)+r*.4,z);m.rotation.set(R()*3,R()*3,R()*3);cov(x,z,r*.9)}
+  function boulder(x,z,r){const m=add(new THREE.Mesh(new THREE.DodecahedronGeometry(r,0),R()<.5?M.rock:M.rock2));m.scale.set(1,.7+R()*.3,1);m.position.set(x,gy(x,z)+r*.4,z);m.rotation.set(R()*3,R()*3,R()*3);cov(x,z,r*.9,r*1.2)}
   function ring(cx,cz,rad,n,rmin,rmax,a0){for(let i=0;i<n;i++){const a=(a0||0)+i/n*6.283+R()*.3,rr=rad+R()*4-2,x=cx+Math.cos(a)*rr,z=cz+Math.sin(a)*rr;if(land(x,z,.3))boulder(x,z,rmin+R()*(rmax-rmin))}}
   function scatterBrk(cx,cz,list,rmin,rmax){for(const k of list){for(let i=0;i<30;i++){const a=R()*6.283,rr=rmin+R()*(rmax-rmin),x=cx+Math.cos(a)*rr,z=cz+Math.sin(a)*rr;if(land(x,z,.8)){addBrk(k,x,z);break}}}}
   function railStub(ox,oz,yaw,len){ // a short straight rail line (mine tracks), local +z along the line
@@ -65,10 +65,10 @@ const OutlawArena=(()=>{
     const g=new THREE.Group();g.position.set(ex,y,ez);g.rotation.y=yaw;G.add(g);
     const part=(w,h,d,m,x,yy,z)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,yy,z);o.castShadow=o.receiveShadow=true;g.add(o)};
     part(.55,4.2,.55,M.wood,-2.4,2.1,0);part(.55,4.2,.55,M.wood,2.4,2.1,0);part(5.8,.6,.7,M.wood,0,4.4,0);part(4.4,3.9,.3,M.dark,0,1.95,-.3);part(.4,1.2,.4,M.wood,-1.7,3.6,.2,0);
-    cov(ex-2.6*Math.sin(-yaw)*0,ez+2.6,.9);cov(ex,ez-2.6,.9);  // the two door posts block movement
+    cov(ex,ez+2.6,.9,4.4);cov(ex,ez-2.6,.9,4.4);  // the two door posts block movement
     railStub(ex,ez,yaw,16);
-    for(let i=0;i<3;i++){const s=4+i*4,x=ex+Math.sin(yaw)*s,z=ez+Math.cos(yaw)*s;box(1.5,.8,1.1,M.metal,x,gy(x,z)+.75,z,yaw);cyl(.6,.1,.5,M.ore,x,gy(x,z)+1.3,z,6);cov(x,z,.95)}
-    for(const [dx,dz] of [[-8,8],[6,-10],[-2,15],[10,6]]){const x=cx+dx,z=cz+dz,o=add(new THREE.Mesh(new THREE.ConeGeometry(1.5,1.7,7),M.ore));o.position.set(x,gy(x,z)+.8,z);cov(x,z,1.3)}
+    for(let i=0;i<3;i++){const s=4+i*4,x=ex+Math.sin(yaw)*s,z=ez+Math.cos(yaw)*s;box(1.5,.8,1.1,M.metal,x,gy(x,z)+.75,z,yaw);cyl(.6,.1,.5,M.ore,x,gy(x,z)+1.3,z,6);cov(x,z,.95,1.5)}
+    for(const [dx,dz] of [[-8,8],[6,-10],[-2,15],[10,6]]){const x=cx+dx,z=cz+dz,o=add(new THREE.Mesh(new THREE.ConeGeometry(1.5,1.7,7),M.ore));o.position.set(x,gy(x,z)+.8,z);cov(x,z,1.3,1.7)}
     ring(cx,cz,23,9,1.6,2.6,.4);ring(cx,cz,10,4,1.3,1.9,1.1);
     scatterBrk(cx-14,cz,['crate','crate','crate','xbarrel','xbarrel','xbarrel'],3,9);scatterBrk(cx,cz,['crate','crate','crate','xbarrel','barrel','barrel'],4,16);
     LOCS.push({n:'The Old Mine',x:cx,z:cz,r:26})}
@@ -79,7 +79,7 @@ const OutlawArena=(()=>{
     for(const [dx,dz,w,d] of [[0,-2.7,5.6,.2],[0,2.7,5.6,.2],[-2.7,0,.2,5.6],[2.7,0,.2,5.6]])box(w,.9,d,M.wood,cx+dx,y+7.5,cz+dz);
     const rf=add(new THREE.Mesh(new THREE.ConeGeometry(4.4,2,4),M.roof));rf.position.set(cx,y+9.8,cz);rf.rotation.y=Math.PI/4;
     for(const [dx,dz] of [[-2.3,-2.3],[2.3,-2.3]])box(.18,9.5,.18,M.wood,cx+dx*.95,y+8.6,cz+dz*.95);
-    cov(cx,cz,2.9);
+    cov(cx,cz,2.9,7.2);
     ring(cx,cz,14,7,1.5,2.5,.2);ring(cx,cz,24,6,1.8,2.8,.9);
     scatterBrk(cx,cz,['crate','crate','crate','crate','crate','xbarrel','xbarrel','xbarrel','hay','hay'],5,20);
     LOCS.push({n:'Lookout Ridge',x:cx,z:cz,r:26})}
@@ -88,16 +88,16 @@ const OutlawArena=(()=>{
     box(13,6.4,9,M.barn,cx,y+3.2,cz);
     for(const s of [-1,1]){const r=box(8.4,.4,10,M.roof,cx+s*3.2,y+7.2,cz);r.rotation.z=-s*.55}
     box(3.2,4.4,.2,M.dark,cx,y+2.2,cz-4.6);
-    for(const dx of [-4.5,0,4.5])cov(cx+dx,cz,3.6);
+    for(const dx of [-4.5,0,4.5])cov(cx+dx,cz,3.6,6.4);
     const kx=cx-32,kz=cz-6,n=16;
     for(let i=0;i<n;i++){const a=i/n*6.283,x=kx+Math.cos(a)*11,z=kz+Math.sin(a)*11;if(i===3||i===4)continue;cyl(.13,.13,1.5,M.wood,x,gy(x,z)+.75,z,5)
       const b=(i+1)/n*6.283,x2=kx+Math.cos(b)*11,z2=kz+Math.sin(b)*11;if(i===2||i===3)continue;
       for(const h of [.55,1.1]){const o=box(Math.hypot(x2-x,z2-z),.1,.1,M.wood,(x+x2)/2,gy((x+x2)/2,(z+z2)/2)+h,(z+z2)/2);o.rotation.y=-Math.atan2(z2-z,x2-x)}}
-    for(const [dx,dz] of [[-35,8],[-27,10]]){box(3,.5,.9,M.wood,cx+dx,gy(cx+dx,cz+dz)+.45,cz+dz);cov(cx+dx,cz+dz,1.3)}
+    for(const [dx,dz] of [[-35,8],[-27,10]]){box(3,.5,.9,M.wood,cx+dx,gy(cx+dx,cz+dz)+.45,cz+dz);cov(cx+dx,cz+dz,1.3,.9)}
     const wx=cx+30,wz=cz-14,wy=gy(wx,wz);cyl(.45,1.1,10,M.wood,wx,wy+5,wz,6);
     blades=new THREE.Group();blades.position.set(wx,wy+10.2,wz+.9);G.add(blades);
     for(let i=0;i<4;i++){const bl=new THREE.Mesh(new THREE.BoxGeometry(.5,4.6,.1),M.white);bl.position.y=2.4;const p=new THREE.Group();p.rotation.z=i*Math.PI/2;p.add(bl);blades.add(p)}
-    cov(wx,wz,1.4);
+    cov(wx,wz,1.4,10);
     ring(cx,cz,26,4,1.4,2,2);
     scatterBrk(cx-20,cz-4,['hay','hay','hay','hay','hay','hay','hay','hay'],4,16);scatterBrk(cx,cz+8,['crate','crate','crate','crate','crate','crate','xbarrel','xbarrel'],7,22);
     LOCS.push({n:'Dry Gulch Ranch',x:cx,z:cz,r:30})}
@@ -130,13 +130,13 @@ const OutlawArena=(()=>{
       part(3,h,loco?7.6:7,body,0,.9+h/2,0);part(3.3,.3,loco?7.8:7.2,M.dark,0,.9+h+.15,0);part(2.6,.5,loco?7:6.5,M.metal,0,.5,0);
       if(loco){const ch=new THREE.Mesh(new THREE.CylinderGeometry(.45,.6,1.6,8),M.metal);ch.position.set(0,.9+h+1,2.4);g.add(ch);part(2.6,1.4,1.4,M.red,0,1.3,4.3)}
       G.add(g);
-      const c1=cov(0,0,2),c2=cov(0,0,2);T.units.push({g,c1,c2,x:0,z:0})}
+      const c1=cov(0,0,2,4),c2=cov(0,0,2,4);T.units.push({g,c1,c2,x:0,z:0})}
     updateTrain(0)}
   function updateTrain(dt){
     if(!T.units.length)return;const st=trainState(),front=st.dir>0?st.a+T.span:st.a;T.moving=st.moving;
     T.units.forEach((u,k)=>{const s=front-st.dir*k*T.gap,p=pathAt(s),cs=Math.sin(p.yaw),sn=Math.cos(p.yaw);u.x=p.x;u.z=p.z;
       u.g.position.set(p.x,gy(p.x,p.z)+.12,p.z);u.g.rotation.y=p.yaw+(st.dir>0?0:Math.PI);
-      u.c1.x=p.x+cs*1.9;u.c1.z=p.z+sn*1.9;u.c2.x=p.x-cs*1.9;u.c2.z=p.z-sn*1.9});
+      u.c1.x=p.x+cs*1.9;u.c1.z=p.z+sn*1.9;u.c2.x=p.x-cs*1.9;u.c2.z=p.z-sn*1.9;u.c1.y=u.c2.y=gy(p.x,p.z)});
     T.hitCd-=dt;
     if(T.moving&&!T.wasMoving&&Math.hypot(S.x-X.C.x,S.z-X.C.z)<260)X.sfx('horn');T.wasMoving=T.moving;
     if(T.moving&&T.hitCd<=0&&S.y-gy(S.x,S.z)<2.2)for(const u of T.units)if(Math.hypot(S.x-u.x,S.z-u.z)<3.1){T.hitCd=1.2;X.hurtMe(18,u.x,u.z);break}}

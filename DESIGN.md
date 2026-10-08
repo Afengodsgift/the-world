@@ -77,6 +77,14 @@ Outlaw Isle: stays specialized · Sky: wind currents, cloud platforms · Main: t
 - **Reticle**: four small ticks that open with recoil and movement, flash red on a hit and gold + bigger on a crit.
 - Next slices: hit zones + cover-aware rays, combat locomotion/animation, hit reactions + death, AI roles/cover/LOS/flanking, weapon feedback, two-player balancing.
 
+## Combat Feel V2 - slice 2: hit zones + cover that really blocks
+- `src/combat/HitZones.js` (pure maths, `tests/hitzones.sim.js`): every raider has 6 invisible volumes (head sphere, torso capsule, 2 arm capsules, 2 leg capsules), in units of its scale, rotated with its heading, slightly generous on a phone (radius grows a little with range, capped). A shot asks which body part the ray reaches FIRST, before any cover.
+- Cover is a cylinder with a real height (`{x,z,r,y,h}`; no `h` = unlimited, e.g. buildings): crates 1.3 m, barrels 1.2, hay 1.7, boulders ~1.2 r, train cars 4 m. A ray that passes over a crate can hit the head of a raider standing behind it; lower down it is blocked (and the crate takes the damage).
+- Damage = weapon damage x zone multiplier: torso 100%, arms 60%, legs 65%, head per weapon class (`WEAPONS[].snd`: pistol 2.2, smg 1.6, rifle 2, shotgun 1.5 per pellet, sniper 3.5) x a per-raider softener (brutes .7, sheriff boss .6, warlord .5) x (1 + 6% per crit upgrade level). The old random 8% crit is gone: headshots are the crits (gold reticle + gold number + crit sound).
+- `aimPoint()` uses the same zones, so what the crosshair is on is what gets hit. The hit zone travels with client damage (`{k:'h',id,d,z}`) and is stored as `n.lastZone` for hit reactions (slice 4).
+- NOT changed yet: raiders' own line of sight / cover choice is still the old 2D test (their cover blocks at any height), so they can't shoot you through a crate but you can shoot them over it. Slice 5 makes it symmetric.
+- Debug: add `?hz=1` to the URL (or `Outlaw._t().dbgZones(true)`) to draw the zones.
+
 ## Roadmap
 0 Net adapter ✔ · 1 WorldState + Journal ✔ · 2 Verbs v1 ✔ (cave interior still open) ·
 3 Link ✔ (twin plates, synced shrine; lockpick+lookout later) · 4 Event Director ✔ (meteor, visitor, golden rings; shark surge later) · 5 Zones (Storm Cay wind, Frost friction first) · 6 Home v1 (trophy shelf, aquarium) ·

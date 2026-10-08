@@ -60,11 +60,7 @@ const Outlaw=(()=>{
     const s=Math.sqrt(D);return (-b-s)/(2*a)<1&&(-b+s)/(2*a)>.02}
   const los=(ax,az,bx,bz)=>!cover.some(c=>segCircle(ax,az,bx,bz,c));
   let rcHit=null; // the cover entry the last rayCover() hit (breakable cover reacts to bullets)
-  function rayCover(o,d,max){ // nearest cover hit distance along 3D ray (horizontal test), or max
-    rcHit=null;let best=max;const a=d.x*d.x+d.z*d.z;if(a<1e-8)return best;
-    for(const c of cover){const fx=o.x-c.x,fz=o.z-c.z,b=2*(fx*d.x+fz*d.z),k=fx*fx+fz*fz-c.r*c.r,D=b*b-4*a*k;if(D<0)continue;
-      const t=(-b-Math.sqrt(D))/(2*a);if(t>0&&t<best){best=t;rcHit=c}}
-    return best}
+  function rayCover(o,d,max){const r=HitZones.coverT(o,d,max,cover);rcHit=r.c;return r.t} // nearest cover along the ray; cover has a real height (a shot can pass over a crate)
   function raySphere(o,d,cx,cy,cz,r){const lx=cx-o.x,ly=cy-o.y,lz=cz-o.z,tca=lx*d.x+ly*d.y+lz*d.z;if(tca<0)return null;
     const d2=lx*lx+ly*ly+lz*lz-tca*tca;if(d2>r*r)return null;return tca-Math.sqrt(r*r-d2)}
 
@@ -77,11 +73,11 @@ const Outlaw=(()=>{
     m(w,h,d,col,0,h/2,0);m(w+1,.6,d+1,'#5a3a1e',0,h+.3,0);m(w*.9,1.4,.4,col,0,h+1.3,d/2-.2); // body, roof, false front
     m(w,.35,2.2,'#6b4423',0,.18,d/2+1.1);                 // porch
     const s=label(txt,w*.7,1.2);s.position.set(0,h-.4,d/2+.06);g.add(s);scene.add(g);
-    const n=Math.ceil(w/3);for(let i=0;i<n;i++){const lx=-w/2+w*(i+.5)/n,wx=x+Math.cos(ry)*lx,wz=z-Math.sin(ry)*lx;const c={x:wx,z:wz,r:Math.max(2,d*.45)};solids.push(c);cover.push(c)}}
+    const n=Math.ceil(w/3);for(let i=0;i<n;i++){const lx=-w/2+w*(i+.5)/n,wx=x+Math.cos(ry)*lx,wz=z-Math.sin(ry)*lx;const c={x:wx,z:wz,r:Math.max(2,d*.45),y:C.y-.05,h:h+1.8};solids.push(c);cover.push(c)}}
   function prop(x,z,kind){
     const y=C.y,g=kind==='barrel'?new THREE.CylinderGeometry(.55,.55,1.2,10):new THREE.BoxGeometry(1.4,1.3,1.4);
     const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:kind==='barrel'?'#7a4a22':'#a9803f',roughness:.9}));m.position.set(x,y+.65,z);m.rotation.y=Math.random()*3;m.castShadow=true;scene.add(m);
-    const c={x,z,r:.95};solids.push(c);cover.push(c)}
+    const c={x,z,r:.95,y:C.y-.05,h:kind==='barrel'?1.2:1.3};solids.push(c);cover.push(c)}
   function build(){
     C={x:OUT.x,z:OUT.z,y:OUT.y+.05};cover.length=0; // dedicated Outlaw Isle (see data/islands.js)
     const ground=new THREE.Mesh(new THREE.CircleGeometry(46,40),new THREE.MeshStandardMaterial({color:'#b79a68',roughness:1}));ground.rotation.x=-Math.PI/2;ground.position.set(C.x,C.y+.04,C.z);ground.receiveShadow=true;scene.add(ground);
@@ -209,27 +205,34 @@ const Outlaw=(()=>{
     let anyHit=false,anyCrit=false,endp=null;
     for(let p=0;p<W.pel;p++){
       const d=base.clone();if(W.sp){d.x+=rnd(-W.sp,W.sp);d.y+=rnd(-W.sp,W.sp);d.z+=rnd(-W.sp,W.sp);d.normalize()}
-      const wall=rayCover(o,d,W.rng),wc=rcHit;let tn=wall,hit=null;
-      for(const n of npcs.values()){if(n.dead)continue;const p3=n.group.position,sc=TYPES[n.type].sc,
-        t=raySphere(o,d,p3.x,p3.y+1*sc,p3.z,.95*sc+Math.min(1.6,(Math.hypot(p3.x-o.x,p3.z-o.z))*.025));
-        if(t!==null&&t<tn){tn=t;hit=n}}
+      const wall=rayCover(o,d,W.rng),wc=rcHit;let tn=wall,hit=null,zone=null;
+      for(const n of npcs.values()){if(n.dead||!n.group)continue;const p3=n.group.position,h=HitZones.hit(o.x,o.y,o.z,d.x,d.y,d.z,tn,p3.x,p3.y,p3.z,n.group.rotation.y,TYPES[n.type].sc);
+        if(h&&h.t<tn){tn=h.t;hit=n;zone=h.zone}}   // the first body part the ray reaches before it reaches any cover
       endp=[o.x+d.x*tn,o.y+d.y*tn,o.z+d.z*tn];
       if(!hit&&wc&&tn===wall&&!W.rocket&&wc.brk!==undefined){OutlawArena.hitCover(wc,dmgOf(wi));spark(endp[0],endp[1],endp[2],'#d8b45a');anyHit=true}
       if(W.rocket){aoe(endp,dmgOf(wi),W.rad||6);tracer(M.x,M.y,M.z,endp[0],endp[1],endp[2],'#ff9a2e');anyHit=true;continue}
-      if(hit){const crit=Math.random()<.08+.05*SAVE.crit,dmg=Math.round(dmgOf(wi)*(crit?2:1));anyHit=true;if(crit)anyCrit=true;reportHit(hit.id,dmg);spark(endp[0],endp[1],endp[2]);
-        if(p<3)popText(endp[0],endp[1]+.7,endp[2],(crit?'💥':'')+dmg,crit?'#ffd24a':'#fff',crit?1.25:1)}
+      if(hit){const crit=zone==='head',dmg=Math.max(1,Math.round(dmgOf(wi)*HitZones.zoneMult(zone,W.snd,HS[hit.type],SAVE.crit)));anyHit=true;if(crit)anyCrit=true;reportHit(hit.id,dmg,zone);spark(endp[0],endp[1],endp[2],crit?'#ffd24a':undefined);
+        if(p<3)popText(endp[0],endp[1]+.7,endp[2],(crit?'💥':'')+dmg,crit?'#ffd24a':zone==='torso'?'#fff':'#b8c4cc',crit?1.35:zone==='torso'?1:.85)}
       if(p<3)tracer(M.x,M.y,M.z,endp[0],endp[1],endp[2]);
     }
     me.userData.recoil=1;Viewmodel.kick(RECOIL[wi]);CameraRig.kick(.016*RECOIL[wi],rnd(-.004,.004)*RECOIL[wi]);sfx(W.snd);if(anyHit){hitT=.18;if(anyCrit)critT=.24;sfx(anyCrit?'crit':'hit')}xSp=Math.min(16,xSp+3+RECOIL[wi]*2.2);
     if(clock-lastF>110){lastF=clock;send({k:'f',w:wi,m:[M.x,M.y,M.z],e:endp})}
     if(am(wi)<=0)reload();else updateHud();
   }
+  // debug overlay for the hit zones: add ?hz=1 to the URL (or Outlaw._t().dbgZones(true)); rebuilt every frame, so only ever used while tuning
+  let dbgOn=/[?&]hz=1/.test(location.search),dbgG=null;const dbgMat=new THREE.MeshBasicMaterial({color:'#ff3b30',wireframe:true,depthTest:false,transparent:true,opacity:.75});
+  function zoneDebug(){
+    if(!dbgG){dbgG=new THREE.Group();dbgG.renderOrder=999;scene.add(dbgG)}
+    while(dbgG.children.length){const m=dbgG.children[0];dbgG.remove(m);m.geometry.dispose()}
+    for(const n of npcs.values()){if(n.dead||!n.group)continue;const p=n.group.position;
+      for(const v of HitZones.volumes(p.x,p.y,p.z,n.group.rotation.y,TYPES[n.type].sc)){const ax=new THREE.Vector3(...v.a),bx=new THREE.Vector3(...v.b),len=ax.distanceTo(bx),
+        m=new THREE.Mesh(len>1e-4?new THREE.CapsuleGeometry(v.r,len,3,8):new THREE.SphereGeometry(v.r,8,6),dbgMat);m.position.copy(ax).add(bx).multiplyScalar(.5);
+        if(len>1e-4)m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),bx.clone().sub(ax).normalize());m.renderOrder=999;dbgG.add(m)}}}
   // where the crosshair points: the first cover/raider along the CAMERA ray (starting past the player, so nothing between camera and player intercepts it), else max range
   function aimPoint(range){
     const back=Math.min(6,Math.hypot(camera.position.x-S.x,camera.position.y-(S.y+1.4),camera.position.z-S.z)),o=camera.position.clone().addScaledVector(camDir,back);
     let t=rayCover(o,camDir,range);
-    for(const n of npcs.values()){if(n.dead||!n.group)continue;const p3=n.group.position,sc=TYPES[n.type].sc,
-      tt=raySphere(o,camDir,p3.x,p3.y+1*sc,p3.z,.95*sc+Math.min(1.6,Math.hypot(p3.x-o.x,p3.z-o.z)*.025));if(tt!==null&&tt<t)t=tt}
+    for(const n of npcs.values()){if(n.dead||!n.group)continue;const p3=n.group.position,h=HitZones.hit(o.x,o.y,o.z,camDir.x,camDir.y,camDir.z,t,p3.x,p3.y,p3.z,n.group.rotation.y,TYPES[n.type].sc);if(h&&h.t<t)t=h.t}
     return o.addScaledVector(camDir,t)}
   function lockMarker(){
     const lk=wi>=0&&!down?lockTarget(WEAPONS[wi].rng):null;lockN=lk;
@@ -237,8 +240,9 @@ const Outlaw=(()=>{
     if(!lk){lockM.visible=false;return}
     const p=lk.group.position,sc=TYPES[lk.type].sc;lockM.visible=true;lockM.position.set(p.x,p.y+sc,p.z);lockM.scale.setScalar(sc);lockM.lookAt(camera.position)}
   const hitBuf={};let lastF=0,lastH=0;
-  function reportHit(id,d){if(isHost())damageNpc(id,d);else hitBuf[id]=(hitBuf[id]||0)+d} // client hits are batched (flushed in tick)
-  function damageNpc(id,d){const n=npcs.get(id);if(!n||n.dead)return;n.hp-=d;n.flash=.12;if(n.hp<=0)killNpc(n)}
+  const HS={1:.7,3:.6,7:.5}; // headshot multiplier scale per raider type: brutes and bosses are not one-tap-able
+  function reportHit(id,d,zone){if(isHost())damageNpc(id,d,zone);else{const b=hitBuf[id]||(hitBuf[id]={d:0,z:zone});b.d+=d;if(zone==='head')b.z='head'}} // client hits are batched (flushed in tick)
+  function damageNpc(id,d,zone){const n=npcs.get(id);if(!n||n.dead)return;n.hp-=d;n.flash=.12;n.lastZone=zone||'torso';n.lastHitAt=clock;if(n.hp<=0)killNpc(n)}
   function earn(c){SAVE.coins+=c;save();sfx('coin');popText(S.x,S.y+2.6,S.z,'+'+c+' 🪙','#ffd24a');updateHud()}
   function killNpc(n){n.dead=1;kills++;const c=Math.round(COIN[n.type]*DIFF[diff].coin*(1+wave*.03));send({k:'kill',c});earn(c);if(Math.random()<.16){const id=nid++;send({k:'dr',id,x:n.x,z:n.z});addDrop(id,n.x,n.z)}}
   function addDrop(id,x,z){const m=new THREE.Mesh(new THREE.BoxGeometry(.6,.6,.6),new THREE.MeshStandardMaterial({color:'#2ecc71',emissive:'#1e9e55',emissiveIntensity:.8}));m.position.set(x,H(x,z)+.6,z);scene.add(m);drops.push({id,m,x,z})}
@@ -490,7 +494,7 @@ const Outlaw=(()=>{
       case 'end':stopGame();if(p.msg)banner(p.msg,'SHOWDOWN');break;
       case 'win':earn(p.c);stopGame();banner('BANK DEFENDED! +'+p.c+' 🪙','VICTORY');sfx('horn');break;
       case 'n':if(!isHost())applySnap(p);break;
-      case 'h':if(isHost())damageNpc(p.id,p.d);break;
+      case 'h':if(isHost())damageNpc(p.id,p.d,p.z);break;
       case 'hurt':if(p.to===myId)hurt(p.d,p.x,p.z);break;
       case 'dn':pdown=!!p.v;break;
       case 'wv':if(p.n>0){banner('Wave '+p.n+(p.n%3===0?' · BOSS!':''),'OUTLAW TOWN');sfx('horn')}else if(p.n===-1&&!isHost())banner('Wiped out! Retrying…','OUTLAW TOWN');break;
@@ -507,10 +511,10 @@ const Outlaw=(()=>{
   }
 
   function tick(dt,t){
-    if(!C||!me)return;ui();clock+=dt*1000;OutlawArena.tick(dt);
+    if(!C||!me)return;ui();clock+=dt*1000;OutlawArena.tick(dt);if(dbgOn)zoneDebug();
     prev.vx=(S.x-prev.x)/Math.max(dt,.001);prev.vz=(S.z-prev.z)/Math.max(dt,.001);prev.x=S.x;prev.z=S.z;
     const p=partner();if(p){const g=p[1].group.position;pprev.vx=(g.x-pprev.x)/Math.max(dt,.001);pprev.vz=(g.z-pprev.z)/Math.max(dt,.001);pprev.x=g.x;pprev.z=g.z;if(p[1].group.userData.gunI!==pw)setGun(p[1].group,pw)}
-    if(clock-lastH>100){lastH=clock;for(const id in hitBuf){send({k:'h',id:+id,d:hitBuf[id]});delete hitBuf[id]}}
+    if(clock-lastH>100){lastH=clock;for(const id in hitBuf){send({k:'h',id:+id,d:hitBuf[id].d,z:hitBuf[id].z});delete hitBuf[id]}}
     cdT-=dt;hitT=Math.max(0,hitT-dt);critT=Math.max(0,critT-dt);xSp*=Math.exp(-9*dt);if(xh){xh.className=hitT>0?(critT>0?'crit':'hit'):'';xh.style.setProperty('--g',(4+xSp+Math.min(3,Math.hypot(prev.vx,prev.vz)*.35))+'px')} // reticle: opens with recoil and movement, flashes on a hit
     if(firing)fire();
     lockMarker();
@@ -531,5 +535,5 @@ const Outlaw=(()=>{
 
   Interaction.register('ow-start','Start Showdown',()=>C&&!active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>missionPanel());
   Interaction.register('ow-end','End Showdown',()=>C&&active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>{send({k:'end'});onMsg({k:'end'})});
-  return {build,tick,onMsg,equip,fire,lockTarget,poseGun,loadGun,_t:()=>({aimPoint,fire,addNpc,panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
+  return {build,tick,onMsg,equip,fire,lockTarget,poseGun,loadGun,_t:()=>({aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
 })();
