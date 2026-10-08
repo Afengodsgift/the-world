@@ -30,9 +30,22 @@ One depth buffer cannot hold "the avatar 9 m away" and "the world 20 km below": 
 far slice (everything beyond `part`, with its own near plane) then near slice (depth cleared, colour kept, scene background removed or
 three.js would clear the far pass). Shadow maps are not rendered twice.
 
+## Discoveries in space (`SpaceObjects.js`, `SpaceEvents.js`)
+`SpaceObjects.register({id,name,pos,build,update,found})` adds a thing to find. The module does the shared parts: a distant blinking beacon (only against a dark
+sky, constant ~20 px on screen so it is noticed but still just a light), the real model only within 5 km, approach assist, and discovery.
+- **Findable, not trippable:** you must be within 90 m AND look at it for ~1.4 s. One quiet line ("FOUND SOMETHING"), a soft low tone, no checklist.
+- **Approach assist:** `SpaceFlight.setAssist` eases flight speed from full altitude speed (x200+ at 112 km) back to normal within 3 km -> 300 m of any object.
+  Partners are judged with `moveMulRaw` so their smoothing does not depend on what *you* are near.
+- **Shared:** objects call `SpaceEvents.discover(id, info)`, which writes ONE Journal entry (`WS.log('space', id, {text,icon,x,y,z})`, idempotent, converges
+  between phones, persists in Supabase) and a `space` set. If your partner finds it you get a quiet "Your partner found something out here." Objects never touch
+  Net or Supabase directly. `SpaceEvents.on/emit('sp:<type>')` is the live channel reserved for two-player interactions.
+- **Satellite:** gold-foil bus, one good and one torn solar wing, dish, mast, nav light, 9 pieces of debris drifting around it; ~620 triangles, one 128x64 texture.
+  It sits at (8, 112, -11) km: ~14 km from the top of a straight climb over the town, 41 degrees up. Its beacon turns cyan once found.
+- Tests: `tests/space_objects.sim.mjs`.
+
 ## Next (not built yet)
-Space flight model (momentum/stabilisation), debris, the satellite and asteroid discoveries, two-player interactions through `Net`,
-space map, and the architecture hooks for a second planet. Create them as `SpaceObjects.js` / `SpaceEvents.js` etc. next to these files.
+Space flight model (momentum/stabilisation), asteroids and loose debris, two-player interaction with the satellite (two ports 18 m apart, both players must
+activate), the distant unknown object, space map, and the hooks for a second planet. Create them as `SpaceObjects.js` / `SpaceEvents.js` etc. next to these files.
 
 ## Flight camera (`CameraRig.js`)
 Designed from third-person camera practice: a tight chase camera for fast action (damping that is too loose feels floaty and lets the target leave the

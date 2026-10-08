@@ -7,7 +7,11 @@
 const SpaceFlight=(()=>{
   const sm=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t)};
   const CEIL=140000,MUL_MAX=300,G0=900;
-  const moveMul=y=>y<=G0?1:1+Math.min(MUL_MAX-1,(y-G0)/500);
+  // approach assist: 1 = full altitude speed, 0 = normal flight speed. SpaceObjects eases it down near anything you can fly up to, so a 24 m satellite is
+  // approachable at 118 km altitude (where full speed would be hundreds of times faster than normal). Smooth in distance, so there is no 'zone'.
+  let assist=1;const setAssist=a=>{assist=a<0?0:a>1?1:a};
+  const moveMulRaw=y=>y<=G0?1:1+Math.min(MUL_MAX-1,(y-G0)/500);               // altitude speed multiplier, ignoring the assist (use for other players)
+  const moveMul=y=>{const b=moveMulRaw(y);return assist>=1?b:1+(b-1)*assist};
   const moveMulH=y=>Math.sqrt(moveMul(y));                       // sideways speed grows more gently than climb speed, so the world stays in view while you fly around up high
   const bound=y=>3300+Math.max(0,y-1500)*1.5;                    // the world's edge (3.3 km) opens up with altitude: 46 km at 30 km, 210 km at 140 km
   const terminal=y=>48+100*sm(900,2500,y)+750*sm(2500,16000,y)+1700*sm(16000,60000,y);          // 48 m/s up to 900 m (unchanged); re-entry speeds up high, easing back as the air thickens
@@ -32,6 +36,6 @@ const SpaceFlight=(()=>{
     return {v,h}}
   // landing effects never see more than a normal hard landing (there is no fall damage in this game)
   const landImpact=imp=>Math.min(imp,60);
-  return {CEIL,moveMul,moveMulH,bound,terminal,gravMul,dy,fall,vertical,landImpact};
+  return {CEIL,moveMul,moveMulRaw,moveMulH,setAssist,bound,terminal,gravMul,dy,fall,vertical,landImpact};
 })();
 if(typeof module!=='undefined')module.exports=SpaceFlight;

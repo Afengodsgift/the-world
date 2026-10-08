@@ -163,6 +163,8 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/ui/WorldMap.js"></script>
 <script src="src/core/Net.js"></script>
 <script src="src/core/WorldState.js"></script>
+<script src="src/space/SpaceEvents.js"></script>
+<script src="src/space/SpaceObjects.js"></script>
 <script src="src/ui/Journal.js"></script>
 <script src="src/ui/Theme.js"></script>
 <script src="src/core/Systems.js"></script>
@@ -560,7 +562,7 @@ function buildWorld(code){
   {const cv=document.createElement('canvas');cv.width=cv.height=256;const cx2=cv.getContext('2d'),im2=cx2.createImageData?cx2.createImageData(256,256):null;
    if(im2){for(let y=0;y<256;y++)for(let x=0;x<256;x++){const a=x/256*6.2832,b=y/256*6.2832,v=128+40*Math.sin(a*3+Math.sin(b*2))+30*Math.sin(b*5+a)+20*Math.sin(a*8-b*6);const i=(y*256+x)*4;im2.data[i]=im2.data[i+1]=im2.data[i+2]=v;im2.data[i+3]=255}cx2.putImageData(im2,0,0)}
    seaTex=new THREE.CanvasTexture(cv);seaTex.wrapS=seaTex.wrapT=THREE.RepeatWrapping;seaTex.repeat.set(500,500);sea.material.bumpMap=seaTex;sea.material.bumpScale=.35}
-  sea.rotation.x=-Math.PI/2;sea.position.y=-.3;scene.add(sea);seaMesh=sea;Env.build();SpaceEnv.build();WaterFX.build();
+  sea.rotation.x=-Math.PI/2;sea.position.y=-.3;scene.add(sea);seaMesh=sea;Env.build();SpaceEnv.build();SpaceObjects.build();WaterFX.build();
   rng=mulberry(hashSeed(code));
   if(AM.plant_bushLarge)AM.plant_bushLarge.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.material.side=THREE.DoubleSide;o.material.emissive=new THREE.Color('#2a6a30')}});
   const dist=(x,z)=>Math.hypot(x-TOWN.x,z-TOWN.z),P={};
