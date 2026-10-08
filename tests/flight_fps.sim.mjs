@@ -26,7 +26,7 @@ globalThis.OUT={x:5000,z:5000,y:2,clear:1};
 const load=async f=>{const b=fs.readFileSync(path.join(ROOT,f));return new Promise(r=>new GLTFLoader().parse(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'',r))};
 const gl=await load('assets/char.glb');const mdl=gl.scene;mdl.scale.setScalar(.5);globalThis.me=new T.Group();me.add(mdl);scene.add(me);
 const bones={};mdl.traverse(o=>{if(o.isBone)bones[o.name]=o});me.userData={model:mdl,bones,oy:0};
-for(const [n,f] of [['FlightPose','src/character/FlightPose.js'],['FlightFX','src/fx/FlightFX.js'],['CameraRig','src/camera/CameraRig.js'],['Viewmodel','src/combat/Viewmodel.js'],['OutlawArena','src/games/OutlawArena.js']])(0,eval)(R(f).replace('const '+n+'=','globalThis.'+n+'='));
+for(const [n,f] of [['FlightPose','src/character/FlightPose.js'],['FlightFX','src/fx/FlightFX.js'],['CameraRig','src/camera/CameraRig.js'],['Viewmodel','src/combat/Viewmodel.js'],['HitZones','src/combat/HitZones.js'],['OutlawArena','src/games/OutlawArena.js']])(0,eval)(R(f).replace('const '+n+'=','globalThis.'+n+'='));
 (0,eval)(R('src/games/Outlaw.js').replace('const Outlaw=','globalThis.Outlaw='));Outlaw.build();
 
 // ================= 1. FLIGHT POSE on the real skeleton =================
