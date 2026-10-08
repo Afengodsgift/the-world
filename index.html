@@ -477,12 +477,13 @@ function H(x,z){
   {const ex=Math.max(0,Math.abs(x-PITCH.x)-PITCH.hw),ez=Math.max(0,Math.abs(z-PITCH.z)-PITCH.hh),t=1-sstep(0,9,Math.hypot(ex,ez));if(t>0)h=h*(1-t)+PITCH.y*t} // soccer pitch
   return h;
 }
+const TERRAIN_MATS=[];   // so the weather can make the ground wet (Environment.js)
 function terrain(cx,cz,size,seg){
   const geo=new THREE.PlaneGeometry(size,size,seg,seg);geo.rotateX(-Math.PI/2);
   const pos=geo.attributes.position,cols=new Float32Array(pos.count*3),c=new THREE.Color();
   for(let i=0;i<pos.count;i++){const x=pos.getX(i)+cx,z=pos.getZ(i)+cz,h=H(x,z);pos.setY(i,h);terrainColor(h,x,z,c);cols.set([c.r,c.g,c.b],i*3)}
   geo.setAttribute('color',new THREE.BufferAttribute(cols,3));geo.computeVertexNormals();
-  const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));m.position.set(cx,0,cz);m.receiveShadow=true;scene.add(m);
+  const tm=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1});TERRAIN_MATS.push(tm);const m=new THREE.Mesh(geo,tm);m.position.set(cx,0,cz);m.receiveShadow=true;scene.add(m);
 }
 const _cg1=new THREE.Color('#4d7a32'),_cg2=new THREE.Color('#86a34a'),_cdry=new THREE.Color('#a19a5a'),_crock=new THREE.Color('#7b786f'),_csand=new THREE.Color('#dccba0'),_csand2=new THREE.Color('#bfa97f'),_csnow=new THREE.Color('#eef3fa'),_cwet=new THREE.Color('#8f7a55'),_cdeep=new THREE.Color('#14587a'),_cfoam=new THREE.Color('#eef6f2'),_ct=new THREE.Color();
 function terrainColor(h,x,z,c){
@@ -1157,7 +1158,7 @@ function tickFrame(t){
   vegCull();CameraRig.update(dt);
   {const uT=clamp((-.25-camera.position.y)/.5,0,1);S.under=(S.under||0)+(uT-(S.under||0))*Math.min(1,dt*10)}   // 0 above water .. 1 camera fully submerged (drives fog, sound muffle, bubbles)                                                         // orbit / first-person / shoulder + flight FOV, roll, shake (src/camera/CameraRig.js)
   Space.update(dt,t);Env.tick(dt,t);SpaceEnv.update(dt,t);skyTick(t);
-  WaterFX.update(dt,{x:S.x,y:S.y,z:S.z,heading:S.rot,speed:Math.hypot(S.gvx||0,S.gvz||0),swim:S.state==='swim',dv:!!S.dv,under:S.under||0,camX:camera.position.x,camY:camera.position.y,camZ:camera.position.z,dayF:Env.state.dayF,rain:S.y<300?Env.state.wx.rain:0,over:overSea});
+  WaterFX.update(dt,{x:S.x,y:S.y,z:S.z,heading:S.rot,speed:Math.hypot(S.gvx||0,S.gvz||0),swim:S.state==='swim',dv:!!S.dv,under:S.under||0,camX:camera.position.x,camY:camera.position.y,camZ:camera.position.z,dayF:Env.state.dayF,rain:S.y<300?Env.state.wx.rain:0,over:overSea,hAt:H});
   if(sun){Perf.snapSun(sun,S.x,S.y,S.z);sky.position.copy(camera.position);if(seaTex){seaTex.offset.x+=dt*.0006;seaTex.offset.y+=dt*.0004}
     if(sun.castShadow&&Perf.shadowTooSlow()){sun.castShadow=false;scene.traverse(o=>{if(o.material)o.material.needsUpdate=true})}}
   S.burst=Math.max(0,(S.burst||0)-dt);S.gboost=Math.max(0,(S.gboost||0)-dt);if(!S.flying)S.boost=false;

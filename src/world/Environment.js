@@ -8,8 +8,8 @@ const Env=(()=>{
   const P={deepHor:col('#3b78d8'),deepZen:col('#0b2160'),upperHor:col('#8a62d6'),spaceHor:col('#02040b'),spaceZen:col('#000103'),horDay:col('#cfe3f2'),horNight:col('#0b1329'),horTw:col('#ff9a62'),zenDay:col('#336bbd'),zenNight:col('#050a1c'),zenTw:col('#4d4d8c'),gndDay:col('#99b8cc'),gndNight:col('#070c18'),
     hsDay:col('#bcd7ff'),hsNight:col('#2a3d73'),hgDay:col('#7d7355'),hgNight:col('#14141c'),sunDay:col('#fff0d2'),sunTw:col('#ff9150'),moon:col('#9fb6ff'),
     seaDay:col('#2f6f9a'),seaNight:col('#0b2238'),cloudDay:col('#ffffff'),cloudTw:col('#ffc9a0'),cloudNight:col('#46507a'),cloudStorm:col('#59616f'),fogGrey:col('#8e99a6'),fogStorm:col('#4a525e')};
-  const E={cloudLod:1,u:.4,h:1,dayF:1,tw:0,wx:{cloud:.12,rain:0,storm:0},tgt:{cloud:.12,rain:0,storm:0},ovT:null,ovW:null,sound:true,inCloud:0,flash:0,label:'',ready:false};
-  let cloudMeshes=[],cloudMat=null,cloudT=0,clouds=[],rain=null,rainPos=null,rainVel=null,bolt=null,chip=null,panel=null,offX=0,offZ=0,nextFlash=6,boltT=0,fireflies=null;
+  const E={cloudLod:1,u:.4,h:1,dayF:1,tw:0,wx:{cloud:.12,rain:0,storm:0},tgt:{cloud:.12,rain:0,storm:0},ovT:null,ovW:null,sound:true,inCloud:0,flash:0,wet:0,label:'',ready:false};
+  let cloudMeshes=[],cloudMat=null,cloudT=0,clouds=[],rain=null,rainPos=null,rainVel=null,bolt=null,chip=null,panel=null,offX=0,offZ=0,nextFlash=6,nextSheet=9,lastWet=-1,boltT=0,fireflies=null;
   const tmpC=new THREE.Color(),tmpC2=new THREE.Color(),_col=new THREE.Color(),_m=new THREE.Matrix4(),_q=new THREE.Quaternion(),_p=new THREE.Vector3(),_s=new THREE.Vector3(),_e=new THREE.Euler();
   // ---------- weather schedule (same for everyone): a new weather every WSLOT seconds, hashed from the slot number ----------
   function h01(n){n=Math.imul(n^61,1664525)+1013904223|0;n^=n>>>15;n=Math.imul(n,2246822519)|0;n^=n>>>13;n=Math.imul(n,3266489917)|0;n^=n>>>16;return (n>>>0)/4294967296}
@@ -74,15 +74,20 @@ const Env=(()=>{
     try{E.sound=localStorage.getItem('w4wxsound')!=='0'}catch(e){}
   }
   // ---------- audio: one lazily-created context (browsers need a tap first): soft rain hiss + thunder rumbles ----------
-  let AC=null,rainG=null,noiseBuf=null;
+  let AC=null,rainG=null,patG=null,noiseBuf=null;
   function audio(){
     if(AC||!E.sound)return AC;
     try{AC=WAudio.get();if(!AC)return null;const len=AC.sampleRate*2;noiseBuf=AC.createBuffer(1,len,AC.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
       const src=AC.createBufferSource();src.buffer=noiseBuf;src.loop=true;const hp=AC.createBiquadFilter();hp.type='highpass';hp.frequency.value=900;const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=7000;rainG=AC.createGain();rainG.gain.value=0;
-      src.connect(hp);hp.connect(lp);lp.connect(rainG);rainG.connect(WAudio.out());src.start()}catch(e){AC=null}
+      src.connect(hp);hp.connect(lp);lp.connect(rainG);rainG.connect(WAudio.out());src.start();
+      // second layer: mid-band 'patter' (rain on ground and leaves) with an irregular wobble, so rain is not just a flat hiss
+      const s2=AC.createBufferSource();s2.buffer=noiseBuf;s2.loop=true;const bp=AC.createBiquadFilter();bp.type='bandpass';bp.frequency.value=720;bp.Q.value=.5;patG=AC.createGain();patG.gain.value=0;
+      const am=AC.createGain();am.gain.value=.65;for(const [fr,dp] of [[.37,.25],[1.1,.1]]){const o=AC.createOscillator(),d=AC.createGain();o.frequency.value=fr;d.gain.value=dp;o.connect(d);d.connect(am.gain);o.start()}
+      s2.connect(bp);bp.connect(am);am.connect(patG);patG.connect(WAudio.out());s2.start(0,Math.random()*1.5)}catch(e){AC=null}
     return AC}
   function thunder(delay,vol){const a=audio();if(!a||!E.sound)return;try{const t0=a.currentTime+delay,src=a.createBufferSource();src.buffer=noiseBuf;const lp=a.createBiquadFilter();lp.type='lowpass';lp.frequency.setValueAtTime(260,t0);lp.frequency.exponentialRampToValueAtTime(70,t0+2.6);
-      const g=a.createGain();g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(vol,t0+.08);g.gain.exponentialRampToValueAtTime(.001,t0+2.8);src.connect(lp);lp.connect(g);g.connect(WAudio.out());src.start(t0,Math.random(),3)}catch(e){}}
+      const g=a.createGain();g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(vol,t0+.08);g.gain.exponentialRampToValueAtTime(.001,t0+2.8);src.connect(lp);lp.connect(g);g.connect(WAudio.out());src.start(t0,Math.random(),3);
+      const near=Math.max(0,1-delay/2.4);if(near>.05){const cr=a.createBufferSource();cr.buffer=noiseBuf;const hp=a.createBiquadFilter();hp.type='highpass';hp.frequency.value=900;const cg=a.createGain();cg.gain.setValueAtTime(0,t0);cg.gain.linearRampToValueAtTime(vol*.55*near,t0+.01);cg.gain.exponentialRampToValueAtTime(.001,t0+.4);cr.connect(hp);hp.connect(cg);cg.connect(WAudio.out());cr.start(t0,Math.random(),.6)}}catch(e){}}
   // ---------- UI ----------
   function buildUI(){
     const Ee=(t,css,html)=>{const e=document.createElement(t);e.style.cssText=css||'';if(html)e.innerHTML=html;return e};
@@ -126,6 +131,10 @@ const Env=(()=>{
     // lightning
     E.flash=Math.max(0,E.flash-dt*3.2);
     if(wx.storm>.5&&SF.weather>.5){nextFlash-=dt;if(nextFlash<=0){nextFlash=5+Math.random()*10;strike()}}
+    if(wx.storm>.35&&SF.weather>.5){nextSheet-=dt;if(nextSheet<=0){nextSheet=6+Math.random()*12;E.flash=Math.max(E.flash,.22+.25*Math.random());thunder(1.5+Math.random()*3.5,.3)}}   // sheet lightning inside the clouds + distant rumble
+    // wet ground: darkens + gets a faint sheen while it rains, dries slowly afterwards (terrain materials are registered in index.html)
+    E.wet=Math.min(1,Math.max(0,E.wet+(wx.rain*SF.weather>.12?dt/16:-dt/120)));
+    if(typeof TERRAIN_MATS!=='undefined'&&Math.abs(E.wet-lastWet)>.003){lastWet=E.wet;const w=E.wet,k=1-.24*w;for(const m of TERRAIN_MATS){m.color.setRGB(k*(1-.04*w),k,k*(1+.03*w));m.roughness=1-.42*w}}
     if(boltT>0){boltT-=dt;bolt.visible=boltT>0&&((boltT*60|0)%3!==0);if(boltT<=0)bolt.visible=false}
     su.flash.value=E.flash;
     // lights
@@ -157,7 +166,7 @@ const Env=(()=>{
     if(fireflies){const a=Math.max(0,1-dayF*1.6)*(1-wx.rain)*(S.y<8?1:0);fireflies.material.opacity=a*.85;fireflies.visible=a>.02;
       if(fireflies.visible){fireflies.position.set(S.x,Math.max(0,H(S.x,S.z)),S.z);const pa=fireflies.geometry.attributes.position.array,b=fireflies.userData.base;for(let i=0;i<pa.length;i+=3){pa[i]=b[i]+Math.sin(t/900+i)*2;pa[i+1]=b[i+1]+Math.sin(t/700+i*1.7)*.8;pa[i+2]=b[i+2]+Math.cos(t/1100+i)*2}fireflies.geometry.attributes.position.needsUpdate=true}}
     // audio
-    if(rainG&&AC&&E.sound)rainG.gain.value+=((wx.rain*.05*(S.y>500?.3:1))-rainG.gain.value)*Math.min(1,dt*2);
+    if(rainG&&AC&&E.sound){const al=(S.y>500?.3:1)*(1-.8*(S.under||0)),k=Math.min(1,dt*2);rainG.gain.value+=((wx.rain*.085*al)-rainG.gain.value)*k;patG.gain.value+=((wx.rain*(.07+.07*wx.storm)*al)-patG.gain.value)*k}
     // chip text
     const hh=Math.floor(u*24),mm=Math.floor((u*24-hh)*60),icon=wx.storm>.6?'⛈️':wx.rain>.4?'🌧️':wx.cloud>.5?'☁️':h<-.1?'🌙':tw>.5?(u<.5?'🌅':'🌇'):wx.cloud>.3?'🌤️':'☀️';
     const txt=icon+' '+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0')+(S.y>=1000?' · ↑'+(S.y/1000).toFixed(1)+' km':S.y>250?' · ↑'+Math.round(S.y)+'m':'');if(txt!==E.label){E.label=txt;chip.textContent=txt}
@@ -185,6 +194,7 @@ const Env=(()=>{
       if(vis>.05){const dx=(cx-_p.x)/(sc*.95),dy=(cy-_p.y)/(hs*1.25),dz=(cz-_p.z)/(sc*.8*.95),q=Math.sqrt(dx*dx+dy*dy+dz*dz);if(q<1)inside=Math.max(inside,1-q)}}
     for(let v=0;v<3;v++){cloudMeshes[v].count=cnt[v];cloudMeshes[v].instanceMatrix.needsUpdate=true;if(cloudMeshes[v].instanceColor)cloudMeshes[v].instanceColor.needsUpdate=true}
     E.inCloud+=(Math.min(1,inside*2.2)-E.inCloud)*Math.min(1,dt*3);
+    cloudMat.emissive.setRGB(.5,.58,.8).multiplyScalar(Math.min(1,E.flash)*.55);   // lightning flashes light up the clouds from inside
     const m=cloudMat;m.color.copy(P.cloudNight).lerp(P.cloudDay,sk.dayF).lerp(P.cloudTw,sk.tw*.8).lerp(P.cloudStorm,Math.min(1,wx.rain*.35+wx.storm*.6));
     if(SF.above>0)m.color.lerp(cloudSun.set('#ffffff').multiplyScalar(.5+.5*sk.dayF),SF.above*.75);   // seen from above they are lit by the sun, not grey with weather
     m.emissive.copy(m.color).multiplyScalar(.12+.2*E.flash+.08*SF.above)}

@@ -2,11 +2,12 @@
 //   ripple rings (1 InstancedMesh, additive, fades by colour): entry/exit splashes, swim wake, rain ripples on the sea
 //   spray droplets (1 Points): burst when you hit the water
 //   bubbles (1 Points): drifting ambient bubbles around the camera when submerged + the ones you exhale while diving
-// 3 draw calls total. Tuning knobs: counts at the top, lifetimes/radii in splash()/wake()/rain().
+// 4 draw calls total. Tuning knobs: counts at the top, lifetimes/radii in splash()/wake()/rain().
 const WaterFX=(()=>{
-  const SEA=-.3,NR=48,NS=64,NB=44;
-  let rings=null,spray=null,bub=null,floorM=null,rr=0,sr=0,br=0,wakeT=0,exhaleT=2,ready=false,dayK=1;
-  const R={x:new Float32Array(NR),z:new Float32Array(NR),age:new Float32Array(NR).fill(9),life:new Float32Array(NR).fill(1),max:new Float32Array(NR),amp:new Float32Array(NR)};
+  const SEA=-.3,NR=48,NS=64,NB=44,NG=64;
+  let rings=null,splat=null,gr=0,spray=null,bub=null,floorM=null,rr=0,sr=0,br=0,wakeT=0,exhaleT=2,ready=false,dayK=1;
+  const G={x:new Float32Array(NG),y:new Float32Array(NG),z:new Float32Array(NG),age:new Float32Array(NG).fill(9),life:new Float32Array(NG).fill(1),max:new Float32Array(NG),amp:new Float32Array(NG)};
+  const R={x:new Float32Array(NR),y:new Float32Array(NR).fill(SEA),z:new Float32Array(NR),age:new Float32Array(NR).fill(9),life:new Float32Array(NR).fill(1),max:new Float32Array(NR),amp:new Float32Array(NR)};
   const SP={vx:new Float32Array(NS),vy:new Float32Array(NS),vz:new Float32Array(NS),life:new Float32Array(NS)};
   const BU={vy:new Float32Array(NB),ph:new Float32Array(NB),on:new Uint8Array(NB)};
   const _m=new THREE.Matrix4(),_q=new THREE.Quaternion(),_p=new THREE.Vector3(),_s=new THREE.Vector3(),_c=new THREE.Color();
@@ -17,6 +18,10 @@ const WaterFX=(()=>{
     rings=new THREE.InstancedMesh(rg,new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}),NR);
     rings.frustumCulled=false;rings.renderOrder=3;_s.set(0,0,0);_m.compose(_p.set(0,-999,0),_q.identity(),_s);for(let i=0;i<NR;i++){rings.setMatrixAt(i,_m);rings.setColorAt(i,_c.setScalar(0))}
     scene.add(rings);
+    // thicker, bolder rings for rain splashes on the ground (thin rings under half a metre wide vanish at camera distance)
+    const sg0=new THREE.RingGeometry(.42,1,14);sg0.rotateX(-Math.PI/2);
+    splat=new THREE.InstancedMesh(sg0,new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}),NG);
+    splat.frustumCulled=false;splat.renderOrder=3;_s.set(0,0,0);_m.compose(_p.set(0,-999,0),_q.identity(),_s);for(let i=0;i<NG;i++){splat.setMatrixAt(i,_m);splat.setColorAt(i,_c.setScalar(0))}scene.add(splat);
     // ocean floor: the seabed mesh only exists around the islands, so its dark deep-blue edge used to show as a hard 'wave' shape against plain sea.
     // One big disk in the same deep blue under the whole sea makes that edge vanish and gives open-water dives a floor (matches the -12 m clamp in H).
     floorM=new THREE.Mesh(new THREE.CircleGeometry(6000,48),new THREE.MeshLambertMaterial({color:'#17607f'}));floorM.rotation.x=-Math.PI/2;floorM.position.y=-12.06;floorM.renderOrder=-2;scene.add(floorM);
@@ -26,7 +31,8 @@ const WaterFX=(()=>{
     const bg=new THREE.BufferGeometry();bg.setAttribute('position',new THREE.BufferAttribute(new Float32Array(NB*3).fill(-999),3));
     bub=new THREE.Points(bg,new THREE.PointsMaterial({map:tex,size:.16,sizeAttenuation:true,transparent:true,opacity:.55,depthWrite:false,color:'#d8fbff'}));bub.frustumCulled=false;bub.renderOrder=3;scene.add(bub);
   }
-  function ring(x,z,max,life,amp,delay){const i=rr++%NR;R.x[i]=x;R.z[i]=z;R.max[i]=max;R.life[i]=life;R.amp[i]=amp;R.age[i]=-(delay||0)}
+  function ring(x,z,max,life,amp,delay,y){const i=rr++%NR;R.x[i]=x;R.y[i]=y===undefined?SEA:y;R.z[i]=z;R.max[i]=max;R.life[i]=life;R.amp[i]=amp;R.age[i]=-(delay||0)}
+  function splatAt(x,y,z,max,life,amp){const i=gr++%NG;G.x[i]=x;G.y[i]=y;G.z[i]=z;G.max[i]=max;G.life[i]=life;G.amp[i]=amp;G.age[i]=0}
   // entry / exit splash: 3 staggered rings + a burst of droplets. strength ~0.3 (gentle) .. 1.4 (big fall)
   function splash(x,z,strength){
     if(!ready)return;const k=Math.max(.25,Math.min(1.5,strength));
@@ -43,12 +49,19 @@ const WaterFX=(()=>{
     // swim wake: a small ring every ~0.2 s behind a swimmer moving at the surface
     if(c.swim&&!c.dv&&c.speed>1){wakeT-=dt;if(wakeT<=0){wakeT=.2;ring(c.x-Math.sin(c.heading)*.6,c.z-Math.cos(c.heading)*.6,.8+Math.min(.8,c.speed*.07),.75,.5,0)}}
     // rain ripples on the sea around the player
-    if(c.rain>.08&&c.under<.1){const n=c.rain*dt*11,k=Math.floor(n)+(Math.random()<n%1?1:0);for(let j=0;j<k;j++){const a=Math.random()*6.283,r=3+Math.random()*16,x=c.x+Math.cos(a)*r,z=c.z+Math.sin(a)*r;if(c.over(x,z))ring(x,z,.45+Math.random()*.25,.5,.4,0)}}
+    if(c.rain>.08&&c.under<.1){const n=c.rain*dt*11,k=Math.floor(n)+(Math.random()<n%1?1:0);for(let j=0;j<k;j++){const a=Math.random()*6.283,r=3+Math.random()*16,x=c.x+Math.cos(a)*r,z=c.z+Math.sin(a)*r;if(c.over(x,z))ring(x,z,.55+Math.random()*.3,.55,.55,0)}}
+    // rain splashes on the ground / sand around the player (tiny rings at terrain height), so rain visibly LANDS
+    if(c.rain>.08&&c.under<.1&&c.hAt){const n=c.rain*dt*70,k=Math.floor(n)+(Math.random()<n%1?1:0);for(let j=0;j<k;j++){const a=Math.random()*6.283,r=1+Math.sqrt(Math.random())*10,x=c.x+Math.cos(a)*r,z=c.z+Math.sin(a)*r,h=c.hAt(x,z);if(h>-.15&&h<c.y+4)splatAt(x,h,z,.32+Math.random()*.25,.34,.7*(.7+.3*Math.random()))}}
     // rings
     for(let i=0;i<NR;i++){R.age[i]+=dt;const a=R.age[i],k=a/R.life[i];
-      if(a<0||k>=1){_s.set(0,0,0);_p.set(0,-999,0)}else{const e=1-(1-k)*(1-k),r=R.max[i]*e;_p.set(R.x[i],SEA+.04,R.z[i]);_s.set(r,1,r);_c.setScalar(R.amp[i]*Math.pow(1-k,1.5)*dayK)}
+      if(a<0||k>=1){_s.set(0,0,0);_p.set(0,-999,0)}else{const e=1-(1-k)*(1-k),r=R.max[i]*e;_p.set(R.x[i],R.y[i]+.04,R.z[i]);_s.set(r,1,r);_c.setScalar(R.amp[i]*Math.pow(1-k,1.5)*dayK)}
       _m.compose(_p,_q.identity(),_s);rings.setMatrixAt(i,_m);rings.setColorAt(i,a<0||k>=1?_c.setScalar(0):_c)}
     rings.instanceMatrix.needsUpdate=true;rings.instanceColor.needsUpdate=true;
+    // ground splats
+    for(let i=0;i<NG;i++){G.age[i]+=dt;const a=G.age[i],k=a/G.life[i];
+      if(k>=1){_s.set(0,0,0);_p.set(0,-999,0);_c.setScalar(0)}else{const r=G.max[i]*(1-(1-k)*(1-k));_p.set(G.x[i],G.y[i]+.05,G.z[i]);_s.set(r,1,r);_c.setScalar(G.amp[i]*(1-k)*dayK)}
+      _m.compose(_p,_q.identity(),_s);splat.setMatrixAt(i,_m);splat.setColorAt(i,_c)}
+    splat.instanceMatrix.needsUpdate=true;splat.instanceColor.needsUpdate=true;
     // spray droplets
     {const a=spray.geometry.attributes.position.array;let any=false;for(let i=0;i<NS;i++){if(SP.life[i]<=0)continue;SP.life[i]-=dt;SP.vy[i]-=16*dt;a[i*3]+=SP.vx[i]*dt;a[i*3+1]+=SP.vy[i]*dt;a[i*3+2]+=SP.vz[i]*dt;any=true;if(SP.life[i]<=0||a[i*3+1]<SEA){SP.life[i]=0;a[i*3+1]=-999}}
       if(any)spray.geometry.attributes.position.needsUpdate=true;spray.material.color.setScalar(.45+.55*dayK)}
