@@ -5,6 +5,7 @@ const nm=(process.env.NODE_PATH||'').split(path.delimiter).find(d=>d&&fs.existsS
 if(!nm)throw new Error('three@0.147.0 not found: set NODE_PATH');
 const T=await import(pathToFileURL(path.join(nm,'three/build/three.module.js')).href);
 globalThis.THREE=T;
+(0,eval)(fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname),'..','src/core/StaticBatch.js'),'utf8').replace('const StaticBatch=','globalThis.StaticBatch='));   // scatter() freezes its chunks via the real StaticBatch
 const html=fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname),'..','index.html'),'utf8');
 const a=html.indexOf('const VEG=[];'),b=html.indexOf('function place(par,n,x,y,z,ry,sx,sy,sz){');
 globalThis.scene=new T.Scene();globalThis.camera=new T.PerspectiveCamera(65,2,.1,4200);
