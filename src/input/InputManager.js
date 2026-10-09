@@ -3,9 +3,12 @@
 // the rest of the extracted modules. Behavior is unchanged from before the move;
 // this is a straight relocation, not a redesign of how input works.
 const keys={};let stickV={x:0,y:0},jumpQ=false;
+// Camera look from a touch/mouse drag of (dx,dy) CSS pixels. Shared by the canvas look area and the Outlaw fire button (hold fire + drag = shoot while aiming).
+function lookBy(dx,dy,k){k=k||1;S.yaw-=dx*.006*k;const pr=typeof CameraRig!=='undefined'?CameraRig.pitchRange():[.05,1.2];S.pitch=Math.max(pr[0],Math.min(pr[1],S.pitch+dy*.005*k));S.lookT=performance.now()}
 function bindInput(){
   addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Space')jumpQ=true;if(e.code==='KeyE')doUse();if(e.code==='KeyB')S.boost=!S.boost;if(e.code==='KeyF')smack();if(e.code==='KeyQ')togglePan();if(e.code==='KeyG')openEmotes()});
   addEventListener('keyup',e=>keys[e.code]=false);
+  for(const ev of ['pointerup','pointercancel','lostpointercapture'])$('boost').addEventListener(ev,()=>{S.diveHeld=false});   // Dive is hold-to-sink
   const stick=$('stick'),knob=$('knob');let sid=null;
   const setStick=e=>{const r=stick.getBoundingClientRect();let dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);const m=Math.hypot(dx,dy),max=r.width/2;if(m>max){dx*=max/m;dy*=max/m}
     knob.style.transform='translate('+dx+'px,'+dy+'px)';stickV={x:dx/max,y:dy/max}};
@@ -16,14 +19,14 @@ function bindInput(){
   window.endTouches=()=>{if(sid!==null){try{stick.releasePointerCapture(sid)}catch(e){}}sid=null;stickV={x:0,y:0};knob.style.transform=''};
   $('jump').addEventListener('pointerdown',e=>{jumpQ=true;e.preventDefault()});
   $('use').addEventListener('pointerdown',e=>{doUse();e.preventDefault()});
-  $('boost').addEventListener('pointerdown',e=>{S.boost=!S.boost;$('boost').textContent=S.boost?'BOOST ON':'Boost';$('boost').style.opacity=S.boost?1:.75;e.preventDefault()});
+  $('boost').addEventListener('pointerdown',e=>{if(S.state==='swim'&&!S.flying){S.diveHeld=true;try{$('boost').setPointerCapture(e.pointerId)}catch(_){}e.preventDefault();return}S.boost=!S.boost;$('boost').textContent=S.boost?'BOOST ON':'Boost';$('boost').style.opacity=S.boost?1:.75;e.preventDefault()});
   $('smack').addEventListener('pointerdown',e=>{smack();e.preventDefault()});
   $('panbtn').addEventListener('pointerdown',e=>{togglePan();e.preventDefault()});
   $('emobtn').addEventListener('pointerdown',e=>{openEmotes();e.preventDefault()});
   // look
   let lid=null,lx=0,ly=0;const cv=renderer.domElement;
   cv.addEventListener('pointerdown',e=>{lid=e.pointerId;lx=e.clientX;ly=e.clientY;cv.setPointerCapture(lid)});
-  cv.addEventListener('pointermove',e=>{if(e.pointerId!==lid)return;S.yaw-=(e.clientX-lx)*.006;{const pr=typeof CameraRig!=='undefined'?CameraRig.pitchRange():[.05,1.2];S.pitch=Math.max(pr[0],Math.min(pr[1],S.pitch+(e.clientY-ly)*.005))}lx=e.clientX;ly=e.clientY});
+  cv.addEventListener('pointermove',e=>{if(e.pointerId!==lid)return;lookBy(e.clientX-lx,e.clientY-ly);lx=e.clientX;ly=e.clientY});
   const endLook=e=>{if(e.pointerId===lid)lid=null};cv.addEventListener('pointerup',endLook);cv.addEventListener('pointercancel',endLook);
   $('share').onclick=async()=>{
     const url=location.origin+location.pathname+'?room='+roomCode;
