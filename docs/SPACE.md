@@ -56,3 +56,14 @@ Everything is blended by a smooth flying weight, so the walking camera is unchan
 - camera raised along its own up axis (target too): same view direction, character low in frame, the sky you are heading into above it
 - speed effects use total 3D speed, so flying straight up counts as flying fast; FOV 66 -> 76 cruise -> 89 boost (was 98); no extra pull-back in space
 - `tests/camera_flight.sim.mjs` checks framing at ground level and at 20/60/120 km (up to 16 km/s), distances, FOV, no NaN
+
+## Open space (how big it is)
+- **No wall.** Above 60 km the world's edge is gone; space is open out to 1,200 km from home. The limit exists only because 32-bit floats cannot hold a skinned
+  avatar together much farther out (verified: limbs tear apart at 5,000 km). The fix is a floating origin (render relative to the camera): planned, then the limit goes.
+- **Speed scales with distance from home** (`SpaceFlight.moveMulRaw(y, rr)`: altitude, or half the horizontal distance if larger, blended in over 30-70 km so the atmosphere is
+  exactly as before). Crossing space feels the same at 100 km and 1,000 km: 1,000 km out in ~30 s boosted, and the same scaling slows you on the way back (no overshoot).
+- **Falling home:** below 60 km the only way to be outside the funnel is to have come down from open space; the excess is shrunk in proportion to the descent, so you arrive
+  inside the world at 1.5 km, never a jump (largest single-frame slide measured ~600 m).
+- **Home stays visible:** the real world fades into the dark by 700 km (fog) while a flat impostor of the world disc (true angular size, kept inside the depth range) plus a soft
+  halo (never smaller than ~.045 rad) takes over. HUD shows "N km from home" beyond 150 km.
+- **Dust** (220 world-fixed motes as line segments) streaks past in space: the only reference that shows you moving, since the stars are infinitely far.

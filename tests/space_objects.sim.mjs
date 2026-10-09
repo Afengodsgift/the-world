@@ -70,4 +70,33 @@ tick(10);ok(banners.length===1&&ws.log.length===1,'staying there does not repeat
 // 6) reload: a discovery survives (WorldState persists the set)
 {load('src/space/SpaceEvents.js','SpaceEvents');load('src/space/SpaceObjects.js','SpaceObjects');scene.clear();SpaceObjects.build();ok(SpaceObjects.live[0].found,'after a reload an already-found satellite starts as found')}
 
+// 7) space environment: home stays visible at any distance (impostor), dust shows motion
+{load('src/space/SpaceEnvironment.js','SpaceEnv');scene.clear();
+ globalThis.seaMesh=new T.Mesh(new T.CircleGeometry(6000,16),new T.MeshStandardMaterial({transparent:true,opacity:.7}));scene.add(seaMesh);SpaceEnv.build();
+ let mono=true,pv=-1;for(let d=0;d<=2e9;d=d?d*1.05:1000){const I=SpaceEnv.impostor(d);if(I.opacity<pv-1e-12)mono=false;pv=I.opacity;
+   if(I.show&&(Math.abs(I.discR/I.Dp-7000/d)>1e-9||I.Dp>700001||I.halo/I.Dp<.0449))mono=false}
+ ok(mono,'impostor: keeps the world\'s true angular size at any distance, stays inside the depth range, halo never shrinks below ~.045 rad, fades in monotonically');
+ ok(!SpaceEnv.impostor(200000).show&&SpaceEnv.impostor(250001).show&&SpaceEnv.impostor(600000).opacity===1,'impostor: hidden while the real world is close, fully in by 500 km');
+ const imp=scene.children.find(o=>o.geometry&&o.geometry.type==='CircleGeometry'&&o!==seaMesh),dust=scene.children.find(o=>o.isLineSegments);
+ ok(!!imp&&!!dust,'impostor disc and dust were built');
+ // fly out to 5,000 km, 100,000 km, 1e8 km at speed; look at what the scene does each frame
+ let finite=true,seen=0,hiddenWhenNear=true;Space.profile(112000,Space.f);
+ for(const D of [1e5,3e5,5e6,1e8,3e9]){camera.position.set(D*.3,112000,-D*.9);for(let i=0;i<3;i++){camera.position.x+=D*.002;SpaceEnv.update(1/60,i/60)}
+   const dd=Math.hypot(camera.position.x,camera.position.y,camera.position.z),I=SpaceEnv.impostor(dd);
+   if(I.show!==imp.visible)finite=false;
+   if(I.show){const p=imp.position,toCam=Math.hypot(p.x-camera.position.x,p.y-camera.position.y,p.z-camera.position.z);
+     if(Math.abs(toCam-I.Dp)>1||!Number.isFinite(p.x+p.y+p.z)||imp.scale.x<=0)finite=false;
+     const dot=((-camera.position.x)*(p.x-camera.position.x)+(-camera.position.y)*(p.y-camera.position.y)+(-camera.position.z)*(p.z-camera.position.z))/(dd*toCam);if(dot<.999999)finite=false;seen++}}
+ ok(finite&&seen===4,'impostor sits on the line to home at a safe distance for 100 km .. 3 million km out ('+seen+' of 5 far enough to show)');
+ // dust: only in space, bounded, finite, streaks with speed
+ Space.profile(500,Space.f);camera.position.set(0,500,0);SpaceEnv.update(1/60,0);ok(!dust.visible,'dust is off in the atmosphere');
+ Space.profile(112000,Space.f);let bound=true,maxLen=0,fastOp=0,slowOp=0;
+ camera.position.set(0,112000,0);for(let i=0;i<40;i++){SpaceEnv.update(1/60,i/60)}slowOp=dust.material.opacity;
+ for(let i=0;i<300;i++){camera.position.z-=40000/60;SpaceEnv.update(1/60,i/60);const a=dust.geometry.attributes.position.array;
+   for(let k=0;k<a.length;k++){if(!Number.isFinite(a[k])||Math.abs(a[k])>13000)bound=false}
+   for(let k=0;k<a.length;k+=6)maxLen=Math.max(maxLen,Math.hypot(a[k+3]-a[k],a[k+4]-a[k+1],a[k+5]-a[k+2]))}
+ fastOp=dust.material.opacity;
+ ok(dust.visible&&bound,'dust: visible in space, always finite and inside its box while flying at 40 km/s');
+ ok(maxLen>100&&maxLen<=501,'dust streaks lengthen with speed (up to '+maxLen.toFixed(0)+' m at 40 km/s, capped)');ok(fastOp>slowOp,'and brighten with speed')}
+
 console.log(bad?bad+' failed':'space objects ok');process.exit(bad?1:0);

@@ -54,12 +54,12 @@ const CameraRig=(()=>{
     st.t+=dt;
     if(!st.init){st.ay=S.y;st.py=S.y;st.px=S.x;st.pz=S.z;st.init=true}
     st.fw+=((S.flying?1:0)-st.fw)*(1-Math.exp(-8*dt));                    // 0 on the ground .. 1 flying: every flight-camera change below is blended by this
-    const ymm=typeof SpaceFlight!=='undefined'?SpaceFlight.moveMul(S.y):1;
+    const rr0=Math.hypot(S.x,S.z),ymm=typeof SpaceFlight!=='undefined'?SpaceFlight.moveMul(S.y,rr0):1;
     st.ay+=(S.y-st.ay)*(1-Math.exp(-(6+70*st.fw)*dt*ymm));   // height follow: soft on the ground (hides landing steps), stiff in flight so a fast climb keeps the character framed (lag = v/k)
 
     // ---- motion estimate: smoothed horizontal velocity, speed and turn rate ----
     const di=Math.max(dt,.001),k=1-Math.exp(-7*dt);
-    const dk=typeof Space!=='undefined'?Space.f.dark:0,mm=typeof SpaceFlight!=='undefined'?SpaceFlight.moveMulH(S.y):1;   // altitude: openness + normalised sideways speed
+    const dk=typeof Space!=='undefined'?Space.f.dark:0,mm=typeof SpaceFlight!=='undefined'?SpaceFlight.moveMulH(S.y,rr0):1;   // altitude: openness + normalised sideways speed
     st.vx+=((S.x-st.px)/di/mm-st.vx)*k;st.vz+=((S.z-st.pz)/di/mm-st.vz)*k;st.px=S.x;st.pz=S.z;
     st.spd=Math.hypot(st.vx,st.vz);
     st.vyn+=(((S.y-st.py)/di/ymm)-st.vyn)*k;st.py=S.y;                   // smoothed vertical speed (normalised like the horizontal one)

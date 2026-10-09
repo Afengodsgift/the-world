@@ -39,8 +39,9 @@ ok(mono&&range,'profile factors are monotonic and within 0..1 at every altitude'
  ok(-v<=60,'speed at the ground is '+(-v).toFixed(0)+' m/s (air has slowed it)');
  ok(SF.landImpact(900)===60&&SF.landImpact(10)===10,'landing effects are capped (no fall damage)');
  ok(Math.abs(SF.dy(-48,30000,true,1))<=SF.terminal(30000)*1.3+1e-9,'a flying dive from orbit is capped by air density')}
-ok(SF.dy(14,200000,true,1)>0&&SF.moveMul(1e9)===300,'multiplier is capped');
-ok(SF.bound(0)===3300&&SF.bound(1500)===3300&&SF.bound(30000)>40000&&SF.bound(140000)<220000,'world edge: 3.3 km on the ground, opens up with altitude');
+ok(SF.dy(14,200000,true,1)>0&&SF.moveMul(1e12)===3000,'multiplier is capped (3,000x)');
+ok(SF.bound(0)===3300&&SF.bound(1500)===3300&&SF.bound(30000)>40000&&SF.bound(30000)<50000,'world edge: 3.3 km on the ground, a cone that opens with altitude');
+ok(SF.bound(59999)<95000&&SF.bound(60000)===Infinity&&SF.bound(140000)===Infinity,'above 60 km there is no edge at all: space is open');
 ok(SF.moveMulH(900)===1&&SF.moveMulH(20000)<SF.moveMul(20000)/3&&SF.moveMulH(20000)>4,'sideways speed scales as sqrt of the climb multiplier');
 
 // 3b) looking up flies up; inside the old look range nothing changes
@@ -57,8 +58,33 @@ ok(SF.moveMulH(900)===1&&SF.moveMulH(20000)<SF.moveMul(20000)/3&&SF.moveMulH(200
  let y=100000,v=0,t=0,vmax=0;const dt=.02;while(y>0&&t<1000){v=SF.fall(v,y,dt);y+=v*dt;vmax=Math.max(vmax,-v);t+=dt}
  ok(t>60&&t<200,'falling from 100 km takes '+t.toFixed(0)+' s');ok(-v<=60,'and you hit the ground at '+(-v).toFixed(0)+' m/s')}
 
+// 3c) space is big: speed scales with distance from home, the wall is gone, and falling always leads home
+{const Y=112000;
+ const inCone=[[0,0],[500,2000],[5000,8000],[30000,40000],[59000,88000]];
+ ok(inCone.every(([y,rr])=>SF.moveMulRaw(y,rr)===SF.moveMulRaw(y,0)),'inside the atmosphere funnel, horizontal distance changes nothing (flight is exactly as before)');
+ ok(SF.moveMulRaw(Y,1e6)>900&&SF.moveMulRaw(Y,1.2e6)<=3000,'far out, speed grows with distance ('+SF.moveMulRaw(Y,1e6).toFixed(0)+'x at 1,000 km)');
+ ok(SF.moveMulH(Y,1e6)>SF.moveMulH(Y,0)*3,'sideways speed in open space keeps growing too');
+ // flying outwards at full boost: how long to cross space?
+ const out=(target)=>{let rr=100000,t=0;const dt=.02;while(rr<target&&t<3000){rr+=70*SF.moveMulH(Y,rr)*dt;t+=dt}return t};
+ const t1=out(1e6),t2=out(1.19e6);
+ ok(t1<60,'flying out to 1,000 km takes '+t1.toFixed(0)+' s boosted');ok(t2<60,'to the 1,200 km limit takes '+t2.toFixed(0)+' s: big, and still reachable');
+ // coming home: while far out the same scaling slows you as you approach, so you never overshoot
+ {let rr=1e6,t=0,maxStep=0;const dt=.02;while(rr>3e5&&t<3000){const step=70*SF.moveMulH(Y,rr)*dt;maxStep=Math.max(maxStep,step/rr);rr-=step;t+=dt}
+  ok(t<60&&maxStep<.003,'flying home from 1,000 km out to 300 km: '+t.toFixed(0)+' s, never more than '+(maxStep*100).toFixed(2)+'% of the remaining distance per frame (no overshoot)')}
+ // containment
+ {const mk=(x,y,z)=>({x,y,z,_dy:0});
+  const g=mk(4000,500,0);SF.contain(g,.016);ok(Math.abs(Math.hypot(g.x,g.z)-3300)<1e-6,'on the ground the 3.3 km edge is the original hard clamp');
+  const a=mk(30000,40000,40000);SF.contain(a,.016);ok(a.x===30000&&a.z===40000,'inside the cone: untouched');
+  const o=mk(8e5,Y,-6e5);SF.contain(o,.016);ok(o.x===8e5&&o.z===-6e5,'in open space: no wall at 1,000 km out');
+  const w=mk(3e6,Y,0);SF.contain(w,.016);ok(Math.abs(Math.hypot(w.x,w.z)-1.2e6)<1,'the limit is 1,200 km from home (float precision), not a bubble over the world');
+  // falling home from far away: slide in proportion to the descent, never a jump, arrive inside the edge
+  const f=mk(8e5,100000,5e5);let y=f.y,v=0,maxJump=0,t=0;const dt=1/60;
+  while(f.y>2&&t<600){const px=f.x,pz=f.z;v=SF.fall(v,f.y,dt);f._dy=v*dt;f.y+=f._dy;SF.contain(f,dt);maxJump=Math.max(maxJump,Math.hypot(f.x-px,f.z-pz));t+=dt;if(f.y<0)f.y=0}
+  ok(Math.hypot(f.x,f.z)<=3300+1e-6,'falling from 100 km while 940 km out: you land inside the world ('+Math.hypot(f.x,f.z).toFixed(0)+' m from the centre)');
+  ok(maxJump<2000,'and the slide home is continuous (largest single-frame move '+maxJump.toFixed(0)+' m, at ~'+(maxJump*60/1000).toFixed(0)+' km/s)')}}
+
 // 4) depth slicing: every altitude is covered, nothing important is clipped, precision stays sane
-{let cover=true,skyOk=true,prec=true;for(let y=900;y<=140000;y+=100){const s=Space.slices(y);
+{let cover=true,skyOk=true,prec=true;for(let y=900;y<=150000;y+=100){const s=Space.slices(y);
    if(!(s.farNear<s.nearFar))cover=false;                                                      // slices overlap: no gap
    if(!(s.farNear<2800&&s.nearFar<2800))skyOk=false;                                             // sky dome (r=2800) is inside the far slice, clipped from the near slice
    const dist=y-0,far=dist*dist/(s.farNear*16777216),near=s.nearFar*s.nearFar/(.1*16777216);   // depth resolution (m) of the ground / of the far edge of the near slice

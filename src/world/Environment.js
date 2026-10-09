@@ -151,6 +151,7 @@ const Env=(()=>{
     updateClouds(dt,sk,ov);
     const inC=E.inCloud;if(inC>.01){fogC.lerp(tmpC2.copy(P.cloudDay).multiplyScalar(.25+.75*dayF),Math.min(1,inC*.9));near=lerp(near,2,inC);far=lerp(far,85,inC)}
     if(SF.thin>0){near=lerp(near,6000,SF.thin);far=lerp(far,200000,SF.thin)}   // the air thins out: the world stays visible far below
+    if(SF.space>0){near=lerp(near,3e5,SF.space);far=lerp(far,7e5,SF.space)}    // in space there is no haze within 300 km; the real world fades into the dark by 700 km while SpaceEnv's impostor takes over
     // underwater: tight teal fog that darkens with depth (S.under = how submerged the camera is; S.y = depth, surface -1)
     const un=S.under||0;
     if(un>.001){const dep=Math.min(1,Math.max(0,(-1-S.y)/16));tmpC2.set('#1b8c9a').multiplyScalar(.28+.72*dayF).lerp(tmpC.set('#031826'),dep*.7);fogC.lerp(tmpC2,Math.min(1,un*1.1));near=lerp(near,1,un);far=lerp(far,34+40*dayF*(1-dep*.7),un)}
@@ -169,7 +170,7 @@ const Env=(()=>{
     if(rainG&&AC&&E.sound){const al=(S.y>500?.3:1)*(1-.8*(S.under||0)),k=Math.min(1,dt*2);rainG.gain.value+=((wx.rain*.085*al)-rainG.gain.value)*k;patG.gain.value+=((wx.rain*(.07+.07*wx.storm)*al)-patG.gain.value)*k}
     // chip text
     const hh=Math.floor(u*24),mm=Math.floor((u*24-hh)*60),icon=wx.storm>.6?'⛈️':wx.rain>.4?'🌧️':wx.cloud>.5?'☁️':h<-.1?'🌙':tw>.5?(u<.5?'🌅':'🌇'):wx.cloud>.3?'🌤️':'☀️';
-    const txt=icon+' '+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0')+(S.y>=1000?' · ↑'+(S.y/1000).toFixed(1)+' km':S.y>250?' · ↑'+Math.round(S.y)+'m':'');if(txt!==E.label){E.label=txt;chip.textContent=txt}
+    const txt=icon+' '+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0')+(Math.hypot(S.x,S.y,S.z)>150000?' · '+(Math.round(Math.hypot(S.x,S.y,S.z)/1000)).toLocaleString('en-US')+' km from home':S.y>=1000?' · ↑'+(S.y/1000).toFixed(1)+' km':S.y>250?' · ↑'+Math.round(S.y)+'m':'');if(txt!==E.label){E.label=txt;chip.textContent=txt}
   }
   function strike(){
     E.flash=1;setTimeout(()=>{E.flash=Math.max(E.flash,.7)},140);

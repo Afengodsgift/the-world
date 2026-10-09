@@ -1127,12 +1127,12 @@ function tickFrame(t){
   const dx=cy*ix+sy*iy,dz=-sy*ix+cy*iy;
   if(S.flying){ // flight has inertia: takeoff ~0.5 s to full speed, glide-out when you let go
     const tx=len>.05?dx*speed:0,tz=len>.05?dz*speed:0,cur=Math.hypot(S.fvx||0,S.fvz||0),kk=1-Math.exp(-(Math.hypot(tx,tz)>cur?4:3.2)*dt);
-    S.fvx=(S.fvx||0)+(tx-(S.fvx||0))*kk;S.fvz=(S.fvz||0)+(tz-(S.fvz||0))*kk;{const sMul=SpaceFlight.moveMulH(S.y);S.x+=S.fvx*dt*sMul;S.z+=S.fvz*dt*sMul}Locomotion.carry(S);
+    S.fvx=(S.fvx||0)+(tx-(S.fvx||0))*kk;S.fvz=(S.fvz||0)+(tz-(S.fvz||0))*kk;{const sMul=SpaceFlight.moveMulH(S.y,Math.hypot(S.x,S.z));S.x+=S.fvx*dt*sMul;S.z+=S.fvz*dt*sMul}Locomotion.carry(S);
     if(len>.05&&!CameraRig.shooterActive())S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt));
   }else{S.fvx=S.fvz=0;Locomotion.move(S,len>.05?dx*speed:0,len>.05?dz*speed:0,dt,S.dv?'swim':!S.grounded?'air':H(S.x,S.z)<-.5?'swim':'ground');if(len>.05&&!CameraRig.shooterActive())S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt))}
   S.x+=S.kx*dt;S.z+=S.kz*dt;const kd=Math.exp(-4*dt);S.kx*=kd;S.kz*=kd;
   S.iframe=Math.max(0,S.iframe-dt);S.hurt=Math.max(0,S.hurt-dt);{const fo=S.hurt>0?Math.min(.35,S.hurt*.7):0;if(fo!==S._fo){S._fo=fo;$('flash').style.opacity=fo}}
-  const rr=Math.hypot(S.x,S.z);const RB=SpaceFlight.bound(S.y);if(rr>RB){S.x*=RB/rr;S.z*=RB/rr}
+  const rr=Math.hypot(S.x,S.z);SpaceFlight.contain(S,dt);
   let gY=H(S.x,S.z);
   {const dxs=S.x-SKY.x,dzs=S.z-SKY.z;if(Math.hypot(dxs,dzs)<SKY.R*2.8){const sh=SKYG(dxs,dzs);if(sh>-1e8&&S.y>=sh-3)gY=Math.max(gY,sh)}}
   let wat=gY<-.5;const seabed=gY;if(wat)gY=-1;
@@ -1147,7 +1147,7 @@ function tickFrame(t){
   const dvOn=Dive.step(S,dt,{wat,seabed,down:!!(S.diveHeld||keys.KeyC),kick:diveKick});   // vertical swimming (src/input/Dive.js); skips gravity/ground code while submerged
   if(dvOn&&!S.divetip){S.divetip=1;banner('Release to float back up · Jump kicks you upward','DIVING')}
   if(dvOn){}else if(S.flying)S.vy+=((len>.05?(fp||SpaceFlight.vertical(CameraRig.neutralPitch()-S.pitch,bst()?2.4:1,bst()?70:34)).v:0)-S.vy)*Math.min(1,dt*6);else S.vy=SpaceFlight.fall(S.vy,S.y,dt);   // heavier on the way down = snappier, less floaty jump (same height); terminal velocity
-  const imp=dvOn?0:SpaceFlight.landImpact(-S.vy);if(!dvOn){S.y+=SpaceFlight.dy(S.vy,S.y,S.flying,dt);if(S.flying)S.y=Math.min(S.y,SpaceFlight.CEIL)} // above ~900 m flight scales with altitude (src/space/SpaceFlight.js); ceiling 140 km
+  const imp=dvOn?0:SpaceFlight.landImpact(-S.vy);if(!dvOn){S._dy=SpaceFlight.dy(S.vy,S.y,S.flying,dt,Math.hypot(S.x,S.z));S.y+=S._dy;if(S.flying)S.y=Math.min(S.y,SpaceFlight.CEIL)} // above ~900 m flight scales with distance from the world (src/space/SpaceFlight.js)
   if(S.flying&&S.y<=gY)S.flying=false;
   if(dvOn){S.grounded=true}else if(S.y<=gY||(wasG&&S.vy<=0&&S.y-gY<.35)){S.y=gY;S.vy=0;S.grounded=true;if(!wasG&&imp>5){me.userData.land=Math.min(.18,imp*.014);if(CameraRig.land)CameraRig.land(imp);if(typeof Ambience!=='undefined')Ambience.land(imp,{x:S.x,z:S.z,H})}}else S.grounded=false;
   S.state=S.flying?'fly':!S.grounded?(S.vy>0?'jump':'fall'):wat?'swim':len>.05?(sprint?'run':'walk'):'idle';
