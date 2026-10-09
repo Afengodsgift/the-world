@@ -93,7 +93,7 @@ const Outlaw=(()=>{
     [[-5,-2],[4,3],[-2,6],[7,-3],[-8,2],[0,-5],[10,2],[-10,-3]].forEach(([dx,dz],i)=>prop(C.x+dx,C.z+dz,i%2?'barrel':'crate'));
     const pad=new THREE.Mesh(new THREE.CylinderGeometry(2.2,2.4,.3,24),new THREE.MeshStandardMaterial({color:'#c0392b',emissive:'#7a1a10',emissiveIntensity:.6}));pad.position.set(C.x,C.y+.15,C.z+1);scene.add(pad);
     const sg=label('OUTLAW TOWN',6,1.5);sg.position.set(C.x,5,C.z+1);sg.userData.bb=1;scene.add(sg);fx.push({sign:sg});
-    portals();
+    portals();CombatAnims.load();   // death / head-hit / pistol-ready clips (assets/combat_anims.json)
     OutlawArena.build({C,cover,solids,scene,send:o=>send(o),isHost,boom,sfx,spark,hurtMe:(d,x,z)=>hurt(d,x,z),
       dropAt:(x,z)=>{const id=nid++;send({k:'dr',id,x,z});addDrop(id,x,z)},
       aoeNpc:(x,z,rad,dmg)=>{for(const n of npcs.values()){if(n.dead)continue;const d=Math.hypot(n.x-x,n.z-z);if(d<rad+1)damageNpc(n.id,Math.max(1,Math.round(dmg*(1-d/(rad+1)))))}}}); // zones, breakable cover, train (src/games/OutlawArena.js)
@@ -262,7 +262,7 @@ const Outlaw=(()=>{
   const hitBuf={};let lastF=0,lastH=0;
   const HS={1:.7,3:.6,7:.5}; // headshot multiplier scale per raider type: brutes and bosses are not one-tap-able
   function reportHit(id,d,zone){if(isHost())damageNpc(id,d,zone);else{const b=hitBuf[id]||(hitBuf[id]={d:0,z:zone});b.d+=d;if(zone==='head')b.z='head'}} // client hits are batched (flushed in tick)
-  function damageNpc(id,d,zone){const n=npcs.get(id);if(!n||n.dead)return;n.hp-=d;n.flash=.12;n.lastZone=zone||'torso';n.lastHitAt=clock;if(n.hp<=0)killNpc(n)}
+  function damageNpc(id,d,zone){const n=npcs.get(id);if(!n||n.dead)return;n.hp-=d;n.flash=.12;n.lastZone=zone||'torso';n.lastHitAt=clock;n.stg=clock+(zone==='head'?520:260)*(HS[n.type]||1);if(n.hp<=0)killNpc(n)}
   function earn(c){SAVE.coins+=c;save();sfx('coin');popText(S.x,S.y+2.6,S.z,'+'+c+' 🪙','#ffd24a');updateHud()}
   function killNpc(n){n.dead=1;kills++;const c=Math.round(COIN[n.type]*DIFF[diff].coin*(1+wave*.03));send({k:'kill',c});earn(c);if(Math.random()<.16){const id=nid++;send({k:'dr',id,x:n.x,z:n.z});addDrop(id,n.x,n.z)}}
   function addDrop(id,x,z){const m=new THREE.Mesh(new THREE.BoxGeometry(.6,.6,.6),new THREE.MeshStandardMaterial({color:'#2ecc71',emissive:'#1e9e55',emissiveIntensity:.8}));m.position.set(x,H(x,z)+.6,z);scene.add(m);drops.push({id,m,x,z})}
@@ -386,6 +386,7 @@ const Outlaw=(()=>{
     // separation from other NPCs
     for(const o of npcs.values()){if(o===n||o.dead)continue;const ox=n.x-o.x,oz=n.z-o.z,od=Math.hypot(ox,oz);if(od<2.6&&od>.01){mx+=ox/od*.8;mz+=oz/od*.8}}
     if(d>70)sp*=1+Math.min(1,(d-70)/90)*.9; // raiders hurry across the island
+    if(n.stg>clock)sp*=.35;   // staggered by a hit: a brief stumble, not a stun-lock
     const ml=Math.hypot(mx,mz)||1;n.x+=mx/ml*sp*dt;n.z+=mz/ml*sp*dt;
     for(const c of solids){const ox=n.x-c.x,oz=n.z-c.z;if(Math.abs(ox)>c.r+1||Math.abs(oz)>c.r+1)continue;const od=Math.hypot(ox,oz),m=c.r+.45;if(od<m&&od>.001){n.x=c.x+ox/od*m;n.z=c.z+oz/od*m}}
     const lr=Math.hypot(n.x-C.x,n.z-C.z);if(lr>195){n.x=C.x+(n.x-C.x)/lr*195;n.z=C.z+(n.z-C.z)/lr*195}
@@ -422,10 +423,20 @@ const Outlaw=(()=>{
   function visuals(dt){
     for(const n of [...npcs.values()]){
       const g=n.group;if(!g)continue;const p=g.position;
-      if(n.dead){n.dt=(n.dt||0)+dt;g.rotation.x=Math.min(1.5,n.dt*3);g.scale.setScalar(Math.max(.01,TYPES[n.type].sc*(1-Math.max(0,n.dt-.5)*1.4)));if(n.laser)n.laser.visible=false;
+      if(n.dead){
+        n.dt=(n.dt||0)+dt;const q=g.userData;
+        // DEATH STATE: stop fighting/moving, play the baked fall (Death01), lie there a few seconds, sink into the ground, then clean up. Falls back to the old tilt if the clip is missing.
+        if(!n.dying){n.dying=1;const a=q.mixer&&CombatAnims.act(q,'death');if(a){q.mixer.stopAllAction();q.model.rotation.set(0,0,0);q.model.position.set(0,0,0);a.reset();a.setEffectiveTimeScale(1.1);a.setEffectiveWeight(1);a.play();n.deathAnim=true}}
+        if(n.laser)n.laser.visible=false;if(n.bar)n.bar.visible=false;
+        if(n.deathAnim){q.mixer.update(dt);if(n.dt>5)p.y-=(n.dt-5)*dt*.9;if(n.dt>6.6){removeVisual(n);npcs.delete(n.id)}continue}
+        g.rotation.x=Math.min(1.5,n.dt*3);g.scale.setScalar(Math.max(.01,TYPES[n.type].sc*(1-Math.max(0,n.dt-.5)*1.4)));if(n.laser)n.laser.visible=false;
         if(n.dt>1.2){removeVisual(n);npcs.delete(n.id)}continue}
       if(isHost()){p.x=n.x;p.z=n.z}else{const k=Math.min(1,dt*10);p.x+=(n.tx-p.x)*k;p.z+=(n.tz-p.z)*k;n.x=p.x;n.z=p.z}
       p.y=H(p.x,p.z);let da=n.r-g.rotation.y;da=Math.atan2(Math.sin(da),Math.cos(da));g.rotation.y+=da*Math.min(1,dt*10);
+      // hit reaction: a quick flinch when hp drops (head variant for big hits/headshots); rate-limited so rapid fire does not freeze the animation
+      if(n.lhp===undefined)n.lhp=n.hp;
+      if(n.hp<n.lhp-.5){const drop=n.lhp-n.hp;if(clock-(n.reactAt||-1e9)>450){n.reactAt=clock;const q=g.userData;q.hitReq=1;if(drop>=.3*n.max||n.lastZone==='head')q.hitHead=1}}
+      n.lhp=n.hp;
       animate(g,dt,n.st==='aim'?'idle':n.st);
       n.fg.scale.x=Math.max(.001,n.hp/n.max);n.fg.position.x=-(1-n.fg.scale.x)*.6;n.bar.lookAt(camera.position);
       if(n.st==='aim'){const t=[...others.values()].map(o=>o.group.position).concat([{x:S.x,y:S.y,z:S.z}]).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];
@@ -555,5 +566,5 @@ const Outlaw=(()=>{
 
   Interaction.register('ow-start','Start Showdown',()=>C&&!active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>missionPanel());
   Interaction.register('ow-end','End Showdown',()=>C&&active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>{send({k:'end'});onMsg({k:'end'})});
-  return {build,tick,onMsg,equip,fire,lockTarget,poseGun,loadGun,_t:()=>({get lastShot(){return lastShot},cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
+  return {build,tick,onMsg,equip,fire,lockTarget,poseGun,loadGun,_t:()=>({get lastShot(){return lastShot},damageNpc,cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
 })();

@@ -153,6 +153,8 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/combat/Melee.js"></script>
 <script src="src/interaction/InteractionManager.js"></script>
 <script src="src/games/Tag.js"></script>
+<script src="src/combat/CombatAnims.js"></script>
+<script src="src/character/CombatPose.js"></script>
 <script src="src/combat/HitZones.js"></script>
 <script src="src/games/OutlawArena.js"></script>
 <script src="src/games/Outlaw.js"></script>
@@ -372,7 +374,7 @@ function emoStart(q,id){
 
 function animateClips(g,dt,st){
   const q=g.userData,A=q.nact,p=g.position;
-  const rawU=q.pp&&dt>0?Math.hypot(p.x-q.pp.x,p.z-q.pp.z)/dt:0,raw=Math.min(16,rawU);q.pp={x:p.x,z:p.z};
+  const mdx=q.pp?p.x-q.pp.x:0,mdz=q.pp?p.z-q.pp.z:0,rawU=q.pp&&dt>0?Math.hypot(p.x-q.pp.x,p.z-q.pp.z)/dt:0,raw=Math.min(16,rawU);q.pp={x:p.x,z:p.z};
   q.fs=(q.fs||0)+(rawU-(q.fs||0))*Math.min(1,dt*6);const sf=clamp(q.fs/70,0,1); // unclamped speed (flight is much faster than the 16 m/s clamp above)
   {const ly=q.lyaw===undefined?g.rotation.y:q.lyaw,yd=Math.atan2(Math.sin(g.rotation.y-ly),Math.cos(g.rotation.y-ly))/Math.max(dt,.001);q.yr=(q.yr||0)+(yd-(q.yr||0))*Math.min(1,dt*5);q.lyaw=g.rotation.y}const acc=(raw-(q.v||0))*10;q.v=(q.v||0)+(raw-(q.v||0))*Math.min(1,dt*10);const v=q.v;
   let want='idle',ts=1,fade=.18;
@@ -383,6 +385,11 @@ function animateClips(g,dt,st){
   else if(st==='walk'||st==='run'){const c=q.cur; // thresholds have hysteresis so it doesn't flicker between clips
     want=v<.4?'idle':(c==='sprint'?v>7.2:v>8.4)?'sprint':(c==='jog'?v>2.4:v>3.2)?'jog':'walk';
     ts=want==='walk'?clamp(v/1.06,.6,2.2):want==='jog'?clamp(v/5.8,.5,1.5):want==='sprint'?clamp(v/9,.8,1.7):1}
+  // armed: strafe / backpedal by twisting the legs (src/character/CombatPose.js) and stand in the pistol-ready stance instead of the relaxed idle
+  const armed=q.gunI>=0&&st!=='fly'&&st!=='swim'&&st!=='jump'&&st!=='fall';
+  if(armed)CombatPose.plan(q,dt,mdx,mdz,v,g.rotation.y,st==='walk'||st==='run');else{q.cpT=0;q.cpRev=false}
+  if(q.cpRev&&LOCO[want])ts=-ts;
+  if(want==='idle'&&armed){const ca=CombatAnims.act(q,'cidle');if(ca){A.cidle=ca;want='cidle'}}
   const n=A[want];
   if(q.cur!==want){n.reset();if(LOCO[q.cur]&&LOCO[want]){const o=A[q.cur];n.time=o.time/o.getClip().duration*n.getClip().duration} // keep the stride phase when switching gait
     n.setEffectiveWeight(1);n.fadeIn(fade).play();if(q.cur)A[q.cur].fadeOut(fade);q.cur=want}
@@ -390,7 +397,7 @@ function animateClips(g,dt,st){
   // one-shot overlays
   const ov=(name,sp,w,fi)=>{const a=A[name]||emoAct(q,name);if(!a)return;a.reset();a.setEffectiveTimeScale(sp);a.setEffectiveWeight(.0001);a.play();(q.ov=q.ov||{})[name]={a,left:a.getClip().duration/sp,age:0,fi:Math.max(.04,fi),smax:w/(w+1)}};
   if((q.swing||0)>.9){emoStop(q);ov('smack',1.4,24,.05)}
-  if(q.hitReq){emoStop(q);q.hitReq=0;q.hitAlt=!q.hitAlt;ov(q.hitAlt&&A.hit2?'hit2':'hit',q.hitAlt?1.3:.9,24,.05)} // alternate two hit reactions
+  if(q.hitReq){emoStop(q);q.hitReq=0;q.hitAlt=!q.hitAlt;let hn=q.hitAlt&&A.hit2?'hit2':'hit';if(q.hitHead){q.hitHead=0;const ha=CombatAnims.act(q,'headhit');if(ha){A.headhit=ha;hn='headhit'}}ov(hn,q.hitAlt?1.3:.9,24,.05)} // alternate two hit reactions
   if(q.emote){const e=q.emote;q.emote=null;emoStop(q);ov(e,1.3,20,.1)}
   if(q.emoteReq){const e=q.emoteReq;q.emoteReq=null;if(st==='idle'||!q.hold)emoStart(q,e)}
   if(q.hold){const h=q.hold,now=performance.now()/1000;
@@ -410,6 +417,7 @@ function animateClips(g,dt,st){
   q.model.rotation.set(q.lunge+(q.lx||0),0,q.lz||0);q.model.position.set(0,q.oy,0);        // base transform; FlightPose overrides it while flying
   q.model.scale.set(.5*(1+q.land*.3),.5*(1-q.land*.6),.5*(1+q.land*.3));
   q.mixer.update(dt);
+  if(armed&&Math.abs(q.cpT||0)>.01)CombatPose.twist(q);   // legs twisted toward travel, torso back on the aim
   // procedural layers on top of the baked clips: flight (src/character/FlightPose.js) or a held weapon (Outlaw.poseGun)
   if(!FlightPose.apply(g,q,dt,st,{speed:q.fs,yawRate:q.yr})&&q.gunI>=0&&typeof Outlaw!=='undefined')Outlaw.poseGun(g,q,st,dt);
   FlightFX.avatar(g,q,dt);

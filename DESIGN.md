@@ -92,6 +92,13 @@ Outlaw Isle: stays specialized · Sky: wind currents, cloud platforms · Main: t
 - **Headshots kill** standard raiders with pistol/rifle/shotgun/sniper (`HitZones.headKills`); SMG/minigun spray and brutes/bosses take heavy damage instead (not one-tap). A small head-priority window (0.45 m) counts a head the ray passes just behind a shoulder as a head hit.
 - Measured in the real game (pistol, clear line, random bearings, 8-45 m): 11/12 headshots kill; chest/hand/shin give torso/arm/leg damage.
 
+## Combat Feel V2 - slices 3-4: combat movement, hit reactions, death
+- **Assets**: `tools/retarget_combat.js` bakes a few Universal Animation Library clips (Quaternius, CC0) onto the character -> `assets/combat_anims.json` (317 KB, loaded when Outlaw Isle is built by `src/combat/CombatAnims.js`): `cidle` (pistol-ready stance), `death` (Death01, floor-snapped), `headhit`, `crouch`, `crouchwalk`, `roll` (the last three are ready for cover work).
+- **Strafe / backpedal without strafe clips** (`src/character/CombatPose.js`, `tests/combatpose.sim.js`): while armed the body faces the aim; the legs are twisted toward the direction of travel (hips yaw about the world vertical, clamped +-92 deg), the spine counter-rotates so torso and arms stay on the aim, and moving backwards plays the gait clip in reverse with the legs facing forward (hysteresis 70-112 deg so it never flickers). Works for the player, the partner and raiders (it only needs position delta + heading). Standing still with a gun out uses the pistol-ready idle instead of the relaxed idle.
+- **Hit reactions**: a quick flinch when a raider's hp drops (head variant for headshots / hits >= 30% of max hp), rate-limited to one per 450 ms so rapid fire doesn't freeze the animation; the host also staggers the raider briefly (35% speed for 0.26 s, 0.52 s on a headshot, shorter for brutes/bosses). No stun-lock.
+- **Death state**: dead raiders stop fighting and moving, play the baked fall (no more plank-tilt + shrink), lie there ~5 s, sink into the ground and are removed at ~6.6 s; non-targetable the moment they die. If the clip hasn't loaded the old tilt is the fallback.
+- Not done yet: dedicated reload/shoot clips (the procedural `poseGun` still drives arms), crouch-in-cover use of `crouch`/`crouchwalk`, directional death variants.
+
 ## Roadmap
 0 Net adapter ✔ · 1 WorldState + Journal ✔ · 2 Verbs v1 ✔ (cave interior still open) ·
 3 Link ✔ (twin plates, synced shrine; lockpick+lookout later) · 4 Event Director ✔ (meteor, visitor, golden rings; shark surge later) · 5 Zones (Storm Cay wind, Frost friction first) · 6 Home v1 (trophy shelf, aquarium) ·
