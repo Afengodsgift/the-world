@@ -85,6 +85,13 @@ Outlaw Isle: stays specialized · Sky: wind currents, cloud platforms · Main: t
 - NOT changed yet: raiders' own line of sight / cover choice is still the old 2D test (their cover blocks at any height), so they can't shoot you through a crate but you can shoot them over it. Slice 5 makes it symmetric.
 - Debug: add `?hz=1` to the URL (or `Outlaw._t().dbgZones(true)`) to draw the zones.
 
+### Slice 2 fixes after phone testing (headshots)
+- **Zones follow the real skeleton**: the raider rig is only ~1.5 m tall (head bone 1.3 m), so the first static zones were too tall and missed the visible head. `boneVolumes()` builds the zones every shot from the live bones (head sphere above the head bone, torso hips -> just below the neck, 2 capsules per arm and leg), so they match model, pose, animation and scale; the static set (recalibrated to the rig) is only a fallback while the skin is still loading.
+- **Crosshair is the truth**: bullets are resolved along the CAMERA ray (zones + height-aware cover); the gun only has to have a clear line to the impact point (cover between muzzle and target blocks and takes the shot). No more parallax misses.
+- **Spread blooms**: the first shot while standing still has ~15% of the weapon spread (a tap on a head is a headshot); sustained fire and running grow it up to 100% (shotguns keep pellet spread). The reticle opens with the bloom.
+- **Headshots kill** standard raiders with pistol/rifle/shotgun/sniper (`HitZones.headKills`); SMG/minigun spray and brutes/bosses take heavy damage instead (not one-tap). A small head-priority window (0.45 m) counts a head the ray passes just behind a shoulder as a head hit.
+- Measured in the real game (pistol, clear line, random bearings, 8-45 m): 11/12 headshots kill; chest/hand/shin give torso/arm/leg damage.
+
 ## Roadmap
 0 Net adapter ✔ · 1 WorldState + Journal ✔ · 2 Verbs v1 ✔ (cave interior still open) ·
 3 Link ✔ (twin plates, synced shrine; lockpick+lookout later) · 4 Event Director ✔ (meteor, visitor, golden rings; shark surge later) · 5 Zones (Storm Cay wind, Frost friction first) · 6 Home v1 (trophy shelf, aquarium) ·

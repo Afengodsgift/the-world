@@ -38,7 +38,7 @@ const Outlaw=(()=>{
   const DIFF=[{n:'Normal',hp:1,dmg:1,cnt:1,coin:1},{n:'Hard',hp:1.4,dmg:1.25,cnt:1.3,coin:1.5},{n:'Outlaw',hp:2,dmg:1.6,cnt:1.7,coin:2.2}];
   const cover=[],npcs=new Map(),cache={};
   let wiped=false,clock=0,C=null,active=false,host=null,wave=0,kills=0,best=0,nextWave=0,queue=[],spawnT=0,nid=1,snapT=0;
-  let wi=-1,hp=100,down=false,downT=0,cdT=0,firing=false,pdown=false,pw=-1,hudEl,hpEl,xh,fireBtn,gunBtn,hitT=0,xSp=0,critT=0,fx=[];
+  let wi=-1,hp=100,down=false,downT=0,cdT=0,firing=false,pdown=false,pw=-1,hudEl,hpEl,xh,fireBtn,gunBtn,hitT=0,xSp=0,bloom=0,critT=0,fx=[];
   const prev={x:0,z:0,vx:0,vz:0},pprev={x:0,z:0,vx:0,vz:0};
   let diff=1,mode='survive',bank={x:0,z:0,hp:1500,max:1500},ammo=[],reloadT=0,reloading=false,dyn=[],drops=[],reloadBtn,shopEl,pick={m:'survive',d:1};
   let SAVE={coins:0,own:WEAPONS.map((_,i)=>FREE.includes(i)?1:0),lv:WEAPONS.map(()=>0),hp:0,mag:0,rl:0,crit:0,v:0};
@@ -59,7 +59,7 @@ const Outlaw=(()=>{
     const b=2*(fx*dx+fz*dz),k=fx*fx+fz*fz-c.r*c.r,D=b*b-4*a*k;if(D<0)return false;
     const s=Math.sqrt(D);return (-b-s)/(2*a)<1&&(-b+s)/(2*a)>.02}
   const los=(ax,az,bx,bz)=>!cover.some(c=>segCircle(ax,az,bx,bz,c));
-  let rcHit=null; // the cover entry the last rayCover() hit (breakable cover reacts to bullets)
+  let lastShot=null,rcHit=null; // the cover entry the last rayCover() hit (breakable cover reacts to bullets)
   function rayCover(o,d,max){const r=HitZones.coverT(o,d,max,cover);rcHit=r.c;return r.t} // nearest cover along the ray; cover has a real height (a shot can pass over a crate)
   function raySphere(o,d,cx,cy,cz,r){const lx=cx-o.x,ly=cy-o.y,lz=cz-o.z,tca=lx*d.x+ly*d.y+lz*d.z;if(tca<0)return null;
     const d2=lx*lx+ly*ly+lz*lz-tca*tca;if(d2>r*r)return null;return tca-Math.sqrt(r*r-d2)}
@@ -198,41 +198,61 @@ const Outlaw=(()=>{
     if(wi<0||down||!camera||reloading)return;const W=WEAPONS[wi];if(cdT>0)return;
     if(am(wi)<=0){reload();return}
     cdT=W.cd;ammo[wi]=am(wi)-1;
-    camera.getWorldDirection(camDir);const P=aimPoint(W.rng);   // the aim is the camera's: what is under the crosshair is what you hit
+    camera.getWorldDirection(camDir);   // the aim is the camera's: what is under the crosshair is what you hit (the gun only has to have a clear line to it)
+    const co=camera.position.clone().addScaledVector(camDir,Math.min(6,Math.hypot(camera.position.x-S.x,camera.position.y-(S.y+1.4),camera.position.z-S.z)));
     S.rot=Math.atan2(camDir.x,camDir.z);me.rotation.y=S.rot;
-    const M=CameraRig.isFPS()?Viewmodel.muzzleWorld(camera):muzzle(me,wi),o=new THREE.Vector3(M.x,M.y,M.z),base=P.clone().sub(o);
-    if(base.lengthSq()<.04||base.dot(camDir)<.3*base.length())base.copy(camDir);base.normalize();
+    const M=CameraRig.isFPS()?Viewmodel.muzzleWorld(camera):muzzle(me,wi),o=new THREE.Vector3(M.x,M.y,M.z);
     let anyHit=false,anyCrit=false,endp=null;
+    // SPREAD: the first shot while standing still goes exactly where the reticle is (a tap on a head is a headshot); spread blooms while you keep firing and while you run.
+    // Shotguns keep their pellet spread. (bloom 0..1: +per shot, decays in tick)
+    const mv=Math.min(1,Math.hypot(prev.vx||0,prev.vz||0)/6)*.35,spr=W.pel>1?W.sp:W.sp*(.15+.85*Math.min(1,bloom+mv));
     for(let p=0;p<W.pel;p++){
-      const d=base.clone();if(W.sp){d.x+=rnd(-W.sp,W.sp);d.y+=rnd(-W.sp,W.sp);d.z+=rnd(-W.sp,W.sp);d.normalize()}
-      const wall=rayCover(o,d,W.rng),wc=rcHit;let tn=wall,hit=null,zone=null;
-      for(const n of npcs.values()){if(n.dead||!n.group)continue;const p3=n.group.position,h=HitZones.hit(o.x,o.y,o.z,d.x,d.y,d.z,tn,p3.x,p3.y,p3.z,n.group.rotation.y,TYPES[n.type].sc);
-        if(h&&h.t<tn){tn=h.t;hit=n;zone=h.zone}}   // the first body part the ray reaches before it reaches any cover
-      endp=[o.x+d.x*tn,o.y+d.y*tn,o.z+d.z*tn];
+      const d=camDir.clone();if(spr){d.x+=rnd(-spr,spr);d.y+=rnd(-spr,spr);d.z+=rnd(-spr,spr);d.normalize()}
+      let wall=rayCover(co,d,W.rng),wc=rcHit,tn=wall,hit=null,zone=null;
+      for(const n of npcs.values()){if(n.dead||!n.group)continue;const h=zoneHit(co,d,tn,n);
+        if(h&&h.t<tn){tn=h.t;hit=n;zone=h.zone}}   // the first body part the camera ray reaches before it reaches any cover
+      const E=new THREE.Vector3(co.x+d.x*tn,co.y+d.y*tn,co.z+d.z*tn),md=E.clone().sub(o),L=md.length();
+      if(L>.05){md.divideScalar(L);const ob=rayCover(o,md,L-.08),oc=rcHit;   // can the gun actually see that point? cover between the muzzle and it blocks the bullet (and takes it)
+        if(oc&&ob<L-.08){E.copy(o).addScaledVector(md,ob);hit=null;zone=null;wc=oc;tn=wall=ob}}
+      endp=[E.x,E.y,E.z];
+      if(p===0)lastShot={M:[+M.x.toFixed(2),+M.y.toFixed(2),+M.z.toFixed(2)],P:[+E.x.toFixed(2),+E.y.toFixed(2),+E.z.toFixed(2)],tn:+tn.toFixed(2),wall:+wall.toFixed(1),zone,hit:!!hit,spr:+spr.toFixed(4)};
       if(!hit&&wc&&tn===wall&&!W.rocket&&wc.brk!==undefined){OutlawArena.hitCover(wc,dmgOf(wi));spark(endp[0],endp[1],endp[2],'#d8b45a');anyHit=true}
       if(W.rocket){aoe(endp,dmgOf(wi),W.rad||6);tracer(M.x,M.y,M.z,endp[0],endp[1],endp[2],'#ff9a2e');anyHit=true;continue}
-      if(hit){const crit=zone==='head',dmg=Math.max(1,Math.round(dmgOf(wi)*HitZones.zoneMult(zone,W.snd,HS[hit.type],SAVE.crit)));anyHit=true;if(crit)anyCrit=true;reportHit(hit.id,dmg,zone);spark(endp[0],endp[1],endp[2],crit?'#ffd24a':undefined);
-        if(p<3)popText(endp[0],endp[1]+.7,endp[2],(crit?'💥':'')+dmg,crit?'#ffd24a':zone==='torso'?'#fff':'#b8c4cc',crit?1.35:zone==='torso'?1:.85)}
+      if(hit){const crit=zone==='head',kill=crit&&HitZones.headKills(W.snd,HS[hit.type]),dmg=kill?9999:Math.max(1,Math.round(dmgOf(wi)*HitZones.zoneMult(zone,W.snd,HS[hit.type],SAVE.crit)));anyHit=true;if(crit)anyCrit=true;reportHit(hit.id,dmg,zone);spark(endp[0],endp[1],endp[2],crit?'#ffd24a':undefined);
+        if(p<3)popText(endp[0],endp[1]+.7,endp[2],(kill?'💥 HEADSHOT':crit?'💥'+dmg:dmg),crit?'#ffd24a':zone==='torso'?'#fff':'#b8c4cc',crit?1.35:zone==='torso'?1:.85)}
       if(p<3)tracer(M.x,M.y,M.z,endp[0],endp[1],endp[2]);
     }
-    me.userData.recoil=1;Viewmodel.kick(RECOIL[wi]);CameraRig.kick(.016*RECOIL[wi],rnd(-.004,.004)*RECOIL[wi]);sfx(W.snd);if(anyHit){hitT=.18;if(anyCrit)critT=.24;sfx(anyCrit?'crit':'hit')}xSp=Math.min(16,xSp+3+RECOIL[wi]*2.2);
+    me.userData.recoil=1;Viewmodel.kick(RECOIL[wi]);CameraRig.kick(.016*RECOIL[wi],rnd(-.004,.004)*RECOIL[wi]);sfx(W.snd);if(anyHit){hitT=.18;if(anyCrit)critT=.24;sfx(anyCrit?'crit':'hit')}if(W.pel<=1)bloom=Math.min(1,bloom+.14+W.cd*.3);
     if(clock-lastF>110){lastF=clock;send({k:'f',w:wi,m:[M.x,M.y,M.z],e:endp})}
     if(am(wi)<=0)reload();else updateHud();
   }
+  // ---- raider body zones from the live skeleton (match the model, pose and animation); falls back to the static set if a bone is missing ----
+  const ZB={head:'head',neck:'neck',hips:'hips',lArm:'leftarm',lFore:'leftforearm',lHand:'lefthand',rArm:'rightarm',rFore:'rightforearm',rHand:'righthand',lUp:'leftupleg',lLeg:'leftleg',lFoot:'leftfoot',rUp:'rightupleg',rLeg:'rightleg',rFoot:'rightfoot'};
+  function npcBones(n){
+    if(n.zb)return n.zb;if(n.zbT&&clock-n.zbT<1000)return null;   // the skin loads asynchronously: until the bones exist use the static zones and look again in a second
+    const found={};n.group.traverse(o=>{if(!o.isBone)return;const k=o.name.toLowerCase().replace(/^.*:/,'');for(const id in ZB)if(ZB[id]===k&&!found[id])found[id]=o});
+    if(Object.keys(ZB).every(id=>found[id]))return n.zb=found;n.zbT=clock;return null}
+  function npcVolumes(n){ // {vols,cen,cr} in world space, or null (use the static zones)
+    const B=npcBones(n);if(!B)return null;n.group.updateWorldMatrix(true,true);const p={},e=[];
+    for(const id in ZB){const m=B[id].matrixWorld.elements;p[id]=[m[12],m[13],m[14]]}
+    const sc=TYPES[n.type].sc,h=p.hips;return {vols:HitZones.boneVolumes(p,sc),cen:[h[0],h[1]+.2*sc,h[2]],cr:1.1*sc}}
+  function zoneHit(o,d,max,n){ // nearest body zone of raider n hit by ray (o,d) within max -> {t,zone} | null
+    const p3=n.group.position,sc=TYPES[n.type].sc;if(Math.hypot(p3.x-o.x,p3.z-o.z)>max+2)return null;
+    const V=npcVolumes(n);return V?HitZones.hitVolumes(o.x,o.y,o.z,d.x,d.y,d.z,max,V.vols,V.cen,V.cr):HitZones.hit(o.x,o.y,o.z,d.x,d.y,d.z,max,p3.x,p3.y,p3.z,n.group.rotation.y,sc)}
   // debug overlay for the hit zones: add ?hz=1 to the URL (or Outlaw._t().dbgZones(true)); rebuilt every frame, so only ever used while tuning
   let dbgOn=typeof location!=='undefined'&&/[?&]hz=1/.test(location.search),dbgG=null;const dbgMat=new THREE.MeshBasicMaterial({color:'#ff3b30',wireframe:true,depthTest:false,transparent:true,opacity:.75});
   function zoneDebug(){
     if(!dbgG){dbgG=new THREE.Group();dbgG.renderOrder=999;scene.add(dbgG)}
     while(dbgG.children.length){const m=dbgG.children[0];dbgG.remove(m);m.geometry.dispose()}
     for(const n of npcs.values()){if(n.dead||!n.group)continue;const p=n.group.position;
-      for(const v of HitZones.volumes(p.x,p.y,p.z,n.group.rotation.y,TYPES[n.type].sc)){const ax=new THREE.Vector3(...v.a),bx=new THREE.Vector3(...v.b),len=ax.distanceTo(bx),
+      const V=npcVolumes(n);for(const v of (V?V.vols:HitZones.volumes(p.x,p.y,p.z,n.group.rotation.y,TYPES[n.type].sc))){const ax=new THREE.Vector3(...v.a),bx=new THREE.Vector3(...v.b),len=ax.distanceTo(bx),
         m=new THREE.Mesh(len>1e-4?new THREE.CapsuleGeometry(v.r,len,3,8):new THREE.SphereGeometry(v.r,8,6),dbgMat);m.position.copy(ax).add(bx).multiplyScalar(.5);
         if(len>1e-4)m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),bx.clone().sub(ax).normalize());m.renderOrder=999;dbgG.add(m)}}}
   // where the crosshair points: the first cover/raider along the CAMERA ray (starting past the player, so nothing between camera and player intercepts it), else max range
   function aimPoint(range){
     const back=Math.min(6,Math.hypot(camera.position.x-S.x,camera.position.y-(S.y+1.4),camera.position.z-S.z)),o=camera.position.clone().addScaledVector(camDir,back);
     let t=rayCover(o,camDir,range);
-    for(const n of npcs.values()){if(n.dead||!n.group)continue;const p3=n.group.position,h=HitZones.hit(o.x,o.y,o.z,camDir.x,camDir.y,camDir.z,t,p3.x,p3.y,p3.z,n.group.rotation.y,TYPES[n.type].sc);if(h&&h.t<t)t=h.t}
+    for(const n of npcs.values()){if(n.dead||!n.group)continue;const h=zoneHit(o,camDir,t,n);if(h&&h.t<t)t=h.t}
     return o.addScaledVector(camDir,t)}
   function lockMarker(){
     const lk=wi>=0&&!down?lockTarget(WEAPONS[wi].rng):null;lockN=lk;
@@ -515,7 +535,7 @@ const Outlaw=(()=>{
     prev.vx=(S.x-prev.x)/Math.max(dt,.001);prev.vz=(S.z-prev.z)/Math.max(dt,.001);prev.x=S.x;prev.z=S.z;
     const p=partner();if(p){const g=p[1].group.position;pprev.vx=(g.x-pprev.x)/Math.max(dt,.001);pprev.vz=(g.z-pprev.z)/Math.max(dt,.001);pprev.x=g.x;pprev.z=g.z;if(p[1].group.userData.gunI!==pw)setGun(p[1].group,pw)}
     if(clock-lastH>100){lastH=clock;for(const id in hitBuf){send({k:'h',id:+id,d:hitBuf[id].d,z:hitBuf[id].z});delete hitBuf[id]}}
-    cdT-=dt;hitT=Math.max(0,hitT-dt);critT=Math.max(0,critT-dt);xSp*=Math.exp(-9*dt);if(xh){xh.className=hitT>0?(critT>0?'crit':'hit'):'';xh.style.setProperty('--g',(4+xSp+Math.min(3,Math.hypot(prev.vx,prev.vz)*.35))+'px')} // reticle: opens with recoil and movement, flashes on a hit
+    cdT-=dt;hitT=Math.max(0,hitT-dt);critT=Math.max(0,critT-dt);bloom=Math.max(0,bloom-dt*.7);xSp=bloom*12+(wi>=0&&WEAPONS[wi].pel>1?6:0);if(xh){xh.className=hitT>0?(critT>0?'crit':'hit'):'';xh.style.setProperty('--g',(4+xSp+Math.min(3,Math.hypot(prev.vx,prev.vz)*.35))+'px')} // reticle: opens with recoil and movement, flashes on a hit
     if(firing)fire();
     lockMarker();
     // a weapon is out (and you're not swimming): CameraRig picks first-person or shoulder view; Viewmodel draws the arms + gun
@@ -535,5 +555,5 @@ const Outlaw=(()=>{
 
   Interaction.register('ow-start','Start Showdown',()=>C&&!active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>missionPanel());
   Interaction.register('ow-end','End Showdown',()=>C&&active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>{send({k:'end'});onMsg({k:'end'})});
-  return {build,tick,onMsg,equip,fire,lockTarget,poseGun,loadGun,_t:()=>({aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
+  return {build,tick,onMsg,equip,fire,lockTarget,poseGun,loadGun,_t:()=>({get lastShot(){return lastShot},cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
 })();
