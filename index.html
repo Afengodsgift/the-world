@@ -203,7 +203,17 @@ const myId=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)
 if(THREE.ColorManagement)THREE.ColorManagement.legacyMode=false;
 function showErr(e){let d=document.getElementById('err');if(!d){d=document.createElement('div');d.id='err';d.style.cssText='position:fixed;z-index:99;left:8px;right:8px;top:110px;padding:10px;background:#5a0d0dcc;color:#fff;font:12px monospace;white-space:pre-wrap;word-break:break-all;pointer-events:none';document.body.appendChild(d)}const t=String(e&&(e.stack||e.message)||e).slice(0,300);if(!d.textContent.includes(t))d.textContent+=t+'\n';clearTimeout(d._t);d._t=setTimeout(()=>d.remove(),8000)}
 addEventListener('error',ev=>showErr(ev.error||ev.message));addEventListener('unhandledrejection',ev=>showErr(ev.reason));
-function boot(t){let d=document.getElementById('boot');if(!t){d&&d.remove();return}if(!d){d=document.createElement('div');d.id='boot';d.style.cssText='position:fixed;z-index:9;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px;font-style:italic;pointer-events:none;color:#fff';document.body.appendChild(d)}d.textContent=t}
+const nap=ms=>new Promise(r=>setTimeout(r,ms));
+// loading screen: boot('text',percent) shows/updates it, boot('') removes it. Opaque, so the half-built world is never visible.
+function boot(t,pct){let d=document.getElementById('boot');if(!t){d&&d.remove();return}if(!d){d=document.createElement('div');d.id='boot';d.style.cssText='position:fixed;z-index:60;inset:0;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;font-size:20px;font-style:italic;pointer-events:none;color:#fff;background:#0b1226';d.innerHTML='<div></div><div style="width:min(260px,60vw);height:6px;border-radius:4px;background:#ffffff26;overflow:hidden"><i style="display:block;height:100%;width:0;background:#8dd0ff;border-radius:4px;transition:width .35s"></i></div>';document.body.appendChild(d)}d.firstChild.textContent=t;if(pct!==undefined)d.lastChild.firstChild.style.width=pct+'%'}
+// Pre-draw everything once, behind the loading screen: compiles every shader and uploads all geometry/textures to the GPU now (including things off-screen and far vegetation cells),
+// instead of at the moment you first look at them. Restores culling/visibility afterwards.
+function warmUp(){
+  const saved=[];scene.traverse(o=>{if(o.isMesh||o.isPoints||o.isLine||o.isSprite){saved.push([o,o.frustumCulled]);o.frustumCulled=false}});
+  const vs=VEG.map(v=>[v.m,v.m.visible]);for(const v of VEG)v.m.visible=true;
+  try{renderer.compile(scene,camera);renderer.render(scene,camera);if(window.Viewmodel)Viewmodel.render(renderer,camera)}finally{
+    for(const [o,f] of saved)o.frustumCulled=f;for(const [m,v] of vs)m.visible=v;renderer.info.reset()}
+}
 const COLORS=['#ff6b8b','#ffb454','#6bd6ff','#8dff9a','#c08bff','#ffe66b'];
 const myColor=COLORS[Math.random()*COLORS.length|0];
 const SKINLABELS=['Man','Woman','Warrior','Robot'];
@@ -638,15 +648,20 @@ let startGameRan=false;
 async function startGame(){
   if(startGameRan)return;startGameRan=true;
   $('lobby').style.display='none';
-  ['hud','stick'].forEach(i=>$(i).style.display=i==='hud'?'flex':'block');$('jump').style.display='block';$('panbtn').style.display=PAN_ENABLED?'block':'none';$('emobtn').style.display='block';setTimeout(()=>loadEmotes().catch(()=>{}),4000);
+  ['hud','stick'].forEach(i=>$(i).style.display=i==='hud'?'flex':'block');$('jump').style.display='block';$('panbtn').style.display=PAN_ENABLED?'block':'none';$('emobtn').style.display='block';
   renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   Perf.init(renderer);renderer.setSize(innerWidth,innerHeight);
   document.body.appendChild(renderer.domElement);
   camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,4200);
-  boot('Loading world…');
-  try{await Promise.race([Promise.all([loadAssets(),loadKartAssets(),loadChar().catch(e=>showErr('char: '+e))]),new Promise(r=>setTimeout(r,20000))])}catch(e){showErr(e)}
+  boot('Loading models…',4);
+  try{await Promise.race([Promise.all([loadAssets(),loadKartAssets(),loadChar().catch(e=>showErr('char: '+e))]),nap(20000)])}catch(e){showErr(e)}
+  boot('Building the world…',22);await nap(40);   // let the overlay paint before the heavy synchronous build
   try{buildWorld(roomCode);load();wsBoot()}catch(e){showErr(e);throw e}
-  boot('');
+  // Everything that used to load/build in the background AFTER you were already playing (the lag in the first ~20 s) now happens here, behind the loading screen.
+  // Each wait has a timeout so a slow connection can never trap you on this screen.
+  boot('Loading islands…',45);try{await Promise.race([loadPacks(),nap(25000)])}catch(e){showErr(e)}
+  boot('Building the sky island…',62);await nap(40);try{buildSkyIsland()}catch(e){showErr(e)}
+  boot('Loading animations…',74);try{await Promise.race([loadEmotes(),nap(15000)])}catch(e){}
   me=makeAvatar(myName,myColor);scene.add(me);dress(me,mySkin);
   // spawn: slot by join order (offset so partners don't overlap)
   S.x=TOWN.x+(Math.random()-.5)*4;S.z=TOWN.z+7+(Math.random()-.5)*2;S.y=H(S.x,S.z)+.1;
@@ -656,9 +671,11 @@ async function startGame(){
   addEventListener('resize',fit);addEventListener('orientationchange',refit);if(window.visualViewport)visualViewport.addEventListener('resize',fit);
   bindInput();syncPresence();updateHud();
   history.replaceState(null,'','?room='+roomCode);
+  boot('Preparing graphics…',88);await nap(40);try{warmUp()}catch(e){showErr(e)}
+  try{StaticBatch.autoFreeze(scene)}catch(e){showErr(e)}   // freeze static scenery now (not 60 frames into the game)
+  boot('Ready',100);await nap(120);boot('');
   requestAnimationFrame(tick);
   setInterval(send,100);
-  loadPacks().then(()=>{try{buildSkyIsland();updateHud()}catch(e){showErr(e)}}); // the floating island needs the nature+village kits (3.4 MB), so it is built after the world is already playable
   setTimeout(()=>banner('Jump, then tap Jump again in the air to fly','TIP'),6000);
   setTimeout(()=>banner('Glowing beams on the horizon are new islands','TIP'),40000);
 }
