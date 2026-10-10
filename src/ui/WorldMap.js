@@ -7,7 +7,7 @@ const WorldMap=(()=>{
   const PORTAL={x:TOWN.x+Math.cos(5.7)*19,z:TOWN.z+Math.sin(5.7)*19};
 
   const places=()=>{
-    const isl=new Set(ISL.map(i=>i.n).concat(['The Floating Island']));
+    const isl=new Set(ISL.map(i=>i.n).concat(['The Floating Island']));if(WRD.on)isl.add('The Warden Isles');   // WARDEN:
     const l=LOCS.map(L=>({n:L.n,x:L.x,z:L.z,y:L.y,r:L.r,big:isl.has(L.n)}));
     l.push({n:'Tag Arena',x:Tag.pos.x,z:Tag.pos.z,r:5,icon:'🏃'},{n:'Gunsmith',x:OUT.x+12,z:OUT.z+23,r:5,icon:'🔫'},{n:'Outlaw Portal',x:PORTAL.x,z:PORTAL.z,r:5,icon:'🌀'},{n:'Bonk Ring',x:RING.x,z:RING.z,r:RING.R,icon:'🍳'},{n:'Treasure Hunt',x:BOARD.x,z:BOARD.z,r:5,icon:'🧰'},{n:'Sky Race',x:WP[0][0],z:WP[0][1],r:7,icon:'✈️'},{n:'Sky Slalom',x:slalom.start.x,z:slalom.start.z,y:slalom.start.y,r:5,icon:'🎯'});
     if(dash.start)l.push({n:'Obstacle Dash',x:dash.start.x,z:dash.start.z,r:5,icon:'🧗'});
@@ -16,7 +16,7 @@ const WorldMap=(()=>{
     if(typeof Vaults!=='undefined')try{l.push(...Vaults.places())}catch(e){}
     if(typeof Events!=='undefined')try{l.push(...Events.places())}catch(e){} // a live event shows up once you have noticed it
     return l};
-  const icon=p=>p.icon||(p.n==='Soccer Pitch'?'⚽':p.n==='Farm'?'🐄':p.n==='Outlaw Isle'?'🤠':p.n==='The Floating Island'?'☁️':p.n==='The Race Track'?'🏁':p.big?'🏝️':'📍');
+  const icon=p=>p.icon||(p.n==='Soccer Pitch'?'⚽':p.n==='Farm'?'🐄':p.n==='Outlaw Isle'?'🤠':p.n==='The Floating Island'?'☁️':p.n==='The Warden Isles'?'⚔️':p.n==='The Race Track'?'🏁':p.big?'🏝️':'📍');
   const dist=p=>Math.hypot(S.x-p.x,S.z-p.z);
   const fmt=d=>d<1000?Math.round(d/ (d<100?1:10))*(d<100?1:10)+' m':(d/1000).toFixed(1)+' km';
   const sx=x=>(x-view.cx)*view.s+W/2,sy=z=>(z-view.cz)*view.s+Hh/2;
@@ -39,6 +39,7 @@ const WorldMap=(()=>{
     const disc2=(x,z,r,col,beach)=>{ctx.beginPath();ctx.arc(sx(x),sy(z),Math.max(2,r*view.s*(beach?1.12:1)),0,6.283);ctx.fillStyle=col;ctx.fill()};
     disc2(0,0,R0(),'#f0dca0',1);disc2(0,0,R0(),'#79b86a');                       // main island
     for(const I of ISL){disc2(I.x,I.z,I.R*.82,'#f0dca0',1);disc2(I.x,I.z,I.R*.82,I.n==='Outlaw Isle'?'#d9a24a':I.c+'cc')}
+    if(WRD.on){disc2(WRD.x,WRD.z,WRD.R*.82,'#f0dca0',1);disc2(WRD.x,WRD.z,WRD.R*.82,'#3b3a43')}   // WARDEN: Warden Isles disc
     ctx.save();ctx.globalAlpha=.9;disc2(SKY.x,SKY.z,SKY.R,'#ffffffcc');ctx.restore();   // floating island
     ctx.strokeStyle='#ffe066';ctx.lineWidth=2;ctx.strokeRect(sx(KT.x-KT.hw),sy(KT.z-KT.hh),KT.hw*2*view.s,KT.hh*2*view.s); // race track
     if(typeof hunt!=='undefined'&&hunt.on){ctx.font='16px sans-serif';ctx.textAlign='center';ctx.fillText('🧰',sx(hunt.x),sy(hunt.z))}
