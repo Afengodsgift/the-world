@@ -157,6 +157,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/character/CombatPose.js"></script>
 <script src="src/combat/HitZones.js"></script>
 <script src="src/data/warden.js"></script>
+<script src="src/combat/EnemyAI.js"></script>
 <script src="src/games/OutlawArena.js"></script>
 <script src="src/games/Outlaw.js"></script>
 <script src="src/games/WardenIsles.js"></script>
@@ -401,6 +402,7 @@ function animateClips(g,dt,st){
   const armed=q.gunI>=0&&!q.noTwist&&st!=='fly'&&st!=='swim'&&st!=='jump'&&st!=='fall';   // q.noTwist: raiders keep the plain gait (the leg twist is for human players)
   if(armed)CombatPose.plan(q,dt,mdx,mdz,v,g.rotation.y,st==='walk'||st==='run');else{q.cpT=0;q.cpRev=false}
   if(q.cpRev&&LOCO[want])ts=-ts;
+  if(st==='crouch'){const cr=CombatAnims.act(q,'crouch');if(cr){A.crouch=cr;want='crouch'}}   // raiders ducking behind cover
   if(want==='idle'&&armed){const ca=CombatAnims.act(q,'cidle');if(ca){A.cidle=ca;want='cidle'}}
   const n=A[want];
   if(q.cur!==want){n.reset();if(LOCO[q.cur]&&LOCO[want]){const o=A[q.cur];n.time=o.time/o.getClip().duration*n.getClip().duration} // keep the stride phase when switching gait

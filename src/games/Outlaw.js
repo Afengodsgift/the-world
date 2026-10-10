@@ -293,22 +293,22 @@ const Outlaw=(()=>{
 
   // ---------- HOST: AI ----------
   function players(){
-    const l=[{id:myId,x:S.x,z:S.z,vx:prev.vx,vz:prev.vz,down}],p=partner();
-    if(p){const g=p[1].group.position;l.push({id:p[0],x:g.x,z:g.z,vx:pprev.vx,vz:pprev.vz,down:pdown})}
+    const l=[{id:myId,x:S.x,z:S.z,y:S.y,fly:!!S.flying,vx:prev.vx,vz:prev.vz,down}],p=partner();
+    if(p){const g=p[1].group.position;l.push({id:p[0],x:g.x,z:g.z,y:g.y,fly:g.y-H(g.x,g.z)>3,vx:pprev.vx,vz:pprev.vz,down:pdown})}
     return l}
   function addNpc(type,x,z){
     const T=TYPES[type],D=DIFF[diff],hv=T.hp*(1+wave*.08)*D.hp;
-    const n={id:nid++,type,x,z,hp:hv,max:hv,dm:D.dmg*(1+wave*.03),r:0,st:'idle',cd:rnd(.5,1.5),react:T.react,t:0,ph:rnd(0,6),flank:Math.random()<.5?1:-1,mode:'advance',dec:0,pt:0,peek:0,tid:null,aim:0,seen:false,dead:0,
+    const n={id:nid++,type,x,z,hp:hv,max:hv,dm:D.dmg*(1+wave*.03),r:0,st:'idle',cd:rnd(.5,1.5),react:T.react,t:0,ph:rnd(0,6),flank:Math.random()<.5?1:-1,role:EnemyAI.role(type,Math.random()),mode:'advance',dec:0,pt:0,peek:0,tid:null,aim:0,seen:false,dead:0,
       raider:mode==='defend'&&(type<3||type===4||type===5)?Math.random()<.55:false};
     n.group=null;npcs.set(n.id,n);spawnVisual(n);n.group.position.set(x,H(x,z),z)}
   function spawnPoint(type){if(type!==undefined)return OutlawArena.front(type);for(let i=0;i<20;i++){const a=Math.random()*6.283,x=C.x+Math.cos(a)*62,z=C.z+Math.sin(a)*62;if(H(x,z)>1)return [x,z]}return [C.x+30,C.z]}
   function startWave(){
     wave++;const D=DIFF[diff],q=[],boss=wave%3===0;
     if(boss)q.push(wave%6===3?3:7);
-    const pool=[0,0];if(wave>=2)pool.push(1,5);if(wave>=3)pool.push(0,5);if(wave>=4)pool.push(2,4);if(wave>=5)pool.push(4,1,6);if(wave>=7)pool.push(2,5,6);
-    const n=Math.round(Math.min(2+wave*1.9,22)*D.cnt);for(let i=0;i<n;i++)q.push(pool[Math.random()*pool.length|0]);
+    const np=Math.max(1,players().length),pool=EnemyAI.wavePool(wave,np);
+    const n=EnemyAI.waveSize(wave,np,D.cnt);for(let i=0;i<n;i++)q.push(pool[Math.random()*pool.length|0]);
     queue=q;banner('Wave '+wave+(boss?' · BOSS!':''),'OUTLAW TOWN');sfx('horn');send({k:'wv',n:wave});
-    {const fr=OutlawArena.pickFronts(wave);OutlawArena.setFronts(fr,true);send({k:'fr',f:fr});OutlawArena.reset();send({k:'rs'})} // raiders come from 1-3 of the island's fronts; cover grows back
+    {const fr=OutlawArena.pickFronts(EnemyAI.frontsFor(wave,np));OutlawArena.setFronts(fr,true);send({k:'fr',f:fr});OutlawArena.reset();send({k:'rs'})} // raiders come from 1-3 of the island's fronts; cover grows back
   }
   function pickCover(n,t){
     let b=null,bs=1e9;
@@ -331,10 +331,14 @@ const Outlaw=(()=>{
         if(isHost()&&mode==='defend'&&Math.hypot(bank.x-p.x1,bank.z-p.z1)<9)bank.hp=Math.max(0,bank.hp-p.d*2)}}}
   function enemyShoot(n,t,d,T){
     const mv=Math.hypot(t.vx,t.vz),p=Math.max(.08,Math.min(.85,T.acc+wave*.012-d*.006-(mv>2?.18:0)));
-    n.group.userData.recoil=1;const M=muzzle(n.group,-1);const hitIt=Math.random()<p;
-    const lx=t.x+t.vx*d/60,lz=t.z+t.vz*d/60,j=hitIt?0:rnd(-2,2);
-    tracer(M.x,M.y,M.z,lx+j,(t.id===myId?S.y:n.group.position.y)+1.1,lz+j,'#ff9a7a');sfx('enemy');
-    send({k:'f',m:[M.x,M.y,M.z],e:[lx+j,n.group.position.y+1.1,lz+j],ai:1});
+    n.group.userData.recoil=1;const M=muzzle(n.group,-1);let hitIt=Math.random()<p;
+    const lx=t.x+t.vx*d/60,lz=t.z+t.vz*d/60,j=hitIt?0:rnd(-2,2),ty=(t.y===undefined?C.y:t.y)+(Math.random()<.35?1.55:1.0);
+    let ex=lx+j,ey=ty,ez=lz+j;
+    if(t.id!=='bank'){ // cover has a height: a shot at a head over a crate can hit, one at a chest behind it hits the crate (and damages it)
+      const o={x:M.x,y:M.y,z:M.z},dx=ex-o.x,dy=ey-o.y,dz=ez-o.z,L=Math.hypot(dx,dy,dz)||1,r=HitZones.coverT(o,{x:dx/L,y:dy/L,z:dz/L},L,cover);
+      if(r.c){hitIt=false;ex=o.x+dx/L*r.t;ey=o.y+dy/L*r.t;ez=o.z+dz/L*r.t;if(r.c.brk!==undefined&&isHost())OutlawArena.hitCover(r.c,T.dmg*n.dm*.8)}}
+    tracer(M.x,M.y,M.z,ex,ey,ez,'#ff9a7a');sfx('enemy');
+    send({k:'f',m:[M.x,M.y,M.z],e:[ex,ey,ez],ai:1});
     if(hitIt){dealDmg(n,t,T.dmg)}}
   function detour(n,t){ // nearest blocking cover on the line to the target -> a point beside it to walk around
     let best=null,bd=1e9;for(const c of cover){if(!segCircle(n.x,n.z,t.x,t.z,c))continue;const d=Math.hypot(c.x-n.x,c.z-n.z);if(d<bd){bd=d;best=c}}
@@ -342,10 +346,10 @@ const Outlaw=(()=>{
   function think(n,dt,pl){
     const T=TYPES[n.type],alive=pl.filter(p=>!p.down);if(!alive.length){n.st='idle';return}
     let t=null,bs=1e9;for(const p of alive){let load=0;for(const o of npcs.values())if(o!==n&&o.tid===p.id&&!o.dead)load++;
-      const s=Math.hypot(p.x-n.x,p.z-n.z)+load*7-(n.tid===p.id?6:0);if(s<bs){bs=s;t=p}}
+      const s=Math.hypot(p.x-n.x,p.z-n.z)+load*7-(n.tid===p.id?6:0)+(p.fly&&(n.type===1||n.role==='rusher')?35:0);if(s<bs){bs=s;t=p}}
     n.tid=t.id;n.cd-=dt;n.t+=dt;n.dec-=dt;n.age=(n.age||0)+dt;const brave=n.age>35||n.hunt; // after 35s enemies stop hiding and push in (prevents stalemates)
     if(n.raider&&bank.hp>0&&!alive.some(p=>Math.hypot(p.x-n.x,p.z-n.z)<14))t={id:'bank',x:bank.x,z:bank.z+7,vx:0,vz:0,down:false}; // raiders hit the vault unless a player is close
-    let dx=t.x-n.x,dz=t.z-n.z;const d=Math.hypot(dx,dz)||1,ux=dx/d,uz=dz/d,seen=los(n.x,n.z,t.x,t.z);
+    let dx=t.x-n.x,dz=t.z-n.z;const d=Math.hypot(dx,dz)||1,ux=dx/d,uz=dz/d,tfy=t.y===undefined?C.y:t.y,seen=t.id==='bank'?los(n.x,n.z,t.x,t.z):EnemyAI.sees(cover,n.x,H(n.x,n.z),n.z,n.st==='crouch'?'crouch':'stand',t.x,tfy,t.z)>0;
     let gx=ux,gz=uz;if(!seen){const dv=detour(n,t);if(dv){const q=Math.hypot(dv.x-n.x,dv.z-n.z)||1;gx=(dv.x-n.x)/q;gz=(dv.z-n.z)/q}}
     if(seen&&!n.seen)n.react=T.react*Math.max(.35,1-wave*.06);n.seen=seen;if(n.react>0)n.react-=dt;
     let mx=0,mz=0,sp=T.sp;n.st='run';
@@ -356,28 +360,31 @@ const Outlaw=(()=>{
       else if(d<20){mx=-ux;mz=-uz}else{sp=0;n.st='idle'}
     }else if(n.type===1){ // BRUTE: flanking weaving charge
       const a=n.flank*Math.min(.9,d/22),c=Math.cos(a),s=Math.sin(a),w=Math.sin(n.t*4+n.ph)*.45;
-      mx=gx*c-gz*s-gz*w;mz=gx*s+gz*c+gx*w;if(d<2.2){sp=0;n.st='idle';if(n.cd<=0){n.cd=T.cd;dealDmg(n,t,T.dmg)}}
+      mx=gx*c-gz*s-gz*w;mz=gx*s+gz*c+gx*w;if(d<2.2){sp=0;n.st='idle';if(n.cd<=0&&EnemyAI.meleeReach(d,tfy-H(n.x,n.z),2.2)){n.cd=T.cd;dealDmg(n,t,T.dmg)}}   // a player flying overhead is out of reach
     }else{
-      const want=n.type===2?34:n.type===3?16:n.type===7?20:15,boss=n.type===3||n.type===7,hurtMode=n.hp<n.max*.35&&!boss&&!brave;
+      const want=n.type===2?34:n.type===3?16:n.type===7?20:n.role==='rifle'?28:15,boss=n.type===3||n.type===7,hurtMode=n.hp<n.max*.35&&!boss&&!brave;
       if(brave&&n.mode==='cover')n.mode='advance';
       if(n.dec<=0){n.dec=rnd(.5,.9);
         if(hurtMode){n.mode='cover';n.cp=pickCover(n,t)}
         else if(n.mode==='cover'&&n.cp&&n.pt>0){/* stay */}
-        else if((n.type===2&&!brave)||(!boss&&!brave&&Math.random()<.3&&seen)){n.cp=pickCover(n,t);n.mode=n.cp?'cover':'fight';n.pt=rnd(2,4)}
+        else if((n.type===2&&!brave)||(!boss&&!brave&&n.role!=='rusher'&&Math.random()<(n.role==='rifle'?.5:.3)&&seen)){n.cp=pickCover(n,t);n.mode=n.cp?'cover':'fight';n.pt=rnd(2,4)}
         else n.mode=seen&&d<=T.range?'fight':'advance'}
       if(n.mode==='cover'&&n.cp){
         n.pt-=dt;n.peek-=dt;const cx=n.cp.x-n.x,cz=n.cp.z-n.z,cd=Math.hypot(cx,cz);
         if(cd>1){mx=cx/cd;mz=cz/cd;n.peekOut=false}
         else{ // at cover: hide, then peek sideways and shoot
           if(n.peek<=0){n.peekOut=!n.peekOut;n.peek=n.peekOut?rnd(.9,1.4):rnd(.8,1.5);if(n.type===2)n.aim=0}
-          sp=0;n.st='idle';if(n.peekOut){mx=-uz*n.flank;mz=ux*n.flank;sp=T.sp*.8;n.st='run'}}
+          sp=0;n.st=n.peekOut?'idle':'crouch';if(n.peekOut){mx=-uz*n.flank;mz=ux*n.flank;sp=T.sp*.8;n.st='run'}}
         if(n.pt<=0&&!hurtMode)n.mode='fight';
       }else if(n.mode==='fight'){
         // hold standoff distance, strafe, back off when crowded
         const off=d-want,s=Math.sin(n.t*1.3+n.ph);mx=ux*Math.max(-1,Math.min(1,off*.25))-uz*s*.9;mz=uz*Math.max(-1,Math.min(1,off*.25))+ux*s*.9;sp=T.sp*.8;
         if(Math.abs(off)<2&&Math.abs(s)<.2){sp=0;n.st='idle'}
-      }else{ // advance toward flank approach point
-        const a=n.flank*.8,c=Math.cos(a),s=Math.sin(a);mx=gx*c-gz*s;mz=gx*s+gz*c}
+      }else{ // advance toward flank approach point (flankers curl well round to one side until they are close)
+        const a=n.flank*(n.role==='flanker'&&d>14?1.25:.8),c=Math.cos(a),s=Math.sin(a);mx=gx*c-gz*s;mz=gx*s+gz*c}
+      if(n.type===2&&!brave){ // SNIPER: climb to the nearest high ground (ridge top / mine mesa) and shoot from there
+        if(!n.perch){let bd=1e9;for(const q of OutlawArena.perches()){const dd=Math.hypot(q.x-n.x,q.z-n.z);if(dd<bd){bd=dd;n.perch=q}}}
+        if(n.perch){const pd=Math.hypot(n.perch.x-n.x,n.perch.z-n.z);n.mode='fight';if(pd>3){mx=(n.perch.x-n.x)/pd;mz=(n.perch.z-n.z)/pd;sp=T.sp;n.st='run'}else{mx=mz=0;sp=0;n.st='idle'}}}
       const peeking=n.mode!=='cover'||n.peekOut;
       if(peeking&&seen&&d<T.range&&n.react<=0){
         if(n.type===2){n.aim+=dt;n.st='aim';sp=0;if(n.aim>=.9&&n.cd<=0){n.aim=0;n.cd=T.cd;enemyShoot(n,t,d,T)}}
@@ -406,7 +413,7 @@ const Outlaw=(()=>{
     if(!queue.length&&live>0&&live<=3){huntT+=dt;if(huntT>25&&!huntOn){huntOn=true;let c=null,cb=1e9;for(const n of npcs.values())if(!n.dead){n.hunt=true;const q=Math.hypot(n.x-S.x,n.z-S.z);if(q<cb){cb=q;c=n}}
       if(c){const a=Math.atan2(c.x-S.x,-(c.z-S.z))*57.3,dir=['north','north-east','east','south-east','south','south-west','west','north-west'][((Math.round(a/45)%8)+8)%8];const m='Last raiders are charging in - one to the '+dir+'!';send({k:'bn',t:m});banner(m,'OUTLAW TOWN')}}}
     else if(live===0||queue.length){huntT=0;huntOn=false}
-    if(queue.length&&spawnT<=0&&live<8+diff*3){spawnT=1.1;const ty=queue.shift(),[x,z]=spawnPoint(ty);addNpc(ty,x,z)}
+    if(queue.length&&spawnT<=0&&live<EnemyAI.liveCap(diff,Math.max(1,players().length))){spawnT=1.1;const ty=queue.shift(),[x,z]=spawnPoint(ty);addNpc(ty,x,z)}
     if(!queue.length&&live===0){if(nextWave===0){nextWave=clock+4500;if(wave>0){const c=Math.round((40+wave*12)*DIFF[diff].coin);send({k:'wc',c});earn(c);banner('Wave '+wave+' cleared! +'+c+' 🪙','OUTLAW TOWN');
         if(mode==='defend'){bank.hp=Math.min(bank.max,bank.hp+bank.max*.15);if(wave>=8){const w={k:'win',c:Math.round(400*DIFF[diff].coin)};send(w);onMsg(w);return}}}}
       else if(clock>nextWave){nextWave=0;best=Math.max(best,wave);try{localStorage.setItem('w4ow',best)}catch(e){}startWave()}}
@@ -446,7 +453,7 @@ const Outlaw=(()=>{
       if(n.lhp===undefined)n.lhp=n.hp;
       if(n.hp<n.lhp-.5){const drop=n.lhp-n.hp;if(clock-(n.reactAt||-1e9)>450){n.reactAt=clock;const q=g.userData;q.hitReq=1;if(drop>=.3*n.max||n.lastZone==='head')q.hitHead=1}}
       n.lhp=n.hp;
-      animate(g,dt,n.st==='aim'?'idle':n.st);
+      animate(g,dt,n.st==='aim'?'idle':n.st);   // 'crouch' (behind cover) is handled by animateClips
       n.fg.scale.x=Math.max(.001,n.hp/n.max);n.fg.position.x=-(1-n.fg.scale.x)*.6;n.bar.lookAt(camera.position);
       if(n.st==='aim'){const t=[...others.values()].map(o=>o.group.position).concat([{x:S.x,y:S.y,z:S.z}]).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];
         const dx=t.x-p.x,dz=t.z-p.z,L=Math.hypot(dx,dz);n.laser.visible=true;n.laser.scale.set(1,1,L);n.laser.position.set(p.x+dx/2,p.y+1.2,p.z+dz/2);n.laser.lookAt(t.x,p.y+1.2,t.z)}
@@ -575,5 +582,5 @@ const Outlaw=(()=>{
 
   Interaction.register('ow-start','Start Showdown',()=>C&&!active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>missionPanel());
   Interaction.register('ow-end','End Showdown',()=>C&&active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>{send({k:'end'});onMsg({k:'end'})});
-  return {build,tick,onMsg,equip,fire,lockTarget,poseGun,loadGun,_t:()=>({get lastShot(){return lastShot},get huntOn(){return huntOn},WEAPONS,get wave(){return wave},get queueLen(){return queue.length},get nextWave(){return nextWave},damageNpc,cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
+  return {build,tick,onMsg,equip,fire,lockTarget,poseGun,loadGun,_t:()=>({get lastShot(){return lastShot},get hp(){return hp},get huntOn(){return huntOn},WEAPONS,get wave(){return wave},get queueLen(){return queue.length},get nextWave(){return nextWave},damageNpc,cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
 })();
