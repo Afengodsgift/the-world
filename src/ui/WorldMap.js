@@ -15,8 +15,9 @@ const WorldMap=(()=>{
     if(typeof Verbs!=='undefined')try{l.push(...Verbs.places())}catch(e){} // discovered camps (systems add only what you have found)
     if(typeof Vaults!=='undefined')try{l.push(...Vaults.places())}catch(e){}
     if(typeof Events!=='undefined')try{l.push(...Events.places())}catch(e){} // a live event shows up once you have noticed it
+    if(typeof Ship!=='undefined')l.push(...Ship.marks());
     return l};
-  const icon=p=>p.icon||(p.n==='Soccer Pitch'?'⚽':p.n==='Farm'?'🐄':p.n==='Outlaw Isle'?'🤠':p.n==='The Floating Island'?'☁️':p.n==='The Race Track'?'🏁':p.big?'🏝️':'📍');
+  const icon=p=>p.icon||(p.n==='Harbor'?'⚓':p.n==='Soccer Pitch'?'⚽':p.n==='Farm'?'🐄':p.n==='Outlaw Isle'?'🤠':p.n==='The Floating Island'?'☁️':p.n==='The Race Track'?'🏁':p.big?'🏝️':'📍');
   const dist=p=>Math.hypot(S.x-p.x,S.z-p.z);
   const fmt=d=>d<1000?Math.round(d/ (d<100?1:10))*(d<100?1:10)+' m':(d/1000).toFixed(1)+' km';
   const sx=x=>(x-view.cx)*view.s+W/2,sy=z=>(z-view.cz)*view.s+Hh/2;
@@ -111,7 +112,7 @@ const WorldMap=(()=>{
     S.x=x;S.z=z;S.y=Math.max(H(x,z),p.y||-9)+1;S.vy=0;S.kx=0;S.kz=0;banner(p.n,'TRAVELLED');toggle()}
   function fillChips(){
     chips.innerHTML='';
-    for(const p of places().filter(p=>p.big||p.icon||p.n==='Town Square'||p.n==='Farm'||p.n==='Soccer Pitch')){
+    for(const p of places().filter(p=>p.big||p.icon||p.n==='Town Square'||p.n==='Farm'||p.n==='Soccer Pitch'||p.n==='Harbor')&&!p.dyn){
       const c=E('button','',icon(p)+' '+p.n);
       c.className='mchip'+(p.n==='Outlaw Isle'?' hot':'');c.onclick=()=>{centerOn(p,.25);select(p)};chips.appendChild(c)}}
   function toggle(){

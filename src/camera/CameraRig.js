@@ -9,7 +9,7 @@
 // Other systems talk to it only through the API at the bottom (setShooter, kick, pitchRange, neutralPitch ...).
 // Globals used at runtime: S, camera, me, H, THREE, sstep.
 const CameraRig=(()=>{
-  const st={sInit:false,sy:0,sp:0,arm:1,dip:{x:0,v:0},view:'tps',shooter:false,fpsK:0,tpsK:0,ay:0,init:false,px:0,pz:0,vx:0,vz:0,spd:0,hd:0,turn:0,
+  const st={bias:0,biasT:0,sInit:false,sy:0,sp:0,arm:1,dip:{x:0,v:0},view:'tps',shooter:false,fpsK:0,tpsK:0,ay:0,init:false,px:0,pz:0,vx:0,vz:0,spd:0,hd:0,turn:0,
             roll:{x:0,v:0},kp:{x:0,v:0},ky:{x:0,v:0},t:0,bob:0,eye:new THREE.Vector3(),eInit:false,prevFps:false,cruise:0,boost:0,fw:0,py:0,vyn:0};
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const _u=new THREE.Vector3(),_f=new THREE.Vector3(),_p=new THREE.Vector3(),_l=new THREE.Vector3(),_h=new THREE.Vector3(),_a=new THREE.Vector3(),_b=new THREE.Vector3();
@@ -77,6 +77,7 @@ const CameraRig=(()=>{
     st.prevFps=wantFps;st.prevTps=wantTps;
     st.fpsK+=((wantFps?1:0)-st.fpsK)*(1-Math.exp(-10*dt));
     st.tpsK+=((wantTps?1:0)-st.tpsK)*(1-Math.exp(-8*dt));
+    st.bias+=(st.biasT-st.bias)*(1-Math.exp(-3*dt));                        // extra orbit distance (e.g. aboard a ship)
     spring(st.kp,0,dt,18,.5);spring(st.ky,0,dt,18,.5);                    // recoil kick recovers by itself
 
     // ---- view direction (what the player is looking along) ----
@@ -96,7 +97,7 @@ const CameraRig=(()=>{
     const fe=st.fw*(1-st.tpsK)*(1-st.fpsK),el=clamp(-pit,-1.2,1.2);       // el > 0 = looking up
     const dGround=9+2.4*st.boost-4.9*st.tpsK+5*dk;
     const dFly=4.6+1.0*st.boost+1.0*dk-(el>0?1.2*el/1.2:.6*el/1.2);       // 3.4 m looking straight up .. 5.2 m looking down at the world (walking is 9 m)
-    const d=dGround+(dFly-dGround)*fe,sh=1.0*st.tpsK,shx=Math.cos(yaw)*sh,shz=-Math.sin(yaw)*sh;
+    const d=dGround+(dFly-dGround)*fe+st.bias*(1-st.fpsK),sh=1.0*st.tpsK,shx=Math.cos(yaw)*sh,shz=-Math.sin(yaw)*sh;
     const lagG=Math.min(.7,st.spd*.045),lagF=Math.min(.6,sp3*.008),lag=lagG+(lagF-lagG)*fe;
     const lx=st.spd>.1?-st.vx/st.spd*lag*(1-fe):0,lz=st.spd>.1?-st.vz/st.spd*lag*(1-fe):0;   // ground: horizontal trail (unchanged)
     const ay=st.ay+1.6+.4*st.tpsK;
@@ -136,7 +137,8 @@ const CameraRig=(()=>{
 
   return {
     update,
-    setShooter(b){st.shooter=!!b},                      // a weapon is out: use the shooter view (fps or tps)
+    setShooter(b){st.shooter=!!b},
+    setBias(m){st.biasT=m||0},                          // pull the orbit camera back by m metres (smoothly)                      // a weapon is out: use the shooter view (fps or tps)
     setView(v){st.view=v==='tps'?'tps':'fps'},
     toggleView(){st.view=st.view==='fps'?'tps':'fps';return st.view},
     view:()=>st.view,
