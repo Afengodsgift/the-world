@@ -80,3 +80,10 @@ Dev helpers: `Verbs.tp(i)`, `Vaults.tp(i)`, `Events.force('meteor'|'visitor'|'ri
 - `Theme.js` adopts legacy race/activity text lines as glass pills and switches `<html class="lite">` (no blur) if FPS stays low; `?glass=full|lite` forces a mode.
 - Two-player primitives (`Link`) refuse to complete without a connected partner, and `Vaults.solve` double-checks and logs a warning.
 
+## Football (Stadium Isle)
+The pitch lives on its own bare island (`Stadium Isle`, flagged `ded`+`bare` in data/islands.js): nothing else loads there, and the world build skips bare
+islands WITHOUT drawing from the shared random stream, so existing worlds do not reshuffle (`LEGACY_PITCH` keeps the old zone's draw-skipping; do not remove
+it without a world-version bump). Code: `src/games/Soccer.js` (host/guest, match flow, actions) + `src/games/soccer/` {Ball (physics + possession),
+Play (pass/shot maths), Pitch (visuals), Hud (buttons), Sound}. Pacing goes through `PlayerMods`. Roadmap: football camera, AI teammates (same entity
+shape, same `hostAct`), goalkeeper, halves/halftime, stadium + time of day, then 5v5.
+

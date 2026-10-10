@@ -25,9 +25,9 @@ function client(id,name,room){
   vm.createContext(ctx);vm.runInContext(three,ctx);
   const src=[rd('src/utils/random.js'),rd('src/utils/math.js'),rd('src/data/islands.js'),kline,H_SRC,
    'const RING={x:64.3,z:89.5,R:12};let dash={start:null},srun={start:null};',
-   rd('src/interaction/InteractionManager.js'),rd('src/core/Net.js'),rd('src/core/WorldState.js'),rd('src/core/Systems.js'),rd('src/world/Fx.js'),rd('src/world/Sites.js'),rd('src/core/Seeded.js'),rd('src/interaction/VerbAnims.js'),rd('src/data/interactables.js'),rd('src/data/puzzles.js'),rd('src/interaction/Link.js'),rd('src/interaction/Verbs.js'),rd('src/world/Vaults.js'),rd('src/data/events.js'),rd('src/world/Events.js'),rd('src/world/events/meteor.js'),rd('src/world/events/visitor.js'),rd('src/world/events/rings.js'),
-   rd('src/data/soccer.js'),rd('src/games/soccer/Sound.js'),rd('src/games/soccer/Ball.js'),rd('src/games/soccer/Pitch.js'),rd('src/games/soccer/Hud.js'),rd('src/games/Soccer.js'),
-   'this.scene=new THREE.Scene();this.__e={Soccer,PITCH,SOCCER,Sites,Events,EVENTS,Fx,VerbAnims,Verbs,Vaults,Link,WS,Net,Interaction,H,ISL,CAMP,VERBS,VAULT,LOCS};'].join('\n');
+   rd('src/interaction/InteractionManager.js'),rd('src/core/Net.js'),rd('src/core/WorldState.js'),rd('src/core/Systems.js'),rd('src/core/PlayerMods.js'),rd('src/world/Fx.js'),rd('src/world/Sites.js'),rd('src/core/Seeded.js'),rd('src/interaction/VerbAnims.js'),rd('src/data/interactables.js'),rd('src/data/puzzles.js'),rd('src/interaction/Link.js'),rd('src/interaction/Verbs.js'),rd('src/world/Vaults.js'),rd('src/data/events.js'),rd('src/world/Events.js'),rd('src/world/events/meteor.js'),rd('src/world/events/visitor.js'),rd('src/world/events/rings.js'),
+   rd('src/data/soccer.js'),rd('src/games/soccer/Sound.js'),rd('src/games/soccer/Ball.js'),rd('src/games/soccer/Play.js'),rd('src/games/soccer/Pitch.js'),rd('src/games/soccer/Hud.js'),rd('src/games/Soccer.js'),
+   'this.scene=new THREE.Scene();this.__e={Soccer,SocBall,SocPlay,PlayerMods,PITCH,SOCCER,Sites,Events,EVENTS,Fx,VerbAnims,Verbs,Vaults,Link,WS,Net,Interaction,H,ISL,CAMP,VERBS,VAULT,LOCS};'].join('\n');
   vm.runInContext(src,ctx);
   ctx.__e.Net.attach(chan);
   return Object.assign(ctx.__e,{ctx,EMO:ctx.EMO,log,chan,els,others,store,S:ctx.S,solids:ctx.solids,scene:ctx.scene});

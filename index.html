@@ -166,6 +166,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/ui/Journal.js"></script>
 <script src="src/ui/Theme.js"></script>
 <script src="src/core/Systems.js"></script>
+<script src="src/core/PlayerMods.js"></script>
 <script src="src/data/interactables.js"></script>
 <script src="src/world/Fx.js"></script>
 <script src="src/world/Sites.js"></script>
@@ -183,6 +184,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/data/soccer.js"></script>
 <script src="src/games/soccer/Sound.js"></script>
 <script src="src/games/soccer/Ball.js"></script>
+<script src="src/games/soccer/Play.js"></script>
 <script src="src/games/soccer/Pitch.js"></script>
 <script src="src/games/soccer/Hud.js"></script>
 <script src="src/games/Soccer.js"></script>
@@ -1117,9 +1119,9 @@ function tickFrame(t){
   if(keys.KeyA||keys.ArrowLeft)ix-=1;if(keys.KeyD||keys.ArrowRight)ix+=1;
   if(keys.KeyW||keys.ArrowUp)iy-=1;if(keys.KeyS||keys.ArrowDown)iy+=1;
   const len=Math.hypot(ix,iy);if(len>1){ix/=len;iy/=len}
-  const sprint=keys.ShiftLeft||len>.9;
+  const sprint=PlayerMods.sprint(keys.ShiftLeft||len>.9);          // src/core/PlayerMods.js: an activity (football) may force it
   const fp=S.flying?SpaceFlight.vertical(CameraRig.neutralPitch()-S.pitch,bst()?2.4:1,bst()?70:34):null;   // look up = go up (src/space/SpaceFlight.js); identical inside the old look range
-  const speed=S.flying?(bst()?70:34)*Math.min(1,len)*fp.h:(H(S.x,S.z)<-.5&&S.y<3?(sprint?16:9):(sprint?12:6))*Math.min(1,len)*kartMul();
+  const speed=S.flying?(bst()?70:34)*Math.min(1,len)*fp.h:(H(S.x,S.z)<-.5&&S.y<3?(sprint?16:9):(sprint?12:6))*Math.min(1,len)*kartMul()*PlayerMods.speed();
   const sy=Math.sin(S.yaw),cy=Math.cos(S.yaw),px=S.x,pz=S.z;
   const dx=cy*ix+sy*iy,dz=-sy*ix+cy*iy;
   if(S.flying){ // flight has inertia: takeoff ~0.5 s to full speed, glide-out when you let go

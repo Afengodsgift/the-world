@@ -81,6 +81,13 @@ html #boost{background-color:rgba(110,190,255,.58);border-color:rgba(200,230,255
 html #use{border-radius:999px;font:700 14px/1 var(--w-ui);color:#fff;background-color:rgba(255,210,122,.34);border-color:rgba(255,210,122,.75);animation:usepulse 1.9s ease-in-out infinite}
 @keyframes usepulse{50%{box-shadow:var(--w-lift),0 0 0 6px rgba(255,210,122,.16)}}
 html #owfire{padding:0;font-size:24px;background-color:rgba(255,86,78,.58);border-color:rgba(255,190,185,.6)}
+/* football action buttons (positions are set in src/games/soccer/Hud.js from the layout variables) */
+.socb{background-color:var(--w-g);background-image:var(--w-sheen);-webkit-backdrop-filter:var(--w-blur);backdrop-filter:var(--w-blur);border:1px solid var(--w-edge);box-shadow:var(--w-lift);color:var(--w-ink);text-shadow:none;transition:transform .12s ease;-webkit-tap-highlight-color:transparent}
+.socb:active{transform:scale(.92)}
+html #socshoot{background-color:rgba(255,120,70,.62);border-color:rgba(255,200,170,.65)}
+html #socpass{background-color:rgba(80,160,255,.58);border-color:rgba(190,220,255,.6)}
+html #soctackle{background-color:rgba(255,200,80,.52);border-color:rgba(255,230,170,.6);color:#2a1c00}
+html #socsprint{background-color:rgba(70,220,170,.5);border-color:rgba(190,255,235,.6)}
 html #sockick{padding:0;border-radius:50%;font-size:26px;line-height:1;background-color:rgba(61,220,132,.55);border-color:rgba(190,255,215,.6)}
 
 /* ---------- portrait / desktop fallback layout (phones in landscape are laid out by index.html) ---------- */

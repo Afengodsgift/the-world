@@ -24,8 +24,9 @@ const DEPS={ // file -> files that must come first
   'games/soccer/Sound.js':[],
   'games/soccer/Ball.js':['data/soccer.js','data/islands.js'],
   'games/soccer/Pitch.js':['data/soccer.js','data/islands.js'],
+  'games/soccer/Play.js':['data/soccer.js','data/islands.js'],
   'games/soccer/Hud.js':['world/Fx.js'],
-  'games/Soccer.js':['data/soccer.js','data/islands.js','interaction/InteractionManager.js','core/Net.js','core/Systems.js','world/Fx.js','games/soccer/Sound.js','games/soccer/Ball.js','games/soccer/Pitch.js','games/soccer/Hud.js'],
+  'games/Soccer.js':['data/soccer.js','data/islands.js','interaction/InteractionManager.js','core/Net.js','core/Systems.js','world/Fx.js','games/soccer/Sound.js','games/soccer/Ball.js','games/soccer/Play.js','games/soccer/Pitch.js','games/soccer/Hud.js','core/PlayerMods.js'],
   'world/Vaults.js':['core/Net.js','core/WorldState.js','core/Systems.js','world/Fx.js','world/Sites.js','core/Seeded.js','interaction/Link.js','interaction/VerbAnims.js','data/puzzles.js','interaction/InteractionManager.js','utils/random.js'],
 };
 let bad=0;

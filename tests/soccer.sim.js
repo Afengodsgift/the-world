@@ -4,7 +4,7 @@ const {client}=require('./harness');
 let fails=0;const ok=(c,m)=>{if(!c){fails++;console.log('FAIL',m)}else console.log('ok  ',m)};
 const ROOM='SOCCER-TEST1';
 const A=client('a','Alex',ROOM),B=client('b','Bee',ROOM);
-A.others.get('b').group.position=B.S;B.others.get('a').group.position=A.S;       // each sees the other's real position
+A.others.get('b').group.position=B.S;B.others.get('a').group.position=A.S;A.others.get('b').group.rotation={get y(){return B.S.rot}};B.others.get('a').group.rotation={get y(){return A.S.rot}};       // each sees the other's real position
 const SO=A.Soccer,P=A.PITCH,C=A.SOCCER,SB=B.Soccer;
 const at=(c,x,z)=>{c.S.x=x;c.S.z=z;c.S.y=P.y+.05;c.S.state='idle';c.S.grounded=true;c.S.flying=false;c.S.rot=Math.PI/2};  // rot=pi/2 faces +x (east)
 const frame=(dt)=>{A.Soccer._step(dt);B.Soccer._step(dt)};
