@@ -10,7 +10,7 @@ function hSourceNoWarden(src){const L=src.split('\n'),o=[];for(let i=0;i<L.lengt
       while(i<L.length&&!/\}\}\s*$/.test(L[i]))i++;continue}o.push(L[i])}return o.join('\n')}
 function makeH(wrdOn){
   const c={Math,console};vm.createContext(c);
-  const parts=[rd('src/utils/math.js'),rd('src/utils/random.js'),rd('src/data/islands.js'),'const K=2.5;',hSource()];
+  const parts=[rd('src/utils/math.js'),rd('src/utils/random.js'),rd('src/data/islands.js'),rd('src/data/warden.js'),'const K=2.5;',hSource()];
   if(wrdOn!==undefined)parts.push('if(typeof WRD!=="undefined")WRD.on='+(wrdOn?'true':'false')+';');
   parts.push('this.H=H;this.D={ISL,OUT,TOWN,SKY,LOCS,WP,KT,FARM,PITCH};this.W=(typeof WRD!=="undefined")?WRD:null;');
   vm.runInContext(parts.join('\n'),c);return c;

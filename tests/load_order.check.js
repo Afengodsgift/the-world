@@ -11,6 +11,8 @@ const DEPS={ // file -> files that must come first
   'audio/Ambience.js':['core/Audio.js','data/islands.js'],
   'combat/Melee.js':['core/Audio.js'],
   'games/OutlawArena.js':['utils/random.js'],
+  'data/warden.js':['data/islands.js','utils/math.js'],
+  'games/WardenIsles.js':['data/islands.js','data/warden.js','utils/math.js'],
   'combat/HitZones.js':[],
   'combat/CombatAnims.js':[],
   'character/CombatPose.js':[],
