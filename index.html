@@ -663,9 +663,10 @@ async function startGame(){
   try{buildWorld(roomCode);load();wsBoot()}catch(e){showErr(e);throw e}
   // Everything that used to load/build in the background AFTER you were already playing (the lag in the first ~20 s) now happens here, behind the loading screen.
   // Each wait has a timeout so a slow connection can never trap you on this screen.
-  boot('Loading islands…',45);try{await Promise.race([loadPacks(),nap(25000)])}catch(e){showErr(e)}
-  boot('Building the sky island…',62);await nap(40);try{buildSkyIsland()}catch(e){showErr(e)}
-  boot('Loading animations…',74);try{await Promise.race([loadEmotes(),nap(15000)])}catch(e){}
+  {const jobs=[loadPacks(),seaReady(),Farm.whenReady(),Promise.all([loadEmotes(),typeof VerbAnims!=='undefined'?VerbAnims.load():0,typeof CombatAnims!=='undefined'?CombatAnims.load():0])];let done=0;   // models, sea creatures, farm animals, animation files: all in parallel
+    boot('Loading islands and creatures…',40);
+    try{await Promise.race([Promise.all(jobs.map(p=>Promise.resolve(p).catch(()=>{}).then(()=>{done++;boot('Loading islands and creatures…',40+Math.round(done/jobs.length*28))}))),nap(30000)])}catch(e){showErr(e)}}
+  boot('Building the sky island…',70);await nap(40);try{buildSkyIsland()}catch(e){showErr(e)}
   me=makeAvatar(myName,myColor);scene.add(me);dress(me,mySkin);
   // spawn: slot by join order (offset so partners don't overlap)
   S.x=TOWN.x+(Math.random()-.5)*4;S.z=TOWN.z+7+(Math.random()-.5)*2;S.y=H(S.x,S.z)+.1;

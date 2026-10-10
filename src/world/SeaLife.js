@@ -4,7 +4,7 @@
 // pattern as every other extracted module. buildSeaLife() is called once from
 // buildWorld(); seaTick(dt,t) is called once per frame from tick().
 const FISH_TYPES=['Fish1','Fish2','Fish3'],FISH_LEN={Fish1:.65,Fish2:.62,Fish3:.62},FISH_RAW={Fish1:3.19,Fish2:1.97,Fish3:1.58};
-let seaP,seaBufs={},sharkClip,sharks=[],fishState=[],fishInst={},specials=[],_fdum=new THREE.Object3D();
+let seaP,seaBuilt=null,seaBufs={},sharkClip,sharks=[],fishState=[],fishInst={},specials=[],_fdum=new THREE.Object3D();
 // The instanced fish used the model's RAW geometry, but the skinned model is only upright/scaled once its node transform and skin are applied (-90deg about X, x100), so
 // the fish came out upside down. This CPU-skins the rest pose once (same maths as the GPU), centres it and normalises its length to 1 (head +Z, up +Y).
 function bakeRestGeometry(root,o){
@@ -21,6 +21,8 @@ function loadSea(){
   })();
   return seaP;
 }
+// resolves when the fish/shark/dolphin models are loaded AND the creatures exist (the loading screen waits for this, so they never pop in or hitch during play)
+function seaReady(){return seaBuilt||Promise.resolve()}
 function buildSeaLife(){
   const findWater=(I,deep)=>{for(let i=0;i<60;i++){const a=rng()*6.283,r=I.R*(.75+rng()*.7),x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r,h=H(x,z);
     if(h<(deep?-1.0:-.15)&&h>(deep?-30:-3.2))return {x,z}}return null};
@@ -31,7 +33,7 @@ function buildSeaLife(){
   let fi=0;
   for(const pt of clusters){const n=6+(rng()*6|0),cy=-.55-rng()*.35,rad=3+rng()*4,speed=.5+rng()*.4;
     for(let i=0;i<n;i++){fishState.push({type:FISH_TYPES[fi++%3],cx:pt.x,cz:pt.z,cy,rad,speed,ph:rng()*6.283,off:rng()*6.283,rOff:.7+rng()*.6,yOff:(rng()-.5)*.3,jt:0,jc:6+rng()*20})}}
-  loadSea().then(async()=>{
+  seaBuilt=loadSea().then(async()=>{
     const gl=new THREE.GLTFLoader(),parse=buf=>new Promise((res,rej)=>gl.parse(buf.slice(0),AURL,res,rej));
     for(const t of FISH_TYPES){const r=await parse(seaBufs[t]);let geo,mat;
       r.scene.traverse(o=>{if(o.isSkinnedMesh&&!geo){geo=bakeRestGeometry(r.scene,o);mat=o.material.clone();mat.skinning=false}});
@@ -70,9 +72,12 @@ function splashTick(dt){if(!splashes)return;for(const p of splashes){if(p.age>=p
 // a random open-water point 'min..max' m from the player (ahead of the camera half the time), or null
 function waterNear(min,max){for(let i=0;i<24;i++){const a=(i%2?Math.random()*6.283:S.rot+(Math.random()-.5)*2.2),r=min+Math.random()*(max-min),x=S.x+Math.sin(a)*r,z=S.z+Math.cos(a)*r,h=H(x,z);if(h<-.9)return {x,z}}return null}
 let _recT=0;
+// Distance LOD (profiled: this function was the biggest per-frame cost of the whole game, ~55% at sea): 2,028 fish, 36 sharks and 5 big animals were ALL animated every frame.
+// Beyond these ranges a creature is under a pixel, so it is neither updated nor drawn (fish) / its skeleton animation is paused (sharks, big animals).
+const FISH_FAR2=260*260,SHARK_ANIM2=250*250,SPECIAL_ANIM2=420*420;
 function seaTick(dt,t){
   const cnt={};FISH_TYPES.forEach(k=>cnt[k]=0);
-  for(const f of fishState){f.ph+=dt*f.speed;const a=f.ph+f.off,r=f.rad*f.rOff,inst=fishInst[f.type];if(!inst)continue;
+  for(const f of fishState){const fdx=f.cx-S.x,fdz=f.cz-S.z;if(fdx*fdx+fdz*fdz>FISH_FAR2)continue;f.ph+=dt*f.speed;const a=f.ph+f.off,r=f.rad*f.rOff,inst=fishInst[f.type];if(!inst)continue;
     let x=f.cx+Math.cos(a)*r,z=f.cz+Math.sin(a)*r,y=f.cy+f.yOff+Math.sin(t/600+f.off)*.12,tx=f.cx+Math.cos(a+.25)*r,tz=f.cz+Math.sin(a+.25)*r,ty=y;
     // leaps: a fish near the player now and then arcs out of the water (1 s), with splash rings at both ends
     if(f.jt>0){f.jt+=dt;const u=Math.min(1,f.jt/1.1),au=Math.min(1,u+.06);y=-.3+Math.sin(u*Math.PI)*1.7;ty=-.3+Math.sin(au*Math.PI)*1.7;if(u>=1){f.jt=0;f.jc=8+Math.random()*25;splash(x,z,.8,.9)}}
@@ -92,7 +97,7 @@ function seaTick(dt,t){
   for(const s of specials){s.ang+=dt*s.speed*.25;const tx=s.cx+Math.cos(s.ang)*s.rad,tz=s.cz+Math.sin(s.ang)*s.rad;
     const ddx=tx-s.m.position.x,ddz=tz-s.m.position.z,dd=Math.hypot(ddx,ddz)||1;
     s.m.position.x+=ddx/dd*Math.min(2.2*dt,dd);s.m.position.z+=ddz/dd*Math.min(2.2*dt,dd);s.m.position.y+=(s.cy-s.m.position.y)*Math.min(1,dt*1.2);
-    s.m.rotation.y=lerpAngle(s.m.rotation.y,Math.atan2(ddx,ddz),Math.min(1,dt*2));s.mx.update(dt);}
+    s.m.rotation.y=lerpAngle(s.m.rotation.y,Math.atan2(ddx,ddz),Math.min(1,dt*2));{const ex=s.m.position.x-S.x,ez=s.m.position.z-S.z;if(ex*ex+ez*ez<SPECIAL_ANIM2)s.mx.update(dt)}}
   for(const s of sharks){
     // distances are to the SHARK itself (they used to be measured from its patrol centre, so it almost never reacted or bit)
     const px=s.m.position.x,pz=s.m.position.z,dx=S.x-px,dz=S.z-pz,sd=Math.hypot(dx,dz),inWater=S.y<-.4&&H(S.x,S.z)<-.3;
@@ -109,7 +114,7 @@ function seaTick(dt,t){
     cur.y+=(s.cy-cur.y)*Math.min(1,dt*1.5);
     s.wk=(s.wk||0)-dt;if(s.wk<=0&&Math.hypot(cur.x-S.x,cur.z-S.z)<160){s.wk=s.state==='patrol'?1.3:.5;splash(cur.x,cur.z,1.3,1.4)} // wake rings so you can spot a fin from far away
     const yaw=Math.atan2(ddx,ddz);s.m.rotation.y=lerpAngle(s.m.rotation.y,yaw,Math.min(1,dt*3));
-    s.mx.update(dt);
+    if(sd*sd<SHARK_ANIM2||s.state!=='patrol')s.mx.update(dt);   // far patrolling sharks: movement continues, skeleton animation pauses
   }
 }
 function sharkBite(){try{const a=WAudio.get();if(!a)return;const o=a.createOscillator(),g=a.createGain();o.type='sawtooth';o.frequency.setValueAtTime(90,a.currentTime);o.frequency.exponentialRampToValueAtTime(30,a.currentTime+.3);o.connect(g);g.connect(WAudio.out());g.gain.setValueAtTime(.4,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.35);o.start();o.stop(a.currentTime+.35)}catch(e){}}

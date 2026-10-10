@@ -45,7 +45,7 @@ const Farm=(()=>{
     // sign at the gate
     const cv=document.createElement('canvas');cv.width=256;cv.height=64;const g=cv.getContext('2d');g.fillStyle='#6b4a2a';g.fillRect(0,0,256,64);g.fillStyle='#f6e7c1';g.font='bold 38px serif';g.textAlign='center';g.textBaseline='middle';g.fillText('🐄 FARM',128,34);
     const sign=new THREE.Mesh(new THREE.PlaneGeometry(3.2,.8),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(cv),side:THREE.DoubleSide}));sign.position.set(F.x,H(F.x,F.z-R)+2.6,F.z-R);scene.add(sign);
-    spawn();
+    ready=spawn().catch(()=>{});
   }
 
   // ---------- animals ----------
@@ -118,7 +118,7 @@ const Farm=(()=>{
     let i=0;
     for(const sp of SPECIES){
       let buf;try{buf=await buffer(sp.n)}catch(e){continue}
-      for(let n=0;n<sp.cnt;n++){const a=await make(i++,sp,buf,n);if(a)animals.push(a);await new Promise(r=>setTimeout(r,80))}} // spread parsing over time so loading never hitches the game
+      for(let n=0;n<sp.cnt;n++){const a=await make(i++,sp,buf,n);if(a)animals.push(a);await new Promise(r=>setTimeout(r,6))}} // just a yield so the loading screen stays responsive (this used to be spread over ~80 ms per animal DURING play)
   }
 
   // ---- behaviour ----
@@ -209,6 +209,7 @@ const Farm=(()=>{
     // name tag fades in as you get close
     const ta=clamp((9-dp)/3,0,1);if(a.tag.material.opacity!==ta)a.tag.material.opacity=ta;a.tag.visible=ta>0}
 
+  let _fn=0,ready=null;
   function tick(dt,t){
     if(!animals.length)return;
     dt=Math.min(dt,.1);
@@ -226,10 +227,12 @@ const Farm=(()=>{
     for(let i=0;i<animals.length;i++)for(let j=i+1;j<animals.length;j++){
       const p=animals[i],q=animals[j],dx=q.x-p.x,dz=q.z-p.z,d=Math.hypot(dx,dz),rr=(p.sp.len+q.sp.len)*.32;
       if(d<rr&&d>1e-3){const k=(rr-d)*.5*Math.min(1,dt*4)/d;p.x-=dx*k;p.z-=dz*k;q.x+=dx*k;q.z+=dz*k}}
+    _fn++;
     for(const a of animals){
       const dp=Math.hypot(S.x-a.x,S.z-a.z);if(dp>=220)continue;
-      if(dp<110)pose(a,dt,t,dp);                                                   // only animate what you can actually see up close
+      // only animate what you can actually see up close; the farther, the less often (the skeleton + procedural pose was ~3.7 ms/frame for the whole farm). dt is accumulated so motion stays correct.
+      if(dp<110){const lod=dp<28?1:dp<55?2:4;a._pdt=(a._pdt||0)+dt;if(lod===1||(_fn+a.i)%lod===0){pose(a,a._pdt,t,dp);a._pdt=0}}
       a.root.position.set(a.x,H(a.x,a.z),a.z);a.root.rotation.y=a.head}
   }
-  return {build,tick,pos:F,animals};
+  return {build,tick,pos:F,animals,whenReady:()=>ready||Promise.resolve()};
 })();
