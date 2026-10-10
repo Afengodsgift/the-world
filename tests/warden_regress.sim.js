@@ -22,7 +22,6 @@ if(off.W){
   ok(diffOut===0,'row3: WRD on, '+n+' points outside reach identical');
   let maxJ=0;for(let a=0;a<360;a+=3){const t=a*Math.PI/180,r1=reach-1e-4,r2=reach+1e-4;maxJ=Math.max(maxJ,Math.abs(on.H(W.x+r1*Math.cos(t),W.z+r1*Math.sin(t))-on.H(W.x+r2*Math.cos(t),W.z+r2*Math.sin(t))))}
   ok(maxJ<1e-3,'row3: continuous at the reach edge (max jump '+maxJ.toExponential(2)+')');
-  ok(W.on===false||true,'row3: WRD.on default checked below');
   const dflt=G.makeH();ok(dflt.W.on===false,'WRD.on defaults to false');
   // clearance from every island/feature
   let min=1e9;for(const I of on.D.ISL)min=Math.min(min,Math.hypot(I.x-W.x,I.z-W.z)-I.R*1.6-reach);
