@@ -88,13 +88,14 @@ fs.writeFileSync(OUT,JSON.stringify(all));console.log('wrote',OUT,(fs.statSync(O
 // ---- emotes (assets/emotes.json, loaded lazily by the game): kind once = plays once; loop = holds until you move; clamp = holds the last frame until you move.
 // `in` = intro clip played once before a looping/clamped one. u:/k: = UAL / KayKit source clip (k: needs the pack file).
 const SIM='Rig_Medium_Simulation.glb',GEN='Rig_Medium_General.glb',TOOLS='Rig_Medium_Tools.glb',MEL='Rig_Medium_CombatMelee.glb',RNG='Rig_Medium_CombatRanged.glb',ADV='Rig_Medium_MovementAdvanced.glb',SPE='Rig_Medium_Special.glb';
-const E=(cat,id,emoji,label,kind,src,extra={})=>({cat,id,emoji,label,kind,src,...extra});
+const E=(cat,id,emoji,label,kind,src,extra={})=>({cat,id,emoji,label,kind,src,...extra}); // extra.hidden: baked but not shown in the emote menu (used by activities, e.g. fishing)
 const EMOTES=[
   E('Social','wave','👋','Wave','once',['k','Waving',SIM]),E('Social','cheer','🎉','Cheer','once',['k','Cheering',SIM]),E('Social','dance','💃','Dance','loop',['u','Dance_Loop']),
   E('Social','talk','💬','Talk','loop',['u','Idle_Talking_Loop']),E('Social','taunt','😈','Taunt','once',['k','Skeletons_Taunt',SPE]),E('Social','taunt2','🤪','Big taunt','once',['k','Skeletons_Taunt_Longer',SPE]),
   E('Social','popup','🌟','Pop up','once',['k','Spawn_Ground',GEN]),
   E('Chill','sit','🧘','Sit','loop',['k','Sit_Floor_Idle',SIM],{in:['k','Sit_Floor_Down',SIM]}),E('Chill','lie','🛌','Lie down','loop',['k','Lie_Idle',SIM],{in:['k','Lie_Down',SIM]}),
   E('Chill','crouch','🥷','Crouch','loop',['u','Crouch_Idle_Loop']),E('Chill','playdead','💀','Play dead','clamp',['u','Death01']),E('Chill','faint','😵','Faint','clamp',['k','Death_B',GEN]),
+  E('Fishing','fish_cast','🎣','Cast','once',['k','Fishing_Cast',TOOLS],{hidden:true}),E('Fishing','fish_idle','🎣','Wait','loop',['k','Fishing_Idle',TOOLS],{hidden:true}),E('Fishing','fish_bite','🎣','Bite','loop',['k','Fishing_Bite',TOOLS],{hidden:true}),E('Fishing','fish_reel','🎣','Reel','loop',['k','Fishing_Reeling',TOOLS],{hidden:true}),E('Fishing','fish_catch','🎣','Catch','once',['k','Fishing_Catch',TOOLS],{hidden:true}),
   E('Fitness','pushups','💪','Push-ups','loop',['k','Push_Ups',SIM]),E('Fitness','situps','🏋️','Sit-ups','loop',['k','Sit_Ups',SIM]),E('Fitness','roll','🌀','Roll','once',['u','Roll']),
   E('Fitness','flipf','🤸','Dodge forward','once',['k','Dodge_Forward',ADV]),E('Fitness','flipb','🔙','Dodge back','once',['k','Dodge_Backward',ADV]),
   E('Fight','jab','👊','Jab','once',['u','Punch_Jab']),E('Fight','cross','🥊','Cross punch','once',['u','Punch_Cross']),E('Fight','kick','🦵','Kick','once',['k','Melee_Unarmed_Attack_Kick',MEL]),
@@ -105,6 +106,6 @@ const eu=bake({'':glb(UAL)},UAL_MAP,ualE,'UAL',['Hips','pelvis','foot_l'],20,3);
 const kf={};for(const c of Object.values(kayE))if(!kf[c.file])kf[c.file]=glb(path.join(KAY,c.file));
 const ek=bake(kf,KAY_MAP,kayE,'KayKit',['LeftUpLeg','upperleg.l','foot.l'],20,3);
 const byId={};for(const c of eu.out.concat(ek.out))byId[c.name]=c;
-fs.writeFileSync(EOUT,JSON.stringify({menu:EMOTES.map(e=>({cat:e.cat,id:e.id,emoji:e.emoji,label:e.label,kind:e.kind,intro:!!e.in})),clips:Object.values(byId)}));
+fs.writeFileSync(EOUT,JSON.stringify({menu:EMOTES.map(e=>({cat:e.cat,id:e.id,emoji:e.emoji,label:e.label,kind:e.kind,intro:!!e.in,hidden:!!e.hidden})),clips:Object.values(byId)}));
 console.log('wrote',EOUT,(fs.statSync(EOUT).size/1024).toFixed(0)+' KB,',EMOTES.length,'emotes,',Object.keys(byId).length,'clips; worst limb error',Math.max(...Object.values({...eu.report,...ek.report}).map(x=>x.maxErr)),'deg');
 })();

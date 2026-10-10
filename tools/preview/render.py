@@ -15,6 +15,9 @@ VIEWS={ # name: (cam, target, fov)  (offsets are relative to the island centre; 
  'ground':((SKY[0]+10,SKY[1]+3,SKY[2]+60),(SKY[0]+46,SKY[1]+6,SKY[2]-15),70),
 }
 night=len(sys.argv)>3 and sys.argv[3]=='night'
+for a in sys.argv[3:]:
+    if a.startswith('custom:'): # custom:name:camx,camy,camz,tx,ty,tz,fov
+        _,nm,vals=a.split(':');v=[float(x) for x in vals.split(',')];VIEWS[nm]=((v[0],v[1],v[2]),(v[3],v[4],v[5]),v[6])
 names=[v for v in sys.argv[3:] if v in VIEWS] or list(VIEWS)
 for n in names:
     cam,tg,fov=VIEWS[n]; p=os.path.join(outdir,n+'.ppm')

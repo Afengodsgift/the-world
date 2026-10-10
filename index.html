@@ -150,6 +150,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/space/SpaceManager.js"></script>
 <script src="src/space/SpaceEnvironment.js"></script>
 <script src="src/world/SkyIsland.js"></script>
+<script src="src/world/Fishing.js"></script>
 <script src="src/combat/Melee.js"></script>
 <script src="src/interaction/InteractionManager.js"></script>
 <script src="src/games/Tag.js"></script>
@@ -276,6 +277,7 @@ async function enter(code){
   chan.on('broadcast',{event:'ss'},()=>startSharkRun(false));
   chan.on('broadcast',{event:'sls'},()=>startSlalom(false));
   chan.on('broadcast',{event:'ds'},()=>startDash(false));
+  chan.on('broadcast',{event:'fc'},({payload})=>Fishing.onCatch(payload));
   chan.on('broadcast',{event:'em'},({payload})=>{const o=others.get(payload.from);if(o)loadEmotes().then(()=>{o.group.userData.emoteReq=payload.e}).catch(()=>{})});
   chan.on('broadcast',{event:'df'},({payload})=>{if(dash.on)banner('Partner finished in '+fmt(payload.ms),'OBSTACLE DASH')});
   chan.on('broadcast',{event:'slp'},({payload})=>{slalom.pi=payload.i});
@@ -308,7 +310,7 @@ function updateHud(){
   const together=others.size>0;
   $('info').innerHTML='<div class="pill"><i class="dot'+(together?' on':'')+'"></i><span class="code">'+roomCode+'</span><span class="dim">'+(together?'Together':'Waiting\u2026')+'</span></div>'
     +'<div class="pill stats"><span><i>\u2726</i><b>'+got+'</b><span class="dim">/'+orbs.length+'</span></span><span><i>\u{1F4CD}</i><b>'+disc.size+'</b><span class="dim">/'+LOCS.length+'</span></span>'
-    +(treas?'<span><i>\u{1F9F0}</i><b>'+treas+'</b></span>':'')+(smacks?'<span><i>\u{1F94A}</i><b>'+smacks+'</b></span>':'')+'</div>';
+    +(treas?'<span><i>\u{1F9F0}</i><b>'+treas+'</b></span>':'')+(typeof Fishing!=='undefined'&&Fishing.count()?'<span><i>\u{1F3A3}</i><b>'+Fishing.count()+'</b></span>':'')+(smacks?'<span><i>\u{1F94A}</i><b>'+smacks+'</b></span>':'')+'</div>';
 }
 
 // ---------- three ----------
@@ -368,7 +370,7 @@ function openEmotes(){
   pn.innerHTML='<button class="x">✕</button>';pn.style.display='block';
   pn.firstChild.onclick=()=>{pn.style.display='none'};
   loadEmotes().then(()=>{let cat='',row=null;
-    for(const m of EMO.menu){if(m.cat!==cat){cat=m.cat;const h=document.createElement('h4');h.textContent=cat;pn.appendChild(h);row=document.createElement('div');row.className='row';pn.appendChild(row)}
+    for(const m of EMO.menu){if(m.hidden)continue;if(m.cat!==cat){cat=m.cat;const h=document.createElement('h4');h.textContent=cat;pn.appendChild(h);row=document.createElement('div');row.className='row';pn.appendChild(row)}
       const b=document.createElement('button');b.textContent=m.emoji+' '+m.label;b.onclick=()=>{pn.style.display='none';playEmote(m.id)};row.appendChild(b)}
   }).catch(()=>{pn.innerHTML+='<p>Couldn\'t load emotes - check your connection.</p>'})}
 function playEmote(id){
@@ -380,13 +382,14 @@ function unrel(q,a){if(q.rel)for(const r of q.rel)r.acts=r.acts.filter(x=>x!==a)
 function emoStart(q,id){
   const d=EMO.def[id];if(!d)return;emoStop(q);
   const main=emoAct(q,id);if(!main)return;unrel(q,main);const acts=[main],setup=(a,loopMode,clampEnd)=>{a.reset();a.setLoop(loopMode,loopMode===THREE.LoopOnce?1:Infinity);a.clampWhenFinished=!!clampEnd;a.setEffectiveTimeScale(1);a.setEffectiveWeight(300)}; // 300 vs the idle clip's 1 so the lying/plank poses aren't dragged up by the blended idle hips
-  if(d.kind==='once'){setup(main,THREE.LoopOnce,false);main.play();q.hold={acts,age:0,until:performance.now()/1000+main.getClip().duration,once:true};return}
+  if(d.kind==='once'){setup(main,THREE.LoopOnce,false);main.play();q.hold={id,acts,age:0,until:performance.now()/1000+main.getClip().duration,once:true};return}
   const mode=d.kind==='clamp'?THREE.LoopOnce:THREE.LoopRepeat,clampEnd=d.kind==='clamp';
-  if(d.intro){const ia=emoAct(q,id+'_in');if(ia){unrel(q,ia);acts.push(ia);setup(ia,THREE.LoopOnce,true);ia.play();q.hold={acts,age:0,main,mode,clampEnd,introAt:performance.now()/1000+ia.getClip().duration-.12,ia};return}}
-  setup(main,mode,clampEnd);main.play();q.hold={acts,age:0}}
+  if(d.intro){const ia=emoAct(q,id+'_in');if(ia){unrel(q,ia);acts.push(ia);setup(ia,THREE.LoopOnce,true);ia.play();q.hold={id,acts,age:0,main,mode,clampEnd,introAt:performance.now()/1000+ia.getClip().duration-.12,ia};return}}
+  setup(main,mode,clampEnd);main.play();q.hold={id,acts,age:0}}
 
 function animateClips(g,dt,st){
   const q=g.userData,A=q.nact,p=g.position;
+  if(q.rod)q.rod.visible=!!((q.hold&&q.hold.id&&q.hold.id.startsWith('fish_'))||q.fishing); // the fishing rod shows while a fishing pose is playing
   const mdx=q.pp?p.x-q.pp.x:0,mdz=q.pp?p.z-q.pp.z:0,rawU=q.pp&&dt>0?Math.hypot(p.x-q.pp.x,p.z-q.pp.z)/dt:0,raw=Math.min(16,rawU);q.pp={x:p.x,z:p.z};
   q.fs=(q.fs||0)+(rawU-(q.fs||0))*Math.min(1,dt*6);const sf=clamp(q.fs/70,0,1); // unclamped speed (flight is much faster than the 16 m/s clamp above)
   {const ly=q.lyaw===undefined?g.rotation.y:q.lyaw,yd=Math.atan2(Math.sin(g.rotation.y-ly),Math.cos(g.rotation.y-ly))/Math.max(dt,.001);q.yr=(q.yr||0)+(yd-(q.yr||0))*Math.min(1,dt*5);q.lyaw=g.rotation.y}const acc=(raw-(q.v||0))*10;q.v=(q.v||0)+(raw-(q.v||0))*Math.min(1,dt*10);const v=q.v;
@@ -484,6 +487,7 @@ function dress(g,skin){
       pn.position.set(.173,-19.68,31.046);piv.add(pn);piv.scale.setScalar((.36/5.915)/50);piv.position.set(0,.0016,0);piv.rotation.set(Math.PI,0,PAN_REST_Z);
       if(u.nact)piv.quaternion.set(...PAN_GRIP);piv.visible=false;bones.RightHand.add(piv);u.pan=piv;
     }).catch(()=>{});
+    if(bones.RightHand&&typeof Fishing!=='undefined')Fishing.attachRod(u,bones); // hidden fishing rod in the right hand
   }).catch(()=>{});
 }
 loadAssets();loadChar().catch(()=>{});
@@ -737,7 +741,7 @@ function wsBoot(){
 function banner(t,l){const b=$('banner');b.innerHTML='<div class="toast"><small>'+(l||'NEW LOCATION DISCOVERED')+'</small><span>'+t+'</span></div>';b.style.opacity=1;clearTimeout(banner.t);banner.t=setTimeout(()=>b.style.opacity=0,3200)}
 function take(i,local){const o=orbs[i];if(!o||!o.on)return;o.on=false;o.m.visible=false;got++;save();updateHud();if(local&&chan)chan.send({type:'broadcast',event:'c',payload:{i}})}
 function chime(){try{const a=WAudio.get();if(!a)return;const o=a.createOscillator(),g=a.createGain();o.frequency.value=660;o.connect(g);g.connect(WAudio.out());g.gain.setValueAtTime(.2,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+1.4);o.start();o.stop(a.currentTime+1.4)}catch(e){}}
-function doUse(){const t=$('use').style.display==='block',id=Interaction.current();Interaction.use();if(t&&me)me.userData.emote=id==='dig'&&me.userData.nact&&me.userData.nact.dig?'dig':'interact'}
+function doUse(){const t=$('use').style.display==='block',id=Interaction.current();Interaction.use();if(t&&me&&!/^(fish|cozy)/.test(id||''))me.userData.emote=id==='dig'&&me.userData.nact&&me.userData.nact.dig?'dig':'interact'}
 Interaction.register('dig','Dig!',
   ()=>hunt.on&&Math.hypot(S.x-hunt.x,S.z-hunt.z)<6&&Math.abs(S.y-hunt.y)<20,
   ()=>dig(true));
@@ -1201,7 +1205,7 @@ function tickFrame(t){
   }
   vegCull();CameraRig.update(dt);
   {const uT=clamp((-.25-camera.position.y)/.5,0,1);S.under=(S.under||0)+(uT-(S.under||0))*Math.min(1,dt*10)}   // 0 above water .. 1 camera fully submerged (drives fog, sound muffle, bubbles)                                                         // orbit / first-person / shoulder + flight FOV, roll, shake (src/camera/CameraRig.js)
-  Space.update(dt,t);Env.tick(dt,t);SpaceEnv.update(dt,t);skyTick(t);
+  Space.update(dt,t);Env.tick(dt,t);SpaceEnv.update(dt,t);skyTick(t);Fishing.tick(dt,t);
   WaterFX.update(dt,{x:S.x,y:S.y,z:S.z,heading:S.rot,speed:Math.hypot(S.gvx||0,S.gvz||0),swim:S.state==='swim',dv:!!S.dv,under:S.under||0,camX:camera.position.x,camY:camera.position.y,camZ:camera.position.z,dayF:Env.state.dayF,rain:S.y<300?Env.state.wx.rain:0,over:overSea,hAt:H});
   if(sun){Perf.snapSun(sun,S.x,S.y,S.z);sky.position.copy(camera.position);if(seaTex){seaTex.offset.x+=dt*.0006;seaTex.offset.y+=dt*.0004}
     if(sun.castShadow&&Perf.shadowTooSlow()){sun.castShadow=false;scene.traverse(o=>{if(o.material)o.material.needsUpdate=true})}}

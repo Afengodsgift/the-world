@@ -67,7 +67,7 @@ function buildSeaLife(){
 let splashes=null;
 function splashInit(){splashes=[];const g=new THREE.RingGeometry(.55,.7,24);g.rotateX(-Math.PI/2);
   for(let i=0;i<16;i++){const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:0,depthWrite:false,fog:true}));m.visible=false;m.renderOrder=2;scene.add(m);splashes.push({m,age:9,life:1,size:1})}}
-function splash(x,z,size,life){if(!splashes)splashInit();let p=splashes.find(q=>q.age>=q.life)||splashes[0];p.age=0;p.life=life||1;p.size=size||1;p.m.position.set(x,-.27,z);p.m.visible=true}
+function splash(x,z,size,life,y){if(!splashes)splashInit();let p=splashes.find(q=>q.age>=q.life)||splashes[0];p.age=0;p.life=life||1;p.size=size||1;p.m.position.set(x,y===undefined?-.27:y,z);p.m.visible=true} // y: optional water height (the island ponds)
 function splashTick(dt){if(!splashes)return;for(const p of splashes){if(p.age>=p.life){p.m.visible=false;continue}p.age+=dt;const u=Math.min(1,p.age/p.life);p.m.scale.setScalar(p.size*(.4+u*2.4));p.m.material.opacity=.7*(1-u)}}
 // a random open-water point 'min..max' m from the player (ahead of the camera half the time), or null
 function waterNear(min,max){for(let i=0;i<24;i++){const a=(i%2?Math.random()*6.283:S.rot+(Math.random()-.5)*2.2),r=min+Math.random()*(max-min),x=S.x+Math.sin(a)*r,z=S.z+Math.cos(a)*r,h=H(x,z);if(h<-.9)return {x,z}}return null}
