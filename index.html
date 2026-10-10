@@ -396,7 +396,7 @@ function animateClips(g,dt,st){
     want=v<.4?'idle':(c==='sprint'?v>7.2:v>8.4)?'sprint':(c==='jog'?v>2.4:v>3.2)?'jog':'walk';
     ts=want==='walk'?clamp(v/1.06,.6,2.2):want==='jog'?clamp(v/5.8,.5,1.5):want==='sprint'?clamp(v/9,.8,1.7):1}
   // armed: strafe / backpedal by twisting the legs (src/character/CombatPose.js) and stand in the pistol-ready stance instead of the relaxed idle
-  const armed=q.gunI>=0&&st!=='fly'&&st!=='swim'&&st!=='jump'&&st!=='fall';
+  const armed=q.gunI>=0&&!q.noTwist&&st!=='fly'&&st!=='swim'&&st!=='jump'&&st!=='fall';   // q.noTwist: raiders keep the plain gait (the leg twist is for human players)
   if(armed)CombatPose.plan(q,dt,mdx,mdz,v,g.rotation.y,st==='walk'||st==='run');else{q.cpT=0;q.cpRev=false}
   if(q.cpRev&&LOCO[want])ts=-ts;
   if(want==='idle'&&armed){const ca=CombatAnims.act(q,'cidle');if(ca){A.cidle=ca;want='cidle'}}
@@ -426,7 +426,7 @@ function animateClips(g,dt,st){
    q.lz=(q.lz||0)+((gnd?-clamp(q.yr*.035,-.14,.14)*clamp(v/5,0,1):0)-(q.lz||0))*lk}
   q.model.rotation.set(q.lunge+(q.lx||0),0,q.lz||0);q.model.position.set(0,q.oy,0);        // base transform; FlightPose overrides it while flying
   q.model.scale.set(.5*(1+q.land*.3),.5*(1-q.land*.6),.5*(1+q.land*.3));
-  q.mixer.update(dt);
+  if(q.cpSaved)CombatPose.untwist(q);q.mixer.update(dt);
   if(armed&&Math.abs(q.cpT||0)>.01)CombatPose.twist(q);   // legs twisted toward travel, torso back on the aim
   // procedural layers on top of the baked clips: flight (src/character/FlightPose.js) or a held weapon (Outlaw.poseGun)
   if(!FlightPose.apply(g,q,dt,st,{speed:q.fs,yawRate:q.yr})&&q.gunI>=0&&typeof Outlaw!=='undefined')Outlaw.poseGun(g,q,st,dt);

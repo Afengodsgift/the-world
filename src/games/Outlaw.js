@@ -26,7 +26,7 @@ const Outlaw=(()=>{
   // NPC archetypes. 0 Bandit 1 Brute 2 Sniper 3 Sheriff(boss) 4 Dynamiter 5 Shotgunner 6 Medic 7 Warlord(gatling boss)
   const TYPES=[
     {n:'Bandit',skin:2,hp:60,sp:5,range:28,dmg:8,cd:1.15,acc:.5,react:.55,sc:1},
-    {n:'Brute',skin:2,hp:120,sp:7.4,range:2.2,dmg:14,cd:.9,acc:1,react:0,sc:1.15},
+    {n:'Brute',skin:2,hp:90,sp:7.4,range:2.2,dmg:14,cd:.9,acc:1,react:0,sc:1.15},
     {n:'Sniper',skin:3,hp:40,sp:3.6,range:60,dmg:24,cd:2.6,acc:.7,react:.9,sc:1},
     {n:'Sheriff',skin:3,hp:520,sp:4.6,range:34,dmg:11,cd:.5,acc:.55,react:.3,sc:1.6},
     {n:'Dynamiter',skin:2,hp:55,sp:4.4,range:34,dmg:38,cd:3.4,acc:1,react:.6,sc:1},
@@ -38,13 +38,14 @@ const Outlaw=(()=>{
   const DIFF=[{n:'Normal',hp:1,dmg:1,cnt:1,coin:1},{n:'Hard',hp:1.4,dmg:1.25,cnt:1.3,coin:1.5},{n:'Outlaw',hp:2,dmg:1.6,cnt:1.7,coin:2.2}];
   const cover=[],npcs=new Map(),cache={};
   let wiped=false,clock=0,C=null,active=false,host=null,wave=0,kills=0,best=0,nextWave=0,queue=[],spawnT=0,nid=1,snapT=0;
-  let wi=-1,hp=100,down=false,downT=0,cdT=0,firing=false,pdown=false,pw=-1,hudEl,hpEl,xh,fireBtn,gunBtn,hitT=0,xSp=0,bloom=0,critT=0,fx=[];
+  let wi=-1,hp=100,down=false,downT=0,cdT=0,firing=false,pdown=false,pw=-1,hudEl,hpEl,xh,fireBtn,gunBtn,hitT=0,xSp=0,bloom=0,critT=0,huntT=0,huntOn=false,fx=[];
   const prev={x:0,z:0,vx:0,vz:0},pprev={x:0,z:0,vx:0,vz:0};
   let diff=1,mode='survive',bank={x:0,z:0,hp:1500,max:1500},ammo=[],reloadT=0,reloading=false,dyn=[],drops=[],reloadBtn,shopEl,pick={m:'survive',d:1};
   let SAVE={coins:0,own:WEAPONS.map((_,i)=>FREE.includes(i)?1:0),lv:WEAPONS.map(()=>0),hp:0,mag:0,rl:0,crit:0,v:0};
   try{Object.assign(SAVE,JSON.parse(localStorage.getItem('w4ow2')||'{}'))}catch(e){}
   while(SAVE.own.length<WEAPONS.length)SAVE.own.push(0);while(SAVE.lv.length<WEAPONS.length)SAVE.lv.push(0);
-  FREE.forEach(i=>SAVE.own[i]=1);if(!SAVE.v||SAVE.v<3){SAVE.v=3;SAVE.coins+=500} // arsenal update: welcome gift so the shop is worth a look
+  FREE.forEach(i=>SAVE.own[i]=1);if(!SAVE.v||SAVE.v<3){SAVE.v=3;SAVE.coins+=500}
+  if(SAVE.v<4){SAVE.v=4;SAVE.coins+=1000000} // one-time 1,000,000 coin grant (arsenal shopping spree) // arsenal update: welcome gift so the shop is worth a look
   const save=()=>{try{localStorage.setItem('w4ow2',JSON.stringify(SAVE))}catch(e){}};
   const maxHp=()=>100+20*SAVE.hp,magOf=i=>Math.round(WEAPONS[i].mag*(1+.2*SAVE.mag)),dmgOf=i=>WEAPONS[i].d*(1+.18*SAVE.lv[i]),am=i=>ammo[i]===undefined?magOf(i):ammo[i];
   try{best=+localStorage.getItem('w4ow')||0}catch(e){}
@@ -222,7 +223,7 @@ const Outlaw=(()=>{
         if(p<3)popText(endp[0],endp[1]+.7,endp[2],(kill?'💥 HEADSHOT':crit?'💥'+dmg:dmg),crit?'#ffd24a':zone==='torso'?'#fff':'#b8c4cc',crit?1.35:zone==='torso'?1:.85)}
       if(p<3)tracer(M.x,M.y,M.z,endp[0],endp[1],endp[2]);
     }
-    me.userData.recoil=1;Viewmodel.kick(RECOIL[wi]);CameraRig.kick(.016*RECOIL[wi],rnd(-.004,.004)*RECOIL[wi]);sfx(W.snd);if(anyHit){hitT=.18;if(anyCrit)critT=.24;sfx(anyCrit?'crit':'hit')}if(W.pel<=1)bloom=Math.min(1,bloom+.14+W.cd*.3);
+    me.userData.recoil=1;Viewmodel.kick(RECOIL[wi]);CameraRig.kick(.016*RECOIL[wi],rnd(-.004,.004)*RECOIL[wi]);sfx(W.snd);if(anyHit){hitT=.18;if(anyCrit)critT=.24;sfx(anyCrit?'crit':'hit')}if(W.pel<=1)bloom=Math.min(1,bloom+.07+W.cd*.55);
     if(clock-lastF>110){lastF=clock;send({k:'f',w:wi,m:[M.x,M.y,M.z],e:endp})}
     if(am(wi)<=0)reload();else updateHud();
   }
@@ -262,7 +263,7 @@ const Outlaw=(()=>{
   const hitBuf={};let lastF=0,lastH=0;
   const HS={1:.7,3:.6,7:.5}; // headshot multiplier scale per raider type: brutes and bosses are not one-tap-able
   function reportHit(id,d,zone){if(isHost())damageNpc(id,d,zone);else{const b=hitBuf[id]||(hitBuf[id]={d:0,z:zone});b.d+=d;if(zone==='head')b.z='head'}} // client hits are batched (flushed in tick)
-  function damageNpc(id,d,zone){const n=npcs.get(id);if(!n||n.dead)return;n.hp-=d;n.flash=.12;n.lastZone=zone||'torso';n.lastHitAt=clock;n.stg=clock+(zone==='head'?520:260)*(HS[n.type]||1);if(n.hp<=0)killNpc(n)}
+  function damageNpc(id,d,zone){const n=npcs.get(id);if(!n||n.dead)return;n.hp-=d;n.flash=.12;n.lastZone=zone||'torso';n.lastHitAt=clock;n.stg=clock+(zone==='head'?520:260)*(HS[n.type]||1);if(n.type===1&&n.cd<.35)n.cd=.35;if(n.hp<=0)killNpc(n)}
   function earn(c){SAVE.coins+=c;save();sfx('coin');popText(S.x,S.y+2.6,S.z,'+'+c+' 🪙','#ffd24a');updateHud()}
   function killNpc(n){n.dead=1;kills++;const c=Math.round(COIN[n.type]*DIFF[diff].coin*(1+wave*.03));send({k:'kill',c});earn(c);if(Math.random()<.16){const id=nid++;send({k:'dr',id,x:n.x,z:n.z});addDrop(id,n.x,n.z)}}
   function addDrop(id,x,z){const m=new THREE.Mesh(new THREE.BoxGeometry(.6,.6,.6),new THREE.MeshStandardMaterial({color:'#2ecc71',emissive:'#1e9e55',emissiveIntensity:.8}));m.position.set(x,H(x,z)+.6,z);scene.add(m);drops.push({id,m,x,z})}
@@ -280,7 +281,7 @@ const Outlaw=(()=>{
 
   // ---------- NPC visuals ----------
   function spawnVisual(n){
-    const T=TYPES[n.type],g=makeAvatar(T.n,COL[n.type]);g.userData.nm=T.n;g.scale.setScalar(T.sc);scene.add(g);dress(g,T.skin);
+    const T=TYPES[n.type],g=makeAvatar(T.n,COL[n.type]);g.userData.nm=T.n;g.userData.noTwist=true;g.scale.setScalar(T.sc);scene.add(g);dress(g,T.skin);
     const bar=new THREE.Group(),bg=new THREE.Mesh(new THREE.PlaneGeometry(1.2,.14),new THREE.MeshBasicMaterial({color:'#000',depthTest:false,transparent:true,opacity:.6})),
       fg=new THREE.Mesh(new THREE.PlaneGeometry(1.2,.14),new THREE.MeshBasicMaterial({color:'#ff4040',depthTest:false}));
     fg.position.z=.01;bar.add(bg,fg);bar.position.y=2.5;bar.renderOrder=9;g.add(bar);
@@ -342,7 +343,7 @@ const Outlaw=(()=>{
     const T=TYPES[n.type],alive=pl.filter(p=>!p.down);if(!alive.length){n.st='idle';return}
     let t=null,bs=1e9;for(const p of alive){let load=0;for(const o of npcs.values())if(o!==n&&o.tid===p.id&&!o.dead)load++;
       const s=Math.hypot(p.x-n.x,p.z-n.z)+load*7-(n.tid===p.id?6:0);if(s<bs){bs=s;t=p}}
-    n.tid=t.id;n.cd-=dt;n.t+=dt;n.dec-=dt;n.age=(n.age||0)+dt;const brave=n.age>35; // after 35s enemies stop hiding and push in (prevents stalemates)
+    n.tid=t.id;n.cd-=dt;n.t+=dt;n.dec-=dt;n.age=(n.age||0)+dt;const brave=n.age>35||n.hunt; // after 35s enemies stop hiding and push in (prevents stalemates)
     if(n.raider&&bank.hp>0&&!alive.some(p=>Math.hypot(p.x-n.x,p.z-n.z)<14))t={id:'bank',x:bank.x,z:bank.z+7,vx:0,vz:0,down:false}; // raiders hit the vault unless a player is close
     let dx=t.x-n.x,dz=t.z-n.z;const d=Math.hypot(dx,dz)||1,ux=dx/d,uz=dz/d,seen=los(n.x,n.z,t.x,t.z);
     let gx=ux,gz=uz;if(!seen){const dv=detour(n,t);if(dv){const q=Math.hypot(dv.x-n.x,dv.z-n.z)||1;gx=(dv.x-n.x)/q;gz=(dv.z-n.z)/q}}
@@ -385,9 +386,13 @@ const Outlaw=(()=>{
     }
     // separation from other NPCs
     for(const o of npcs.values()){if(o===n||o.dead)continue;const ox=n.x-o.x,oz=n.z-o.z,od=Math.hypot(ox,oz);if(od<2.6&&od>.01){mx+=ox/od*.8;mz+=oz/od*.8}}
-    if(d>70)sp*=1+Math.min(1,(d-70)/90)*.9; // raiders hurry across the island
+    if(d>45)sp*=1+Math.min(1,(d-45)/90)*1.1; // raiders hurry across the island (up to ~2x when far)
     if(n.stg>clock)sp*=.35;   // staggered by a hit: a brief stumble, not a stun-lock
-    const ml=Math.hypot(mx,mz)||1;n.x+=mx/ml*sp*dt;n.z+=mz/ml*sp*dt;
+    if(n.hunt)sp*=1.3;
+    const ml=Math.hypot(mx,mz)||1;n.x+=mx/ml*sp*dt;
+    // UNSTICK: a raider that is trying to move but has gone nowhere for ~6 s (wedged in scenery) is re-placed at one of the island's fronts
+    n.sk=(n.sk||0)+dt;if(n.sk>=3){n.sk=0;const mvd=Math.hypot(n.x-(n.skx===undefined?n.x:n.skx),n.z-(n.skz===undefined?n.z:n.skz));
+      if(sp>0&&n.mode!=='cover'&&d>9&&mvd<.9){if((n.stuck=(n.stuck||0)+1)>=2){n.stuck=0;const [rx,rz]=OutlawArena.front(n.type);n.x=rx;n.z=rz}}else n.stuck=0;n.skx=n.x;n.skz=n.z}n.z+=mz/ml*sp*dt;
     for(const c of solids){const ox=n.x-c.x,oz=n.z-c.z;if(Math.abs(ox)>c.r+1||Math.abs(oz)>c.r+1)continue;const od=Math.hypot(ox,oz),m=c.r+.45;if(od<m&&od>.001){n.x=c.x+ox/od*m;n.z=c.z+oz/od*m}}
     const lr=Math.hypot(n.x-C.x,n.z-C.z);if(lr>195){n.x=C.x+(n.x-C.x)/lr*195;n.z=C.z+(n.z-C.z)/lr*195}
     if(H(n.x,n.z)<.3){n.x+=(C.x-n.x)/lr*1.5;n.z+=(C.z-n.z)/lr*1.5} // stay on land (the arena is the whole island now)
@@ -397,6 +402,10 @@ const Outlaw=(()=>{
     const pl=players();
     for(const n of npcs.values())if(!n.dead)think(n,dt,pl);
     spawnT-=dt;const live=[...npcs.values()].filter(n=>!n.dead).length;
+    // HUNT: if the spawns are done and only a few raiders remain for a while (a sniper holding the ridge, one stuck behind scenery) they stop hiding and rush you, so a wave always ends
+    if(!queue.length&&live>0&&live<=3){huntT+=dt;if(huntT>25&&!huntOn){huntOn=true;let c=null,cb=1e9;for(const n of npcs.values())if(!n.dead){n.hunt=true;const q=Math.hypot(n.x-S.x,n.z-S.z);if(q<cb){cb=q;c=n}}
+      if(c){const a=Math.atan2(c.x-S.x,-(c.z-S.z))*57.3,dir=['north','north-east','east','south-east','south','south-west','west','north-west'][((Math.round(a/45)%8)+8)%8];const m='Last raiders are charging in - one to the '+dir+'!';send({k:'bn',t:m});banner(m,'OUTLAW TOWN')}}}
+    else if(live===0||queue.length){huntT=0;huntOn=false}
     if(queue.length&&spawnT<=0&&live<8+diff*3){spawnT=1.1;const ty=queue.shift(),[x,z]=spawnPoint(ty);addNpc(ty,x,z)}
     if(!queue.length&&live===0){if(nextWave===0){nextWave=clock+4500;if(wave>0){const c=Math.round((40+wave*12)*DIFF[diff].coin);send({k:'wc',c});earn(c);banner('Wave '+wave+' cleared! +'+c+' 🪙','OUTLAW TOWN');
         if(mode==='defend'){bank.hp=Math.min(bank.max,bank.hp+bank.max*.15);if(wave>=8){const w={k:'win',c:Math.round(400*DIFF[diff].coin)};send(w);onMsg(w);return}}}}
@@ -546,7 +555,7 @@ const Outlaw=(()=>{
     prev.vx=(S.x-prev.x)/Math.max(dt,.001);prev.vz=(S.z-prev.z)/Math.max(dt,.001);prev.x=S.x;prev.z=S.z;
     const p=partner();if(p){const g=p[1].group.position;pprev.vx=(g.x-pprev.x)/Math.max(dt,.001);pprev.vz=(g.z-pprev.z)/Math.max(dt,.001);pprev.x=g.x;pprev.z=g.z;if(p[1].group.userData.gunI!==pw)setGun(p[1].group,pw)}
     if(clock-lastH>100){lastH=clock;for(const id in hitBuf){send({k:'h',id:+id,d:hitBuf[id].d,z:hitBuf[id].z});delete hitBuf[id]}}
-    cdT-=dt;hitT=Math.max(0,hitT-dt);critT=Math.max(0,critT-dt);bloom=Math.max(0,bloom-dt*.7);xSp=bloom*12+(wi>=0&&WEAPONS[wi].pel>1?6:0);if(xh){xh.className=hitT>0?(critT>0?'crit':'hit'):'';xh.style.setProperty('--g',(4+xSp+Math.min(3,Math.hypot(prev.vx,prev.vz)*.35))+'px')} // reticle: opens with recoil and movement, flashes on a hit
+    cdT-=dt;hitT=Math.max(0,hitT-dt);critT=Math.max(0,critT-dt);bloom=Math.max(0,bloom-dt*.9);xSp=bloom*12+(wi>=0&&WEAPONS[wi].pel>1?6:0);if(xh){xh.className=hitT>0?(critT>0?'crit':'hit'):'';xh.style.setProperty('--g',(4+xSp+Math.min(3,Math.hypot(prev.vx,prev.vz)*.35))+'px')} // reticle: opens with recoil and movement, flashes on a hit
     if(firing)fire();
     lockMarker();
     // a weapon is out (and you're not swimming): CameraRig picks first-person or shoulder view; Viewmodel draws the arms + gun
@@ -566,5 +575,5 @@ const Outlaw=(()=>{
 
   Interaction.register('ow-start','Start Showdown',()=>C&&!active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>missionPanel());
   Interaction.register('ow-end','End Showdown',()=>C&&active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>{send({k:'end'});onMsg({k:'end'})});
-  return {build,tick,onMsg,equip,fire,lockTarget,poseGun,loadGun,_t:()=>({get lastShot(){return lastShot},damageNpc,cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
+  return {build,tick,onMsg,equip,fire,lockTarget,poseGun,loadGun,_t:()=>({get lastShot(){return lastShot},get huntOn(){return huntOn},WEAPONS,get wave(){return wave},get queueLen(){return queue.length},get nextWave(){return nextWave},damageNpc,cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
 })();

@@ -99,6 +99,12 @@ Outlaw Isle: stays specialized · Sky: wind currents, cloud platforms · Main: t
 - **Death state**: dead raiders stop fighting and moving, play the baked fall (no more plank-tilt + shrink), lie there ~5 s, sink into the ground and are removed at ~6.6 s; non-targetable the moment they die. If the clip hasn't loaded the old tilt is the fallback.
 - Not done yet: dedicated reload/shoot clips (the procedural `poseGun` still drives arms), crouch-in-cover use of `crouch`/`crouchwalk`, directional death variants.
 
+### Fixes after the first phone test of slices 3-4
+- **No more propeller legs**: the leg twist is for human players only (raiders keep the plain gait), the travel direction is low-pass filtered, needs real sustained speed, the twist rate is limited to ~5 rad/s, and the bones are restored to the animation's values before each mixer update (`CombatPose.untwist`) so it can never accumulate.
+- **Waves always end**: if the spawns are done and <= 3 raiders remain for 25 s they enter HUNT mode (brave, +30% speed, a banner says which way the nearest one is), and a raider that wants to move but has gone nowhere for ~6 s is re-placed at one of the island's fronts. Raiders also sprint harder when far from you (up to ~2x).
+- **Brute**: base HP 120 -> 90; a hit interrupts its swing (0.35 s) so close-range fire is visibly effective; bloom now builds slower (first ~3 s of automatic fire stay accurate). Point-blank head/chest hits were verified to register (head 23, chest 15 with the pistol).
+- **Coins**: one-time grant of 1,000,000 coins per device save (SAVE.v 4).
+
 ## Roadmap
 0 Net adapter ✔ · 1 WorldState + Journal ✔ · 2 Verbs v1 ✔ (cave interior still open) ·
 3 Link ✔ (twin plates, synced shrine; lockpick+lookout later) · 4 Event Director ✔ (meteor, visitor, golden rings; shark surge later) · 5 Zones (Storm Cay wind, Frost friction first) · 6 Home v1 (trophy shelf, aquarium) ·
