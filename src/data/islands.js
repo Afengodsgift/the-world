@@ -4,7 +4,7 @@ const TOWN={x:25,z:62};
 const SKY={x:-1900,z:2350,R:140,base:430}; // the floating island sits up in the cloud layer (clouds ~310-490), see src/world/SkyIsland.js
 const ISL=[{n:'Ember Isle',x:-1400,z:-850,R:320,pk:55,c:'#ff6a3d'},{n:'Sunken Isle',x:1250,z:-420,R:270,pk:16,c:'#3dd6ff'},{n:'Palm Atoll',x:760,z:1400,R:230,pk:0,c:'#ffe066'},{n:'Frost Isle',x:-980,z:1450,R:300,pk:60,c:'#d9f0ff'},{n:'Far Reef',x:1950,z:1050,R:260,pk:20,c:'#b06bff'},{n:'Storm Cay',x:0,z:1750,R:180,pk:10,c:'#8bffb0'},{n:'The Boneyard',x:1700,z:-1150,R:200,pk:24,c:'#ffab5e'}];
 // Outlaw Isle: dedicated island for the Outlaw Town shooter. Terrain is flattened to y near the center; vegetation is cleared within `clear`.
-const OUT={x:-600,z:-1250,R:230,y:3.2,clear:70};
+const OUT={x:-600,z:-1250,R:230,y:3.2,clear:175}; // clear: no trees/rocks within this radius (the arena in src/games/OutlawArena.js lives there; vegetation add() skips without touching the rng stream)
 ISL.push({n:'Outlaw Isle',x:OUT.x,z:OUT.z,R:OUT.R,pk:0,c:'#e0a040',ded:true});
 // Stadium Isle: dedicated island for football, far to the west in open sea (about 1.2 km from the nearest island, 2.2 km from the main island).
 // `ded` = dedicated (camps, vaults, events and treasure hunts never land here). `bare` = no trees, rocks or shards at all. The world build skips bare

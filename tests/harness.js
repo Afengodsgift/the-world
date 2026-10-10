@@ -1,4 +1,4 @@
-const fs=require('fs'),vm=require('vm'),R='/home/claude/the-world/';
+const fs=require('fs'),vm=require('vm'),R=require('path').join(__dirname,'..')+'/';   // the repo this test file lives in (was hard-coded to one checkout, so tests silently ran against a different folder)
 const rd=f=>fs.readFileSync(R+f,'utf8');
 const three=(()=>{const P=require('path');for(const d of (process.env.NODE_PATH||'').split(P.delimiter).concat([P.join(__dirname,'node_modules')])){const f=P.join(d,'three','build','three.min.js');if(d&&fs.existsSync(f))return fs.readFileSync(f,'utf8')}throw new Error('three@0.147.0 not found: run `npm i three@0.147.0` and set NODE_PATH to its node_modules')})();
 // real H() from index.html

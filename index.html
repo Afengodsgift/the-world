@@ -142,6 +142,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/input/Locomotion.js"></script>
 <script src="src/character/Blend.js"></script>
 <script src="src/core/RemoteSmooth.js"></script>
+<script src="src/core/StaticBatch.js"></script>
 <script src="src/world/SeaLife.js"></script>
 <script src="src/world/Environment.js"></script>
 <script src="src/audio/Ambience.js"></script>
@@ -152,6 +153,10 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/combat/Melee.js"></script>
 <script src="src/interaction/InteractionManager.js"></script>
 <script src="src/games/Tag.js"></script>
+<script src="src/combat/CombatAnims.js"></script>
+<script src="src/character/CombatPose.js"></script>
+<script src="src/combat/HitZones.js"></script>
+<script src="src/games/OutlawArena.js"></script>
 <script src="src/games/Outlaw.js"></script>
 <script src="src/world/Farm.js"></script>
 <script src="src/character/FlightPose.js"></script>
@@ -163,6 +168,8 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/ui/WorldMap.js"></script>
 <script src="src/core/Net.js"></script>
 <script src="src/core/WorldState.js"></script>
+<script src="src/space/SpaceEvents.js"></script>
+<script src="src/space/SpaceObjects.js"></script>
 <script src="src/ui/Journal.js"></script>
 <script src="src/ui/Theme.js"></script>
 <script src="src/core/Systems.js"></script>
@@ -373,7 +380,7 @@ function emoStart(q,id){
 
 function animateClips(g,dt,st){
   const q=g.userData,A=q.nact,p=g.position;
-  const rawU=q.pp&&dt>0?Math.hypot(p.x-q.pp.x,p.z-q.pp.z)/dt:0,raw=Math.min(16,rawU);q.pp={x:p.x,z:p.z};
+  const mdx=q.pp?p.x-q.pp.x:0,mdz=q.pp?p.z-q.pp.z:0,rawU=q.pp&&dt>0?Math.hypot(p.x-q.pp.x,p.z-q.pp.z)/dt:0,raw=Math.min(16,rawU);q.pp={x:p.x,z:p.z};
   q.fs=(q.fs||0)+(rawU-(q.fs||0))*Math.min(1,dt*6);const sf=clamp(q.fs/70,0,1); // unclamped speed (flight is much faster than the 16 m/s clamp above)
   {const ly=q.lyaw===undefined?g.rotation.y:q.lyaw,yd=Math.atan2(Math.sin(g.rotation.y-ly),Math.cos(g.rotation.y-ly))/Math.max(dt,.001);q.yr=(q.yr||0)+(yd-(q.yr||0))*Math.min(1,dt*5);q.lyaw=g.rotation.y}const acc=(raw-(q.v||0))*10;q.v=(q.v||0)+(raw-(q.v||0))*Math.min(1,dt*10);const v=q.v;
   let want='idle',ts=1,fade=.18;
@@ -384,6 +391,11 @@ function animateClips(g,dt,st){
   else if(st==='walk'||st==='run'){const c=q.cur; // thresholds have hysteresis so it doesn't flicker between clips
     want=v<.4?'idle':(c==='sprint'?v>7.2:v>8.4)?'sprint':(c==='jog'?v>2.4:v>3.2)?'jog':'walk';
     ts=want==='walk'?clamp(v/1.06,.6,2.2):want==='jog'?clamp(v/5.8,.5,1.5):want==='sprint'?clamp(v/9,.8,1.7):1}
+  // armed: strafe / backpedal by twisting the legs (src/character/CombatPose.js) and stand in the pistol-ready stance instead of the relaxed idle
+  const armed=q.gunI>=0&&st!=='fly'&&st!=='swim'&&st!=='jump'&&st!=='fall';
+  if(armed)CombatPose.plan(q,dt,mdx,mdz,v,g.rotation.y,st==='walk'||st==='run');else{q.cpT=0;q.cpRev=false}
+  if(q.cpRev&&LOCO[want])ts=-ts;
+  if(want==='idle'&&armed){const ca=CombatAnims.act(q,'cidle');if(ca){A.cidle=ca;want='cidle'}}
   const n=A[want];
   if(q.cur!==want){n.reset();if(LOCO[q.cur]&&LOCO[want]){const o=A[q.cur];n.time=o.time/o.getClip().duration*n.getClip().duration} // keep the stride phase when switching gait
     n.setEffectiveWeight(1);n.fadeIn(fade).play();if(q.cur)A[q.cur].fadeOut(fade);q.cur=want}
@@ -391,7 +403,7 @@ function animateClips(g,dt,st){
   // one-shot overlays
   const ov=(name,sp,w,fi)=>{const a=A[name]||emoAct(q,name);if(!a)return;a.reset();a.setEffectiveTimeScale(sp);a.setEffectiveWeight(.0001);a.play();(q.ov=q.ov||{})[name]={a,left:a.getClip().duration/sp,age:0,fi:Math.max(.04,fi),smax:w/(w+1)}};
   if((q.swing||0)>.9){emoStop(q);ov('smack',1.4,24,.05)}
-  if(q.hitReq){emoStop(q);q.hitReq=0;q.hitAlt=!q.hitAlt;ov(q.hitAlt&&A.hit2?'hit2':'hit',q.hitAlt?1.3:.9,24,.05)} // alternate two hit reactions
+  if(q.hitReq){emoStop(q);q.hitReq=0;q.hitAlt=!q.hitAlt;let hn=q.hitAlt&&A.hit2?'hit2':'hit';if(q.hitHead){q.hitHead=0;const ha=CombatAnims.act(q,'headhit');if(ha){A.headhit=ha;hn='headhit'}}ov(hn,q.hitAlt?1.3:.9,24,.05)} // alternate two hit reactions
   if(q.emote){const e=q.emote;q.emote=null;emoStop(q);ov(e,1.3,20,.1)}
   if(q.emoteReq){const e=q.emoteReq;q.emoteReq=null;if(st==='idle'||!q.hold)emoStart(q,e)}
   if(q.hold){const h=q.hold,now=performance.now()/1000;
@@ -411,6 +423,7 @@ function animateClips(g,dt,st){
   q.model.rotation.set(q.lunge+(q.lx||0),0,q.lz||0);q.model.position.set(0,q.oy,0);        // base transform; FlightPose overrides it while flying
   q.model.scale.set(.5*(1+q.land*.3),.5*(1-q.land*.6),.5*(1+q.land*.3));
   q.mixer.update(dt);
+  if(armed&&Math.abs(q.cpT||0)>.01)CombatPose.twist(q);   // legs twisted toward travel, torso back on the aim
   // procedural layers on top of the baked clips: flight (src/character/FlightPose.js) or a held weapon (Outlaw.poseGun)
   if(!FlightPose.apply(g,q,dt,st,{speed:q.fs,yawRate:q.yr})&&q.gunI>=0&&typeof Outlaw!=='undefined')Outlaw.poseGun(g,q,st,dt);
   FlightFX.avatar(g,q,dt);
@@ -479,14 +492,18 @@ function H(x,z){
     if(v>h)h=v}
   {const t=1-sstep(48,68,Math.hypot(x-OUT.x,z-OUT.z));if(t>0)h=h*(1-t)+OUT.y*t} // Outlaw Town plateau
   {const ex=Math.max(0,Math.abs(x-PITCH.x)-PITCH.hw),ez=Math.max(0,Math.abs(z-PITCH.z)-PITCH.hh),t=1-sstep(0,9,Math.hypot(ex,ez));if(t>0)h=h*(1-t)+PITCH.y*t} // soccer pitch
+  {const ox=x-OUT.x,oz=z-OUT.z;if(ox*ox+oz*oz<OUT.R*OUT.R){ // Outlaw Isle relief (src/games/OutlawArena.js builds on it): Lookout Ridge west, Mine Mesa east
+    let a=Math.hypot(ox+125,oz-35);h+=11*Math.exp(-a*a/1352);
+    a=Math.hypot(ox-125,oz-15);h+=7*(1-sstep(24,36,a))}}
   return h;
 }
+const TERRAIN_MATS=[];   // so the weather can make the ground wet (Environment.js)
 function terrain(cx,cz,size,seg){
   const geo=new THREE.PlaneGeometry(size,size,seg,seg);geo.rotateX(-Math.PI/2);
   const pos=geo.attributes.position,cols=new Float32Array(pos.count*3),c=new THREE.Color();
   for(let i=0;i<pos.count;i++){const x=pos.getX(i)+cx,z=pos.getZ(i)+cz,h=H(x,z);pos.setY(i,h);terrainColor(h,x,z,c);cols.set([c.r,c.g,c.b],i*3)}
   geo.setAttribute('color',new THREE.BufferAttribute(cols,3));geo.computeVertexNormals();
-  const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));m.position.set(cx,0,cz);m.receiveShadow=true;scene.add(m);
+  const tm=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1});TERRAIN_MATS.push(tm);const m=new THREE.Mesh(geo,tm);m.position.set(cx,0,cz);m.receiveShadow=true;scene.add(m);StaticBatch.freeze(m);
 }
 const _cg1=new THREE.Color('#4d7a32'),_cg2=new THREE.Color('#86a34a'),_cdry=new THREE.Color('#a19a5a'),_crock=new THREE.Color('#7b786f'),_csand=new THREE.Color('#dccba0'),_csand2=new THREE.Color('#bfa97f'),_csnow=new THREE.Color('#eef3fa'),_cwet=new THREE.Color('#8f7a55'),_cdeep=new THREE.Color('#14587a'),_cfoam=new THREE.Color('#eef6f2'),_ct=new THREE.Color();
 function terrainColor(h,x,z,c){
@@ -499,6 +516,7 @@ function terrainColor(h,x,z,c){
   c.lerp(_cwet,.30*(1-sstep(.1,1.1,h))*sstep(-.9,-.1,h));              // wet, darker sand just above the waterline
   c.lerp(_cfoam,.62*Math.max(0,1-Math.abs(h+.28)/.42));
   if(h<-.6)c.lerp(_cdeep,1-sstep(-3.2,-.6,h));                      // seabed turns deep blue with depth (the seabed now slopes down to -12 m instead of a flat -3)                // foam band at the shore (seen through the transparent water)
+  {const od=Math.hypot(x-OUT.x,z-OUT.z);if(od<OUT.R){const t=1-sstep(140,200,od);if(t>0){_ct.set(q>.55?'#c79a5e':'#d2ab6c');if(sl>.35)_ct.set('#9c6b43');c.lerp(_ct,t*(h<.3?.4:.92))}}} // Outlaw Isle: dry desert, red rock on slopes
 }
 // Vegetation is instanced AND chunked into ~320 m cells. three r147 frustum-culls an InstancedMesh by its base geometry only (not by where the
 // instances are), so the old single big InstancedMesh + frustumCulled=false drew every tree/rock on every island on every frame (and again in the
@@ -525,7 +543,7 @@ function scatter(name,th,pl){
       const im=new THREE.InstancedMesh(g,o.material,cell.length);
       cell.forEach((p,i)=>{V.set(p.x,p.y-bx.min.y*k*p.s,p.z);Q.setFromAxisAngle(Y,p.ry);Sc.setScalar(k*p.s);P.compose(V,Q,Sc);M.multiplyMatrices(P,o.matrixWorld);im.setMatrixAt(i,M);
         im.setColorAt(i,tc.setScalar(.78+((p.x*12.9898+p.z*78.233)%1+1)%1*.4))});
-      im.castShadow=true;im.receiveShadow=true;im.frustumCulled=true;scene.add(im);VEG.push({m:im,x:mx,z:mz,r:rad});
+      im.castShadow=true;im.receiveShadow=true;im.frustumCulled=true;scene.add(im);StaticBatch.freeze(im);VEG.push({m:im,x:mx,z:mz,r:rad});
     }});
   return {w:Math.max(bx.max.x-bx.min.x,bx.max.z-bx.min.z)*k};
 }
@@ -533,6 +551,7 @@ function place(par,n,x,y,z,ry,sx,sy,sz){
   const m=AM[n];if(!m)return null;const o=m.clone();o.position.set(x,y,z);o.rotation.y=ry;
   o.scale.set(sx,sy===undefined?sx:sy,sz===undefined?sx:sz);o.traverse(c=>{if(c.isMesh){c.castShadow=true;c.receiveShadow=true}});par.add(o);return o;
 }
+const placeS=(...a)=>{const o=place(...a);if(o)StaticBatch.freeze(o);return o};   // place() + freeze: for scenery that never moves (the sky island resizes its pieces after place(), so place() itself stays unfrozen)
 function house(hx,hz,ry,w,d){
   const g=new THREE.Group(),S=2.6;
   for(let i=0;i<w;i++)for(let j=0;j<d;j++){
@@ -546,6 +565,7 @@ function house(hx,hz,ry,w,d){
   for(let i=0;i<w;i++){const cx=(i-(w-1)/2)*S,end=i===0||i===w-1;
     place(g,end?'roof-gable-end':'roof-gable',cx,S,0,i===w-1?Math.PI:0,S,S,S*d)}
   g.position.set(hx,H(hx,hz)+.05,hz);g.rotation.y=ry;scene.add(g);solids.push({x:hx,z:hz,r:S*Math.max(w,d)*.5*1.15});
+  StaticBatch.merge([g],{parent:scene});   // ~35 pieces -> a handful of meshes (houses never move)
 }
 function buildWorld(code){
   scene=new THREE.Scene();
@@ -566,7 +586,7 @@ function buildWorld(code){
   {const cv=document.createElement('canvas');cv.width=cv.height=256;const cx2=cv.getContext('2d'),im2=cx2.createImageData?cx2.createImageData(256,256):null;
    if(im2){for(let y=0;y<256;y++)for(let x=0;x<256;x++){const a=x/256*6.2832,b=y/256*6.2832,v=128+40*Math.sin(a*3+Math.sin(b*2))+30*Math.sin(b*5+a)+20*Math.sin(a*8-b*6);const i=(y*256+x)*4;im2.data[i]=im2.data[i+1]=im2.data[i+2]=v;im2.data[i+3]=255}cx2.putImageData(im2,0,0)}
    seaTex=new THREE.CanvasTexture(cv);seaTex.wrapS=seaTex.wrapT=THREE.RepeatWrapping;seaTex.repeat.set(500,500);sea.material.bumpMap=seaTex;sea.material.bumpScale=.35}
-  sea.rotation.x=-Math.PI/2;sea.position.y=-.3;scene.add(sea);seaMesh=sea;Env.build();SpaceEnv.build();WaterFX.build();
+  sea.rotation.x=-Math.PI/2;sea.position.y=-.3;scene.add(sea);seaMesh=sea;Env.build();SpaceEnv.build();SpaceObjects.build();WaterFX.build();
   rng=mulberry(hashSeed(code));
   if(AM.plant_bushLarge)AM.plant_bushLarge.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.material.side=THREE.DoubleSide;o.material.emissive=new THREE.Color('#2a6a30')}});
   const dist=(x,z)=>Math.hypot(x-TOWN.x,z-TOWN.z),P={};
@@ -596,12 +616,12 @@ function buildWorld(code){
       if(nm.startsWith('tree_'))solids.push({x:p.x,z:p.z,r:f.w*p.s*(nm==='tree_palmTall'?.05:.12)});
       else if(nm.endsWith('A')||nm.startsWith('rock'))solids.push({x:p.x,z:p.z,r:f.w*p.s*.38,h:p.y+TH[nm]*p.s*.85})}}
   // town: fountain + golden pillar, lanterns, stalls, cottages facing the plaza
-  place(scene,'fountain-round',TOWN.x,1.6,TOWN.z,0,6);solids.push({x:TOWN.x,z:TOWN.z,r:5.4});
+  placeS(scene,'fountain-round',TOWN.x,1.6,TOWN.z,0,6);solids.push({x:TOWN.x,z:TOWN.z,r:5.4});
   pil=new THREE.Mesh(new THREE.CylinderGeometry(.5,.6,3,10),new THREE.MeshStandardMaterial({color:'#ffd27a',emissive:'#000000'}));pil.position.set(TOWN.x,3.4,TOWN.z);scene.add(pil);
-  for(let i=0;i<8;i++){const a=i/8*6.283,x=TOWN.x+Math.cos(a)*11,z=TOWN.z+Math.sin(a)*11;place(scene,'lantern',x,H(x,z),z,0,2.2);solids.push({x,z,r:.25})}
+  for(let i=0;i<8;i++){const a=i/8*6.283,x=TOWN.x+Math.cos(a)*11,z=TOWN.z+Math.sin(a)*11;placeS(scene,'lantern',x,H(x,z),z,0,2.2);solids.push({x,z,r:.25})}
   [['stall-red',0.3],['stall-green',2.4],['stall-red',4.5]].forEach(([n,a])=>{const x=TOWN.x+Math.cos(a)*17,z=TOWN.z+Math.sin(a)*17;
-    place(scene,n,x,H(x,z),z,Math.atan2(-Math.cos(a),-Math.sin(a))+Math.PI/2*0,3);solids.push({x,z,r:1.8})});
-  {const x=TOWN.x-16,z=TOWN.z+15;place(scene,'cart',x,H(x,z),z,.6,2.6);solids.push({x,z,r:1.6})}
+    placeS(scene,n,x,H(x,z),z,Math.atan2(-Math.cos(a),-Math.sin(a))+Math.PI/2*0,3);solids.push({x,z,r:1.8})});
+  {const x=TOWN.x-16,z=TOWN.z+15;placeS(scene,'cart',x,H(x,z),z,.6,2.6);solids.push({x,z,r:1.6})}
   for(let i=0;i<8;i++){const a=i/8*6.283+.2;
     house(TOWN.x+Math.cos(a)*30,TOWN.z+Math.sin(a)*30,Math.atan2(-Math.cos(a),-Math.sin(a)),3,3)}
 
@@ -761,13 +781,14 @@ function kartMul(){return (S.gboost>0?1.9:1)*(kart.on&&performance.now()>kart.t0
 function buildKartTrack(){
   const per=2*(KT.hw-KT.rc)*2+2*(KT.hh-KT.rc)*2+2*Math.PI*KT.rc;kart.perim=per;
   if(!AM_KART.straight||!AM_KART.finish)return;
-  const n=Math.round(per/3),pieceM=AM_KART;
+  const n=Math.round(per/3),pieceM=AM_KART,kp=[];   // kp: static track pieces, merged below
   for(let i=0;i<n;i++){const p=kartPt(i/n),yaw=Math.atan2(p.tx,p.tz),y=H(p.x,p.z)+.05;
-    const m=pieceM.straight.clone(true);m.position.set(p.x,y,p.z);m.rotation.y=yaw;m.scale.z=per/n/3;scene.add(m);
+    const m=pieceM.straight.clone(true);m.position.set(p.x,y,p.z);m.rotation.y=yaw;m.scale.z=per/n/3;scene.add(m);kp.push(m);
     if(i%6===0)solids.push({x:p.x,z:p.z,r:1});
   }
   const p0=kartPt(0),yaw0=Math.atan2(p0.tx,p0.tz);
-  const fin=pieceM.finish.clone(true);fin.position.set(p0.x,H(p0.x,p0.z)+.06,p0.z);fin.rotation.y=yaw0;scene.add(fin);
+  const fin=pieceM.finish.clone(true);fin.position.set(p0.x,H(p0.x,p0.z)+.06,p0.z);fin.rotation.y=yaw0;scene.add(fin);kp.push(fin);
+  StaticBatch.merge(kp,{parent:scene,cell:70});   // ~620 track meshes -> a few per 70 m cell (still frustum-culled)
   const pad=new THREE.Mesh(new THREE.CylinderGeometry(4,4,.3,24),new THREE.MeshStandardMaterial({color:'#ffd24a',emissive:'#ff9d00',emissiveIntensity:.8}));
   pad.position.set(p0.x-p0.tx*8,H(p0.x-p0.tx*8,p0.z-p0.tz*8)+.2,p0.z-p0.tz*8);scene.add(pad);kart.padX=pad.position.x;kart.padZ=pad.position.z;
   const NG=10;
@@ -829,7 +850,7 @@ function buildBonkRing(){
   g.add(new THREE.Mesh(flat(new THREE.RingGeometry(1.2,1.9,32,1)),new THREE.MeshBasicMaterial(Object.assign({color:'#ffffff'},po(3)))));
   const beam=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.2,70,12,1,true),new THREE.MeshBasicMaterial({color:'#ff8fa3',transparent:true,opacity:.2,depthWrite:false,fog:false,side:THREE.DoubleSide}));beam.position.y=H(RING.x,RING.z)+35;g.add(beam);
   scene.add(g);brg.mesh=g;
-  for(let i=0;i<4;i++){const a=i/4*6.283+.785,x=RING.x+Math.cos(a)*(RING.R+1.8),z=RING.z+Math.sin(a)*(RING.R+1.8);place(scene,'lantern',x,H(x,z),z,0,2.2)}
+  for(let i=0;i<4;i++){const a=i/4*6.283+.785,x=RING.x+Math.cos(a)*(RING.R+1.8),z=RING.z+Math.sin(a)*(RING.R+1.8);placeS(scene,'lantern',x,H(x,z),z,0,2.2)}
   if(!brg.el){const d=document.createElement('div');d.style.cssText='position:fixed;z-index:6;top:var(--topmsg,calc(env(safe-area-inset-top,0px) + 92px));left:0;right:0;text-align:center;font-size:var(--msgfs,18px);text-shadow:0 2px 8px #000;pointer-events:none;display:none';document.body.appendChild(d);brg.el=d}
 }
 function ringSpawn(ms){ // each player starts on their own side of the ring, facing the middle
@@ -1103,7 +1124,7 @@ function huntTick(dt,t){
 
 // ---------- loop ----------// ---------- loop ----------
 let last=performance.now(),fpsA=.016,fpsN=0;
-let lastErrMsg='',lastErrAt=0,_pst='idle';
+let lastErrMsg='',lastErrAt=0,_pst='idle',_nf=0;
 const overSea=(x,z)=>H(x,z)<-.5;
 function tick(t){
   try{tickFrame(t)}
@@ -1113,6 +1134,8 @@ function tick(t){
   requestAnimationFrame(tick);
 }
 function tickFrame(t){
+  // once the world is built and has run ~60 frames: freeze every object that exists (tripwire thaws any that code later moves) and the scene root
+  if(entered&&_nf<70&&++_nf===60)StaticBatch.autoFreeze(scene);   // freezes everything that exists now; anything that is later moved by code thaws itself (see StaticBatch.js)
   Perf.frame(t-last);
   const dt=Math.max(0,Math.min(.05,(t-last)/1000));last=t;                   // never negative: springs use exp(-k*dt)
   let ix=stickV.x,iy=stickV.y;
@@ -1126,12 +1149,12 @@ function tickFrame(t){
   const dx=cy*ix+sy*iy,dz=-sy*ix+cy*iy;
   if(S.flying){ // flight has inertia: takeoff ~0.5 s to full speed, glide-out when you let go
     const tx=len>.05?dx*speed:0,tz=len>.05?dz*speed:0,cur=Math.hypot(S.fvx||0,S.fvz||0),kk=1-Math.exp(-(Math.hypot(tx,tz)>cur?4:3.2)*dt);
-    S.fvx=(S.fvx||0)+(tx-(S.fvx||0))*kk;S.fvz=(S.fvz||0)+(tz-(S.fvz||0))*kk;{const sMul=SpaceFlight.moveMulH(S.y);S.x+=S.fvx*dt*sMul;S.z+=S.fvz*dt*sMul}Locomotion.carry(S);
-    if(len>.05)S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt));
-  }else{S.fvx=S.fvz=0;Locomotion.move(S,len>.05?dx*speed:0,len>.05?dz*speed:0,dt,S.dv?'swim':!S.grounded?'air':H(S.x,S.z)<-.5?'swim':'ground');if(len>.05)S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt))}
+    S.fvx=(S.fvx||0)+(tx-(S.fvx||0))*kk;S.fvz=(S.fvz||0)+(tz-(S.fvz||0))*kk;{const sMul=SpaceFlight.moveMulH(S.y,Math.hypot(S.x,S.z));S.x+=S.fvx*dt*sMul;S.z+=S.fvz*dt*sMul}Locomotion.carry(S);
+    if(len>.05&&!CameraRig.shooterActive())S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt));
+  }else{S.fvx=S.fvz=0;Locomotion.move(S,len>.05?dx*speed:0,len>.05?dz*speed:0,dt,S.dv?'swim':!S.grounded?'air':H(S.x,S.z)<-.5?'swim':'ground');if(len>.05&&!CameraRig.shooterActive())S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt))}
   S.x+=S.kx*dt;S.z+=S.kz*dt;const kd=Math.exp(-4*dt);S.kx*=kd;S.kz*=kd;
   S.iframe=Math.max(0,S.iframe-dt);S.hurt=Math.max(0,S.hurt-dt);{const fo=S.hurt>0?Math.min(.35,S.hurt*.7):0;if(fo!==S._fo){S._fo=fo;$('flash').style.opacity=fo}}
-  const rr=Math.hypot(S.x,S.z);const RB=SpaceFlight.bound(S.y);if(rr>RB){S.x*=RB/rr;S.z*=RB/rr}
+  const rr=Math.hypot(S.x,S.z);SpaceFlight.contain(S,dt);
   let gY=H(S.x,S.z);
   {const dxs=S.x-SKY.x,dzs=S.z-SKY.z;if(Math.hypot(dxs,dzs)<SKY.R*2.8){const sh=SKYG(dxs,dzs);if(sh>-1e8&&S.y>=sh-3)gY=Math.max(gY,sh)}}
   let wat=gY<-.5;const seabed=gY;if(wat)gY=-1;
@@ -1146,7 +1169,7 @@ function tickFrame(t){
   const dvOn=Dive.step(S,dt,{wat,seabed,down:!!(S.diveHeld||keys.KeyC),kick:diveKick});   // vertical swimming (src/input/Dive.js); skips gravity/ground code while submerged
   if(dvOn&&!S.divetip){S.divetip=1;banner('Release to float back up · Jump kicks you upward','DIVING')}
   if(dvOn){}else if(S.flying)S.vy+=((len>.05?(fp||SpaceFlight.vertical(CameraRig.neutralPitch()-S.pitch,bst()?2.4:1,bst()?70:34)).v:0)-S.vy)*Math.min(1,dt*6);else S.vy=SpaceFlight.fall(S.vy,S.y,dt);   // heavier on the way down = snappier, less floaty jump (same height); terminal velocity
-  const imp=dvOn?0:SpaceFlight.landImpact(-S.vy);if(!dvOn){S.y+=SpaceFlight.dy(S.vy,S.y,S.flying,dt);if(S.flying)S.y=Math.min(S.y,SpaceFlight.CEIL)} // above ~900 m flight scales with altitude (src/space/SpaceFlight.js); ceiling 140 km
+  const imp=dvOn?0:SpaceFlight.landImpact(-S.vy);if(!dvOn){S._dy=SpaceFlight.dy(S.vy,S.y,S.flying,dt,Math.hypot(S.x,S.z));S.y+=S._dy;if(S.flying)S.y=Math.min(S.y,SpaceFlight.CEIL)} // above ~900 m flight scales with distance from the world (src/space/SpaceFlight.js)
   if(S.flying&&S.y<=gY)S.flying=false;
   if(dvOn){S.grounded=true}else if(S.y<=gY||(wasG&&S.vy<=0&&S.y-gY<.35)){S.y=gY;S.vy=0;S.grounded=true;if(!wasG&&imp>5){me.userData.land=Math.min(.18,imp*.014);if(CameraRig.land)CameraRig.land(imp);if(typeof Ambience!=='undefined')Ambience.land(imp,{x:S.x,z:S.z,H})}}else S.grounded=false;
   S.state=S.flying?'fly':!S.grounded?(S.vy>0?'jump':'fall'):wat?'swim':len>.05?(sprint?'run':'walk'):'idle';
@@ -1163,7 +1186,7 @@ function tickFrame(t){
   vegCull();CameraRig.update(dt);
   {const uT=clamp((-.25-camera.position.y)/.5,0,1);S.under=(S.under||0)+(uT-(S.under||0))*Math.min(1,dt*10)}   // 0 above water .. 1 camera fully submerged (drives fog, sound muffle, bubbles)                                                         // orbit / first-person / shoulder + flight FOV, roll, shake (src/camera/CameraRig.js)
   Space.update(dt,t);Env.tick(dt,t);SpaceEnv.update(dt,t);skyTick(t);
-  WaterFX.update(dt,{x:S.x,y:S.y,z:S.z,heading:S.rot,speed:Math.hypot(S.gvx||0,S.gvz||0),swim:S.state==='swim',dv:!!S.dv,under:S.under||0,camX:camera.position.x,camY:camera.position.y,camZ:camera.position.z,dayF:Env.state.dayF,rain:S.y<300?Env.state.wx.rain:0,over:overSea});
+  WaterFX.update(dt,{x:S.x,y:S.y,z:S.z,heading:S.rot,speed:Math.hypot(S.gvx||0,S.gvz||0),swim:S.state==='swim',dv:!!S.dv,under:S.under||0,camX:camera.position.x,camY:camera.position.y,camZ:camera.position.z,dayF:Env.state.dayF,rain:S.y<300?Env.state.wx.rain:0,over:overSea,hAt:H});
   if(sun){Perf.snapSun(sun,S.x,S.y,S.z);sky.position.copy(camera.position);if(seaTex){seaTex.offset.x+=dt*.0006;seaTex.offset.y+=dt*.0004}
     if(sun.castShadow&&Perf.shadowTooSlow()){sun.castShadow=false;scene.traverse(o=>{if(o.material)o.material.needsUpdate=true})}}
   S.burst=Math.max(0,(S.burst||0)-dt);S.gboost=Math.max(0,(S.gboost||0)-dt);if(!S.flying)S.boost=false;

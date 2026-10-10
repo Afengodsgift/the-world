@@ -21,9 +21,10 @@ const load=f=>new Promise((res,rej)=>{const b=fs.readFileSync(path.join(ROOT,'as
       pl.forEach((p,i)=>{V.set(p.x,p.y-bx.min.y*k*p.s,p.z);Q.setFromAxisAngle(Y,p.ry);Sc.setScalar(k*p.s);P.compose(V,Q,Sc);M.multiplyMatrices(P,o.matrixWorld);im.setMatrixAt(i,M)});scene.add(im)});
     return {w:Math.max(bx.max.x-bx.min.x,bx.max.z-bx.min.z)*k}}
   function place(par,n,x,y,z,ry,sx,sy,sz){const m=AM[n];if(!m)return null;const o=m.clone();o.position.set(x,y,z);o.rotation.y=ry;o.scale.set(sx,sy===undefined?sx:sy,sz===undefined?sx:sz);par.add(o);return o}
-  const code=read('src/utils/math.js')+'\n'+read('src/utils/random.js')+'\n'+read('src/data/islands.js')+'\n'+read('src/world/SkyIsland.js')+'\nreturn {SKY,SKYI,buildSkyIsland,skyTick,_chunks}';
+  const code=read('src/utils/math.js')+'\n'+read('src/utils/random.js')+'\n'+read('src/data/islands.js')+'\n'+read('src/world/SkyIsland.js')+'\nreturn {SKY,SKYI,buildSkyIsland,skyTick,_chunks,skyAnim}';
   const A=new Function('THREE','scene','solids','orbs','scatter','place','AM',code)(THREE,scene,solids,orbs,scatter,place,AM);
   A.buildSkyIsland();A.skyTick(3000);scene.traverse(o=>{o.visible=true}); // (the game hides far chunks per frame; the preview wants everything)
+  if(process.env.HIDE_ROOF)for(const rf of A.skyAnim.roofs)for(const m of rf.meshes)m.visible=false; // see inside the walk-in cottage
   scene.updateMatrixWorld(true);
   // flatten
   const out=[],push=(a,b,c,col,alpha,fl)=>out.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z,col.r,col.g,col.b,alpha,fl);

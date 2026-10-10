@@ -9,7 +9,7 @@
 // Other systems talk to it only through the API at the bottom (setShooter, kick, pitchRange, neutralPitch ...).
 // Globals used at runtime: S, camera, me, H, THREE, sstep.
 const CameraRig=(()=>{
-  const st={sInit:false,sy:0,sp:0,arm:1,dip:{x:0,v:0},view:'fps',shooter:false,fpsK:0,tpsK:0,ay:0,init:false,px:0,pz:0,vx:0,vz:0,spd:0,hd:0,turn:0,
+  const st={sInit:false,sy:0,sp:0,arm:1,dip:{x:0,v:0},view:'tps',shooter:false,fpsK:0,tpsK:0,ay:0,init:false,px:0,pz:0,vx:0,vz:0,spd:0,hd:0,turn:0,
             roll:{x:0,v:0},kp:{x:0,v:0},ky:{x:0,v:0},t:0,bob:0,eye:new THREE.Vector3(),eInit:false,prevFps:false,cruise:0,boost:0,fw:0,py:0,vyn:0};
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const _u=new THREE.Vector3(),_f=new THREE.Vector3(),_p=new THREE.Vector3(),_l=new THREE.Vector3(),_h=new THREE.Vector3(),_a=new THREE.Vector3(),_b=new THREE.Vector3();
@@ -54,12 +54,12 @@ const CameraRig=(()=>{
     st.t+=dt;
     if(!st.init){st.ay=S.y;st.py=S.y;st.px=S.x;st.pz=S.z;st.init=true}
     st.fw+=((S.flying?1:0)-st.fw)*(1-Math.exp(-8*dt));                    // 0 on the ground .. 1 flying: every flight-camera change below is blended by this
-    const ymm=typeof SpaceFlight!=='undefined'?SpaceFlight.moveMul(S.y):1;
+    const rr0=Math.hypot(S.x,S.z),ymm=typeof SpaceFlight!=='undefined'?SpaceFlight.moveMul(S.y,rr0):1;
     st.ay+=(S.y-st.ay)*(1-Math.exp(-(6+70*st.fw)*dt*ymm));   // height follow: soft on the ground (hides landing steps), stiff in flight so a fast climb keeps the character framed (lag = v/k)
 
     // ---- motion estimate: smoothed horizontal velocity, speed and turn rate ----
     const di=Math.max(dt,.001),k=1-Math.exp(-7*dt);
-    const dk=typeof Space!=='undefined'?Space.f.dark:0,mm=typeof SpaceFlight!=='undefined'?SpaceFlight.moveMulH(S.y):1;   // altitude: openness + normalised sideways speed
+    const dk=typeof Space!=='undefined'?Space.f.dark:0,mm=typeof SpaceFlight!=='undefined'?SpaceFlight.moveMulH(S.y,rr0):1;   // altitude: openness + normalised sideways speed
     st.vx+=((S.x-st.px)/di/mm-st.vx)*k;st.vz+=((S.z-st.pz)/di/mm-st.vz)*k;st.px=S.x;st.pz=S.z;
     st.spd=Math.hypot(st.vx,st.vz);
     st.vyn+=(((S.y-st.py)/di/ymm)-st.vyn)*k;st.py=S.y;                   // smoothed vertical speed (normalised like the horizontal one)
@@ -72,8 +72,9 @@ const CameraRig=(()=>{
     // ---- mode blends ----
     const wantFps=st.shooter&&st.view==='fps',wantTps=st.shooter&&st.view==='tps';
     if(wantFps&&!st.prevFps)S.pitch=.02;                                  // enter looking level, not down at the player
-    if(!wantFps&&st.prevFps)S.pitch=.4;                                   // leave at the usual chase angle
-    st.prevFps=wantFps;
+    if(wantTps&&!st.prevTps)S.pitch=.12;                                  // combat camera starts near level so the horizon/targets are in front of you
+    if((!wantFps&&st.prevFps)||(!wantTps&&st.prevTps))S.pitch=.4;         // leave at the usual chase angle
+    st.prevFps=wantFps;st.prevTps=wantTps;
     st.fpsK+=((wantFps?1:0)-st.fpsK)*(1-Math.exp(-10*dt));
     st.tpsK+=((wantTps?1:0)-st.tpsK)*(1-Math.exp(-8*dt));
     spring(st.kp,0,dt,18,.5);spring(st.ky,0,dt,18,.5);                    // recoil kick recovers by itself
@@ -93,9 +94,9 @@ const CameraRig=(()=>{
     // (the sky ahead matters, not the view of your feet), pivots about the chest, and is raised along the camera's own up axis so the character sits low
     // in the frame with the space you're heading into above it (Cinemachine's 'vertical arm'). Trails slightly along the full 3D velocity.
     const fe=st.fw*(1-st.tpsK)*(1-st.fpsK),el=clamp(-pit,-1.2,1.2);       // el > 0 = looking up
-    const dGround=9+2.4*st.boost-5.4*st.tpsK+5*dk;
+    const dGround=9+2.4*st.boost-4.9*st.tpsK+5*dk;
     const dFly=4.6+1.0*st.boost+1.0*dk-(el>0?1.2*el/1.2:.6*el/1.2);       // 3.4 m looking straight up .. 5.2 m looking down at the world (walking is 9 m)
-    const d=dGround+(dFly-dGround)*fe,sh=1.2*st.tpsK,shx=Math.cos(yaw)*sh,shz=-Math.sin(yaw)*sh;
+    const d=dGround+(dFly-dGround)*fe,sh=1.0*st.tpsK,shx=Math.cos(yaw)*sh,shz=-Math.sin(yaw)*sh;
     const lagG=Math.min(.7,st.spd*.045),lagF=Math.min(.6,sp3*.008),lag=lagG+(lagF-lagG)*fe;
     const lx=st.spd>.1?-st.vx/st.spd*lag*(1-fe):0,lz=st.spd>.1?-st.vz/st.spd*lag*(1-fe):0;   // ground: horizontal trail (unchanged)
     const ay=st.ay+1.6+.4*st.tpsK;
@@ -129,7 +130,7 @@ const CameraRig=(()=>{
 
     // ---- FOV: speed widens it, first-person trims a little ----
     const gf=clamp((st.spd-5.5)/7,0,1);                                   // ground sprint: a touch wider
-    const tf=(fly?66+10*st.cruise+13*st.boost*(1-.6*dk)+4*dk:(S.gboost>0?80:65+4.5*gf))-4*st.fpsK;
+    const tf=(fly?66+10*st.cruise+13*st.boost*(1-.6*dk)+4*dk:(S.gboost>0?80:65+4.5*gf))-4*st.fpsK+3*st.tpsK;   // combat camera is a touch wider
     if(Math.abs(camera.fov-tf)>.05){camera.fov+=(tf-camera.fov)*Math.min(1,dt*4.5);camera.updateProjectionMatrix()}
   }
 
@@ -141,7 +142,7 @@ const CameraRig=(()=>{
     view:()=>st.view,
     isFPS:()=>st.fpsK>.5,
     shooterActive:()=>st.shooter,
-    pitchRange:()=>st.fpsK>.5||(st.shooter&&st.view==='fps')?[-1.45,1.45]:(S.flying?[-1.35,1.5]:S.dv?[-.75,1.2]:[.05,1.2]),   // first person: straight up/down; flying in third person: look well above/below the horizon too (to climb straight up)
+    pitchRange:()=>st.fpsK>.5||(st.shooter&&st.view==='fps')?[-1.45,1.45]:st.shooter?[-.95,1.25]:(S.flying?[-1.35,1.5]:S.dv?[-.75,1.2]:[.05,1.2]),   // first person: straight up/down; flying in third person: look well above/below the horizon too (to climb straight up)
     neutralPitch:()=>(st.fpsK>.5||(st.shooter&&st.view==='fps'))?0:.4,                  // the pitch that means "level" for flight climb/dive
     kick(p,y){st.kp.v+=p*40;st.ky.v+=(y||0)*40},
     land(imp){st.dip.v-=Math.min(4,Math.max(0,(imp-4)*.22))},   // landing impact: a short downward dip of the view (imp = fall speed in m/s)        // recoil impulse in radians of peak rotation

@@ -30,9 +30,22 @@ One depth buffer cannot hold "the avatar 9 m away" and "the world 20 km below": 
 far slice (everything beyond `part`, with its own near plane) then near slice (depth cleared, colour kept, scene background removed or
 three.js would clear the far pass). Shadow maps are not rendered twice.
 
+## Discoveries in space (`SpaceObjects.js`, `SpaceEvents.js`)
+`SpaceObjects.register({id,name,pos,build,update,found})` adds a thing to find. The module does the shared parts: a distant blinking beacon (only against a dark
+sky, constant ~20 px on screen so it is noticed but still just a light), the real model only within 5 km, approach assist, and discovery.
+- **Findable, not trippable:** you must be within 90 m AND look at it for ~1.4 s. One quiet line ("FOUND SOMETHING"), a soft low tone, no checklist.
+- **Approach assist:** `SpaceFlight.setAssist` eases flight speed from full altitude speed (x200+ at 112 km) back to normal within 3 km -> 300 m of any object.
+  Partners are judged with `moveMulRaw` so their smoothing does not depend on what *you* are near.
+- **Shared:** objects call `SpaceEvents.discover(id, info)`, which writes ONE Journal entry (`WS.log('space', id, {text,icon,x,y,z})`, idempotent, converges
+  between phones, persists in Supabase) and a `space` set. If your partner finds it you get a quiet "Your partner found something out here." Objects never touch
+  Net or Supabase directly. `SpaceEvents.on/emit('sp:<type>')` is the live channel reserved for two-player interactions.
+- **Satellite:** gold-foil bus, one good and one torn solar wing, dish, mast, nav light, 9 pieces of debris drifting around it; ~620 triangles, one 128x64 texture.
+  It sits at (8, 112, -11) km: ~14 km from the top of a straight climb over the town, 41 degrees up. Its beacon turns cyan once found.
+- Tests: `tests/space_objects.sim.mjs`.
+
 ## Next (not built yet)
-Space flight model (momentum/stabilisation), debris, the satellite and asteroid discoveries, two-player interactions through `Net`,
-space map, and the architecture hooks for a second planet. Create them as `SpaceObjects.js` / `SpaceEvents.js` etc. next to these files.
+Space flight model (momentum/stabilisation), asteroids and loose debris, two-player interaction with the satellite (two ports 18 m apart, both players must
+activate), the distant unknown object, space map, and the hooks for a second planet. Create them as `SpaceObjects.js` / `SpaceEvents.js` etc. next to these files.
 
 ## Flight camera (`CameraRig.js`)
 Designed from third-person camera practice: a tight chase camera for fast action (damping that is too loose feels floaty and lets the target leave the
@@ -43,3 +56,14 @@ Everything is blended by a smooth flying weight, so the walking camera is unchan
 - camera raised along its own up axis (target too): same view direction, character low in frame, the sky you are heading into above it
 - speed effects use total 3D speed, so flying straight up counts as flying fast; FOV 66 -> 76 cruise -> 89 boost (was 98); no extra pull-back in space
 - `tests/camera_flight.sim.mjs` checks framing at ground level and at 20/60/120 km (up to 16 km/s), distances, FOV, no NaN
+
+## Open space (how big it is)
+- **No wall.** Above 60 km the world's edge is gone; space is open out to 1,200 km from home. The limit exists only because 32-bit floats cannot hold a skinned
+  avatar together much farther out (verified: limbs tear apart at 5,000 km). The fix is a floating origin (render relative to the camera): planned, then the limit goes.
+- **Speed scales with distance from home** (`SpaceFlight.moveMulRaw(y, rr)`: altitude, or half the horizontal distance if larger, blended in over 30-70 km so the atmosphere is
+  exactly as before). Crossing space feels the same at 100 km and 1,000 km: 1,000 km out in ~30 s boosted, and the same scaling slows you on the way back (no overshoot).
+- **Falling home:** below 60 km the only way to be outside the funnel is to have come down from open space; the excess is shrunk in proportion to the descent, so you arrive
+  inside the world at 1.5 km, never a jump (largest single-frame slide measured ~600 m).
+- **Home stays visible:** the real world fades into the dark by 700 km (fog) while a flat impostor of the world disc (true angular size, kept inside the depth range) plus a soft
+  halo (never smaller than ~.045 rad) takes over. HUD shows "N km from home" beyond 150 km.
+- **Dust** (220 world-fixed motes as line segments) streaks past in space: the only reference that shows you moving, since the stars are infinitely far.

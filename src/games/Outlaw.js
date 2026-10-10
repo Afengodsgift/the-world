@@ -38,7 +38,7 @@ const Outlaw=(()=>{
   const DIFF=[{n:'Normal',hp:1,dmg:1,cnt:1,coin:1},{n:'Hard',hp:1.4,dmg:1.25,cnt:1.3,coin:1.5},{n:'Outlaw',hp:2,dmg:1.6,cnt:1.7,coin:2.2}];
   const cover=[],npcs=new Map(),cache={};
   let wiped=false,clock=0,C=null,active=false,host=null,wave=0,kills=0,best=0,nextWave=0,queue=[],spawnT=0,nid=1,snapT=0;
-  let wi=-1,hp=100,down=false,downT=0,cdT=0,firing=false,pdown=false,pw=-1,hudEl,hpEl,xh,fireBtn,gunBtn,hitT=0,fx=[];
+  let wi=-1,hp=100,down=false,downT=0,cdT=0,firing=false,pdown=false,pw=-1,hudEl,hpEl,xh,fireBtn,gunBtn,hitT=0,xSp=0,bloom=0,critT=0,fx=[];
   const prev={x:0,z:0,vx:0,vz:0},pprev={x:0,z:0,vx:0,vz:0};
   let diff=1,mode='survive',bank={x:0,z:0,hp:1500,max:1500},ammo=[],reloadT=0,reloading=false,dyn=[],drops=[],reloadBtn,shopEl,pick={m:'survive',d:1};
   let SAVE={coins:0,own:WEAPONS.map((_,i)=>FREE.includes(i)?1:0),lv:WEAPONS.map(()=>0),hp:0,mag:0,rl:0,crit:0,v:0};
@@ -59,11 +59,8 @@ const Outlaw=(()=>{
     const b=2*(fx*dx+fz*dz),k=fx*fx+fz*fz-c.r*c.r,D=b*b-4*a*k;if(D<0)return false;
     const s=Math.sqrt(D);return (-b-s)/(2*a)<1&&(-b+s)/(2*a)>.02}
   const los=(ax,az,bx,bz)=>!cover.some(c=>segCircle(ax,az,bx,bz,c));
-  function rayCover(o,d,max){ // nearest cover hit distance along 3D ray (horizontal test), or max
-    let best=max;const a=d.x*d.x+d.z*d.z;if(a<1e-8)return best;
-    for(const c of cover){const fx=o.x-c.x,fz=o.z-c.z,b=2*(fx*d.x+fz*d.z),k=fx*fx+fz*fz-c.r*c.r,D=b*b-4*a*k;if(D<0)continue;
-      const t=(-b-Math.sqrt(D))/(2*a);if(t>0&&t<best)best=t}
-    return best}
+  let lastShot=null,rcHit=null; // the cover entry the last rayCover() hit (breakable cover reacts to bullets)
+  function rayCover(o,d,max){const r=HitZones.coverT(o,d,max,cover);rcHit=r.c;return r.t} // nearest cover along the ray; cover has a real height (a shot can pass over a crate)
   function raySphere(o,d,cx,cy,cz,r){const lx=cx-o.x,ly=cy-o.y,lz=cz-o.z,tca=lx*d.x+ly*d.y+lz*d.z;if(tca<0)return null;
     const d2=lx*lx+ly*ly+lz*lz-tca*tca;if(d2>r*r)return null;return tca-Math.sqrt(r*r-d2)}
 
@@ -76,11 +73,11 @@ const Outlaw=(()=>{
     m(w,h,d,col,0,h/2,0);m(w+1,.6,d+1,'#5a3a1e',0,h+.3,0);m(w*.9,1.4,.4,col,0,h+1.3,d/2-.2); // body, roof, false front
     m(w,.35,2.2,'#6b4423',0,.18,d/2+1.1);                 // porch
     const s=label(txt,w*.7,1.2);s.position.set(0,h-.4,d/2+.06);g.add(s);scene.add(g);
-    const n=Math.ceil(w/3);for(let i=0;i<n;i++){const lx=-w/2+w*(i+.5)/n,wx=x+Math.cos(ry)*lx,wz=z-Math.sin(ry)*lx;const c={x:wx,z:wz,r:Math.max(2,d*.45)};solids.push(c);cover.push(c)}}
+    const n=Math.ceil(w/3);for(let i=0;i<n;i++){const lx=-w/2+w*(i+.5)/n,wx=x+Math.cos(ry)*lx,wz=z-Math.sin(ry)*lx;const c={x:wx,z:wz,r:Math.max(2,d*.45),y:C.y-.05,h:h+1.8};solids.push(c);cover.push(c)}}
   function prop(x,z,kind){
     const y=C.y,g=kind==='barrel'?new THREE.CylinderGeometry(.55,.55,1.2,10):new THREE.BoxGeometry(1.4,1.3,1.4);
     const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:kind==='barrel'?'#7a4a22':'#a9803f',roughness:.9}));m.position.set(x,y+.65,z);m.rotation.y=Math.random()*3;m.castShadow=true;scene.add(m);
-    const c={x,z,r:.95};solids.push(c);cover.push(c)}
+    const c={x,z,r:.95,y:C.y-.05,h:kind==='barrel'?1.2:1.3};solids.push(c);cover.push(c)}
   function build(){
     C={x:OUT.x,z:OUT.z,y:OUT.y+.05};cover.length=0; // dedicated Outlaw Isle (see data/islands.js)
     const ground=new THREE.Mesh(new THREE.CircleGeometry(46,40),new THREE.MeshStandardMaterial({color:'#b79a68',roughness:1}));ground.rotation.x=-Math.PI/2;ground.position.set(C.x,C.y+.04,C.z);ground.receiveShadow=true;scene.add(ground);
@@ -96,7 +93,10 @@ const Outlaw=(()=>{
     [[-5,-2],[4,3],[-2,6],[7,-3],[-8,2],[0,-5],[10,2],[-10,-3]].forEach(([dx,dz],i)=>prop(C.x+dx,C.z+dz,i%2?'barrel':'crate'));
     const pad=new THREE.Mesh(new THREE.CylinderGeometry(2.2,2.4,.3,24),new THREE.MeshStandardMaterial({color:'#c0392b',emissive:'#7a1a10',emissiveIntensity:.6}));pad.position.set(C.x,C.y+.15,C.z+1);scene.add(pad);
     const sg=label('OUTLAW TOWN',6,1.5);sg.position.set(C.x,5,C.z+1);sg.userData.bb=1;scene.add(sg);fx.push({sign:sg});
-    portals();
+    portals();CombatAnims.load();   // death / head-hit / pistol-ready clips (assets/combat_anims.json)
+    OutlawArena.build({C,cover,solids,scene,send:o=>send(o),isHost,boom,sfx,spark,hurtMe:(d,x,z)=>hurt(d,x,z),
+      dropAt:(x,z)=>{const id=nid++;send({k:'dr',id,x,z});addDrop(id,x,z)},
+      aoeNpc:(x,z,rad,dmg)=>{for(const n of npcs.values()){if(n.dead)continue;const d=Math.hypot(n.x-x,n.z-z);if(d<rad+1)damageNpc(n.id,Math.max(1,Math.round(dmg*(1-d/(rad+1)))))}}}); // zones, breakable cover, train (src/games/OutlawArena.js)
   }
 
   // ---------- portals: town <-> Outlaw Isle ----------
@@ -182,50 +182,87 @@ const Outlaw=(()=>{
   const camDir=new THREE.Vector3();
   // Aim assist: lock the best live NPC near the crosshair (cone ~34 deg, must be visible, not behind cover).
   let lockM=null,lockN=null;
-  function lockTarget(range){
+  function lockTarget(range){ // marks a raider you are already aiming near (ang < .1 rad); it does NOT auto-aim
+
     camera.getWorldDirection(camDir);const o=camera.position;let best=null,bs=1e9;
     for(const n of npcs.values()){if(n.dead||!n.group)continue;const p=n.group.position,sc=TYPES[n.type].sc,
       vx=p.x-o.x,vy=p.y+sc-o.y,vz=p.z-o.z,L=Math.hypot(vx,vy,vz);if(L>range||L<1)continue;
       const ang=Math.acos(Math.max(-1,Math.min(1,(vx*camDir.x+vy*camDir.y+vz*camDir.z)/L)));
-      if(ang>(CameraRig.isFPS()?.2:.6)||!los(S.x,S.z,p.x,p.z))continue;const sc2=ang+L*.004;if(sc2<bs){bs=sc2;best=n}}
+      if(ang>.1||!los(S.x,S.z,p.x,p.z))continue;const sc2=ang+L*.004;if(sc2<bs){bs=sc2;best=n}}
     return best}
   function aoe(pt,dmg,rad){ // explosion: damages every enemy near the impact point
-    boom(pt[0],pt[2],rad*.8);
+    boom(pt[0],pt[2],rad*.8);OutlawArena.blast(pt[0],pt[2],rad,dmg*.6);
     for(const n of npcs.values()){if(n.dead||!n.group)continue;const p=n.group.position,d=Math.hypot(p.x-pt[0],p.y+1-pt[1],p.z-pt[2]);if(d<rad+1.5)reportHit(n.id,Math.max(1,Math.round(dmg*(1-d/(rad+1.5)))))}}
   function reload(){if(wi<0||reloading||am(wi)>=magOf(wi))return;reloading=true;reloadT=WEAPONS[wi].rl*(1-.12*SAVE.rl);sfx('reload');updateHud()}
   function fire(){
     if(wi<0||down||!camera||reloading)return;const W=WEAPONS[wi];if(cdT>0)return;
     if(am(wi)<=0){reload();return}
     cdT=W.cd;ammo[wi]=am(wi)-1;
-    const lk=lockTarget(W.rng),o=camera.position.clone(),base=camDir.clone();
-    let lp=null,lsc=1;if(lk){lp=lk.group.position;lsc=TYPES[lk.type].sc;S.rot=Math.atan2(lp.x-S.x,lp.z-S.z)}else S.rot=Math.atan2(camDir.x,camDir.z);
-    me.rotation.y=S.rot;const M=CameraRig.isFPS()?Viewmodel.muzzleWorld(camera):muzzle(me,wi);
-    if(lk){o.set(M.x,M.y,M.z);base.set(lp.x-M.x,lp.y+lsc-M.y,lp.z-M.z).normalize()}
+    camera.getWorldDirection(camDir);   // the aim is the camera's: what is under the crosshair is what you hit (the gun only has to have a clear line to it)
+    const co=camera.position.clone().addScaledVector(camDir,Math.min(6,Math.hypot(camera.position.x-S.x,camera.position.y-(S.y+1.4),camera.position.z-S.z)));
+    S.rot=Math.atan2(camDir.x,camDir.z);me.rotation.y=S.rot;
+    const M=CameraRig.isFPS()?Viewmodel.muzzleWorld(camera):muzzle(me,wi),o=new THREE.Vector3(M.x,M.y,M.z);
     let anyHit=false,anyCrit=false,endp=null;
+    // SPREAD: the first shot while standing still goes exactly where the reticle is (a tap on a head is a headshot); spread blooms while you keep firing and while you run.
+    // Shotguns keep their pellet spread. (bloom 0..1: +per shot, decays in tick)
+    const mv=Math.min(1,Math.hypot(prev.vx||0,prev.vz||0)/6)*.35,spr=W.pel>1?W.sp:W.sp*(.15+.85*Math.min(1,bloom+mv));
     for(let p=0;p<W.pel;p++){
-      const d=base.clone();if(W.sp){d.x+=rnd(-W.sp,W.sp);d.y+=rnd(-W.sp,W.sp);d.z+=rnd(-W.sp,W.sp);d.normalize()}
-      const wall=rayCover(o,d,W.rng);let tn=wall,hit=null;
-      for(const n of npcs.values()){if(n.dead)continue;const p3=n.group.position,sc=TYPES[n.type].sc,
-        t=raySphere(o,d,p3.x,p3.y+1*sc,p3.z,.95*sc+Math.min(1.6,(Math.hypot(p3.x-o.x,p3.z-o.z))*.025));
-        if(t!==null&&t<tn){tn=t;hit=n}}
-      endp=[o.x+d.x*tn,o.y+d.y*tn,o.z+d.z*tn];
+      const d=camDir.clone();if(spr){d.x+=rnd(-spr,spr);d.y+=rnd(-spr,spr);d.z+=rnd(-spr,spr);d.normalize()}
+      let wall=rayCover(co,d,W.rng),wc=rcHit,tn=wall,hit=null,zone=null;
+      for(const n of npcs.values()){if(n.dead||!n.group)continue;const h=zoneHit(co,d,tn,n);
+        if(h&&h.t<tn){tn=h.t;hit=n;zone=h.zone}}   // the first body part the camera ray reaches before it reaches any cover
+      const E=new THREE.Vector3(co.x+d.x*tn,co.y+d.y*tn,co.z+d.z*tn),md=E.clone().sub(o),L=md.length();
+      if(L>.05){md.divideScalar(L);const ob=rayCover(o,md,L-.08),oc=rcHit;   // can the gun actually see that point? cover between the muzzle and it blocks the bullet (and takes it)
+        if(oc&&ob<L-.08){E.copy(o).addScaledVector(md,ob);hit=null;zone=null;wc=oc;tn=wall=ob}}
+      endp=[E.x,E.y,E.z];
+      if(p===0)lastShot={M:[+M.x.toFixed(2),+M.y.toFixed(2),+M.z.toFixed(2)],P:[+E.x.toFixed(2),+E.y.toFixed(2),+E.z.toFixed(2)],tn:+tn.toFixed(2),wall:+wall.toFixed(1),zone,hit:!!hit,spr:+spr.toFixed(4)};
+      if(!hit&&wc&&tn===wall&&!W.rocket&&wc.brk!==undefined){OutlawArena.hitCover(wc,dmgOf(wi));spark(endp[0],endp[1],endp[2],'#d8b45a');anyHit=true}
       if(W.rocket){aoe(endp,dmgOf(wi),W.rad||6);tracer(M.x,M.y,M.z,endp[0],endp[1],endp[2],'#ff9a2e');anyHit=true;continue}
-      if(hit){const crit=Math.random()<.08+.05*SAVE.crit,dmg=Math.round(dmgOf(wi)*(crit?2:1));anyHit=true;if(crit)anyCrit=true;reportHit(hit.id,dmg);spark(endp[0],endp[1],endp[2]);
-        if(p<3)popText(endp[0],endp[1]+.7,endp[2],(crit?'💥':'')+dmg,crit?'#ffd24a':'#fff',crit?1.25:1)}
+      if(hit){const crit=zone==='head',kill=crit&&HitZones.headKills(W.snd,HS[hit.type]),dmg=kill?9999:Math.max(1,Math.round(dmgOf(wi)*HitZones.zoneMult(zone,W.snd,HS[hit.type],SAVE.crit)));anyHit=true;if(crit)anyCrit=true;reportHit(hit.id,dmg,zone);spark(endp[0],endp[1],endp[2],crit?'#ffd24a':undefined);
+        if(p<3)popText(endp[0],endp[1]+.7,endp[2],(kill?'💥 HEADSHOT':crit?'💥'+dmg:dmg),crit?'#ffd24a':zone==='torso'?'#fff':'#b8c4cc',crit?1.35:zone==='torso'?1:.85)}
       if(p<3)tracer(M.x,M.y,M.z,endp[0],endp[1],endp[2]);
     }
-    me.userData.recoil=1;Viewmodel.kick(RECOIL[wi]);CameraRig.kick(.016*RECOIL[wi],rnd(-.004,.004)*RECOIL[wi]);sfx(W.snd);if(anyHit){hitT=.18;sfx(anyCrit?'crit':'hit')}
+    me.userData.recoil=1;Viewmodel.kick(RECOIL[wi]);CameraRig.kick(.016*RECOIL[wi],rnd(-.004,.004)*RECOIL[wi]);sfx(W.snd);if(anyHit){hitT=.18;if(anyCrit)critT=.24;sfx(anyCrit?'crit':'hit')}if(W.pel<=1)bloom=Math.min(1,bloom+.14+W.cd*.3);
     if(clock-lastF>110){lastF=clock;send({k:'f',w:wi,m:[M.x,M.y,M.z],e:endp})}
     if(am(wi)<=0)reload();else updateHud();
   }
+  // ---- raider body zones from the live skeleton (match the model, pose and animation); falls back to the static set if a bone is missing ----
+  const ZB={head:'head',neck:'neck',hips:'hips',lArm:'leftarm',lFore:'leftforearm',lHand:'lefthand',rArm:'rightarm',rFore:'rightforearm',rHand:'righthand',lUp:'leftupleg',lLeg:'leftleg',lFoot:'leftfoot',rUp:'rightupleg',rLeg:'rightleg',rFoot:'rightfoot'};
+  function npcBones(n){
+    if(n.zb)return n.zb;if(n.zbT&&clock-n.zbT<1000)return null;   // the skin loads asynchronously: until the bones exist use the static zones and look again in a second
+    const found={};n.group.traverse(o=>{if(!o.isBone)return;const k=o.name.toLowerCase().replace(/^.*:/,'');for(const id in ZB)if(ZB[id]===k&&!found[id])found[id]=o});
+    if(Object.keys(ZB).every(id=>found[id]))return n.zb=found;n.zbT=clock;return null}
+  function npcVolumes(n){ // {vols,cen,cr} in world space, or null (use the static zones)
+    const B=npcBones(n);if(!B)return null;n.group.updateWorldMatrix(true,true);const p={},e=[];
+    for(const id in ZB){const m=B[id].matrixWorld.elements;p[id]=[m[12],m[13],m[14]]}
+    const sc=TYPES[n.type].sc,h=p.hips;return {vols:HitZones.boneVolumes(p,sc),cen:[h[0],h[1]+.2*sc,h[2]],cr:1.1*sc}}
+  function zoneHit(o,d,max,n){ // nearest body zone of raider n hit by ray (o,d) within max -> {t,zone} | null
+    const p3=n.group.position,sc=TYPES[n.type].sc;if(Math.hypot(p3.x-o.x,p3.z-o.z)>max+2)return null;
+    const V=npcVolumes(n);return V?HitZones.hitVolumes(o.x,o.y,o.z,d.x,d.y,d.z,max,V.vols,V.cen,V.cr):HitZones.hit(o.x,o.y,o.z,d.x,d.y,d.z,max,p3.x,p3.y,p3.z,n.group.rotation.y,sc)}
+  // debug overlay for the hit zones: add ?hz=1 to the URL (or Outlaw._t().dbgZones(true)); rebuilt every frame, so only ever used while tuning
+  let dbgOn=typeof location!=='undefined'&&/[?&]hz=1/.test(location.search),dbgG=null;const dbgMat=new THREE.MeshBasicMaterial({color:'#ff3b30',wireframe:true,depthTest:false,transparent:true,opacity:.75});
+  function zoneDebug(){
+    if(!dbgG){dbgG=new THREE.Group();dbgG.renderOrder=999;scene.add(dbgG)}
+    while(dbgG.children.length){const m=dbgG.children[0];dbgG.remove(m);m.geometry.dispose()}
+    for(const n of npcs.values()){if(n.dead||!n.group)continue;const p=n.group.position;
+      const V=npcVolumes(n);for(const v of (V?V.vols:HitZones.volumes(p.x,p.y,p.z,n.group.rotation.y,TYPES[n.type].sc))){const ax=new THREE.Vector3(...v.a),bx=new THREE.Vector3(...v.b),len=ax.distanceTo(bx),
+        m=new THREE.Mesh(len>1e-4?new THREE.CapsuleGeometry(v.r,len,3,8):new THREE.SphereGeometry(v.r,8,6),dbgMat);m.position.copy(ax).add(bx).multiplyScalar(.5);
+        if(len>1e-4)m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),bx.clone().sub(ax).normalize());m.renderOrder=999;dbgG.add(m)}}}
+  // where the crosshair points: the first cover/raider along the CAMERA ray (starting past the player, so nothing between camera and player intercepts it), else max range
+  function aimPoint(range){
+    const back=Math.min(6,Math.hypot(camera.position.x-S.x,camera.position.y-(S.y+1.4),camera.position.z-S.z)),o=camera.position.clone().addScaledVector(camDir,back);
+    let t=rayCover(o,camDir,range);
+    for(const n of npcs.values()){if(n.dead||!n.group)continue;const h=zoneHit(o,camDir,t,n);if(h&&h.t<t)t=h.t}
+    return o.addScaledVector(camDir,t)}
   function lockMarker(){
     const lk=wi>=0&&!down?lockTarget(WEAPONS[wi].rng):null;lockN=lk;
     if(!lockM){lockM=new THREE.Mesh(new THREE.RingGeometry(.55,.7,28),new THREE.MeshBasicMaterial({color:'#ff3030',depthTest:false,transparent:true,opacity:.9,side:THREE.DoubleSide}));lockM.renderOrder=10;lockM.visible=false;scene.add(lockM)}
     if(!lk){lockM.visible=false;return}
     const p=lk.group.position,sc=TYPES[lk.type].sc;lockM.visible=true;lockM.position.set(p.x,p.y+sc,p.z);lockM.scale.setScalar(sc);lockM.lookAt(camera.position)}
   const hitBuf={};let lastF=0,lastH=0;
-  function reportHit(id,d){if(isHost())damageNpc(id,d);else hitBuf[id]=(hitBuf[id]||0)+d} // client hits are batched (flushed in tick)
-  function damageNpc(id,d){const n=npcs.get(id);if(!n||n.dead)return;n.hp-=d;n.flash=.12;if(n.hp<=0)killNpc(n)}
+  const HS={1:.7,3:.6,7:.5}; // headshot multiplier scale per raider type: brutes and bosses are not one-tap-able
+  function reportHit(id,d,zone){if(isHost())damageNpc(id,d,zone);else{const b=hitBuf[id]||(hitBuf[id]={d:0,z:zone});b.d+=d;if(zone==='head')b.z='head'}} // client hits are batched (flushed in tick)
+  function damageNpc(id,d,zone){const n=npcs.get(id);if(!n||n.dead)return;n.hp-=d;n.flash=.12;n.lastZone=zone||'torso';n.lastHitAt=clock;n.stg=clock+(zone==='head'?520:260)*(HS[n.type]||1);if(n.hp<=0)killNpc(n)}
   function earn(c){SAVE.coins+=c;save();sfx('coin');popText(S.x,S.y+2.6,S.z,'+'+c+' 🪙','#ffd24a');updateHud()}
   function killNpc(n){n.dead=1;kills++;const c=Math.round(COIN[n.type]*DIFF[diff].coin*(1+wave*.03));send({k:'kill',c});earn(c);if(Math.random()<.16){const id=nid++;send({k:'dr',id,x:n.x,z:n.z});addDrop(id,n.x,n.z)}}
   function addDrop(id,x,z){const m=new THREE.Mesh(new THREE.BoxGeometry(.6,.6,.6),new THREE.MeshStandardMaterial({color:'#2ecc71',emissive:'#1e9e55',emissiveIntensity:.8}));m.position.set(x,H(x,z)+.6,z);scene.add(m);drops.push({id,m,x,z})}
@@ -263,13 +300,14 @@ const Outlaw=(()=>{
     const n={id:nid++,type,x,z,hp:hv,max:hv,dm:D.dmg*(1+wave*.03),r:0,st:'idle',cd:rnd(.5,1.5),react:T.react,t:0,ph:rnd(0,6),flank:Math.random()<.5?1:-1,mode:'advance',dec:0,pt:0,peek:0,tid:null,aim:0,seen:false,dead:0,
       raider:mode==='defend'&&(type<3||type===4||type===5)?Math.random()<.55:false};
     n.group=null;npcs.set(n.id,n);spawnVisual(n);n.group.position.set(x,H(x,z),z)}
-  function spawnPoint(){for(let i=0;i<20;i++){const a=Math.random()*6.283,x=C.x+Math.cos(a)*62,z=C.z+Math.sin(a)*62;if(H(x,z)>1)return [x,z]}return [C.x+30,C.z]}
+  function spawnPoint(type){if(type!==undefined)return OutlawArena.front(type);for(let i=0;i<20;i++){const a=Math.random()*6.283,x=C.x+Math.cos(a)*62,z=C.z+Math.sin(a)*62;if(H(x,z)>1)return [x,z]}return [C.x+30,C.z]}
   function startWave(){
     wave++;const D=DIFF[diff],q=[],boss=wave%3===0;
     if(boss)q.push(wave%6===3?3:7);
     const pool=[0,0];if(wave>=2)pool.push(1,5);if(wave>=3)pool.push(0,5);if(wave>=4)pool.push(2,4);if(wave>=5)pool.push(4,1,6);if(wave>=7)pool.push(2,5,6);
     const n=Math.round(Math.min(2+wave*1.9,22)*D.cnt);for(let i=0;i<n;i++)q.push(pool[Math.random()*pool.length|0]);
     queue=q;banner('Wave '+wave+(boss?' · BOSS!':''),'OUTLAW TOWN');sfx('horn');send({k:'wv',n:wave});
+    {const fr=OutlawArena.pickFronts(wave);OutlawArena.setFronts(fr,true);send({k:'fr',f:fr});OutlawArena.reset();send({k:'rs'})} // raiders come from 1-3 of the island's fronts; cover grows back
   }
   function pickCover(n,t){
     let b=null,bs=1e9;
@@ -287,7 +325,7 @@ const Outlaw=(()=>{
   function dynTick(dt){
     for(let i=dyn.length-1;i>=0;i--){const e=dyn[i],p=e.p,u=Math.min(1,e.t/e.fuse);e.t+=dt;
       e.m.position.set(p.x0+(p.x1-p.x0)*u,H(p.x0,p.z0)+1.4+Math.sin(u*Math.PI)*6*(1-u*.3)-1.2*u,p.z0+(p.z1-p.z0)*u);e.m.rotation.x+=dt*12;e.r.material.opacity=.35+.3*Math.sin(e.t*14);
-      if(e.t>=e.fuse){scene.remove(e.m);scene.remove(e.r);dyn.splice(i,1);boom(p.x1,p.z1,5);
+      if(e.t>=e.fuse){scene.remove(e.m);scene.remove(e.r);dyn.splice(i,1);boom(p.x1,p.z1,5);if(isHost())OutlawArena.blast(p.x1,p.z1,5,p.d*2);
         const dd=Math.hypot(S.x-p.x1,S.z-p.z1);if(!down&&dd<5.2)hurt(Math.max(1,Math.round(p.d*(1-dd/6.5))),p.x1,p.z1);
         if(isHost()&&mode==='defend'&&Math.hypot(bank.x-p.x1,bank.z-p.z1)<9)bank.hp=Math.max(0,bank.hp-p.d*2)}}}
   function enemyShoot(n,t,d,T){
@@ -347,16 +385,19 @@ const Outlaw=(()=>{
     }
     // separation from other NPCs
     for(const o of npcs.values()){if(o===n||o.dead)continue;const ox=n.x-o.x,oz=n.z-o.z,od=Math.hypot(ox,oz);if(od<2.6&&od>.01){mx+=ox/od*.8;mz+=oz/od*.8}}
+    if(d>70)sp*=1+Math.min(1,(d-70)/90)*.9; // raiders hurry across the island
+    if(n.stg>clock)sp*=.35;   // staggered by a hit: a brief stumble, not a stun-lock
     const ml=Math.hypot(mx,mz)||1;n.x+=mx/ml*sp*dt;n.z+=mz/ml*sp*dt;
     for(const c of solids){const ox=n.x-c.x,oz=n.z-c.z;if(Math.abs(ox)>c.r+1||Math.abs(oz)>c.r+1)continue;const od=Math.hypot(ox,oz),m=c.r+.45;if(od<m&&od>.001){n.x=c.x+ox/od*m;n.z=c.z+oz/od*m}}
-    const lr=Math.hypot(n.x-C.x,n.z-C.z);if(lr>90){n.x=C.x+(n.x-C.x)/lr*90;n.z=C.z+(n.z-C.z)/lr*90}
+    const lr=Math.hypot(n.x-C.x,n.z-C.z);if(lr>195){n.x=C.x+(n.x-C.x)/lr*195;n.z=C.z+(n.z-C.z)/lr*195}
+    if(H(n.x,n.z)<.3){n.x+=(C.x-n.x)/lr*1.5;n.z+=(C.z-n.z)/lr*1.5} // stay on land (the arena is the whole island now)
     n.r=Math.atan2(ux,uz);if(sp===0&&n.st==='run')n.st='idle';
   }
   function hostTick(dt){
     const pl=players();
     for(const n of npcs.values())if(!n.dead)think(n,dt,pl);
     spawnT-=dt;const live=[...npcs.values()].filter(n=>!n.dead).length;
-    if(queue.length&&spawnT<=0&&live<8+diff*3){spawnT=1.1;const [x,z]=spawnPoint();addNpc(queue.shift(),x,z)}
+    if(queue.length&&spawnT<=0&&live<8+diff*3){spawnT=1.1;const ty=queue.shift(),[x,z]=spawnPoint(ty);addNpc(ty,x,z)}
     if(!queue.length&&live===0){if(nextWave===0){nextWave=clock+4500;if(wave>0){const c=Math.round((40+wave*12)*DIFF[diff].coin);send({k:'wc',c});earn(c);banner('Wave '+wave+' cleared! +'+c+' 🪙','OUTLAW TOWN');
         if(mode==='defend'){bank.hp=Math.min(bank.max,bank.hp+bank.max*.15);if(wave>=8){const w={k:'win',c:Math.round(400*DIFF[diff].coin)};send(w);onMsg(w);return}}}}
       else if(clock>nextWave){nextWave=0;best=Math.max(best,wave);try{localStorage.setItem('w4ow',best)}catch(e){}startWave()}}
@@ -365,11 +406,12 @@ const Outlaw=(()=>{
     else if(!wiped){wiped=true; // everyone down: reset the current wave
       for(const n of npcs.values())n.dead=1;queue=[];wave=Math.max(0,wave-1);nextWave=clock+6000;banner('Wiped out! Retrying…','OUTLAW TOWN');send({k:'wv',n:-1})}
     snapT-=dt;if(snapT<=0){snapT=.1;
-      send({k:'n',w:wave,kl:kills,bk:Math.round(bank.hp),a:[...npcs.values()].map(n=>[n.id,n.type,+n.x.toFixed(2),+n.z.toFixed(2),+n.r.toFixed(2),Math.round(n.hp),Math.round(n.max),n.st,n.dead])})}
+      send({k:'n',tr:OutlawArena.trainQ(),w:wave,kl:kills,bk:Math.round(bank.hp),a:[...npcs.values()].map(n=>[n.id,n.type,+n.x.toFixed(2),+n.z.toFixed(2),+n.r.toFixed(2),Math.round(n.hp),Math.round(n.max),n.st,n.dead])})}
   }
 
   // ---------- CLIENT: snapshot ----------
   function applySnap(p){
+    if(p.tr!==undefined)OutlawArena.trainSync(p.tr);
     wave=p.w;kills=p.kl;bank.hp=p.bk;const seen=new Set();
     for(const [id,type,x,z,r,h,mh,st,dead] of p.a){seen.add(id);let n=npcs.get(id);
       if(!n){n={id,type,x,z,r,hp:h,max:mh,st,dead:0,group:null};npcs.set(id,n);spawnVisual(n);n.group.position.set(x,H(x,z),z)}
@@ -381,10 +423,20 @@ const Outlaw=(()=>{
   function visuals(dt){
     for(const n of [...npcs.values()]){
       const g=n.group;if(!g)continue;const p=g.position;
-      if(n.dead){n.dt=(n.dt||0)+dt;g.rotation.x=Math.min(1.5,n.dt*3);g.scale.setScalar(Math.max(.01,TYPES[n.type].sc*(1-Math.max(0,n.dt-.5)*1.4)));if(n.laser)n.laser.visible=false;
+      if(n.dead){
+        n.dt=(n.dt||0)+dt;const q=g.userData;
+        // DEATH STATE: stop fighting/moving, play the baked fall (Death01), lie there a few seconds, sink into the ground, then clean up. Falls back to the old tilt if the clip is missing.
+        if(!n.dying){n.dying=1;const a=q.mixer&&CombatAnims.act(q,'death');if(a){q.mixer.stopAllAction();q.model.rotation.set(0,0,0);q.model.position.set(0,0,0);a.reset();a.setEffectiveTimeScale(1.1);a.setEffectiveWeight(1);a.play();n.deathAnim=true}}
+        if(n.laser)n.laser.visible=false;if(n.bar)n.bar.visible=false;
+        if(n.deathAnim){q.mixer.update(dt);if(n.dt>5)p.y-=(n.dt-5)*dt*.9;if(n.dt>6.6){removeVisual(n);npcs.delete(n.id)}continue}
+        g.rotation.x=Math.min(1.5,n.dt*3);g.scale.setScalar(Math.max(.01,TYPES[n.type].sc*(1-Math.max(0,n.dt-.5)*1.4)));if(n.laser)n.laser.visible=false;
         if(n.dt>1.2){removeVisual(n);npcs.delete(n.id)}continue}
       if(isHost()){p.x=n.x;p.z=n.z}else{const k=Math.min(1,dt*10);p.x+=(n.tx-p.x)*k;p.z+=(n.tz-p.z)*k;n.x=p.x;n.z=p.z}
       p.y=H(p.x,p.z);let da=n.r-g.rotation.y;da=Math.atan2(Math.sin(da),Math.cos(da));g.rotation.y+=da*Math.min(1,dt*10);
+      // hit reaction: a quick flinch when hp drops (head variant for big hits/headshots); rate-limited so rapid fire does not freeze the animation
+      if(n.lhp===undefined)n.lhp=n.hp;
+      if(n.hp<n.lhp-.5){const drop=n.lhp-n.hp;if(clock-(n.reactAt||-1e9)>450){n.reactAt=clock;const q=g.userData;q.hitReq=1;if(drop>=.3*n.max||n.lastZone==='head')q.hitHead=1}}
+      n.lhp=n.hp;
       animate(g,dt,n.st==='aim'?'idle':n.st);
       n.fg.scale.x=Math.max(.001,n.hp/n.max);n.fg.position.x=-(1-n.fg.scale.x)*.6;n.bar.lookAt(camera.position);
       if(n.st==='aim'){const t=[...others.values()].map(o=>o.group.position).concat([{x:S.x,y:S.y,z:S.z}]).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];
@@ -438,18 +490,22 @@ const Outlaw=(()=>{
   function ui(){
     if(hudEl)return;
     const st=document.createElement('style');st.textContent='#owhud{position:fixed;z-index:6;left:12px;top:calc(env(safe-area-inset-top,0px) + 88px);color:#fff;font-size:13px;text-shadow:0 1px 4px #000;pointer-events:none;display:none}#owhud .bar{width:150px;height:10px;background:#0008;border-radius:6px;overflow:hidden;margin-bottom:4px}#owhp{height:100%}'
-      +'#owxh{position:fixed;z-index:6;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;pointer-events:none;display:none}#owxh:before,#owxh:after{content:"";position:absolute;background:#fff;box-shadow:0 0 3px #000}#owxh:before{left:10px;top:0;width:2px;height:22px}#owxh:after{top:10px;left:0;height:2px;width:22px}'
+      +'#owxh{position:fixed;z-index:6;left:50%;top:50%;width:0;height:0;pointer-events:none;display:none;--g:4px;transition:transform .08s}#owxh i{position:absolute;background:#fff;box-shadow:0 0 2px #000;opacity:.92}#owxh i:nth-child(1){left:-1px;top:calc(-1*var(--g) - 8px);width:2px;height:8px}#owxh i:nth-child(2){left:-1px;top:var(--g);width:2px;height:8px}#owxh i:nth-child(3){top:-1px;left:calc(-1*var(--g) - 8px);height:2px;width:8px}#owxh i:nth-child(4){top:-1px;left:var(--g);height:2px;width:8px}#owxh:after{content:\"\";position:absolute;left:-1px;top:-1px;width:2px;height:2px;border-radius:50%;background:#fff;box-shadow:0 0 2px #000}#owxh.hit i{background:#ff5a4e}#owxh.crit{transform:scale(1.4)}#owxh.crit i{background:#ffd24a}'
       +'.owb{position:fixed;z-index:5;border-radius:50%;border:0;color:#fff;font-size:26px}#owfire{right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 232px);width:78px;height:78px;background:#e0443ecc;display:none;touch-action:none}#owview{right:264px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#bfe3ffcc}#owshop{right:200px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#ffd24acc}#owrl{right:136px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#ffffffcc}#owgun{right:200px;bottom:calc(env(safe-area-inset-bottom,0px) + 144px);width:56px;height:56px;background:#ffffffcc}';
     document.head.appendChild(st);
     hudEl=document.createElement('div');hudEl.id='owhud';hudEl.innerHTML='<div class="bar"><div id="owhp" style="width:100%"></div></div><div id="owtxt"></div>';document.body.appendChild(hudEl);hpEl=$('owhp');
-    xh=document.createElement('div');xh.id='owxh';document.body.appendChild(xh);
+    xh=document.createElement('div');xh.id='owxh';xh.innerHTML='<i></i><i></i><i></i><i></i>';document.body.appendChild(xh);
     fireBtn=document.createElement('button');fireBtn.id='owfire';fireBtn.className='owb';fireBtn.textContent='🔥';document.body.appendChild(fireBtn);
     reloadBtn=document.createElement('button');reloadBtn.id='owrl';reloadBtn.className='owb';reloadBtn.textContent='🔄';document.body.appendChild(reloadBtn);reloadBtn.addEventListener('pointerdown',e=>{reload();e.preventDefault()});
     const viewBtn=document.createElement('button');viewBtn.id='owview';viewBtn.className='owb';viewBtn.textContent='👁';document.body.appendChild(viewBtn);
     viewBtn.addEventListener('pointerdown',e=>{const v=CameraRig.toggleView();banner(v==='fps'?'First-person view':'Third-person view','CAMERA');e.preventDefault()});
     const shopBtn=document.createElement('button');shopBtn.id='owshop';shopBtn.className='owb';shopBtn.textContent='🛒';document.body.appendChild(shopBtn);shopBtn.addEventListener('pointerdown',e=>{shopPanel();e.preventDefault()});
     gunBtn=document.createElement('button');gunBtn.id='owgun';gunBtn.className='owb';gunBtn.textContent='🔫';document.body.appendChild(gunBtn);
-    fireBtn.addEventListener('pointerdown',e=>{firing=true;e.preventDefault()});['pointerup','pointercancel','pointerleave'].forEach(ev=>fireBtn.addEventListener(ev,()=>firing=false));
+    { // HOLD FIRE + DRAG THE SAME THUMB = shoot while aiming: the button captures its pointer, so dragging keeps firing and turns the camera (no need to lift to look)
+      let fid=null,fx0=0,fy0=0;fireBtn.style.touchAction='none';
+      fireBtn.addEventListener('pointerdown',e=>{firing=true;fid=e.pointerId;fx0=e.clientX;fy0=e.clientY;try{fireBtn.setPointerCapture(fid)}catch(_){}e.preventDefault()});
+      fireBtn.addEventListener('pointermove',e=>{if(e.pointerId!==fid)return;const dx=e.clientX-fx0,dy=e.clientY-fy0;fx0=e.clientX;fy0=e.clientY;lookBy(dx,dy,1.15);e.preventDefault()});
+      const stopF=e=>{if(e.pointerId===fid){fid=null;firing=false}};['pointerup','pointercancel','lostpointercapture'].forEach(ev=>fireBtn.addEventListener(ev,stopF))}
     gunBtn.addEventListener('pointerdown',e=>{equip(nextW());e.preventDefault()});
     addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;
       if(e.code.startsWith('Digit')){const k=+e.code.slice(5);if(k===0){if(wi>=0)equip(wi)}else if(k<=WEAPONS.length)equip(k-1)}
@@ -459,16 +515,17 @@ const Outlaw=(()=>{
   }
 
   // ---------- messages ----------
-  function stopGame(){active=false;for(const n of npcs.values())removeVisual(n);npcs.clear();for(const d of drops)scene.remove(d.m);drops=[];for(const e of dyn){scene.remove(e.m);scene.remove(e.r)}dyn=[];updateHud()}
+  function stopGame(){active=false;OutlawArena.reset();for(const n of npcs.values())removeVisual(n);npcs.clear();for(const d of drops)scene.remove(d.m);drops=[];for(const e of dyn){scene.remove(e.m);scene.remove(e.r)}dyn=[];updateHud()}
   function onMsg(p){
     if(!p)return;
+    if(p.k==='cv'||p.k==='cb'||p.k==='fr'||p.k==='rs'){OutlawArena.onMsg(p);return}
     switch(p.k){
       case 'start':stopGame();active=true;host=p.host;mode=p.mode||'survive';diff=p.diff===undefined?1:p.diff;wave=0;kills=0;queue=[];nextWave=0;hp=maxHp();down=false;ammo=[];reloading=false;bank.max=bank.hp=1500;
         banner((mode==='defend'?'Defend the bank! ':'')+DIFF[diff].n+' · '+(isHost()?'you are hosting':'get ready'),'SHOWDOWN');if(isHost())nextWave=clock+3000;updateHud();break;
       case 'end':stopGame();if(p.msg)banner(p.msg,'SHOWDOWN');break;
       case 'win':earn(p.c);stopGame();banner('BANK DEFENDED! +'+p.c+' 🪙','VICTORY');sfx('horn');break;
       case 'n':if(!isHost())applySnap(p);break;
-      case 'h':if(isHost())damageNpc(p.id,p.d);break;
+      case 'h':if(isHost())damageNpc(p.id,p.d,p.z);break;
       case 'hurt':if(p.to===myId)hurt(p.d,p.x,p.z);break;
       case 'dn':pdown=!!p.v;break;
       case 'wv':if(p.n>0){banner('Wave '+p.n+(p.n%3===0?' · BOSS!':''),'OUTLAW TOWN');sfx('horn')}else if(p.n===-1&&!isHost())banner('Wiped out! Retrying…','OUTLAW TOWN');break;
@@ -485,11 +542,11 @@ const Outlaw=(()=>{
   }
 
   function tick(dt,t){
-    if(!C||!me)return;ui();clock+=dt*1000;
+    if(!C||!me)return;ui();clock+=dt*1000;OutlawArena.tick(dt);if(dbgOn)zoneDebug();
     prev.vx=(S.x-prev.x)/Math.max(dt,.001);prev.vz=(S.z-prev.z)/Math.max(dt,.001);prev.x=S.x;prev.z=S.z;
     const p=partner();if(p){const g=p[1].group.position;pprev.vx=(g.x-pprev.x)/Math.max(dt,.001);pprev.vz=(g.z-pprev.z)/Math.max(dt,.001);pprev.x=g.x;pprev.z=g.z;if(p[1].group.userData.gunI!==pw)setGun(p[1].group,pw)}
-    if(clock-lastH>100){lastH=clock;for(const id in hitBuf){send({k:'h',id:+id,d:hitBuf[id]});delete hitBuf[id]}}
-    cdT-=dt;hitT=Math.max(0,hitT-dt);if(xh)xh.style.filter=hitT>0?'hue-rotate(160deg) saturate(8)':'none';
+    if(clock-lastH>100){lastH=clock;for(const id in hitBuf){send({k:'h',id:+id,d:hitBuf[id].d,z:hitBuf[id].z});delete hitBuf[id]}}
+    cdT-=dt;hitT=Math.max(0,hitT-dt);critT=Math.max(0,critT-dt);bloom=Math.max(0,bloom-dt*.7);xSp=bloom*12+(wi>=0&&WEAPONS[wi].pel>1?6:0);if(xh){xh.className=hitT>0?(critT>0?'crit':'hit'):'';xh.style.setProperty('--g',(4+xSp+Math.min(3,Math.hypot(prev.vx,prev.vz)*.35))+'px')} // reticle: opens with recoil and movement, flashes on a hit
     if(firing)fire();
     lockMarker();
     // a weapon is out (and you're not swimming): CameraRig picks first-person or shoulder view; Viewmodel draws the arms + gun
@@ -497,8 +554,6 @@ const Outlaw=(()=>{
     if(wi>=0&&!down){
       camera.getWorldDirection(camDir);const tp=camera.position.clone().addScaledVector(camDir,30);
       let ap=Math.atan2(tp.y-(S.y+1.3),Math.hypot(tp.x-S.x,tp.z-S.z)),face=Math.atan2(camDir.x,camDir.z);
-      if(lockN&&(firing||cdT>-.35)){const lp=lockN.group.position,dx=lp.x-S.x,dz=lp.z-S.z;ap=Math.atan2(lp.y+TYPES[lockN.type].sc-(S.y+1.3),Math.hypot(dx,dz));face=Math.atan2(dx,dz);
-        if(armed&&!CameraRig.isFPS()){let dy=Math.atan2(-dx,-dz)-S.yaw;dy=Math.atan2(Math.sin(dy),Math.cos(dy));S.yaw+=dy*Math.min(1,dt*3)}} // third-person view drifts toward your target; first person never steals your aim
       if(armed){S.rot=lerpAngle(S.rot,face,1-Math.exp(-18*dt));me.rotation.y=S.rot}  // the body always faces the crosshair
       me.userData.aimP=Math.max(-.7,Math.min(.7,ap))}
     Viewmodel.update(dt,{vis:CameraRig.isFPS()&&wi>=0&&!down,wi,len:wi>=0?WEAPONS[wi].len:.5,reload:reloading&&wi>=0?1-reloadT/(WEAPONS[wi].rl*(1-.12*SAVE.rl)):-1});
@@ -511,5 +566,5 @@ const Outlaw=(()=>{
 
   Interaction.register('ow-start','Start Showdown',()=>C&&!active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>missionPanel());
   Interaction.register('ow-end','End Showdown',()=>C&&active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>{send({k:'end'});onMsg({k:'end'})});
-  return {build,tick,onMsg,equip,fire,lockTarget,poseGun,loadGun,_t:()=>({addNpc,panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
+  return {build,tick,onMsg,equip,fire,lockTarget,poseGun,loadGun,_t:()=>({get lastShot(){return lastShot},damageNpc,cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
 })();

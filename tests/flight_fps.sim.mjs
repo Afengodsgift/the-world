@@ -11,7 +11,7 @@ const R=f=>fs.readFileSync(path.join(ROOT,f),'utf8');
 // ---- minimal browser/world stubs ----
 class DiskGLTFLoader extends GLTFLoader{load(u,ok,_p,err){try{const b=fs.readFileSync(path.join(ROOT,u));this.parse(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'',ok,err)}catch(e){err&&err(e)}}} // the game fetches by URL; here we read from disk
 globalThis.THREE={...T,GLTFLoader:DiskGLTFLoader};
-const el=()=>({getContext:()=>({createRadialGradient:()=>({addColorStop(){}}),fillRect(){},fillText(){},strokeText(){},clearRect(){},beginPath(){},moveTo(){},lineTo(){},stroke(){}}),style:{},appendChild(){},addEventListener(){}});
+const el=()=>({getContext:()=>({createRadialGradient:()=>({addColorStop(){}}),fillRect(){},fillText(){},strokeText(){},clearRect(){},beginPath(){},moveTo(){},lineTo(){},stroke(){}}),style:{setProperty(){}},appendChild(){},addEventListener(){}});
 globalThis.document={createElement:el,head:el(),body:el(),getElementById:()=>el()};globalThis.$=()=>el();globalThis.window={innerWidth:390,innerHeight:844};globalThis.addEventListener=()=>{};
 globalThis.localStorage={getItem(){return null},setItem(){}};
 (0,eval)(R('src/data/islands.js').replace(/^const /gm,'var ')+';var K=2.5;');(0,eval)(R('src/utils/math.js').replace(/^const /gm,'var '));
@@ -19,14 +19,14 @@ const html=R('index.html'),grab=(a,b)=>{const i=html.indexOf(a),j=html.indexOf(b
 for(const n of ['_qa','_qb','_qm'])globalThis[n]=new T.Quaternion();for(const n of ['_v1','_v2'])globalThis[n]=new T.Vector3();
 (0,eval)(grab('function aim(b,c,dir)','function pose(q,st,dt)').replace('function aim','globalThis.aim=function aim'));
 globalThis.lerpAngle=(a,b,t)=>{let d=b-a;d=Math.atan2(Math.sin(d),Math.cos(d));return a+d*t};
-globalThis.H=()=>2;globalThis.solids=[];globalThis.scene=new T.Scene();globalThis.camera=new T.PerspectiveCamera(65,390/844,.1,3000);
+globalThis.AURL=globalThis.AURL||'assets/';globalThis.fetch=globalThis.fetch&&0||(()=>Promise.reject(new Error('no network in test')));globalThis.mulberry=globalThis.mulberry||(s=>{let a=s;return()=>{a=(a*16807)%2147483647;return a/2147483647}});globalThis.H=()=>2;globalThis.solids=[];globalThis.scene=new T.Scene();globalThis.camera=new T.PerspectiveCamera(65,390/844,.1,3000);
 globalThis.S={x:0,y:2,z:0,yaw:0,pitch:.4,rot:0,flying:false,grounded:true,gboost:0,kx:0,kz:0,hurt:0,vy:0};globalThis.myId='A';globalThis.others=new Map();globalThis.chan={send(){}};
 globalThis.banner=()=>{};globalThis.chime=()=>{};globalThis.WAudio={get:()=>null,resume:()=>null,out:()=>null};globalThis.panOn=false;globalThis.togglePan=()=>{};globalThis.Interaction={register(){}};globalThis.makeAvatar=()=>new T.Group();globalThis.dress=()=>{};globalThis.animate=()=>{};
 globalThis.OUT={x:5000,z:5000,y:2,clear:1};
 const load=async f=>{const b=fs.readFileSync(path.join(ROOT,f));return new Promise(r=>new GLTFLoader().parse(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'',r))};
 const gl=await load('assets/char.glb');const mdl=gl.scene;mdl.scale.setScalar(.5);globalThis.me=new T.Group();me.add(mdl);scene.add(me);
 const bones={};mdl.traverse(o=>{if(o.isBone)bones[o.name]=o});me.userData={model:mdl,bones,oy:0};
-for(const [n,f] of [['FlightPose','src/character/FlightPose.js'],['FlightFX','src/fx/FlightFX.js'],['CameraRig','src/camera/CameraRig.js'],['Viewmodel','src/combat/Viewmodel.js']])(0,eval)(R(f).replace('const '+n+'=','globalThis.'+n+'='));
+for(const [n,f] of [['FlightPose','src/character/FlightPose.js'],['FlightFX','src/fx/FlightFX.js'],['CameraRig','src/camera/CameraRig.js'],['Viewmodel','src/combat/Viewmodel.js'],['HitZones','src/combat/HitZones.js'],['CombatAnims','src/combat/CombatAnims.js'],['OutlawArena','src/games/OutlawArena.js']])(0,eval)(R(f).replace('const '+n+'=','globalThis.'+n+'='));
 (0,eval)(R('src/games/Outlaw.js').replace('const Outlaw=','globalThis.Outlaw='));Outlaw.build();
 
 // ================= 1. FLIGHT POSE on the real skeleton =================
@@ -60,7 +60,8 @@ const step=(n,fn)=>{for(let i=0;i<n;i++){const dt=1/60;fn&&fn(i);Outlaw.tick(dt,
 const fwdY=()=>camera.getWorldDirection(new T.Vector3()).y;
 S.flying=false;mdl.rotation.set(0,0,0);mdl.position.set(0,0,0);me.position.set(0,2,0);
 step(60);ok(me.visible&&!CameraRig.isFPS(),'unarmed: third-person orbit, avatar visible');
-Outlaw.equip(0);step(90);
+ok(CameraRig.view()==='tps','combat camera defaults to the over-the-shoulder view');
+Outlaw.equip(0);step(90);if(CameraRig.view()!=='fps'){CameraRig.toggleView();step(90)}
 ok(CameraRig.isFPS()&&!me.visible,'weapon out: first-person, own avatar hidden');
 ok(Math.abs(camera.position.y-(S.y+1.64))<.05&&Math.hypot(camera.position.x,camera.position.z)<.05,'camera sits at eye height (1.64 m)');
 S.pitch=-1.4;step(30);ok(fwdY()>.95,'can look straight up in first person');S.pitch=1.4;step(30);ok(fwdY()<-.95,'can look straight down');S.pitch=0;step(30);

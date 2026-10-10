@@ -20,9 +20,9 @@ const Space=(()=>{
   const BASE_NEAR=.1,BASE_FAR=4200,SPLIT_FROM=900;
   function profile(y,o){o=o||f;y=Math.max(0,y);o.alt=y;
     o.above=sm(900,3000,y);o.weather=1-sm(750,1300,y);o.thin=sm(900,20000,y);o.deep=sm(1500,20000,y);o.dark=sm(30000,100000,y);o.stars=sm(14000,100000,y);o.space=sm(40000,110000,y);o.quiet=sm(3000,45000,y);return o}
-  function update(dt,t){profile(S.y)}
+  function update(dt,t){profile(S.y);if(typeof SpaceObjects!=='undefined')SpaceObjects.update(dt,t)}
   // the two depth slices for an altitude (also used by the tests)
-  function slices(y){const part=Math.min(2400,Math.max(150,y*.03));return {part,farNear:part*.9,farFar:400000,nearNear:BASE_NEAR,nearFar:part}}
+  function slices(y){const part=Math.min(2400,Math.max(150,y*.03));return {part,farNear:part*.9,farFar:900000,nearNear:BASE_NEAR,nearFar:part}}
   function render(renderer,scene,camera){
     const y=camera.position.y;
     if(y<SPLIT_FROM){if(camera.near!==BASE_NEAR||camera.far!==BASE_FAR){camera.near=BASE_NEAR;camera.far=BASE_FAR;camera.updateProjectionMatrix()}renderer.render(scene,camera);return}
