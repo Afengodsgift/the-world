@@ -156,8 +156,10 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/combat/CombatAnims.js"></script>
 <script src="src/character/CombatPose.js"></script>
 <script src="src/combat/HitZones.js"></script>
+<script src="src/data/warden.js"></script>
 <script src="src/games/OutlawArena.js"></script>
 <script src="src/games/Outlaw.js"></script>
+<script src="src/games/WardenIsles.js"></script>
 <script src="src/world/Farm.js"></script>
 <script src="src/character/FlightPose.js"></script>
 <script src="src/fx/FlightFX.js"></script>
@@ -499,6 +501,8 @@ function H(x,z){
   {const ox=x-OUT.x,oz=z-OUT.z;if(ox*ox+oz*oz<OUT.R*OUT.R){ // Outlaw Isle relief (src/games/OutlawArena.js builds on it): Lookout Ridge west, Mine Mesa east
     let a=Math.hypot(ox+125,oz-35);h+=11*Math.exp(-a*a/1352);
     a=Math.hypot(ox-125,oz-15);h+=7*(1-sstep(24,36,a))}}
+  // WARDEN: appended after every existing terrain term; never returns early, never edits earlier lines. Skipped entirely unless WRD.on and (x,z) is inside the isle's reach.
+  {if(WRD.on){const wx=x-WRD.x,wz=z-WRD.z,w2=wx*wx+wz*wz;if(w2<WRD.reach*WRD.reach){const t=1-sstep(WRD.R,WRD.R+WRD.fall,Math.sqrt(w2));h=h*(1-t)+WardenH(wx,wz)*t}}}
   return h;
 }
 const TERRAIN_MATS=[];   // so the weather can make the ground wet (Environment.js)
@@ -640,7 +644,7 @@ function buildWorld(code){
   while(pts.length<40){const a=rng()*6.283,r=12+rng()*195,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<40&&dist(x,z)>45)pts.push([x,z])}
   for(const I of ISL)for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
-  buildRace();buildHunt();buildSeaLife();buildKartTrack();Tag.build();Outlaw.build();Farm.build();Soccer.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
+  buildRace();buildHunt();buildSeaLife();buildKartTrack();Tag.build();Outlaw.build();WardenIsles.build();Farm.build();Soccer.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
 }
 const S={x:0,y:0,z:0,vy:0,rot:0,yaw:0,pitch:.35,grounded:true,state:'idle',flying:false,kx:0,kz:0,hurt:0,iframe:0};
 
@@ -763,7 +767,7 @@ function explore(dt,t){
   orbs.forEach((o,i)=>{if(!o.on)return;o.m.rotation.y+=dt*2;o.m.position.y=o.y+Math.sin(t/400+i)*.15;
     if(Math.hypot(S.x-o.x,S.z-o.z)<1.6&&Math.abs(S.y+1-o.y)<2.2)take(i,true)});
   Interaction.update();
-  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);ringTick(t);sharkRunTick(t);slalomTick(t);dashTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);Farm.tick(dt,t);WorldMap.tick();
+  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);ringTick(t);sharkRunTick(t);slalomTick(t);dashTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);WardenIsles.tick(dt,t);Farm.tick(dt,t);WorldMap.tick();
   if(!race.on&&!hunt.on&&!slalom.on&&mk)mk.style.display='none';
   if(pulse>0){pulse=Math.max(0,pulse-dt);pil.material.emissive.setRGB(pulse*.6,pulse*.45,pulse*.1)}
 }
