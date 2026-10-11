@@ -15,6 +15,7 @@ const DEPS={ // file -> files that must come first
   'combat/Moves.js':[],'combat/SwordHit.js':[],'combat/CombatCore.js':['combat/Moves.js','combat/SwordHit.js'],'combat/WardenAnim.js':[],
   'combat/PlayerCombat.js':['combat/CombatCore.js','combat/Moves.js','combat/WardenAnim.js','data/warden.js'],
   'games/WardenIsles.js':['data/islands.js','data/warden.js','utils/math.js','combat/PlayerCombat.js'],
+  'combat/Scope.js':[],
   'combat/HitZones.js':[],
   'combat/EnemyAI.js':['combat/HitZones.js'],
   'combat/CombatAnims.js':[],

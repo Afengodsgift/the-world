@@ -38,7 +38,7 @@ const Outlaw=(()=>{
   const DIFF=[{n:'Normal',hp:1,dmg:1,cnt:1,coin:1},{n:'Hard',hp:1.4,dmg:1.25,cnt:1.3,coin:1.5},{n:'Outlaw',hp:2,dmg:1.6,cnt:1.7,coin:2.2}];
   const cover=[],npcs=new Map(),cache={};
   let wiped=false,clock=0,C=null,active=false,host=null,wave=0,kills=0,best=0,nextWave=0,queue=[],spawnT=0,nid=1,snapT=0;
-  let wi=-1,hp=100,down=false,downT=0,cdT=0,firing=false,pdown=false,pw=-1,hudEl,hpEl,xh,fireBtn,gunBtn,hitT=0,xSp=0,bloom=0,critT=0,huntT=0,huntOn=false,fx=[];
+  let wi=-1,hp=100,down=false,downT=0,cdT=0,firing=false,pdown=false,pw=-1,hudEl,hpEl,xh,fireBtn,gunBtn,hitT=0,xSp=0,bloom=0,critT=0,huntT=0,huntOn=false,scoped=false,scopeEl,scopeBtn,scopeRng,scopeT=0,fx=[];
   const prev={x:0,z:0,vx:0,vz:0},pprev={x:0,z:0,vx:0,vz:0};
   let diff=1,mode='survive',bank={x:0,z:0,hp:1500,max:1500},ammo=[],reloadT=0,reloading=false,dyn=[],drops=[],reloadBtn,shopEl,pick={m:'survive',d:1};
   let SAVE={coins:0,own:WEAPONS.map((_,i)=>FREE.includes(i)?1:0),lv:WEAPONS.map(()=>0),hp:0,mag:0,rl:0,crit:0,v:0};
@@ -130,7 +130,7 @@ const Outlaw=(()=>{
   const nextW=()=>{for(let i=wi+1;i<WEAPONS.length;i++)if(SAVE.own[i])return i;return -1};
   function equip(i){
     if(i>=0&&!SAVE.own[i]){banner('Locked. Buy it at the Gunsmith 🔫','GUNSMITH');return}
-    if(i===wi)i=-1;wi=i;reloading=false;if(i>=0&&panOn)togglePan();
+    if(scoped)setScope(false);if(i===wi)i=-1;wi=i;reloading=false;if(i>=0&&panOn)togglePan();
     setGun(me,i);send({k:'wg',i});updateHud()}
 
   // ---------- effects ----------
@@ -194,7 +194,14 @@ const Outlaw=(()=>{
   function aoe(pt,dmg,rad){ // explosion: damages every enemy near the impact point
     boom(pt[0],pt[2],rad*.8);OutlawArena.blast(pt[0],pt[2],rad,dmg*.6);
     for(const n of npcs.values()){if(n.dead||!n.group)continue;const p=n.group.position,d=Math.hypot(p.x-pt[0],p.y+1-pt[1],p.z-pt[2]);if(d<rad+1.5)reportHit(n.id,Math.max(1,Math.round(dmg*(1-d/(rad+1.5)))))}}
-  function reload(){if(wi<0||reloading||am(wi)>=magOf(wi))return;reloading=true;reloadT=WEAPONS[wi].rl*(1-.12*SAVE.rl);sfx('reload');updateHud()}
+  // ---- SCOPE: tap the scope button (or Z) to look down the sights; snipers (zoom >= 4) get the full lens view (see src/combat/Scope.js) ----
+  const scopeZ=()=>wi>=0?Scope.zoomOf(WEAPONS[wi].n):1,scopeLens=()=>scoped&&Scope.overlay(scopeZ());
+  function setScope(on){
+    if(wi<0||down||S.flying)on=false;on=!!on;if(on===scoped)return;scoped=on;const z=on?scopeZ():1;
+    CameraRig.setZoom(z,on&&Scope.overlay(z));S.lookK=on?Scope.lookK(z):1;
+    if(scopeEl){scopeEl.style.display=scopeLens()?'block':'none';scopeRng.textContent='';scopeEl.dataset.z=z>=4?z+'x':''}
+    if(scopeBtn)scopeBtn.style.outline=on?'3px solid #ffd24a':'none';sfx('click');updateHud()}
+  function reload(){if(wi<0||reloading||am(wi)>=magOf(wi))return;if(scoped)setScope(false);reloading=true;reloadT=WEAPONS[wi].rl*(1-.12*SAVE.rl);sfx('reload');updateHud()}
   function fire(){
     if(wi<0||down||!camera||reloading)return;const W=WEAPONS[wi];if(cdT>0)return;
     if(am(wi)<=0){reload();return}
@@ -202,11 +209,11 @@ const Outlaw=(()=>{
     camera.getWorldDirection(camDir);   // the aim is the camera's: what is under the crosshair is what you hit (the gun only has to have a clear line to it)
     const co=camera.position.clone().addScaledVector(camDir,Math.min(6,Math.hypot(camera.position.x-S.x,camera.position.y-(S.y+1.4),camera.position.z-S.z)));
     S.rot=Math.atan2(camDir.x,camDir.z);me.rotation.y=S.rot;
-    const M=CameraRig.isFPS()?Viewmodel.muzzleWorld(camera):muzzle(me,wi),o=new THREE.Vector3(M.x,M.y,M.z);
+    const M=scopeLens()?{x:camera.position.x+camDir.x*.5,y:camera.position.y-.08,z:camera.position.z+camDir.z*.5}:CameraRig.isFPS()?Viewmodel.muzzleWorld(camera):muzzle(me,wi),o=new THREE.Vector3(M.x,M.y,M.z);
     let anyHit=false,anyCrit=false,endp=null;
     // SPREAD: the first shot while standing still goes exactly where the reticle is (a tap on a head is a headshot); spread blooms while you keep firing and while you run.
     // Shotguns keep their pellet spread. (bloom 0..1: +per shot, decays in tick)
-    const mv=Math.min(1,Math.hypot(prev.vx||0,prev.vz||0)/6)*.35,spr=W.pel>1?W.sp:W.sp*(.15+.85*Math.min(1,bloom+mv));
+    const mv=Math.min(1,Math.hypot(prev.vx||0,prev.vz||0)/6)*.35,spr=(W.pel>1?W.sp:W.sp*(.15+.85*Math.min(1,bloom+mv)))*(scoped?Scope.spreadK(scopeZ()):1);
     for(let p=0;p<W.pel;p++){
       const d=camDir.clone();if(spr){d.x+=rnd(-spr,spr);d.y+=rnd(-spr,spr);d.z+=rnd(-spr,spr);d.normalize()}
       let wall=rayCover(co,d,W.rng),wc=rcHit,tn=wall,hit=null,zone=null;
@@ -471,7 +478,7 @@ const Outlaw=(()=>{
     if(!hudEl)return;hudEl.style.display=(wi>=0||active)?'block':'none';
     const pc=Math.max(0,hp/maxHp()*100);hpEl.style.width=pc+'%';hpEl.style.background=pc>50?'#5be37d':pc>25?'#ffcc4d':'#ff5050';
     $('owtxt').textContent=(wi>=0?WEAPONS[wi].n+' '+(reloading?'⏳ reloading':am(wi)+'/'+magOf(wi)):'Unarmed')+'  ·  🪙'+SAVE.coins+(active?'  ·  Wave '+wave+'  ·  ☠ '+kills+(mode==='defend'?'  ·  🏦 '+Math.round(bank.hp)+'/'+bank.max:''):'');
-    xh.style.display=wi>=0?'block':'none';fireBtn.style.display=wi>=0?'block':'none';reloadBtn.style.display=wi>=0?'block':'none';$('owview').style.display=wi>=0?'block':'none';
+    xh.style.display=wi>=0&&!scopeLens()?'block':'none';if(scopeBtn)scopeBtn.style.display=wi>=0?'block':'none';fireBtn.style.display=wi>=0?'block':'none';reloadBtn.style.display=wi>=0?'block':'none';$('owview').style.display=wi>=0?'block':'none';
   }
   function panel(html){
     if(!shopEl){shopEl=document.createElement('div');shopEl.className='veil';
@@ -507,7 +514,7 @@ const Outlaw=(()=>{
     if(hudEl)return;
     const st=document.createElement('style');st.textContent='#owhud{position:fixed;z-index:6;left:12px;top:calc(env(safe-area-inset-top,0px) + 88px);color:#fff;font-size:13px;text-shadow:0 1px 4px #000;pointer-events:none;display:none}#owhud .bar{width:150px;height:10px;background:#0008;border-radius:6px;overflow:hidden;margin-bottom:4px}#owhp{height:100%}'
       +'#owxh{position:fixed;z-index:6;left:50%;top:50%;width:0;height:0;pointer-events:none;display:none;--g:4px;transition:transform .08s}#owxh i{position:absolute;background:#fff;box-shadow:0 0 2px #000;opacity:.92}#owxh i:nth-child(1){left:-1px;top:calc(-1*var(--g) - 8px);width:2px;height:8px}#owxh i:nth-child(2){left:-1px;top:var(--g);width:2px;height:8px}#owxh i:nth-child(3){top:-1px;left:calc(-1*var(--g) - 8px);height:2px;width:8px}#owxh i:nth-child(4){top:-1px;left:var(--g);height:2px;width:8px}#owxh:after{content:\"\";position:absolute;left:-1px;top:-1px;width:2px;height:2px;border-radius:50%;background:#fff;box-shadow:0 0 2px #000}#owxh.hit i{background:#ff5a4e}#owxh.crit{transform:scale(1.4)}#owxh.crit i{background:#ffd24a}'
-      +'.owb{position:fixed;z-index:5;border-radius:50%;border:0;color:#fff;font-size:26px}#owfire{right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 232px);width:78px;height:78px;background:#e0443ecc;display:none;touch-action:none}#owview{right:264px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#bfe3ffcc}#owshop{right:200px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#ffd24acc}#owrl{right:136px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#ffffffcc}#owgun{right:200px;bottom:calc(env(safe-area-inset-bottom,0px) + 144px);width:56px;height:56px;background:#ffffffcc}';
+      +'.owb{position:fixed;z-index:5;border-radius:50%;border:0;color:#fff;font-size:26px}#owfire{right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 232px);width:78px;height:78px;background:#e0443ecc;display:none;touch-action:none}#owview{right:264px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#bfe3ffcc}#owshop{right:200px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#ffd24acc}#owrl{right:136px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#ffffffcc}#owscope{right:136px;bottom:calc(env(safe-area-inset-bottom,0px) + 276px);width:56px;height:56px;background:#9ad7ffcc;display:none}#owsc{position:fixed;inset:0;z-index:4;pointer-events:none;display:none;background:radial-gradient(circle at 50% 50%,transparent 0,transparent 42vh,rgba(0,0,0,.97) 42.7vh)}#owsc:before,#owsc:after{content:"";position:absolute;background:#000}#owsc:before{left:50%;top:calc(50% - 42vh);width:1.5px;height:84vh;transform:translateX(-50%)}#owsc:after{top:50%;left:calc(50% - 42vh);height:1.5px;width:84vh;transform:translateY(-50%)}#owsc i{position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px;border-radius:50%;background:#e8372c}#owsc b{position:absolute;left:50%;top:calc(50% + 34vh);transform:translateX(-50%);color:#fff;font:700 15px system-ui;text-shadow:0 0 4px #000;letter-spacing:.5px}#owsc em{position:absolute;left:calc(50% - 40vh);top:calc(50% - 3px);color:#ddd;font:700 11px system-ui;font-style:normal}#owgun{right:200px;bottom:calc(env(safe-area-inset-bottom,0px) + 144px);width:56px;height:56px;background:#ffffffcc}';
     document.head.appendChild(st);
     hudEl=document.createElement('div');hudEl.id='owhud';hudEl.innerHTML='<div class="bar"><div id="owhp" style="width:100%"></div></div><div id="owtxt"></div>';document.body.appendChild(hudEl);hpEl=$('owhp');
     xh=document.createElement('div');xh.id='owxh';xh.innerHTML='<i></i><i></i><i></i><i></i>';document.body.appendChild(xh);
@@ -516,6 +523,9 @@ const Outlaw=(()=>{
     const viewBtn=document.createElement('button');viewBtn.id='owview';viewBtn.className='owb';viewBtn.textContent='👁';document.body.appendChild(viewBtn);
     viewBtn.addEventListener('pointerdown',e=>{const v=CameraRig.toggleView();banner(v==='fps'?'First-person view':'Third-person view','CAMERA');e.preventDefault()});
     const shopBtn=document.createElement('button');shopBtn.id='owshop';shopBtn.className='owb';shopBtn.textContent='🛒';document.body.appendChild(shopBtn);shopBtn.addEventListener('pointerdown',e=>{shopPanel();e.preventDefault()});
+    scopeBtn=document.createElement('button');scopeBtn.id='owscope';scopeBtn.className='owb';scopeBtn.textContent='🔭';document.body.appendChild(scopeBtn);scopeBtn.addEventListener('pointerdown',e=>{setScope(!scoped);e.preventDefault()});
+    scopeEl=document.createElement('div');scopeEl.id='owsc';scopeEl.innerHTML='<i></i><b></b><em></em>';document.body.appendChild(scopeEl);scopeRng=scopeEl.querySelector('b');
+    addEventListener('keydown',e=>{if(e.code==='KeyZ'&&!/INPUT|TEXTAREA/.test((e.target||{}).tagName||''))setScope(!scoped)});
     gunBtn=document.createElement('button');gunBtn.id='owgun';gunBtn.className='owb';gunBtn.textContent='🔫';document.body.appendChild(gunBtn);
     { // HOLD FIRE + DRAG THE SAME THUMB = shoot while aiming: the button captures its pointer, so dragging keeps firing and turns the camera (no need to lift to look)
       let fid=null,fx0=0,fy0=0;fireBtn.style.touchAction='none';
@@ -531,7 +541,7 @@ const Outlaw=(()=>{
   }
 
   // ---------- messages ----------
-  function stopGame(){active=false;OutlawArena.reset();for(const n of npcs.values())removeVisual(n);npcs.clear();for(const d of drops)scene.remove(d.m);drops=[];for(const e of dyn){scene.remove(e.m);scene.remove(e.r)}dyn=[];updateHud()}
+  function stopGame(){active=false;if(scoped)setScope(false);OutlawArena.reset();for(const n of npcs.values())removeVisual(n);npcs.clear();for(const d of drops)scene.remove(d.m);drops=[];for(const e of dyn){scene.remove(e.m);scene.remove(e.r)}dyn=[];updateHud()}
   function onMsg(p){
     if(!p)return;
     if(p.k==='cv'||p.k==='cb'||p.k==='fr'||p.k==='rs'){OutlawArena.onMsg(p);return}
@@ -559,6 +569,7 @@ const Outlaw=(()=>{
 
   function tick(dt,t){
     if(!C||!me)return;ui();clock+=dt*1000;OutlawArena.tick(dt);if(dbgOn)zoneDebug();
+    if(scoped){if(down||wi<0||S.flying)setScope(false);else if(scopeLens()&&(scopeT-=dt)<=0){scopeT=.12;camera.getWorldDirection(camDir);const P=aimPoint(WEAPONS[wi].rng),r=Math.hypot(P.x-camera.position.x,P.y-camera.position.y,P.z-camera.position.z);scopeRng.textContent=r>=WEAPONS[wi].rng-.5?'-- m':Math.round(r)+' m';scopeEl.querySelector('em').textContent=scopeEl.dataset.z||''}}
     prev.vx=(S.x-prev.x)/Math.max(dt,.001);prev.vz=(S.z-prev.z)/Math.max(dt,.001);prev.x=S.x;prev.z=S.z;
     const p=partner();if(p){const g=p[1].group.position;pprev.vx=(g.x-pprev.x)/Math.max(dt,.001);pprev.vz=(g.z-pprev.z)/Math.max(dt,.001);pprev.x=g.x;pprev.z=g.z;if(p[1].group.userData.gunI!==pw)setGun(p[1].group,pw)}
     if(clock-lastH>100){lastH=clock;for(const id in hitBuf){send({k:'h',id:+id,d:hitBuf[id].d,z:hitBuf[id].z});delete hitBuf[id]}}
@@ -572,7 +583,7 @@ const Outlaw=(()=>{
       let ap=Math.atan2(tp.y-(S.y+1.3),Math.hypot(tp.x-S.x,tp.z-S.z)),face=Math.atan2(camDir.x,camDir.z);
       if(armed){S.rot=lerpAngle(S.rot,face,1-Math.exp(-18*dt));me.rotation.y=S.rot}  // the body always faces the crosshair
       me.userData.aimP=Math.max(-.7,Math.min(.7,ap))}
-    Viewmodel.update(dt,{vis:CameraRig.isFPS()&&wi>=0&&!down,wi,len:wi>=0?WEAPONS[wi].len:.5,reload:reloading&&wi>=0?1-reloadT/(WEAPONS[wi].rl*(1-.12*SAVE.rl)):-1});
+    Viewmodel.update(dt,{vis:CameraRig.isFPS()&&wi>=0&&!down&&!scopeLens(),wi,len:wi>=0?WEAPONS[wi].len:.5,reload:reloading&&wi>=0?1-reloadT/(WEAPONS[wi].rl*(1-.12*SAVE.rl)):-1});
     if(reloading){reloadT-=dt;if(reloadT<=0){reloading=false;if(wi>=0)ammo[wi]=magOf(wi);updateHud()}}
     dropTick(dt,t);dynTick(dt);
     if(down){downT-=dt;if(downT<=0)respawn()}

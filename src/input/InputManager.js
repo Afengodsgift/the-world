@@ -4,7 +4,7 @@
 // this is a straight relocation, not a redesign of how input works.
 const keys={};let stickV={x:0,y:0},jumpQ=false;
 // Camera look from a touch/mouse drag of (dx,dy) CSS pixels. Shared by the canvas look area and the Outlaw fire button (hold fire + drag = shoot while aiming).
-function lookBy(dx,dy,k){k=k||1;S.yaw-=dx*.006*k;const pr=typeof CameraRig!=='undefined'?CameraRig.pitchRange():[.05,1.2];S.pitch=Math.max(pr[0],Math.min(pr[1],S.pitch+dy*.005*k));S.lookT=performance.now()}
+function lookBy(dx,dy,k){k=(k||1)*(S.lookK||1);S.yaw-=dx*.006*k;const pr=typeof CameraRig!=='undefined'?CameraRig.pitchRange():[.05,1.2];S.pitch=Math.max(pr[0],Math.min(pr[1],S.pitch+dy*.005*k));S.lookT=performance.now()}
 function bindInput(){
   addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Space')jumpQ=true;if(e.code==='KeyE')doUse();if(e.code==='KeyB')S.boost=!S.boost;if(e.code==='KeyF')smack();if(e.code==='KeyQ')togglePan();if(e.code==='KeyG')openEmotes()});
   addEventListener('keyup',e=>keys[e.code]=false);

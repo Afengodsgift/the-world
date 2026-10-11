@@ -112,6 +112,12 @@ Outlaw Isle: stays specialized · Sky: wind currents, cloud platforms · Main: t
 - **Melee needs contact**: a brute cannot hit a player flying above it (vertical reach 2.6 m) and melee raiders prefer a target on the ground. Target choice already spreads raiders over both players.
 - **Walk/run cycles pack**: converted with assimp and baked with `tools/retarget_walk.js` (Mixamo map, yaw fix, in-place option; retarget error 3.3 deg mean). Not shipped: the 'segment' loops don't actually loop (hips/arms differ ~80 deg between first and last frame) and the treadmill takes are 16-24 s without clean cycle points. The tool is kept for when we cut proper loops.
 
+## Scopes (`src/combat/Scope.js`, `tests/scope.sim.js`)
+- Every gun has a zoom (Revolver/pistols 1.5-1.6x, SMGs 1.6x, shotguns 1.3-1.4x, Magnum 2.5x, AR-2/Bullpup 2.5x, Assault Rifle 3x, Rocket Launcher 2x, **Hunting Rifle 5x, Marksman 6x**). Tap the 🔭 button (or Z) to look down the sights; tap again, swap, reload, fly, go down or end the match to leave.
+- Zoom is a real zoom (FOV tangent / z, eased), look sensitivity drops with it (6x -> ~0.22, applied to both the look pad and the fire-thumb drag), aim is steadier (spread x0.3 at 4x+, x0.6 below).
+- Snipers (zoom >= 4) get the lens view: first person (your avatar and viewmodel hidden), black vignette lens, thin crosshair with a red dot, zoom label and a live range readout to whatever is under the crosshair; the normal reticle is hidden. Shots start at the eye there. Other guns just zoom without the lens.
+- Verified in the real game: 5x scope narrows the FOV 67 -> ~19 deg, a scoped headshot at 150 m kills a raider.
+
 ## Roadmap
 0 Net adapter ✔ · 1 WorldState + Journal ✔ · 2 Verbs v1 ✔ (cave interior still open) ·
 3 Link ✔ (twin plates, synced shrine; lockpick+lookout later) · 4 Event Director ✔ (meteor, visitor, golden rings; shark surge later) · 5 Zones (Storm Cay wind, Frost friction first) · 6 Home v1 (trophy shelf, aquarium) ·
