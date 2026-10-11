@@ -3,7 +3,7 @@
 // Now: each snapshot also updates a velocity estimate (blended to damp network jitter) and the chase target is dead-reckoned forward by up to
 // 0.18 s (incl. a 30 ms lead that cancels typical network latency), so the avatar keeps moving between packets at the right speed. Big jumps (travel / teleport) snap; airborne states extrapolate y but never below ground.
 const RemoteSmooth=(()=>{
-  const MAXEX=.18,LEAD=.03,MAXV=100,cl=(v,k)=>{const m=MAXV*(k||1);return v>m?m:v<-m?-m:v};
+  const MAXEX=.18,LEAD=.03,MAXV=240,cl=(v,k)=>{const m=MAXV*(k||1);return v>m?m:v<-m?-m:v};
   function snap(o,p,now){
     if(o.sT!==undefined){const dt=(now-o.sT)/1000,k=typeof SpaceFlight!=='undefined'?(SpaceFlight.moveMulRaw||SpaceFlight.moveMul)(p.y,Math.hypot(p.x,p.z)):1;   // up high everything moves k times faster
       if(Math.hypot(p.x-o.sx,p.z-o.sz)>40*k||Math.abs(p.y-o.sy)>40*k){o.vx=o.vy=o.vz=0;if(o.group)o.group.position.set(p.x,p.y,p.z)}   // travel / teleport: snap

@@ -5,6 +5,7 @@ const order=[...html.matchAll(/<script src="([^"]+)"/g)].map(m=>m[1].replace(/^s
 const DEPS={ // file -> files that must come first
   'world/Environment.js':['core/Audio.js'],
   'space/SpaceManager.js':['space/SpaceFlight.js'],
+  'movement/Boost.js':[],
   'space/SpaceEnvironment.js':['space/SpaceManager.js','world/Environment.js'],
   'space/SpaceEvents.js':['core/Net.js','core/WorldState.js'],
   'space/SpaceObjects.js':['space/SpaceEvents.js','space/SpaceManager.js','space/SpaceFlight.js','core/Audio.js'],
