@@ -66,9 +66,9 @@ const WardenIsles=(()=>{
   function tick(dt,t){
     if(!built)return;                                   // flag off => nothing runs
     const d=Math.hypot(S.x-WRD.x,S.z-WRD.z);
-    if(d>WRD.reach+200){if(farOn)farCull(false,t);fishVis(true);return}
+    if(d>WRD.reach+200){PlayerCombat.leave();if(farOn)farCull(false,t);fishVis(true);return}
     if(t-fc>300||!farOn){fc=t;farCull(true,t)}
-    inside=d<WARDEN.arenaR;fishVis(!inside);
+    inside=d<WARDEN.arenaR;fishVis(!inside);PlayerCombat.tick(dt,t);
     const k=.75+.25*Math.sin(t/110)+.1*Math.sin(t/37);for(let i=0;i<fire.length;i++)fire[i].scale.setScalar(.9+.18*Math.sin(t/130+i*1.7)*k);
   }
   return{build,tick,inArena:()=>inside,hidden:()=>hiddenN,arena:()=>T.arena,_t:()=>({built,added,fire,G})}})();

@@ -1,0 +1,28 @@
+/* WARDEN M1c: combat HUD + touch buttons. Only visible while body.warden-fight (set by PlayerCombat while you stand in the arena).
+   Variables (--J --B --F --S --SK --g --R0 --L0 --B0 --sl --sr --st --T) exist only inside the coarse-landscape block of index.html, so every use has a fallback. */
+body.warden-fight #owgun,body.warden-fight #owrl,body.warden-fight #owshop,body.warden-fight #owview,body.warden-fight #owfire,body.warden-fight #sockick,body.warden-fight #jump,body.warden-fight #boost,body.warden-fight #smack,body.warden-fight #use,body.warden-fight #emobtn,body.warden-fight #panbtn{display:none!important}
+#wh,#wc,#whint{display:none}
+body.warden-fight #wh{display:block}
+body.warden-fight #wc{display:block}
+body.warden-fight #whint{display:block}
+#wh{position:fixed;z-index:6;left:0;right:0;top:calc(var(--st,env(safe-area-inset-top,0px)) + 8px + var(--T,40px) + 10px);pointer-events:none;font:600 11px/1.2 system-ui,sans-serif;color:#eee;text-shadow:0 1px 3px #000}
+#wh .wb{position:absolute;display:grid;gap:3px}
+#wh .wb.p{left:calc(var(--sl,0px) + 12px);width:min(150px,22vw)}
+#wh .wb.d{left:50%;transform:translateX(-50%);width:min(300px,36vw);text-align:center}
+#wh .wb i{display:block;height:7px;border-radius:2px;background:#0008;box-shadow:0 0 0 1px #000a inset;position:relative;overflow:hidden}
+#wh .wb i b{position:absolute;left:0;top:0;bottom:0;width:100%;transform-origin:left;transition:none}
+#wh .hp b{background:#c23a32}#wh .st b{background:#79b94b}#wh .po b{background:#e0a935}
+#wh .wb.d.brk .po b{background:#fff}
+#wmsg{position:fixed;z-index:6;left:0;right:0;top:34%;text-align:center;font:700 18px system-ui,sans-serif;color:#ffd9a0;text-shadow:0 2px 6px #000;opacity:0;pointer-events:none;transition:opacity .25s}
+#wmsg.on{opacity:1}
+#wc button{position:fixed;z-index:6;border-radius:50%;padding:0;border:2px solid #fff6;background:#1c1c24cc;color:#fff;font:700 12px system-ui,sans-serif;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#wc button.dn{background:#8a2a2acc;border-color:#fffb}
+#wc #wGuard{right:var(--R0,24px);bottom:var(--B0,52px);width:var(--J,88px);height:var(--J,88px)}
+#wc #wDodge{right:calc(var(--R0,24px) + var(--J,88px) + var(--g,8px));bottom:var(--B0,52px);width:var(--J,88px);height:var(--J,88px)}
+#wc #wLight{right:var(--R0,24px);bottom:calc(var(--B0,52px) + var(--J,88px) + var(--g,8px));width:var(--F,70px);height:var(--F,70px)}
+#wc #wHeavy{right:calc(var(--R0,24px) + var(--J,88px) + var(--g,8px));bottom:calc(var(--B0,52px) + var(--J,88px) + var(--g,8px));width:var(--F,70px);height:var(--F,70px);background-image:conic-gradient(#ffb04a var(--chg,0deg),transparent 0)}
+#wc #wLock{left:var(--L0,16px);bottom:calc(var(--B0,52px) + var(--SK,110px) + var(--g,8px));width:max(48px,var(--S,48px));height:max(48px,var(--S,48px))}
+#wc #wLock.on{background:#2a5a8acc}
+#whint{position:fixed;z-index:6;left:12px;bottom:10px;font:11px system-ui,sans-serif;color:#fffb;text-shadow:0 1px 3px #000;pointer-events:none}
+@media (pointer:coarse){#whint{display:none!important}}
+@media (pointer:fine){#wc{display:none!important}}
