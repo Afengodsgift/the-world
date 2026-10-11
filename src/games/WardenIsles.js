@@ -2,7 +2,7 @@
 // Globals used: THREE, scene, H, K, WRD, WARDEN, WardenSolids, solids, LOCS, TERRAIN_MATS, StaticBatch, S, banner.
 // Terrain height comes from the WARDEN block appended to H() (so every system that samples H() - walking, flying, shadows - sees the same ground); this file only builds meshes and registers solids.
 const WardenIsles=(()=>{
-  let built=false,G=null,fire=[],inside=false,added=[];
+  let built=false,G=null,fire=[],inside=false,added=[],far=[],farT=-1e9,farOn=false,farN=0,hiddenN=0;
   const T={arena:{x:0,z:0,R:35}};
   const mat=(c,o)=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.95,flatShading:true},o||{}));
   function colour(h,x,z,sl,c){   // dark-fantasy palette: ash grass, wet stone, pale shore, cobbled courtyard
@@ -42,10 +42,33 @@ const WardenIsles=(()=>{
     T.arena={x:WRD.x,z:WRD.z,R:WARDEN.arenaR};
     const L=WARDEN.landing;LOCS.push({n:'The Warden Isles',x:WRD.x+L.x,z:WRD.z+L.z,r:L.r+30});
   }
+  // FAR CULL: while you are on the isle, anything wholly beyond the fog is invisible but would still be drawn (the main island alone is ~85% of the triangles seen from the arena).
+  // Hides only plain, fog-affected meshes whose whole bounding sphere is past the fog's far plane; restores them when you leave. Never touches Warden meshes, the sky, the sea,
+  // instanced/skinned/sprite/point objects (vegetation has its own vegCull) or anything with fog:false. Rebuilt every few seconds so late-added objects are covered.
+  const _b=new THREE.Box3(),_s=new THREE.Sphere();
+  function farList(){far=[];scene.updateMatrixWorld();scene.traverse(o=>{
+      if(!o.isMesh||o.isInstancedMesh||o.isSkinnedMesh||o.isSprite||!o.geometry)return;for(let p=o;p;p=p.parent)if(p===G)return;
+      const ms=Array.isArray(o.material)?o.material:[o.material];if(!ms.every(m=>m&&m.fog!==false))return;
+      _b.setFromObject(o);if(_b.isEmpty())return;_b.getBoundingSphere(_s);if(_s.radius>1500)return;far.push({o,x:_s.center.x,z:_s.center.z,r:_s.radius})})}
+  function farCull(on,t){
+    if(!on){if(farOn){if(typeof Env!=='undefined'&&Env.state.cloudLod===CLOUD_LOD)Env.state.cloudLod=1;for(const f of far)if(f.o.userData._wh){f.o.userData._wh=false;f.o.visible=true}farOn=false;hiddenN=0}return}
+    if(t-farT>8000||!farOn){for(const f of far)if(f.o.userData._wh){f.o.userData._wh=false;f.o.visible=true}farList();farT=t}
+    if(typeof Env!=='undefined')Env.state.cloudLod=CLOUD_LOD;   // the cloud deck is ~217k triangles (3 big instanced meshes, never culled): fewer clouds here, using Environment's own quality knob
+    farOn=true;const cx=camera.position.x,cz=camera.position.z,lim=(scene.fog?scene.fog.far:1700)*.97;hiddenN=0;
+    for(const f of far){const hide=Math.hypot(f.x-cx,f.z-cz)-f.r>lim,o=f.o;
+      if(hide){if(o.visible||o.userData._wh){o.visible=false;o.userData._wh=true;hiddenN++}}
+      else if(o.userData._wh){o.userData._wh=false;o.visible=true}}}
+  // Inside the walled courtyard you cannot see the sea, but SeaLife keeps up to 3x400 instanced fish (~217k triangles, never culled) alive. Hide them while inside; restore on leaving.
+  let fishHid=false;
+  function fishVis(show){if(typeof fishInst==='undefined'||!fishInst)return;if(show&&!fishHid)return;if(!show&&fishHid)return;
+    for(const k in fishInst){const im=fishInst[k]&&fishInst[k].im;if(im)im.visible=show}fishHid=!show}
+  const CLOUD_LOD=.3;let fc=-1e9;
   function tick(dt,t){
     if(!built)return;                                   // flag off => nothing runs
-    const d=Math.hypot(S.x-WRD.x,S.z-WRD.z);if(d>WRD.reach+60)return;
-    inside=d<WARDEN.arenaR;
+    const d=Math.hypot(S.x-WRD.x,S.z-WRD.z);
+    if(d>WRD.reach+200){if(farOn)farCull(false,t);fishVis(true);return}
+    if(t-fc>300||!farOn){fc=t;farCull(true,t)}
+    inside=d<WARDEN.arenaR;fishVis(!inside);
     const k=.75+.25*Math.sin(t/110)+.1*Math.sin(t/37);for(let i=0;i<fire.length;i++)fire[i].scale.setScalar(.9+.18*Math.sin(t/130+i*1.7)*k);
   }
-  return{build,tick,inArena:()=>inside,arena:()=>T.arena,_t:()=>({built,added,fire,G})}})();
+  return{build,tick,inArena:()=>inside,hidden:()=>hiddenN,arena:()=>T.arena,_t:()=>({built,added,fire,G})}})();
