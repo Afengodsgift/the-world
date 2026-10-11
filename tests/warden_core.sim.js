@@ -122,4 +122,7 @@ function fuzz(seed,N,T,sol){const r=lcg(seed);let h=2166136261,viol=0,dup=0;cons
   for(let t=0;t<400;t++){const cm={D:{list:t%70===1?[{t:'atk',m:['cut','twin','fall','thrust','riposte'][(r()*5)|0],hold:(r()*13)|0}]:[]},P:{list:r()<.05?[{t:r()<.5?'guardDown':'guardUp'}]:[]}};
     for(const e of C.step(cm)){if(e.t==='start')inst++;if(['hit','block','deflect'].includes(e.t)){const k=inst+':'+e.seg;if(key.has(k))dups++;key.set(k,1)}}}}
   ok(dups===0,'no duplicate outcome for the same attack segment ('+dups+')')}
+{const dmg=hold=>{const C=CC2.create({arena:{x:0,z:0,R:12}});C.add('P',{x:0,z:0,face:0,hp:1e5});C.add('D',{x:0,z:1.6,face:Math.PI,hp:1000});
+  let d=0;const run=cm=>{for(const e of C.step(cm))if(e.t==='hit')d+=e.dmg};run({P:{list:[{t:'heavyDown',e:0}]}});for(let i=0;i<hold;i++)run({});run({P:{list:[{t:'heavyUp'}]}});for(let i=0;i<80;i++)run({});return d};
+  const lo=dmg(20),hi=dmg(60);ok(Math.abs(lo-34*(1+.5*(2/27)))<1.5&&lo>=34,'heavy at minimum charge does >= base damage ('+lo.toFixed(1)+')');ok(Math.abs(hi-51)<.01,'heavy at full charge does 1.5x ('+hi.toFixed(1)+')')}
 process.exit(bad?1:0);
