@@ -105,6 +105,13 @@ Outlaw Isle: stays specialized · Sky: wind currents, cloud platforms · Main: t
 - **Brute**: base HP 120 -> 90; a hit interrupts its swing (0.35 s) so close-range fire is visibly effective; bloom now builds slower (first ~3 s of automatic fire stay accurate). Point-blank head/chest hits were verified to register (head 23, chest 15 with the pistol).
 - **Coins**: one-time grant of 1,000,000 coins per device save (SAVE.v 4).
 
+## Combat Feel V2 - slice 5: raider AI v2 (`src/combat/EnemyAI.js`, `tests/enemyai.sim.js`)
+- **Waves sized for the players**: solo opening waves are 6 / 8 / 9 raiders (was 4 / 6); two players x1.75 (11 / 14 / 16), a shotgunner already in wave 1, 2 spawn fronts from wave 1, a higher live cap.
+- **Roles**: bandits are grunts, flankers (curl round to a side until ~14 m) or riflemen (hold ~28 m, use cover more); shotgunners rush (no cover dance); snipers walk to high ground (`OutlawArena.perches()`: ridge top, mine mesa) and shoot from there.
+- **Cover works both ways**: vision and enemy shots are height-aware. A raider sees your head/chest if its eye has a clear line over cover; shots at a chest behind a crate hit the crate (and damage it), a head over it can be hit. Raiders crouch behind cover (the baked crouch clip; the bone-based hit zones follow the pose, so a crouched raider's head is hidden behind a 1.3 m crate) and stand up to peek/shoot.
+- **Melee needs contact**: a brute cannot hit a player flying above it (vertical reach 2.6 m) and melee raiders prefer a target on the ground. Target choice already spreads raiders over both players.
+- **Walk/run cycles pack**: converted with assimp and baked with `tools/retarget_walk.js` (Mixamo map, yaw fix, in-place option; retarget error 3.3 deg mean). Not shipped: the 'segment' loops don't actually loop (hips/arms differ ~80 deg between first and last frame) and the treadmill takes are 16-24 s without clean cycle points. The tool is kept for when we cut proper loops.
+
 ## Roadmap
 0 Net adapter ✔ · 1 WorldState + Journal ✔ · 2 Verbs v1 ✔ (cave interior still open) ·
 3 Link ✔ (twin plates, synced shrine; lockpick+lookout later) · 4 Event Director ✔ (meteor, visitor, golden rings; shark surge later) · 5 Zones (Storm Cay wind, Frost friction first) · 6 Home v1 (trophy shelf, aquarium) ·
