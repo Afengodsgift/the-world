@@ -14,7 +14,7 @@ const Ship=(()=>{
   const ship=Sailing.newShip(D.ship.x,D.ship.z,D.ship.h);                 // authoritative on the host, mirrored on the guest
   const pose={x:ship.x,z:ship.z,h:ship.h,y:C.sea-C.draft,pitch:0,roll:0,px:ship.x,pz:ship.z,ph:ship.h,py:C.sea-C.draft};  // what is drawn (p* = previous frame)
   let snap=null,snapAt=0,built=false,grp=null,hud=null,remote={rud:0,trim:0},raw={x:0,y:0},sendIn=0,wakeT=0;
-  const sails=[],flags=[],deckSolids=[],cache={};
+  const sails=[],flags=[],deckSolids=[],cache={},pending=[];                 // pending = every model load, so the loading screen can wait (whenReady)
   const now=()=>(typeof performance!=='undefined'?performance.now():Date.now())/1000;
   const isHost=()=>st.host===myId;
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -78,18 +78,18 @@ const Ship=(()=>{
     if(built)return;built=true;
     grp=new THREE.Group();grp.rotation.order='YXZ';scene.add(grp);
     // the sloop
-    model('ship-medium').then(m=>{if(!m)return;const o=m.clone(true);o.scale.setScalar(C.scale);
-      o.traverse(c=>{if(c.isMesh){c.castShadow=true;c.receiveShadow=true}if(/^sail/.test(c.name))sails.push({n:c,r:c.rotation.y});if(/^flag/.test(c.name))flags.push({n:c,r:c.rotation.y})});grp.add(o)});
-    put('compass_base',0,C.deckY*C.scale+1.0,C.stations.helm[1]-.3,2.2,0,grp,'assets/ships/kay/');                  // props at the wheel
-    put('lantern',1.3,C.deckY*C.scale,C.stations.helm[1]-1.1,2.0,0,grp,'assets/ships/kay/');
+    pending.push(model('ship-medium').then(m=>{if(!m)return;const o=m.clone(true);o.scale.setScalar(C.scale);
+      o.traverse(c=>{if(c.isMesh){c.castShadow=true;c.receiveShadow=true}if(/^sail/.test(c.name))sails.push({n:c,r:c.rotation.y});if(/^flag/.test(c.name))flags.push({n:c,r:c.rotation.y})});grp.add(o)}));
+    pending.push(put('compass_base',0,C.deckY*C.scale+1.0,C.stations.helm[1]-.3,2.2,0,grp,'assets/ships/kay/'));   // props at the wheel
+    pending.push(put('lantern',1.3,C.deckY*C.scale,C.stations.helm[1]-1.1,2.0,0,grp,'assets/ships/kay/'));
     // deck = three moving walkable circles
     for(const [x,z,r] of C.deck){const c={x:pose.x,z:pose.z,r,h:deckY(),deck:1,cx:x,cz:z};solids.push(c);deckSolids.push(c)}
     // pier: a ramp of deck circles from the beach up to deck height, tiles from the kit
     const ramp=[.3,.45,.6,.75];let i=0;
-    for(let z=D.z0+1.25;z<D.z1;z+=2.5,i++){const h=i<ramp.length?ramp[i]:D.top;solids.push({x:D.x,z,r:1.25,h,pier:1});put('structure-platform',D.x,h-.9,z,1,0)}
+    for(let z=D.z0+1.25;z<D.z1;z+=2.5,i++){const h=i<ramp.length?ramp[i]:D.top;solids.push({x:D.x,z,r:1.25,h,pier:1});pending.push(put('structure-platform',D.x,h-.9,z,1,0))}
     // harbor dressing
-    put('barrel',D.x-1.4,D.top,D.z0+4,.55,.4);put('barrel',D.x-1.6,D.top,D.z0+5.6,.5,1.2);put('crate',D.x+1.4,D.top,D.z0+4.5,.5,.2);put('chest',D.x+1.3,D.top,D.z0+7,.45,-.3);
-    put('map_rolled',D.x+1.4,D.top+1.55,D.z0+4.5,2.2,0.7,undefined,'assets/ships/kay/');
+    pending.push(put('barrel',D.x-1.4,D.top,D.z0+4,.55,.4),put('barrel',D.x-1.6,D.top,D.z0+5.6,.5,1.2),put('crate',D.x+1.4,D.top,D.z0+4.5,.5,.2),put('chest',D.x+1.3,D.top,D.z0+7,.45,-.3),
+      put('map_rolled',D.x+1.4,D.top+1.55,D.z0+4.5,2.2,0.7,undefined,'assets/ships/kay/'));
     const sg=new THREE.Mesh(new THREE.PlaneGeometry(4,1),label('⚓ HARBOR'));sg.position.set(D.x,D.top+3.2,D.z0+1);scene.add(sg);
     // hud + fallback styling (theme.css / index.html layout override the id rules)
     const css=document.createElement('style');css.textContent='#shhud{position:fixed;z-index:6;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 150px);padding:6px 14px;border-radius:14px;background:#000a;color:#fff;font:600 15px sans-serif;text-align:center;display:none;pointer-events:none;white-space:nowrap}@media (orientation:landscape) and (pointer:coarse){#shhud{top:calc(var(--st,0px) + 120px)}}';
@@ -148,7 +148,7 @@ const Ship=(()=>{
   Interaction.register('ship-helm','Take the helm',()=>built&&!st.role&&st.aboard&&nearHelm()&&(st.crew.helm==null||st.crew.helm===myId),()=>claim('helm'));
   Interaction.register('ship-leave','Leave the helm',()=>built&&!!st.role,release);
 
-  return {build,seated:()=>!!st.role,role:()=>st.role,
+  return {build,whenReady:()=>Promise.all(pending),seated:()=>!!st.role,role:()=>st.role,
     setInput(ix,iy){raw.x=ix;raw.y=iy},                           // called by the controller while seated: the stick drives the ship
     marks:()=>built?[{n:'Your ship',x:pose.x,z:pose.z,r:6,icon:'⛵',dyn:true}]:[],
     _s:st,_ship:ship,_pose:pose,_step:step,_net:onNet,_claim:claim,_release:release,_board:board,_wind:windNow,_decks:deckSolids,_onDeck:onDeck,_helmPos:helmPos,_raw:raw};

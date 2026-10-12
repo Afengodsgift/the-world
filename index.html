@@ -153,9 +153,13 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/combat/Melee.js"></script>
 <script src="src/interaction/InteractionManager.js"></script>
 <script src="src/games/Tag.js"></script>
+<script src="src/combat/CombatAnims.js"></script>
+<script src="src/character/CombatPose.js"></script>
 <script src="src/combat/HitZones.js"></script>
+<script src="src/data/warden.js"></script>
 <script src="src/games/OutlawArena.js"></script>
 <script src="src/games/Outlaw.js"></script>
+<script src="src/games/WardenIsles.js"></script>
 <script src="src/world/Farm.js"></script>
 <script src="src/character/FlightPose.js"></script>
 <script src="src/fx/FlightFX.js"></script>
@@ -204,7 +208,17 @@ const myId=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)
 if(THREE.ColorManagement)THREE.ColorManagement.legacyMode=false;
 function showErr(e){let d=document.getElementById('err');if(!d){d=document.createElement('div');d.id='err';d.style.cssText='position:fixed;z-index:99;left:8px;right:8px;top:110px;padding:10px;background:#5a0d0dcc;color:#fff;font:12px monospace;white-space:pre-wrap;word-break:break-all;pointer-events:none';document.body.appendChild(d)}const t=String(e&&(e.stack||e.message)||e).slice(0,300);if(!d.textContent.includes(t))d.textContent+=t+'\n';clearTimeout(d._t);d._t=setTimeout(()=>d.remove(),8000)}
 addEventListener('error',ev=>showErr(ev.error||ev.message));addEventListener('unhandledrejection',ev=>showErr(ev.reason));
-function boot(t){let d=document.getElementById('boot');if(!t){d&&d.remove();return}if(!d){d=document.createElement('div');d.id='boot';d.style.cssText='position:fixed;z-index:9;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px;font-style:italic;pointer-events:none;color:#fff';document.body.appendChild(d)}d.textContent=t}
+const nap=ms=>new Promise(r=>setTimeout(r,ms));
+// loading screen: boot('text',percent) shows/updates it, boot('') removes it. Opaque, so the half-built world is never visible.
+function boot(t,pct){let d=document.getElementById('boot');if(!t){d&&d.remove();return}if(!d){d=document.createElement('div');d.id='boot';d.style.cssText='position:fixed;z-index:60;inset:0;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;font-size:20px;font-style:italic;pointer-events:none;color:#fff;background:#0b1226';d.innerHTML='<div></div><div style="width:min(260px,60vw);height:6px;border-radius:4px;background:#ffffff26;overflow:hidden"><i style="display:block;height:100%;width:0;background:#8dd0ff;border-radius:4px;transition:width .35s"></i></div>';document.body.appendChild(d)}d.firstChild.textContent=t;if(pct!==undefined)d.lastChild.firstChild.style.width=pct+'%'}
+// Pre-draw everything once, behind the loading screen: compiles every shader and uploads all geometry/textures to the GPU now (including things off-screen and far vegetation cells),
+// instead of at the moment you first look at them. Restores culling/visibility afterwards.
+function warmUp(){
+  const saved=[];scene.traverse(o=>{if(o.isMesh||o.isPoints||o.isLine||o.isSprite){saved.push([o,o.frustumCulled]);o.frustumCulled=false}});
+  const vs=VEG.map(v=>[v.m,v.m.visible]);for(const v of VEG)v.m.visible=true;
+  try{renderer.compile(scene,camera);renderer.render(scene,camera);if(window.Viewmodel)Viewmodel.render(renderer,camera)}finally{
+    for(const [o,f] of saved)o.frustumCulled=f;for(const [m,v] of vs)m.visible=v;renderer.info.reset()}
+}
 const COLORS=['#ff6b8b','#ffb454','#6bd6ff','#8dff9a','#c08bff','#ffe66b'];
 const myColor=COLORS[Math.random()*COLORS.length|0];
 const SKINLABELS=['Man','Woman','Warrior','Robot'];
@@ -375,7 +389,7 @@ function emoStart(q,id){
 
 function animateClips(g,dt,st){
   const q=g.userData,A=q.nact,p=g.position;
-  const rawU=q.pp&&dt>0?Math.hypot(p.x-q.pp.x,p.z-q.pp.z)/dt:0,raw=Math.min(16,rawU);q.pp={x:p.x,z:p.z};
+  const mdx=q.pp?p.x-q.pp.x:0,mdz=q.pp?p.z-q.pp.z:0,rawU=q.pp&&dt>0?Math.hypot(p.x-q.pp.x,p.z-q.pp.z)/dt:0,raw=Math.min(16,rawU);q.pp={x:p.x,z:p.z};
   q.fs=(q.fs||0)+(rawU-(q.fs||0))*Math.min(1,dt*6);const sf=clamp(q.fs/70,0,1); // unclamped speed (flight is much faster than the 16 m/s clamp above)
   {const ly=q.lyaw===undefined?g.rotation.y:q.lyaw,yd=Math.atan2(Math.sin(g.rotation.y-ly),Math.cos(g.rotation.y-ly))/Math.max(dt,.001);q.yr=(q.yr||0)+(yd-(q.yr||0))*Math.min(1,dt*5);q.lyaw=g.rotation.y}const acc=(raw-(q.v||0))*10;q.v=(q.v||0)+(raw-(q.v||0))*Math.min(1,dt*10);const v=q.v;
   let want='idle',ts=1,fade=.18;
@@ -386,6 +400,11 @@ function animateClips(g,dt,st){
   else if(st==='walk'||st==='run'){const c=q.cur; // thresholds have hysteresis so it doesn't flicker between clips
     want=v<.4?'idle':(c==='sprint'?v>7.2:v>8.4)?'sprint':(c==='jog'?v>2.4:v>3.2)?'jog':'walk';
     ts=want==='walk'?clamp(v/1.06,.6,2.2):want==='jog'?clamp(v/5.8,.5,1.5):want==='sprint'?clamp(v/9,.8,1.7):1}
+  // armed: strafe / backpedal by twisting the legs (src/character/CombatPose.js) and stand in the pistol-ready stance instead of the relaxed idle
+  const armed=q.gunI>=0&&!q.noTwist&&st!=='fly'&&st!=='swim'&&st!=='jump'&&st!=='fall';   // q.noTwist: raiders keep the plain gait (the leg twist is for human players)
+  if(armed)CombatPose.plan(q,dt,mdx,mdz,v,g.rotation.y,st==='walk'||st==='run');else{q.cpT=0;q.cpRev=false}
+  if(q.cpRev&&LOCO[want])ts=-ts;
+  if(want==='idle'&&armed){const ca=CombatAnims.act(q,'cidle');if(ca){A.cidle=ca;want='cidle'}}
   const n=A[want];
   if(q.cur!==want){n.reset();if(LOCO[q.cur]&&LOCO[want]){const o=A[q.cur];n.time=o.time/o.getClip().duration*n.getClip().duration} // keep the stride phase when switching gait
     n.setEffectiveWeight(1);n.fadeIn(fade).play();if(q.cur)A[q.cur].fadeOut(fade);q.cur=want}
@@ -393,7 +412,7 @@ function animateClips(g,dt,st){
   // one-shot overlays
   const ov=(name,sp,w,fi)=>{const a=A[name]||emoAct(q,name);if(!a)return;a.reset();a.setEffectiveTimeScale(sp);a.setEffectiveWeight(.0001);a.play();(q.ov=q.ov||{})[name]={a,left:a.getClip().duration/sp,age:0,fi:Math.max(.04,fi),smax:w/(w+1)}};
   if((q.swing||0)>.9){emoStop(q);ov('smack',1.4,24,.05)}
-  if(q.hitReq){emoStop(q);q.hitReq=0;q.hitAlt=!q.hitAlt;ov(q.hitAlt&&A.hit2?'hit2':'hit',q.hitAlt?1.3:.9,24,.05)} // alternate two hit reactions
+  if(q.hitReq){emoStop(q);q.hitReq=0;q.hitAlt=!q.hitAlt;let hn=q.hitAlt&&A.hit2?'hit2':'hit';if(q.hitHead){q.hitHead=0;const ha=CombatAnims.act(q,'headhit');if(ha){A.headhit=ha;hn='headhit'}}ov(hn,q.hitAlt?1.3:.9,24,.05)} // alternate two hit reactions
   if(q.emote){const e=q.emote;q.emote=null;emoStop(q);ov(e,1.3,20,.1)}
   if(q.emoteReq){const e=q.emoteReq;q.emoteReq=null;if(st==='idle'||!q.hold)emoStart(q,e)}
   if(q.hold){const h=q.hold,now=performance.now()/1000;
@@ -412,7 +431,8 @@ function animateClips(g,dt,st){
    q.lz=(q.lz||0)+((gnd?-clamp(q.yr*.035,-.14,.14)*clamp(v/5,0,1):0)-(q.lz||0))*lk}
   q.model.rotation.set(q.lunge+(q.lx||0),0,q.lz||0);q.model.position.set(0,q.oy,0);        // base transform; FlightPose overrides it while flying
   q.model.scale.set(.5*(1+q.land*.3),.5*(1-q.land*.6),.5*(1+q.land*.3));
-  q.mixer.update(dt);
+  if(q.cpSaved)CombatPose.untwist(q);q.mixer.update(dt);
+  if(armed&&Math.abs(q.cpT||0)>.01)CombatPose.twist(q);   // legs twisted toward travel, torso back on the aim
   // procedural layers on top of the baked clips: flight (src/character/FlightPose.js) or a held weapon (Outlaw.poseGun)
   if(!FlightPose.apply(g,q,dt,st,{speed:q.fs,yawRate:q.yr})&&q.gunI>=0&&typeof Outlaw!=='undefined')Outlaw.poseGun(g,q,st,dt);
   FlightFX.avatar(g,q,dt);
@@ -484,6 +504,8 @@ function H(x,z){
   {const ox=x-OUT.x,oz=z-OUT.z;if(ox*ox+oz*oz<OUT.R*OUT.R){ // Outlaw Isle relief (src/games/OutlawArena.js builds on it): Lookout Ridge west, Mine Mesa east
     let a=Math.hypot(ox+125,oz-35);h+=11*Math.exp(-a*a/1352);
     a=Math.hypot(ox-125,oz-15);h+=7*(1-sstep(24,36,a))}}
+  // WARDEN: appended after every existing terrain term; never returns early, never edits earlier lines. Skipped entirely unless WRD.on and (x,z) is inside the isle's reach.
+  {if(WRD.on){const wx=x-WRD.x,wz=z-WRD.z,w2=wx*wx+wz*wz;if(w2<WRD.reach*WRD.reach){const t=1-sstep(WRD.R,WRD.R+WRD.fall,Math.sqrt(w2));h=h*(1-t)+WardenH(wx,wz)*t}}}
   return h;
 }
 const TERRAIN_MATS=[];   // so the weather can make the ground wet (Environment.js)
@@ -625,7 +647,7 @@ function buildWorld(code){
   while(pts.length<40){const a=rng()*6.283,r=12+rng()*195,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<40&&dist(x,z)>45)pts.push([x,z])}
   for(const I of ISL)for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
-  buildRace();buildHunt();buildSeaLife();buildKartTrack();Tag.build();Outlaw.build();Farm.build();Soccer.build();Ship.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
+  buildRace();buildHunt();buildSeaLife();buildKartTrack();Tag.build();Outlaw.build();WardenIsles.build();Farm.build();Soccer.build();Ship.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
 }
 const S={x:0,y:0,z:0,vy:0,rot:0,yaw:0,pitch:.35,grounded:true,state:'idle',flying:false,kx:0,kz:0,hurt:0,iframe:0};
 
@@ -633,15 +655,21 @@ let startGameRan=false;
 async function startGame(){
   if(startGameRan)return;startGameRan=true;
   $('lobby').style.display='none';
-  ['hud','stick'].forEach(i=>$(i).style.display=i==='hud'?'flex':'block');$('jump').style.display='block';$('panbtn').style.display=PAN_ENABLED?'block':'none';$('emobtn').style.display='block';setTimeout(()=>loadEmotes().catch(()=>{}),4000);
+  ['hud','stick'].forEach(i=>$(i).style.display=i==='hud'?'flex':'block');$('jump').style.display='block';$('panbtn').style.display=PAN_ENABLED?'block':'none';$('emobtn').style.display='block';
   renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   Perf.init(renderer);renderer.setSize(innerWidth,innerHeight);
   document.body.appendChild(renderer.domElement);
   camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,4200);
-  boot('Loading world…');
-  try{await Promise.race([Promise.all([loadAssets(),loadKartAssets(),loadChar().catch(e=>showErr('char: '+e))]),new Promise(r=>setTimeout(r,20000))])}catch(e){showErr(e)}
+  boot('Loading models…',4);
+  try{await Promise.race([Promise.all([loadAssets(),loadKartAssets(),loadChar().catch(e=>showErr('char: '+e))]),nap(20000)])}catch(e){showErr(e)}
+  boot('Building the world…',22);await nap(40);   // let the overlay paint before the heavy synchronous build
   try{buildWorld(roomCode);load();wsBoot()}catch(e){showErr(e);throw e}
-  boot('');
+  // Everything that used to load/build in the background AFTER you were already playing (the lag in the first ~20 s) now happens here, behind the loading screen.
+  // Each wait has a timeout so a slow connection can never trap you on this screen.
+  {const jobs=[loadPacks(),seaReady(),Farm.whenReady(),Ship.whenReady(),Promise.all([loadEmotes(),typeof VerbAnims!=='undefined'?VerbAnims.load():0,typeof CombatAnims!=='undefined'?CombatAnims.load():0])];let done=0;   // models, sea creatures, farm animals, animation files: all in parallel
+    boot('Loading islands and creatures…',40);
+    try{await Promise.race([Promise.all(jobs.map(p=>Promise.resolve(p).catch(()=>{}).then(()=>{done++;boot('Loading islands and creatures…',40+Math.round(done/jobs.length*28))}))),nap(30000)])}catch(e){showErr(e)}}
+  boot('Building the sky island…',70);await nap(40);try{buildSkyIsland()}catch(e){showErr(e)}
   me=makeAvatar(myName,myColor);scene.add(me);dress(me,mySkin);
   // spawn: slot by join order (offset so partners don't overlap)
   S.x=TOWN.x+(Math.random()-.5)*4;S.z=TOWN.z+7+(Math.random()-.5)*2;S.y=H(S.x,S.z)+.1;
@@ -651,9 +679,11 @@ async function startGame(){
   addEventListener('resize',fit);addEventListener('orientationchange',refit);if(window.visualViewport)visualViewport.addEventListener('resize',fit);
   bindInput();syncPresence();updateHud();
   history.replaceState(null,'','?room='+roomCode);
+  boot('Preparing graphics…',88);await nap(40);try{warmUp()}catch(e){showErr(e)}
+  try{StaticBatch.autoFreeze(scene)}catch(e){showErr(e)}   // freeze static scenery now (not 60 frames into the game)
+  boot('Ready',100);await nap(120);boot('');
   requestAnimationFrame(tick);
   setInterval(send,100);
-  loadPacks().then(()=>{try{buildSkyIsland();updateHud()}catch(e){showErr(e)}}); // the floating island needs the nature+village kits (3.4 MB), so it is built after the world is already playable
   setTimeout(()=>banner('Jump, then tap Jump again in the air to fly','TIP'),6000);
   setTimeout(()=>banner('Glowing beams on the horizon are new islands','TIP'),40000);
 }
@@ -741,7 +771,7 @@ function explore(dt,t){
   orbs.forEach((o,i)=>{if(!o.on)return;o.m.rotation.y+=dt*2;o.m.position.y=o.y+Math.sin(t/400+i)*.15;
     if(Math.hypot(S.x-o.x,S.z-o.z)<1.6&&Math.abs(S.y+1-o.y)<2.2)take(i,true)});
   Interaction.update();
-  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);ringTick(t);sharkRunTick(t);slalomTick(t);dashTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);Farm.tick(dt,t);WorldMap.tick();
+  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);ringTick(t);sharkRunTick(t);slalomTick(t);dashTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);WardenIsles.tick(dt,t);Farm.tick(dt,t);WorldMap.tick();
   if(!race.on&&!hunt.on&&!slalom.on&&mk)mk.style.display='none';
   if(pulse>0){pulse=Math.max(0,pulse-dt);pil.material.emissive.setRGB(pulse*.6,pulse*.45,pulse*.1)}
 }

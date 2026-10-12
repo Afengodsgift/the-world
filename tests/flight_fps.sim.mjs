@@ -19,14 +19,14 @@ const html=R('index.html'),grab=(a,b)=>{const i=html.indexOf(a),j=html.indexOf(b
 for(const n of ['_qa','_qb','_qm'])globalThis[n]=new T.Quaternion();for(const n of ['_v1','_v2'])globalThis[n]=new T.Vector3();
 (0,eval)(grab('function aim(b,c,dir)','function pose(q,st,dt)').replace('function aim','globalThis.aim=function aim'));
 globalThis.lerpAngle=(a,b,t)=>{let d=b-a;d=Math.atan2(Math.sin(d),Math.cos(d));return a+d*t};
-globalThis.mulberry=globalThis.mulberry||(s=>{let a=s;return()=>{a=(a*16807)%2147483647;return a/2147483647}});globalThis.H=()=>2;globalThis.solids=[];globalThis.scene=new T.Scene();globalThis.camera=new T.PerspectiveCamera(65,390/844,.1,3000);
+globalThis.AURL=globalThis.AURL||'assets/';globalThis.fetch=globalThis.fetch&&0||(()=>Promise.reject(new Error('no network in test')));globalThis.mulberry=globalThis.mulberry||(s=>{let a=s;return()=>{a=(a*16807)%2147483647;return a/2147483647}});globalThis.H=()=>2;globalThis.solids=[];globalThis.scene=new T.Scene();globalThis.camera=new T.PerspectiveCamera(65,390/844,.1,3000);
 globalThis.S={x:0,y:2,z:0,yaw:0,pitch:.4,rot:0,flying:false,grounded:true,gboost:0,kx:0,kz:0,hurt:0,vy:0};globalThis.myId='A';globalThis.others=new Map();globalThis.chan={send(){}};
 globalThis.banner=()=>{};globalThis.chime=()=>{};globalThis.WAudio={get:()=>null,resume:()=>null,out:()=>null};globalThis.panOn=false;globalThis.togglePan=()=>{};globalThis.Interaction={register(){}};globalThis.makeAvatar=()=>new T.Group();globalThis.dress=()=>{};globalThis.animate=()=>{};
 globalThis.OUT={x:5000,z:5000,y:2,clear:1};
 const load=async f=>{const b=fs.readFileSync(path.join(ROOT,f));return new Promise(r=>new GLTFLoader().parse(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'',r))};
 const gl=await load('assets/char.glb');const mdl=gl.scene;mdl.scale.setScalar(.5);globalThis.me=new T.Group();me.add(mdl);scene.add(me);
 const bones={};mdl.traverse(o=>{if(o.isBone)bones[o.name]=o});me.userData={model:mdl,bones,oy:0};
-for(const [n,f] of [['FlightPose','src/character/FlightPose.js'],['FlightFX','src/fx/FlightFX.js'],['CameraRig','src/camera/CameraRig.js'],['Viewmodel','src/combat/Viewmodel.js'],['HitZones','src/combat/HitZones.js'],['OutlawArena','src/games/OutlawArena.js']])(0,eval)(R(f).replace('const '+n+'=','globalThis.'+n+'='));
+for(const [n,f] of [['FlightPose','src/character/FlightPose.js'],['FlightFX','src/fx/FlightFX.js'],['CameraRig','src/camera/CameraRig.js'],['Viewmodel','src/combat/Viewmodel.js'],['HitZones','src/combat/HitZones.js'],['CombatAnims','src/combat/CombatAnims.js'],['OutlawArena','src/games/OutlawArena.js']])(0,eval)(R(f).replace('const '+n+'=','globalThis.'+n+'='));
 (0,eval)(R('src/games/Outlaw.js').replace('const Outlaw=','globalThis.Outlaw='));Outlaw.build();
 
 // ================= 1. FLIGHT POSE on the real skeleton =================

@@ -6,6 +6,10 @@ const ISL=[{n:'Ember Isle',x:-1400,z:-850,R:320,pk:55,c:'#ff6a3d'},{n:'Sunken Is
 // Outlaw Isle: dedicated island for the Outlaw Town shooter. Terrain is flattened to y near the center; vegetation is cleared within `clear`.
 const OUT={x:-600,z:-1250,R:230,y:3.2,clear:175}; // clear: no trees/rocks within this radius (the arena in src/games/OutlawArena.js lives there; vegetation add() skips without touching the rng stream)
 ISL.push({n:'Outlaw Isle',x:OUT.x,z:OUT.z,R:OUT.R,pk:0,c:'#e0a040'});
+// WARDEN: The Warden Isles (combat island). Deliberately NOT in ISL: ISL drives world-gen scatter, shard/hunt placement and terrain() calls, and adding to it would shift the seeded rng stream.
+// Terrain is a blend appended to the end of H() (see index.html), gated by WRD.on (default false; ?warden=1 turns it on until the owner approves enabling it). reach = R + fall.
+const WRD={x:150,z:-2450,R:210,fall:24,reach:234,on:false};
+try{WRD.on=/[?&]warden=1(&|$)/.test(location.search)}catch(e){}
 const KT={x:760,z:1400,hw:95,hh:65,rc:34};
 // (The Floating Island's x/z below is a spot on its path, so Travel lands you on solid ground.)
 const LOCS=[{n:'Town Square',x:25,z:62,r:16},{n:'Whispering Forest',x:-110,z:40,r:45},{n:'Shell Beach',x:0,z:182,r:26},{n:'Sky Peak',x:0,z:-137,r:22,y:32},{n:'The Cave',x:18,z:-88,r:9}].concat(ISL.map(I=>({n:I.n,x:I.x,z:I.z,r:I.R*.7}))).concat([{n:'The Floating Island',x:SKY.x+50,z:SKY.z+6,r:SKY.R*.8,y:SKY.base+6}]);
