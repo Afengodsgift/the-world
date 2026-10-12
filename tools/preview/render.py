@@ -21,6 +21,6 @@ for a in sys.argv[3:]:
 names=[v for v in sys.argv[3:] if v in VIEWS] or list(VIEWS)
 for n in names:
     cam,tg,fov=VIEWS[n]; p=os.path.join(outdir,n+'.ppm')
-    args=['/tmp/raster',tris,p,str(W*2),str(H*2)]+[str(x) for x in cam+tg]+[str(fov),'0.5','0.62','0.32','1.0','0.81','0.89','0.95']
+    args=['/tmp/raster',tris,p,str(W*2),str(H*2)]+[str(x) for x in cam+tg]+[str(fov),*(['0.35','0.45','0.2','0.28','0.03','0.05','0.12'] if os.environ.get('NIGHT') else ['0.5','0.62','0.32','1.0','0.81','0.89','0.95'])]
     subprocess.run(args,check=True); im=Image.open(p).resize((W,H),Image.LANCZOS); im.save(os.path.join(outdir,n+'.png')); os.remove(p)
 print('rendered',names)

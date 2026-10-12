@@ -43,43 +43,59 @@ const WardenAnim=(()=>{
     if(f.guard){_o.a=P.ready;_o.b=P.guard;_o.u=ease(gT/5);return _o}
     return _o}
 
-  // ---------- REAL CLIPS (assets/warden_anims.json, baked from the Universal Animation Library by tools/retarget_ual.js, loaded when you enter the arena) ----------
-  // Attack clips are SCRUBBED by the combat sim: the clip time is a piecewise-linear function of the sim tick (knots below), so the visible cut lands exactly on the sim's active window
-  // and a hit-stop freezes the picture. Layers are blended with the game's own base layer by per-clip weights (Blend.w), the same way emote overlays are.
-  const SEQ={   // k = [simTick, clipSeconds] knots over the concatenated pair a + b. light: 10 startup / 4 active / 16 recovery ticks; heavy: 14 / 5 / 30
-    light_b:{a:'w_b',la:.53,b:'w_b_rec',k:[[0,0],[10,.25],[14,.5],[30,1.45]]},
-    light_h:{a:'w_hook',la:.47,b:'w_hook_rec',k:[[0,0],[10,.2],[14,.4],[30,1.05]]},
-    heavy:{a:'w_a',la:.43,b:'w_a_rec',k:[[0,.43],[14,.6],[19,.88],[49,1.4]]}};
-  const NAMES=['w_idle','w_idle_up','w_a','w_a_rec','w_b','w_b_rec','w_hook','w_hook_rec','w_block'];
-  const CL={st:'none',A:{},ws:{},blockT:0,sw:0,lastLight:-1e9};   // st: none|loading|ready|failed
-  function knot(k,t){if(t<=k[0][0])return k[0][1];for(let i=1;i<k.length;i++)if(t<=k[i][0]){const a=k[i-1],b=k[i],f=(t-a[0])/(b[0]-a[0]);return a[1]+(b[1]-a[1])*f}return k[k.length-1][1]}
-  function load(q){
-    if(CL.st!=='none'||!q.mixer)return;CL.st='loading';
-    fetch('assets/warden_anims.json').then(r=>r.json()).then(j=>{for(const c of j){if(NAMES.indexOf(c.name)<0)continue;const ac=THREE.AnimationClip.parse(c);ac.name=c.name;const a=q.mixer.clipAction(ac);a.enabled=false;a.setEffectiveWeight(.0001);CL.A[c.name]=a;CL.ws[c.name]=0}
-      CL.st='ready'}).catch(()=>{CL.st='failed'})}
-  const ready=()=>CL.st==='ready';
-  // choose the sequence for the next light attack: B and the hook alternate when chained within 1.3 s, otherwise start with B
-  function nextLight(nowS){const v=nowS-CL.lastLight<1.3&&CL.sw===0?1:0;CL.sw=v;CL.lastLight=nowS;return v?'light_h':'light_b'}
-  // f = sim fighter, seqName = current light variant, fr = fraction of the next tick already elapsed (0..1), moving = player is walking, dt = frame seconds
-  function update(q,f,seqName,fr,moving,dt,on){
-    if(!ready())return false;const A=CL.A,tgt={},tm={};for(const n of NAMES)tgt[n]=0;
-    let fight=on&&f.act!=='dead'&&f.act!=='dodge'&&f.act!=='stun';
-    const place=(sq,u)=>{if(u<sq.la){tgt[sq.a]=1;tm[sq.a]=u}else{tgt[sq.b]=1;tm[sq.b]=Math.min(u-sq.la,A[sq.b].getClip().duration-.001)}};
-    if(fight){
-      if(f.act==='charge'){const sq=SEQ.heavy;place(sq,sq.la*ease(f.c/16))}
-      else if(f.act==='attack'&&f.ph&&f.ph[f.pi]){let t=f.pk+fr;for(let i=0;i<f.pi;i++)t+=f.ph[i].n;const sq=f.mv&&f.mv.id==='heavy'?SEQ.heavy:SEQ[seqName]||SEQ.light_b;place(sq,knot(sq.k,t))}
-      else if(f.guard&&f.act==='free'){tgt.w_block=1;CL.blockT+=(.42-CL.blockT)*Math.min(1,dt*14);tm.w_block=CL.blockT}
-      else{tgt[moving?'w_idle_up':'w_idle']=1;CL.blockT=0}
-    }
-    if(!(f.guard&&f.act==='free')&&CL.ws.w_block>.01){CL.blockT=Math.min(1.2,Math.max(CL.blockT,.42)+dt*2.2);tm.w_block=CL.blockT}   // releasing: play the block clip out while its weight fades
-    let sum=0;const k=1-Math.exp(-dt*22);
-    for(const n of NAMES){CL.ws[n]+=(tgt[n]-CL.ws[n])*k;if(CL.ws[n]<.01&&tgt[n]===0)CL.ws[n]=0;sum+=CL.ws[n]}
-    const tot=Math.min(1,sum),W=Blend.w(tot);let any=false;
-    for(const n of NAMES){const a=A[n],r=CL.ws[n];
-      if(r<=0){if(a.enabled){a.enabled=false;a.setEffectiveWeight(.0001)}continue}
-      any=true;if(!a.enabled){a.enabled=true;a.play();if(n!=='w_idle'&&n!=='w_idle_up'){a.paused=true}}
-      a.setEffectiveWeight(W*r/sum||.0001);if(tm[n]!==undefined){a.paused=true;a.time=tm[n]}}
-    if(any)q.mixer.update(0);   // re-evaluate the pose with the new weights/times right now (no one-frame lag)
-    return any}
-  function off(){for(const n of NAMES){const a=CL.A[n];if(a&&a.enabled){a.enabled=false;a.setEffectiveWeight(.0001)}CL.ws[n]=0}CL.blockT=0}
-  return{POSES:P,mix,copy,apply,target,ease,Clips:{load,ready,update,off,nextLight,SEQ,state:CL}}})();
+  // ---------- REAL CLIPS (assets/warden_anims.json, baked by tools/retarget_ual.js from the Universal Animation Library + KayKit; ~320 KB, fetched once when the Warden Isles are built) ----------
+  // Attack clips are SCRUBBED by the combat sim: each sim phase maps onto a slice of a clip pair (see MAP), so the visible blade lands exactly in the sim's active window,
+  // a hit-stop freezes the picture, and a long Duelist tell is a long visible wind-up. One instance per avatar (player, Duelist); the parsed clips are shared.
+  const PAIR={b:{a:'w_b',la:.53,b:'w_b_rec'},h:{a:'w_hook',la:.47,b:'w_hook_rec'},a:{a:'w_a',la:.43,b:'w_a_rec'}};   // a = clip, then its recovery clip appended after it (la = length of a)
+  const MAP={   // move key -> per-phase [pair, u0, u1] in the order of Moves[...].phases (u = seconds along pair.a followed by pair.b)
+    light_b:[['b',0,.25],['b',.25,.5],['b',.5,1.45]],
+    light_h:[['h',0,.2],['h',.2,.4],['h',.4,1.05]],
+    heavy:[['a',.43,.6],['a',.6,.88],['a',.88,1.4]],
+    cut:[['b',0,.25],['b',.25,.5],['b',.5,1.45]],
+    fall:[['a',0,.43],['a',.43,.43],['a',.43,.6],['a',.6,.88],['a',.88,1.4]],
+    thrust:[['h',0,.2],['h',.2,.4],['h',.4,.5],['h',.5,1.05]],
+    twin:[['b',0,.25],['b',.25,.5],['b',.5,.8],['h',.2,.4],['h',.4,1.05]],
+    riposte:[['h',0,.2],['h',.2,.42],['h',.42,1.05]]};
+  const NAMES=['w_idle','w_arms','w_a','w_a_rec','w_b','w_b_rec','w_hook','w_hook_rec','w_block','w_back','w_sl','w_sr'];
+  const DIRS=['w_back','w_sl','w_sr'];
+  const SH={st:'none',clips:null,p:null};
+  function fetchClips(){if(!SH.p)SH.p=fetch('assets/warden_anims.json').then(r=>r.json()).then(j=>{SH.clips={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=c.name;SH.clips[c.name]=ac}SH.st='ready'}).catch(e=>{SH.st='failed';SH.p=null;throw e});return SH.p}
+  const moveKey=(f,variant)=>{const id=f.mv&&f.mv.id;return id==='light'?variant:id};
+  // one animation controller per avatar. q = avatar.userData (needs .mixer).
+  function make(q){
+    const I={st:'none',A:{},ws:{},blockT:0,sw:0,lastLight:-1e9,ready:()=>I.st==='ready',variant:'light_b'};
+    fetchClips().then(()=>{for(const n of NAMES){const a=q.mixer.clipAction(SH.clips[n]);a.enabled=false;a.setEffectiveWeight(.0001);I.A[n]=a;I.ws[n]=0}I.st='ready'}).catch(()=>{I.st='failed'});
+    // B and the hook alternate when chained within 1.3 s, otherwise start with B
+    I.nextLight=nowS=>{const v=nowS-I.lastLight<1.3&&I.sw===0?1:0;I.sw=v;I.lastLight=nowS;I.variant=v?'light_h':'light_b';return I.variant};
+    // f = sim fighter, fr = elapsed fraction of the next tick (0..1), loco = {moving, vf, vs} (m/s along / left of his facing), dt = frame seconds, on = in a fight
+    I.update=(f,fr,loco,dt,on)=>{
+      if(I.st!=='ready')return false;const A=I.A,tgt={},tm={},tsc={};for(const n of NAMES)tgt[n]=0;
+      const fight=on&&f.act!=='dead'&&f.act!=='dodge'&&f.act!=='stun';let arms=false;
+      const place=(pr,u)=>{const P2=PAIR[pr];if(u<P2.la){tgt[P2.a]=1;tm[P2.a]=u}else{tgt[P2.b]=1;tm[P2.b]=Math.min(u-P2.la,A[P2.b].getClip().duration-.001)}};
+      if(fight){
+        if(f.act==='charge')place('a',.43*ease(f.c/16));
+        else if(f.act==='attack'&&f.ph&&f.ph[f.pi]){const m=MAP[moveKey(f,I.variant)],e=m&&m[f.pi];
+          if(e){const n=f.ph[f.pi].n||1,p=Math.min(1,(f.pk+fr)/n);place(e[0],e[1]+(e[2]-e[1])*p)}}
+        else if(f.guard&&f.act==='free'){tgt.w_block=1;I.blockT+=(.42-I.blockT)*Math.min(1,dt*14);tm.w_block=I.blockT}
+        else if(loco&&loco.moving){
+          const sp=Math.max(.01,Math.hypot(loco.vf,loco.vs)),bk=Math.max(0,-loco.vf)/sp,l=Math.max(0,loco.vs)/sp,r=Math.max(0,-loco.vs)/sp,k=bk+l+r;
+          if(k>1e-3){const n=k>1?k:1;tgt.w_back=bk/n;tgt.w_sl=l/n;tgt.w_sr=r/n;tgt.w_back=Math.min(tgt.w_back,.9);tgt.w_sl=Math.min(tgt.w_sl,.9);tgt.w_sr=Math.min(tgt.w_sr,.9)}
+          arms=true;I.blockT=0;const ts=Math.max(.5,Math.min(1.6,sp/3.2));for(const n of DIRS)tsc[n]=ts}
+        else{tgt.w_idle=1;I.blockT=0}
+      }
+      if(!(f.guard&&f.act==='free')&&I.ws.w_block>.01){I.blockT=Math.min(1.2,Math.max(I.blockT,.42)+dt*2.2);tm.w_block=I.blockT}   // releasing: play the block clip out while its weight fades
+      // smooth the weights; the direction clips are shares of the locomotion layer (forward is the game's own gait underneath), everything else is a share of the whole pose
+      const k=1-Math.exp(-dt*22);let sum=0,dirSum=0;
+      for(const n of NAMES){if(n==='w_arms')continue;const isD=DIRS.indexOf(n)>=0;I.ws[n]+=(tgt[n]-I.ws[n])*(isD?1-Math.exp(-dt*10):k);if(I.ws[n]<.01&&tgt[n]===0)I.ws[n]=0;if(isD)dirSum+=I.ws[n];else sum+=I.ws[n]}
+      I.ws.w_arms+=((arms?1:0)-I.ws.w_arms)*(1-Math.exp(-dt*12));if(I.ws.w_arms<.01&&!arms)I.ws.w_arms=0;
+      const tot=Math.min(1,sum),W=Blend.w(tot);let any=false;
+      for(const n of NAMES){const a=A[n],r=I.ws[n];
+        if(r<=0){if(a.enabled){a.enabled=false;a.setEffectiveWeight(.0001)}continue}
+        let w;if(n==='w_arms')w=Blend.w(.86*r);else if(DIRS.indexOf(n)>=0)w=Blend.w(Math.min(.95,r));else w=sum>0?W*r/sum:0;
+        any=true;if(!a.enabled){a.enabled=true;a.play();a.paused=tm[n]!==undefined}
+        a.setEffectiveWeight(w||.0001);if(tm[n]!==undefined){a.paused=true;a.time=tm[n]}else{a.paused=false;if(tsc[n])a.setEffectiveTimeScale(tsc[n])}}
+      if(any)q.mixer.update(0);   // re-evaluate the pose with the new weights/times right now (no one-frame lag)
+      return any};
+    I.off=()=>{for(const n of NAMES){const a=I.A[n];if(a&&a.enabled){a.enabled=false;a.setEffectiveWeight(.0001)}I.ws[n]=0}I.blockT=0};
+    return I}
+  return{POSES:P,mix,copy,apply,target,ease,Clips:{make,fetch:fetchClips,MAP,PAIR,shared:SH}}})();

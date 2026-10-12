@@ -26,11 +26,16 @@ const mk=(dt=1/60)=>{const B=load(),S={flying:true,boost:false,hurt:0},t={now:0}
  ok(dec&&mul[mul.length-1]<1.2,'then it tapers smoothly back toward normal (no abrupt stop)');
  ok(g.B.holdsBoost()&&g.B.view.burst>0,'recovery still counts as boosting (camera/FOV ease back instead of snapping)');
  g.run(g.B.CFG.recover+.05);ok(g.mode()==='ready'||g.B.state.cd>0,'recovery ends and the ability returns')}
+// 4b) the burst lasts: seconds, not a blink, with a plateau at peak speed
+{const g=mk();g.hold(.18+g.B.CFG.chargeT);g.rel();const dur=g.B.state.dur;let atPeak=0,t=0;const peak=g.B.state.peak;
+ while(g.mode()==='burst'&&t<10){g.B.update(g.S,1/60);t+=1/60;if(g.B.speedMul()>=peak*.995)atPeak+=1/60}
+ ok(dur>=3&&dur<=3.6,'a full-charge burst lasts '+dur.toFixed(1)+' s');ok(atPeak>=.38*dur-.3,'and holds peak speed for '+atPeak.toFixed(2)+' s before tapering');
+ const h=mk();h.hold(.18+h.B.CFG.chargeT*.4);h.rel();ok(h.B.state.ev===1&&h.B.state.dur>=1.4,'even a minimum burst lasts '+h.B.state.dur.toFixed(1)+' s')}
 // 5) full charge: bigger and longer; fires itself; cannot get stuck
 {const g=mk();g.B.press();g.run(.18+g.B.CFG.chargeT+g.B.CFG.fullHold+.1);ok(g.mode()==='burst'&&g.B.state.launch>.99,'held at full charge it fires by itself (you cannot get stuck charging)');
- const peakFull=g.B.state.peak,dur=g.B.state.dur;ok(peakFull>=3.19&&dur>=1.1,'full charge: '+peakFull.toFixed(1)+'x (='+(peakFull*70).toFixed(0)+' m/s) for '+dur.toFixed(2)+' s');
+ const peakFull=g.B.state.peak,dur=g.B.state.dur;ok(peakFull>=3.19&&dur>=3,'full charge: '+peakFull.toFixed(1)+'x (='+(peakFull*70).toFixed(0)+' m/s) for '+dur.toFixed(2)+' s');
  g.run(3);ok(g.mode()!=='charging'&&g.B.state.ev===1,'still holding the button after an auto-fire does NOT start charging again (must let go first)');
- g.rel();g.run(.5);g.hold(.18+.1);ok(g.mode()==='charging','after letting go, charging is available again')}
+ g.rel();g.run(g.B.state.dur+g.B.CFG.recover+g.B.CFG.cooldown+.1);g.hold(.18+.1);ok(g.mode()==='charging','after letting go and the burst ending, charging is available again')}
 {const g=mk();g.B.CFG.fullHold=99;g.B.press();g.run(g.B.CFG.maxHold+.1);ok(g.B.state.ev===1,'maxHold is a hard cap even if the charge never reaches full')}
 // 6) interruptions
 {const g=mk();g.hold(.6);g.S.flying=false;g.run(.02);ok(g.mode()==='ready'&&g.B.view.charge===0,'landing / entering water cancels a charge');
@@ -43,7 +48,7 @@ const mk=(dt=1/60)=>{const B=load(),S={flying:true,boost:false,hurt:0},t={now:0}
  const h=mk();h.hold(.18+.7);h.rel();h.B.press();h.run(.3);ok(h.mode()!=='charging','you cannot start a new charge in the middle of a burst')}
 // 8) forward drive and rates
 {const g=mk();g.hold(.18+.7);g.rel();ok(g.B.driving()&&g.B.upRate(4)===g.B.CFG.upRate,'during the burst you are driven forward and accelerate hard');
- g.run(2);ok(!g.B.driving()&&g.B.upRate(4)===4,'afterwards flight returns to normal rates');
+ g.run(g.B.state.dur+.1);ok(!g.B.driving()&&g.B.upRate(4)===4,'afterwards flight returns to normal rates');
  const c=mk();c.hold(.5);ok(c.B.downRate(3.2)===c.B.CFG.brakeRate&&!c.B.driving(),'while charging you brake harder than a normal glide-out and are not driven')}
 // 9) frame-rate independence: same hold, 30 / 60 / 144 fps give the same result
 {const res=[30,60,144].map(f=>{const g=mk(1/f);g.hold(.18+.7);const c=g.B.state.charge;g.rel();g.run(.2);return {c,m:g.B.speedMul(),mode:g.mode()}});
