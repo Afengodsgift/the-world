@@ -119,8 +119,8 @@ const PlayerCombat=(()=>{
       else if(e.t==='posturebreak'&&e.d==='D'){msg('POSTURE BROKEN');tone(500,120,.3,'sawtooth',.12)}
       else if(e.t==='posturebreak'&&e.d==='P'){msg('POSTURE BROKEN',.8);tone(300,90,.3,'sawtooth',.12)}
       else if(e.t==='guardbreak'){tone(250,70,.3,'sawtooth',.14)}
-      else if(e.t==='dead'&&e.d==='D'){msg('THE DUELIST IS FELLED',3);tone(200,40,.5,'sawtooth',.14);lock=false;el.querySelector('#wLock').classList.remove('on');state='won';stateT=0;if(duel)duel.userData.emoteReq='playdead'}
-      else if(e.t==='dead'&&e.d==='P'){msg('YOU DIED',3);tone(180,35,.6,'sawtooth',.16);state='lost';stateT=0}}}
+      else if(e.t==='dead'&&e.d==='D'){msg('THE DUELIST IS FELLED',3);tone(200,40,.5,'sawtooth',.14);lock=false;el.querySelector('#wLock').classList.remove('on');state='won';stateT=performance.now();if(duel)duel.userData.emoteReq='playdead'}
+      else if(e.t==='dead'&&e.d==='P'){msg('YOU DIED',3);tone(180,35,.6,'sawtooth',.16);state='lost';stateT=performance.now()}}}
   function locoOf(v,x,z,face,dt){   // smoothed world velocity -> speed + components along / to the left of the facing
     if(!v.init||dt<=0){v.x=x;v.z=z;v.init=true;v.vf=v.vs=v.sp=0;return}
     const k=Math.min(1,dt*10),vx=(x-v.x)/dt,vz=(z-v.z)/dt;v.x=x;v.z=z;const fx=Math.sin(face),fz=Math.cos(face),f=vx*fx+vz*fz,l=vx*fz-vz*fx;   // left = (cos, -sin)
@@ -131,7 +131,7 @@ const PlayerCombat=(()=>{
     if(d>WARDEN.arenaR+1.5||S.flying||S.state==='swim'){leave();return}
     ensureAvatars();if(duel)duel.visible=true;
     // end-of-fight handling: 3 s after a result the fight restarts (the player keeps their position)
-    stateT+=dt;if(state!=='fight'&&stateT>(state==='won'?5:3.2)){newFight();msg('Again.',1)}
+    if(state!=='fight'&&performance.now()-stateT>(state==='won'?5000:3200)){newFight();msg('Again.',1)}
     // 1) hand the sim the player's current position, run the due ticks, apply the forced motion back to S
     P.x=S.x;P.z=S.z;lx=S.x;lz=S.z;
     const held=nt=>{const f=lock&&D.act!=='dead'?heading():pendT>0&&pendFace!==null?pendFace:S.rot;if(pendT>0)pendT--;
