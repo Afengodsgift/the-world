@@ -6,11 +6,7 @@
 const PlayerCombat=(()=>{
   const PC={_pose:null,ai:true};   // _pose=[nameA,nameB,u]: test hook that pins the procedural pose layer; ai=false: the Duelist stands still (tests / practice)
   const SPD=5,GSPD=2.5,CSPD=2;                       // m/s: free walk, guarding, charging a heavy
-<<<<<<< HEAD
   let on=false,C=null,ST=null,P=null,D=null,t0=0,lx=0,lz=0,lock=false,pendFace=null,pendT=0;
-=======
-  let lightSeq='light_b',on=false,C=null,ST=null,P=null,D=null,t0=0,lx=0,lz=0,lock=false,pendFace=null,pendT=0,hint=0;
->>>>>>> origin/main
   const down={guard:false,heavy:false};              // logical button state (what the sim was told)
   const ptr={};                                       // touch: button -> pointerId
   let el=null,duel=null,duelBuilt=false,dHome=null,dFlash=0,sword=null,swordTried=false,dSword=null,dSwordTried=false,pAnim=null,dAnim=null,AI=null,fightN=0,state='fight',stateT=0,lastEv=[];
@@ -100,22 +96,14 @@ const PlayerCombat=(()=>{
     if(duel&&duel.userData.mixer&&typeof emoStop==='function')emoStop(duel.userData);
     if(el)el.querySelector('#wLock').classList.remove('on')}
   function enter(){
-<<<<<<< HEAD
     if(on)return;if(!el)build();buildDuelist();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenAnim.Clips.fetch().catch(()=>{});
-=======
-    if(on)return;if(!el)build();if(!dum)buildDummy();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenAnim.Clips.load(me.userData);
->>>>>>> origin/main
     const A={x:WRD.x,z:WRD.z,R:WARDEN.arenaR-.5};C=CombatCore.create({arena:A,solids:WardenSolids()});ST=CombatCore.stepper(C,6);t0=performance.now();
     C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100});C.add('D',{x:0,z:0});fightN=0;newFight();
     lx=S.x;lz=S.z;on=true;lock=false;document.body.classList.add('warden-fight');stW=0;gT=0;lastEv=[];ensureAvatars();if(sword&&sword.grip)sword.grip.visible=true;if(dSword&&dSword.grip)dSword.grip.visible=true;if(duel)duel.visible=true;
     msg('The Warden Isles · The Duelist',2.2)}
   function leave(){
-<<<<<<< HEAD
     if(!on)return;releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;if(dSword&&dSword.grip)dSword.grip.visible=false;if(duel)duel.visible=false;pendFace=null;
     if(pAnim)pAnim.off();if(dAnim)dAnim.off()}
-=======
-    if(!on)return;releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword)sword.grip.visible=false;if(dum)dum.visible=false;pendFace=null;WardenAnim.Clips.off()}
->>>>>>> origin/main
   // ---------- per frame ----------
   function speedMul(sprint){
     if(!on||!P)return 1;const base=sprint?12:6;if(P.act==='dead')return 0;
@@ -123,11 +111,7 @@ const PlayerCombat=(()=>{
   function events(evs){
     if(PC._log)for(const e of evs)if(e.t!=='hitstop')PC._log.push(e);
     for(const e of evs){
-<<<<<<< HEAD
       if(e.t==='start'){if(e.a==='P'){if(e.move==='light'&&pAnim)pAnim.nextLight(performance.now()/1000);tone(e.move==='heavy'?220:380,e.move==='heavy'?90:150,e.move==='heavy'?.18:.1,'triangle',.1)}else tone(160,70,.16,'sawtooth',.07)}
-=======
-      if(e.t==='start'&&e.a==='P'){if(e.move==='light')lightSeq=WardenAnim.Clips.nextLight(performance.now()/1000);tone(e.move==='heavy'?220:380,e.move==='heavy'?90:150,e.move==='heavy'?.18:.1,'triangle',.1)}
->>>>>>> origin/main
       else if(e.t==='dodge'&&e.a==='P')tone(200,80,.14,'sine',.08);
       else if(e.t==='hit'){if(e.d==='D'){dFlash=1;tone(140,50,.14,'square',.14);if(e.crit)msg('CRITICAL');if(duel)duel.userData.hitReq=1}else{tone(110,40,.18,'square',.16);if(e.d==='P'&&P.hp>0)msg('',0)}}
       else if(e.t==='block')tone(420,260,.1,'square',.1);
@@ -167,7 +151,6 @@ const PlayerCombat=(()=>{
     const fr=C.hs>0?0:Math.max(0,Math.min(1,now()/16.6667-ST.skew-C.tick));
     locoOf(pv,S.x,S.z,S.rot,dt);const ploco={moving:pv.sp>.8&&P.act==='free',vf:pv.vf,vs:pv.vs};
     gT=P.guard?gT+1:0;const o=PC._pose?{a:WardenAnim.POSES[PC._pose[0]],b:WardenAnim.POSES[PC._pose[1]],u:PC._pose[2],w:1}:WardenAnim.target(P,gT);WardenAnim.mix(o.a,o.b,o.u,tg);stW+=((o.w)-stW)*Math.min(1,dt*10);
-<<<<<<< HEAD
     {const k=Math.min(1,dt*40);for(const kk of['ru','rf','lu','lf'])cur[kk].lerp(tg[kk],k).normalize();cur.tw+=(tg.tw-cur.tw)*k;cur.ln+=(tg.ln-cur.ln)*k}
     const used=pAnim?pAnim.update(P,fr,ploco,dt,true):false;if(!used&&!PC._skip)WardenAnim.apply(me.userData,cur,stW);
     duelistTick(dt,fr);
@@ -180,9 +163,3 @@ const PlayerCombat=(()=>{
     if(dAnim)dAnim.update(D,fr,dloco,dt,true);
     dFlash=Math.max(0,dFlash-dt*5);if(duel.userData.model)duel.userData.model.traverse(c=>{if(c.isSkinnedMesh&&c.material&&c.material.emissive)c.material.emissive.setRGB(dFlash*.7,dFlash*.25,dFlash*.1)})}
   return Object.assign(PC,{setSeq:v=>{if(pAnim)pAnim.variant=v},tick,speedMul,press,release,enter,leave,on:()=>on,GRIP,setGrip:()=>{setGrip(sword);setGrip(dSword)},newFight,_t:()=>({on,C,P,D,lock,sword,dSword,duel,AI,state,cur,stW,down,pAnim,dAnim})})})();
-=======
-    const k=Math.min(1,dt*40);for(const kk of['ru','rf','lu','lf'])cur[kk].lerp(tg[kk],k).normalize();cur.tw+=(tg.tw-cur.tw)*k;cur.ln+=(tg.ln-cur.ln)*k;
-    {const fr=C.hs>0?0:Math.max(0,Math.min(1,now()/16.6667-ST.skew-C.tick)),mv=(me.userData.v||0)>.8,used=WardenAnim.Clips.update(me.userData,P,lightSeq,fr,mv,dt,true);if(!used&&!PC._skip)WardenAnim.apply(me.userData,cur,stW)}
-    dummyTick(dt);hud();if(msgT>0){msgT-=dt;if(msgT<=0)el.querySelector('#wmsg').classList.remove('on')}}
-  return Object.assign(PC,{setSeq:v=>{lightSeq=v},tick,speedMul,press,release,enter,leave,on:()=>on,GRIP,setGrip,_t:()=>({on,C,P,D,lock,sword,cur,stW,down})})})();
->>>>>>> origin/main
