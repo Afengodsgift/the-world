@@ -18,7 +18,7 @@ function SKYH(dx,dz){const d=Math.hypot(dx,dz);return d<=skyRim(Math.atan2(dz,dx
 function SKYG(dx,dz){ // ground you can stand on: the main island, the satellite, or nothing (step off the edge and you fall)
   const d=Math.hypot(dx,dz);if(d<=skyRim(Math.atan2(dz,dx))-.2)return skyTop(dx,dz);
   const c=satCentre(),ex=dx-c.x,ez=dz-c.z;if(Math.hypot(ex,ez)<=skyRim2(Math.atan2(ez,ex))-.2)return skyTop2(ex,ez);return -Infinity}
-const skyAnim={roofs:[],floaters:[],smoke:[],glow:[],flames:[],falls:[],bob:[],recv:[],tier:0,slow:0,fast:0,lastT:0,mul:1};
+const skyAnim={mist:[],lamps:[],ffly:null,roofs:[],floaters:[],smoke:[],glow:[],flames:[],falls:[],bob:[],recv:[],tier:0,slow:0,fast:0,lastT:0,mul:1};
 function _hash3(x,y,z){const s=Math.sin(x*127.1+y*311.7+z*74.7)*43758.5453;return s-Math.floor(s)}
 function _noise3(x,y,z){const xi=Math.floor(x),yi=Math.floor(y),zi=Math.floor(z),xf=x-xi,yf=y-yi,zf=z-zi,u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf),w=zf*zf*(3-2*zf),L=(a,b,t)=>a+(b-a)*t;
   return L(L(L(_hash3(xi,yi,zi),_hash3(xi+1,yi,zi),u),L(_hash3(xi,yi+1,zi),_hash3(xi+1,yi+1,zi),u),v),L(L(_hash3(xi,yi,zi+1),_hash3(xi+1,yi,zi+1),u),L(_hash3(xi,yi+1,zi+1),_hash3(xi+1,yi+1,zi+1),u),v),w)}
@@ -81,12 +81,16 @@ function _updateChunks(){ // called every frame while the island is within range
   const mul=skyAnim.mul,tier=skyAnim.tier;
   for(const c of _chunks){const dx=c.x-cp.x,dy=c.y-cp.y,dz=c.z-cp.z,d=Math.hypot(dx,dy,dz);c.im.visible=!(tier>=2&&c.lim<=90)&&d<c.lim*mul+c.r&&(d<c.r+25||(dx*f.x+dy*f.y+dz*f.z)/d>cs-c.r/d*1.1)}}
 let _cdir=null;
+let _softT=null;
+function _soft(){if(_softT)return _softT;const cv=document.createElement('canvas');cv.width=cv.height=64;const c=cv.getContext('2d');if(c.createRadialGradient){const g=c.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(.45,'rgba(255,255,255,.45)');g.addColorStop(1,'rgba(255,255,255,0)');c.fillStyle=g;c.fillRect(0,0,64,64)}_softT=new THREE.CanvasTexture(cv);return _softT}
 function buildSkyIsland(){
   const n0=scene.children.length;
   const r=mulberry(20261004),R=SKY.R,base=SKY.base,TAU=Math.PI*2,HX=SKYI.HX,HZ=SKYI.HZ,S2=satCentre(),ab=SKYI.ab,dir={x:Math.cos(ab),z:Math.sin(ab)},pad=SKYI.pad;
   const stdM=c=>new THREE.MeshLambertMaterial({color:c,flatShading:true});
   const rockMat=new THREE.MeshLambertMaterial({vertexColors:true,flatShading:true});
   const Y=new THREE.Vector3(0,1,0);
+  const glowAt=(x,y,z,size)=>{const m=new THREE.SpriteMaterial({map:_soft(),color:'#ffcf80',transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,fog:true}),sp=new THREE.Sprite(m);sp.position.set(x,y,z);sp.scale.setScalar(size);scene.add(sp);skyAnim.lamps.push({sp,m,ph:r()*6.28,k:.85})};
+  const lantern=(par,x,y,z)=>{place(par,'lantern',x,y,z,0,2.6);glowAt(x,y+3.55,z,9)}; // night: a warm halo at the lamp head
   // ---- layout: village hub, paths ----
   const plazaC={x:HX,z:HZ+17},P0={x:dir.x*(skyRim(ab)-5),z:dir.z*(skyRim(ab)-5)};
   const bez=(a,c,b,n)=>{const o=[];for(let i=0;i<=n;i++){const t=i/n,u=1-t;o.push({x:u*u*a.x+2*u*t*c.x+t*t*b.x,z:u*u*a.z+2*u*t*c.z+t*t*b.z})}return o};
@@ -112,6 +116,7 @@ function buildSkyIsland(){
   for(let i=0;i<14;i++){const a=r()*TAU,rr=R*(1.05+r()*.5),s=1.6+r()*7,m=new THREE.Mesh(new THREE.IcosahedronGeometry(s,0),i%3?rockC:stdM('#74798a'));
     const y0=base-55+r()*85;m.position.set(SKY.x+Math.cos(a)*rr,y0,SKY.z+Math.sin(a)*rr);m.rotation.set(r()*3,r()*3,r()*3);m.scale.set(1,.7+r()*.5,1);m.castShadow=true;scene.add(m);skyAnim.floaters.push({m,y0,ph:r()*TAU,sp:.25+r()*.35,amp:.8+r()*1.8,rs:(r()-.5)*.25})}
   // ---- cottages from the village kit ----
+  const winM=new THREE.MeshBasicMaterial({color:'#ffcf78',transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,fog:true});skyAnim.lamps.push({m:winM,k:.9,ph:0,win:true});
   const COT_S=1.35,mossRoof=new THREE.MeshLambertMaterial({color:'#6f9d3a',flatShading:true});
   function cottage(par,cx,cz,y,ry,W2,D2,o){ // W2 x D2 wall modules (2 m each, drawn at COT_S x); front (door) faces +z locally
     const g=new THREE.Group();g.position.set(cx,y,cz);g.rotation.y=ry;par.add(g);const rg=new THREE.Group();rg.position.copy(g.position);rg.rotation.y=ry;par.add(rg);const hw=W2,hd=D2,WH=3.12;
@@ -119,6 +124,11 @@ function buildSkyIsland(){
     for(let i=0;i<W2;i++){const x=-hw+1+2*i;P(i===(W2>>1)?'Wall_Plaster_Door_Round':'Wall_Plaster_Window_Wide_Round',x,0,hd,0);P(i===(W2>>1)?'Wall_Plaster_Window_Thin_Round':'Wall_Plaster_Straight',x,0,-hd,Math.PI)}
     for(let j=0;j<D2;j++){const z=-hd+1+2*j;P(j===1?'Wall_Plaster_Window_Thin_Round':'Wall_Plaster_Straight',hw,0,z,Math.PI/2);P(j===D2-2?'Wall_Plaster_Window_Wide_Round':'Wall_Plaster_Straight',-hw,0,z,-Math.PI/2)}
     for(const [x,z] of [[hw,hd],[-hw,hd],[hw,-hd],[-hw,-hd]])P('Corner_Exterior_Wood',x,0,z,0);
+    { // glowing windows at night: a warm additive pane just outside each window
+      const wg=new THREE.Group();wg.position.set(cx,y,cz);wg.rotation.y=ry;scene.add(wg);skyAnim.winGroups=(skyAnim.winGroups||[]);skyAnim.winGroups.push(wg);
+      const pane=(x,z,rot,w)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(w*COT_S,1.55*COT_S),winM);m.position.set(x*COT_S+Math.sin(rot)*.09,1.75*COT_S,z*COT_S+Math.cos(rot)*.09);m.rotation.y=rot;wg.add(m)};
+      for(let i=0;i<W2;i++){const x=-hw+1+2*i;if(i!==(W2>>1))pane(x,hd,0,1.35);else pane(x,-hd,Math.PI,.8)}
+      for(let j=0;j<D2;j++){const z=-hd+1+2*j;if(j===1)pane(hw,z,Math.PI/2,.8);if(j===D2-2)pane(-hw,z,-Math.PI/2,1.35)}}
     const roof=PR(W2===3?'Roof_RoundTiles_6x8':'Roof_RoundTiles_4x6',0,WH,0,0);if(roof&&o.moss)roof.traverse(c=>{if(c.isMesh)c.material=mossRoof});
     PR(W2===3?'Roof_Front_Brick6':'Roof_Front_Brick4',0,WH,hd,0);PR(W2===3?'Roof_Front_Brick6':'Roof_Front_Brick4',0,WH,-hd,Math.PI);
     PR('Prop_Chimney',-hw*.42,WH+1.7,-hd*.25,0);
@@ -168,7 +178,7 @@ function buildSkyIsland(){
    place(VG,'cart',SKY.x+pc.x+3,skyTop(pc.x+3,pc.z-9),SKY.z+pc.z-9,.6,2.2);solids.push({x:SKY.x+pc.x+3,z:SKY.z+pc.z-9,r:1.8});
    place(VG,'Prop_Wagon',SKY.x+pc.x-12,skyTop(pc.x-12,pc.z+7),SKY.z+pc.z+7,2.2,1.2);solids.push({x:SKY.x+pc.x-12,z:SKY.z+pc.z+7,r:1.8});
    for(const [dx,dz] of [[-10.5,-3],[-6.6,-3],[-10.4,-4.2],[9.5,-4],[10.8,-3]]){const x=pc.x+dx,z=pc.z+dz;place(VG,'Prop_Crate',SKY.x+x,skyTop(x,z),SKY.z+z,r()*3,.9);solids.push({x:SKY.x+x,z:SKY.z+z,r:.8,h:skyTop(x,z)+1})}
-   for(const [lx,lz] of [[pc.x+6,pc.z+6],[pc.x-6,pc.z+6],[pc.x+6,pc.z-6],[pc.x-6,pc.z-6],[HX-9,HZ+9],[HX+10,HZ+9]]){place(VG,'lantern',SKY.x+lx,skyTop(lx,lz),SKY.z+lz,0,2.6);solids.push({x:SKY.x+lx,z:SKY.z+lz,r:.35})}_bake(VG)}
+   for(const [lx,lz] of [[pc.x+6,pc.z+6],[pc.x-6,pc.z+6],[pc.x+6,pc.z-6],[pc.x-6,pc.z-6],[HX-9,HZ+9],[HX+10,HZ+9]]){lantern(VG,SKY.x+lx,skyTop(lx,lz),SKY.z+lz);solids.push({x:SKY.x+lx,z:SKY.z+lz,r:.35})}_bake(VG)}
   // ---- fenced garden with vegetable beds beside the cottage ----
   {const GG=new THREE.Group();scene.add(GG);const gx=HX+16,gz=HZ+2,fence=[],soilM=stdM('#5b3b22'),frameM=stdM('#8a5a2e'),crops={leaf:[],pump:[],tom:[]},GW=18,GD=14;
    for(let i=0;i<GW/2;i++)for(const sz of [-1,1]){const fx=gx-GW/2+1+i*2,fz=gz+sz*GD/2;fence.push({x:SKY.x+fx,y:skyTop(fx,fz)+.05,z:SKY.z+fz,ry:0,s:1})}
@@ -195,8 +205,14 @@ function buildSkyIsland(){
     const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));sg.setIndex(idx);sg.computeVertexNormals();scene.add(new THREE.Mesh(sg,waterM));
     const tex=fallTex.clone();tex.needsUpdate=true;tex.repeat.set(1,2.2);
     const fm=new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:.85,side:THREE.DoubleSide,depthWrite:false,fog:true});
-    const fw=14+wi*2,fh=170,f=new THREE.Mesh(new THREE.PlaneGeometry(fw,fh),fm);f.position.set(SKY.x+ex+Math.cos(a)*1.4,ty-fh/2-2,SKY.z+ez+Math.sin(a)*1.4);f.rotation.y=-a+Math.PI/2;scene.add(f);
+    const fw=14+wi*2,fh=170,fgeo=new THREE.PlaneGeometry(fw,fh,1,14),fc=[];for(let i=0;i<fgeo.attributes.position.count;i++){const yy=fgeo.attributes.position.getY(i)/fh+.5; // 1 at the lip -> 0 at the bottom
+      fc.push(1,1,1,Math.pow(Math.min(1,yy*1.25),.8))}fgeo.setAttribute('color',new THREE.Float32BufferAttribute(fc,4));fm.vertexColors=true;
+    const f=new THREE.Mesh(fgeo,fm);f.position.set(SKY.x+ex+Math.cos(a)*1.4,ty-fh/2-2,SKY.z+ez+Math.sin(a)*1.4);f.rotation.y=-a+Math.PI/2;scene.add(f);
     skyAnim.falls.push({tex,m:fm,mesh:f,ph:wi*1.7});
+    { // spray at the lip and a soft plunge mist that melts into the clouds
+      const ox=Math.cos(a),oz=Math.sin(a),mistM=()=>new THREE.SpriteMaterial({map:_soft(),color:'#eaf6ff',transparent:true,opacity:0,depthWrite:false,fog:true});
+      for(let k=0;k<7;k++){const m=mistM(),sp=new THREE.Sprite(m);sp.scale.setScalar(5);scene.add(sp);skyAnim.mist.push({sp,m,x:SKY.x+ex+ox*(1.5+r()*2.5)+(r()-.5)*fw*.7*(-oz),y:ty-1.5,z:SKY.z+ez+oz*(1.5+r()*2.5)+(r()-.5)*fw*.7*ox,sz:5+r()*5,rise:5+r()*5,sp0:.25+r()*.2,ph:r(),op:.5,dx:ox*2,dz:oz*2})}
+      for(let k=0;k<12;k++){const m=mistM(),sp=new THREE.Sprite(m);scene.add(sp);skyAnim.mist.push({sp,m,x:SKY.x+ex+ox*(3+r()*10)+(r()-.5)*fw*1.2*(-oz),y:ty-95-r()*70,z:SKY.z+ez+oz*(3+r()*10)+(r()-.5)*fw*1.2*ox,sz:28+r()*30,rise:12+r()*10,sp0:.05+r()*.05,ph:r(),op:.3,dx:ox*4,dz:oz*4})}}
     const foam=new THREE.Mesh(new THREE.CylinderGeometry(fw*.55,fw*.55,1.4,10,1,true,0,Math.PI),new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.7,side:THREE.DoubleSide}));
     foam.rotation.y=-a;foam.position.set(SKY.x+ex+Math.cos(a)*1.4,ty-1,SKY.z+ez+Math.sin(a)*1.4);scene.add(foam);
     const rk=[],fr=[];for(let k=0;k<9;k++){const t=r()*TAU,rr=pr+.8+r()*2.5,x=w.x+Math.cos(t)*rr,z=w.z+Math.sin(t)*rr;rk.push({x:SKY.x+x,y:skyTop(x,z)-.1,z:SKY.z+z,ry:r()*TAU,s:.5+r()*.9})}
@@ -212,9 +228,13 @@ function buildSkyIsland(){
       for(const u of [.06,.38,.7,.97])for(const sd of [-1,1]){const dy=yS+(yE-yS)*u,po=new THREE.Mesh(new THREE.CylinderGeometry(.1,.12,2.1,6),wm);po.position.set(SKY.x+sx-dx*L*u+nx*1.2*sd,dy-.85,SKY.z+sz-dz*L*u+nz*1.2*sd);PG.add(po)}
       _bake(PG);
       for(let d=0;d<=L;d+=.65){const u=d/L;solids.push({x:SKY.x+sx-dx*L*u,z:SKY.z+sz-dz*L*u,r:.85,h:yS+(yE-yS)*u+.07})}
-      place(scene,'lantern',SKY.x+sx+nx*2.2,skyTop(sx+nx*2.2,sz+nz*2.2),SKY.z+sz+nz*2.2,0,2.6);solids.push({x:SKY.x+sx+nx*2.2,z:SKY.z+sz+nz*2.2,r:.35});
+      lantern(scene,SKY.x+sx+nx*2.2,skyTop(sx+nx*2.2,sz+nz*2.2),SKY.z+sz+nz*2.2);solids.push({x:SKY.x+sx+nx*2.2,z:SKY.z+sz+nz*2.2,r:.35});
       SKYI.spots.push({x:SKY.x+sx-dx*L*.93,z:SKY.z+sz-dz*L*.93,y:yE+.07,fx:-dx,fz:-dz,px:SKY.x+w.x,pz:SKY.z+w.z,pr,surf})}
   });
+  { // fireflies: little glowing dots drifting over the ponds at night
+    const N=66,pa=new Float32Array(N*3),base=[];for(let i=0;i<N;i++){const w=wfAt[i%3],a=r()*TAU,d=r()*(13+(i%3)*2),b={x:SKY.x+w.x+Math.cos(a)*d,z:SKY.z+w.z+Math.sin(a)*d,y:skyTop(w.x+Math.cos(a)*d,w.z+Math.sin(a)*d)+.8+r()*2.6,ph:r()*6.28,sp:.4+r()*.6};base.push(b);pa[i*3]=b.x;pa[i*3+1]=b.y;pa[i*3+2]=b.z}
+    const gg=new THREE.BufferGeometry();gg.setAttribute('position',new THREE.BufferAttribute(pa,3).setUsage(THREE.DynamicDrawUsage));const pm=new THREE.PointsMaterial({color:'#e6ff7a',size:.55,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,map:_soft(),fog:true});
+    const pts=new THREE.Points(gg,pm);pts.frustumCulled=false;scene.add(pts);skyAnim.ffly={pts,pm,base,pa}}
   // ---- trees, bushes, undergrowth, flowers, rocks (kit instances) ----
   const placed=[];const addList=(P,nm,x,z,s)=>{(P[nm]=P[nm]||[]).push({x:SKY.x+x,y:skyTop(x,z),z:SKY.z+z,ry:r()*TAU,s});placed.push({x,z})};
   const apart=(x,z,d)=>!placed.some(p=>Math.hypot(p.x-x,p.z-z)<d),pick=(P,nm,x,z,s)=>{(P[nm]=P[nm]||[]).push({x:SKY.x+x,y:skyTop(x,z),z:SKY.z+z,ry:r()*TAU,s})};
@@ -252,7 +272,7 @@ function buildSkyIsland(){
    const fy=skyTop2(-8,-2);for(let i=0;i<7;i++){const a=i/7*TAU,s=new THREE.Mesh(new THREE.IcosahedronGeometry(.3,0),stdM('#8d8a85'));s.position.set(cx2-8+Math.cos(a)*.8,fy+.16,cz2-2+Math.sin(a)*.8);scene.add(s)}
    const fm=new THREE.Mesh(new THREE.ConeGeometry(.45,1.2,6),new THREE.MeshBasicMaterial({color:'#ffb030',transparent:true,opacity:.9}));fm.position.set(cx2-8,fy+.65,cz2-2);scene.add(fm);skyAnim.flames.push({m:fm});
    const logM=stdM('#6a4426');for(let i=0;i<3;i++){const l=new THREE.Mesh(new THREE.CylinderGeometry(.1,.1,1,6),logM);l.position.set(cx2-8,fy+.13,cz2-2);l.rotation.set(1.45,i*1.05,0);scene.add(l)}solids.push({x:cx2-8,z:cz2-2,r:.9});
-   place(scene,'lantern',cx2+1,skyTop2(1,8),cz2+8,0,2.6);solids.push({x:cx2+1,z:cz2+8,r:.35})}
+   lantern(scene,cx2+1,skyTop2(1,8),cz2+8);solids.push({x:cx2+1,z:cz2+8,r:.35})}
   // ---- bridge: planks + rails, walkable via a chain of low circular solids ----
   {const a0={x:SKY.x+P0.x,z:SKY.z+P0.z},a1={x:cx2-dir.x*(skyRim2(ab+Math.PI)-5),z:cz2-dir.z*(skyRim2(ab+Math.PI)-5)};
    const L=Math.hypot(a1.x-a0.x,a1.z-a0.z),tx=(a1.x-a0.x)/L,tz=(a1.z-a0.z)/L,nx=-tz,nz=tx,y0b=skyTop(P0.x,P0.z)-.07,y1b=skyTop2(a1.x-cx2,a1.z-cz2)-.07,sag=2.2;
@@ -298,7 +318,7 @@ function _adapt(t){
   const dt=Math.min(.25,(t-skyAnim.lastT)/1000);skyAnim.lastT=t;if(!(dt>0)||typeof Perf==='undefined')return;const ema=Perf.state.ema,A=skyAnim;
   if(ema>31)A.slow+=dt;else A.slow=Math.max(0,A.slow-dt*2);if(ema<21)A.fast+=dt;else A.fast=0;
   let ch=false;if(A.slow>2.5&&A.tier<3){A.tier++;A.slow=0;ch=true}else if(A.fast>14&&A.tier>0){A.tier--;A.fast=0;ch=true}
-  if(ch){A.mul=[1,.72,.52,.36][A.tier];for(const m of A.recv)m.receiveShadow=A.tier<1;for(const f of A.falls)f.mesh.visible=A.tier<3;if(typeof Env!=='undefined')Env.state.cloudLod=A.tier>=2?.4:1}}
+  if(ch){A.mul=[1,.72,.52,.36][A.tier];for(const m of A.recv)m.receiveShadow=A.tier<1;for(const f of A.falls)f.mesh.visible=A.tier<3;for(const mi of A.mist)mi.sp.visible=A.tier<2;if(typeof Env!=='undefined')Env.state.cloudLod=A.tier>=2?.4:1}}
 function skyTick(t){
   const s=t/1000;
   if(skyAnim.pend&&typeof S!=='undefined'){const p=skyAnim.pend;p.t+=1/60;if(S.grounded&&S.state==='idle'&&p.t>.12){skyAnim.pend=null;loadEmotes().then(()=>playEmote(p.id)).catch(()=>{})}else if(p.t>1.5)skyAnim.pend=null} // start the pose only once you have settled on the bed
@@ -308,6 +328,10 @@ function skyTick(t){
   for(const f of skyAnim.floaters){f.m.position.y=f.y0+Math.sin(s*f.sp+f.ph)*f.amp;f.m.rotation.y+=f.rs*.016}
   if(typeof S!=='undefined')for(const rf of skyAnim.roofs){const dx=Math.abs(S.x-rf.cx),dz=Math.abs(S.z-rf.cz),ins=dx<rf.hw+(rf.inside?1.8:.2)&&dz<rf.hd+(rf.inside?1.8:.2)&&S.y<rf.y+8&&S.y>rf.y-6;if(ins!==rf.inside){rf.inside=ins;for(const m of rf.meshes)m.visible=!ins}} // the roof lifts off while you are inside
   { const nt=(typeof Env!=='undefined'&&Env.state)?1-Env.state.dayF:0;for(const g of skyAnim.glow)g.mat.emissiveIntensity=(g.base||0)+nt*g.k }
+  { const nt=(typeof Env!=='undefined'&&Env.state)?1-Env.state.dayF:(typeof NIGHT!=='undefined'?NIGHT:0),A=skyAnim,vis=A.vis!==false;
+    for(const l of A.lamps){l.m.opacity=Math.min(1,nt*1.25)*l.k*(l.win?1:(.9+.1*Math.sin(s*3+l.ph)))}
+    for(const mi of A.mist){const u=((s*mi.sp0+mi.ph)%1);mi.sp.position.set(mi.x+mi.dx*u,mi.y+mi.rise*u,mi.z+mi.dz*u);mi.sp.scale.setScalar(mi.sz*(.7+.7*u));mi.m.opacity=mi.op*Math.sin(Math.PI*u)*(.55+.45*(1-nt))}
+    if(A.ffly&&vis){const F=A.ffly;F.pm.opacity=Math.min(1,Math.max(0,(nt-.25)*1.6))*.95;F.pts.visible=F.pm.opacity>.02;if(F.pts.visible){for(let i=0;i<F.base.length;i++){const b=F.base[i];F.pa[i*3]=b.x+Math.sin(s*b.sp+b.ph)*2.2;F.pa[i*3+1]=b.y+Math.sin(s*b.sp*1.7+b.ph)*.7;F.pa[i*3+2]=b.z+Math.cos(s*b.sp*.8+b.ph)*2.2}F.pts.geometry.attributes.position.needsUpdate=true}}}
   for(const b of skyAnim.bob)b.g.position.y=b.y0+Math.sin(s*b.sp+b.ph)*b.amp;
   for(const p of skyAnim.smoke){p.age=(p.age+.016)%5.2;const u=p.age/5.2;p.m.position.set(p.x+u*3.4+Math.sin(s+p.age)*.28,p.y+u*10,p.z+Math.cos(s*.7+p.age)*.22);p.m.scale.setScalar(.5+u*2.4);p.m.material.opacity=.5*(1-u)*(1-u)}
   for(const f of skyAnim.flames){f.m.scale.set(1+Math.sin(s*14)*.1,1+Math.sin(s*11+1)*.2,1+Math.cos(s*13)*.1);f.m.material.opacity=.75+Math.sin(s*17)*.15}
