@@ -61,10 +61,10 @@ function bake(files,MAP,CLIPS,tag,legPair,FPS=24,dg=4){
       P.push(Pf); // check: FK the result and compare limb directions with the source
       for(const [tn,sn,dir] of MAP){if(!dir)continue;const dT=wp(W2[CR.by[dir[0]].i]).sub(wp(W2[CR.by[tn].i])).normalize(),dS=wp(W[SR.by[dir[1]].i]).sub(wp(W[SR.by[sn].i])).normalize();const e=Math.acos(Math.max(-1,Math.min(1,dT.dot(dS))))*180/Math.PI;errMax=Math.max(errMax,e);errSum+=e;errN++}}
     const tracks=[];
-    for(const tn in Q){if(cfg.upper&&!isUpper(tn))continue;tracks.push({name:tn+'.quaternion',type:'quaternion',times,values:Q[tn].flatMap(q=>[r(q.x,dg),r(q.y,dg),r(q.z,dg),r(q.w,dg)])})}
-    if(!cfg.upper)for(const tn of DRIVEN)if(!Q[tn]) // bones the locomotion clips drive but this pack doesn't (KayKit has no fingers/shoulders/neck): pin them at rest so the idle clip can't leak into lying/plank poses
+    for(const tn in Q){if(cfg.upper&&!isUpper(tn))continue;if(cfg.arms&&!/Shoulder|Arm|Hand/.test(tn))continue;tracks.push({name:tn+'.quaternion',type:'quaternion',times,values:Q[tn].flatMap(q=>[r(q.x,dg),r(q.y,dg),r(q.z,dg),r(q.w,dg)])})}
+    if(!cfg.upper&&!cfg.arms)for(const tn of DRIVEN)if(!Q[tn]) // bones the locomotion clips drive but this pack doesn't (KayKit has no fingers/shoulders/neck): pin them at rest so the idle clip can't leak into lying/plank poses
       tracks.push({name:tn+'.quaternion',type:'quaternion',times:[0,r(dur,4)],values:[0,1].flatMap(()=>CR.by[tn].q.toArray().map(x=>r(x,dg)))});
-    if(!cfg.upper)tracks.push({name:'HipsCtrl.position',type:'vector',times,values:P.flatMap(p=>[r(p.x,dg+1),r(p.y,dg+1),r(p.z,dg+1)])});
+    if(!cfg.upper&&!cfg.arms)tracks.push({name:'HipsCtrl.position',type:'vector',times,values:P.flatMap(p=>[r(p.x,dg+1),r(p.y,dg+1),r(p.z,dg+1)])});
     out.push({name,duration:r(dur,4),tracks,uuid:name});report[name]={pack:tag,dur:r(dur,2),frames:n,legRatio:r(RATIO,2),meanErr:r(errSum/errN,2),maxErr:r(errMax,1)}}
   return {out,report}}
 // Real-mesh floor snapping: CPU-skin assets/char.glb with the glTF rule  world = sum(weight * jointWorld * inverseBind) * vertex
@@ -80,6 +80,15 @@ let SKIN=null;
   SKIN={lowest(W){const M=sk.joints.map((jn,k)=>W[jn].clone().multiply(IB[k]).elements);let mn=1e9;
     for(const [x,y,z,J,Wt] of V){let ws=0,yy=0;for(let k=0;k<4;k++){const w=Wt[k];if(!w)continue;const e=M[J[k]];yy+=w*(e[1]*x+e[5]*y+e[9]*z+e[13]);ws+=w}if(ws>.5&&Number.isFinite(yy)&&yy<mn)mn=yy}return mn}}})();
 (async()=>{
+// WARDEN mode (UAL2=<UAL2_Standard.glb> [KAYDIR=<KayKit Rig_Medium gltf dir>] node tools/retarget_ual.js <UAL1_Standard.glb> - <out>/warden_anims.json): bakes the full-body sword set used by the Warden Isles (loaded only when you enter the arena).
+if(process.env.UAL2){
+  const up=(src,o)=>Object.assign({src},o||{}),u2=(src,o)=>Object.assign({src,file:'u2'},o||{});
+  const SW={w_idle:up('Sword_Idle'),w_a:u2('Sword_Regular_A'),w_a_rec:u2('Sword_Regular_A_Rec'),w_b:u2('Sword_Regular_B'),w_b_rec:u2('Sword_Regular_B_Rec'),
+    w_hook:u2('Melee_Hook'),w_hook_rec:u2('Melee_Hook_Rec'),w_block:u2('Sword_Block'),w_arms:up('Sword_Idle',{arms:true})};   // arms:true = only shoulder/arm/hand tracks (sword hold over any locomotion)
+  const o=bake({'':glb(UAL),u2:glb(process.env.UAL2)},UAL_MAP,SW,'UAL',['Hips','pelvis','foot_l'],30,3);
+  if(process.env.KAYDIR){const F='Rig_Medium_MovementAdvanced.glb',KC={w_back:{src:'Walking_Backwards',file:F},w_sl:{src:'Running_Strafe_Left',file:F},w_sr:{src:'Running_Strafe_Right',file:F}};
+    const k=bake({[F]:glb(path.join(process.env.KAYDIR,F))},KAY_MAP,KC,'KayKit',['LeftUpLeg','upperleg.l','foot.l'],30,3);o.out=o.out.concat(k.out);Object.assign(o.report,k.report)}
+  fs.writeFileSync(OUT,JSON.stringify(o.out));console.log('wrote',OUT,(fs.statSync(OUT).size/1024).toFixed(0)+' KB');console.table(o.report);return}
 const ual=bake({'':glb(UAL)},UAL_MAP,UAL_CLIPS,'UAL',['Hips','pelvis','foot_l']);
 let all=ual.out,rep=ual.report;
 if(KAY){const files={};for(const c of Object.values(KAY_CLIPS))if(!files[c.file])files[c.file]=glb(path.join(KAY,c.file));

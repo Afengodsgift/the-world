@@ -1,0 +1,49 @@
+// WARDEN M1d: the Duelist's brain. Pure + deterministic (seeded; no THREE/DOM/Math.random), one decision per sim tick, returns the Duelist's command for that tick.
+// FAIR by construction: it only sees what a human sees (the player's visible state: acting/guarding/stunned/dodging, distance), it reacts after a human-sized delay, it can only start a move while free
+// (so every move keeps its >=20-tick tell and >=20-tick uncancellable recovery from Moves.js - nothing here can shorten them) and it rests 20-70 ticks between moves.
+// "Intelligent": spaces and circles, punishes a visibly recovering player, pressures a turtling guard with the heavy overhead (variable hold, so deflect timing cannot be memorised),
+// waits when you dodge, sometimes guards your heavy and ripostes a blocked/deflected blow, never repeats one move more than twice.
+// Adaptive difficulty (learning your habits) is a separate layer, off by default, and is NOT in this file.
+const DuelistAI=(()=>{
+  const REACH={cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4},REACT=14,INTRO=90;
+  function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+  function create(seed,o){o=o||{};return{r:mulberry(seed|0),t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null}}
+  const key=P=>P.act==='attack'&&P.ph&&P.ph[P.pi]?'a'+P.ph[P.pi].k:P.act==='stun'?'stun':P.act==='dodge'?'dodge':P.act==='charge'?'charge':P.guard?'guard':'free';
+  // A = ai state, P/D = sim fighters, evs = events of the previous tick. Returns {face,mx,mz,list}
+  function think(A,P,D,evs,tick){
+    const out={face:Math.atan2(P.x-D.x,P.z-D.z),mx:0,mz:0,list:[]};A.t++;
+    if(!A.on||D.act==='dead'||P.act==='dead')return out;
+    const dx=P.x-D.x,dz=P.z-D.z,dist=Math.hypot(dx,dz),ux=dx/(dist||1),uz=dz/(dist||1);
+    // what the player visibly does now, and how long we have been seeing it (a human reaction delay)
+    const k=key(P);if(k!==A.seenKey){A.seenKey=k;A.see=0}else A.see++;
+    A.gP=P.guard&&P.act==='free'?A.gP+1:0;if(A.cool>0)A.cool--;if(A.rip>1)A.rip--;
+    for(const e of evs||[])if((e.t==='block'||e.t==='deflect')&&e.d===D.id&&A.rip===0)A.rip=REACT;   // we just blocked something: counter-attack soon
+    if(D.act!=='free'){A.busy=true;return out}
+    if(A.busy){A.busy=false;A.cool=20+Math.floor(A.r()*50)}      // rest after every move or stagger: >= 20 ticks
+    // guard handling
+    if(D.guard){if(--A.guardT<=0)out.list.push({t:'guardUp',e:tick});else{out.mx=0;out.mz=0;return out}}
+    // movement: hold a fighting distance and circle
+    if(--A.strafeT<=0){A.strafe=A.r()<.5?-1:1;A.strafeT=70+Math.floor(A.r()*90)}
+    const want=2.0;let mx=0,mz=0;
+    if(dist>want+.5){mx=ux;mz=uz}else if(dist<want-.6){mx=-ux*.7;mz=-uz*.7}else{mx=-uz*A.strafe*.55;mz=ux*A.strafe*.55}
+    out.mx=mx;out.mz=mz;
+    if(A.t<A.intro)return out;                       // the fight has not started yet: just square up
+    // riposte after a block/deflect
+    if(A.rip===1&&dist<REACH.riposte+.3){A.rip=0;return start(A,out,'riposte',0,tick)}
+    // defence: after reacting to a visible heavy charge / wind-up at close range, sometimes guard it
+    if(A.cool<=6&&dist<2.8&&(k==='charge'||k==='astartup')&&A.see>=REACT&&A.r()<.012*A.see){A.guardT=40+Math.floor(A.r()*25);out.list.push({t:'guardDown',e:tick});out.mx=out.mz=0;return out}
+    if(A.cool>0||k==='dodge')return out;             // resting, or the player is mid-dodge: wait for them to land
+    if(dist>REACH.thrust+.2)return out;              // too far to do anything but close in
+    // pick a move
+    const w={cut:3,twin:2,thrust:2,fall:1.5};
+    if(dist>2.7){w.cut=0;w.twin=0;w.fall=0;w.thrust=4}else if(dist<1.7){w.thrust=.2}
+    if(A.gP>30){w.fall+=4;w.thrust+=2;w.cut*=.4;w.twin*=.4}                                   // you are turtling: make the guard pay
+    if((k==='arecovery'||k==='stun')&&A.see>=REACT){w.cut+=4;w.twin+=2;w.fall*=.3;w.thrust*=.5} // visibly recovering: punish
+    for(const m of Object.keys(w)){const L=A.last,n=L.length;if(n>=2&&L[n-1]===m&&L[n-2]===m)w[m]=0;else if(n&&L[n-1]===m)w[m]*=.4}
+    let tot=0;for(const m in w)tot+=w[m];if(tot<=0)return out;
+    let r=A.r()*tot,pick='cut';for(const m in w){r-=w[m];if(r<=0){pick=m;break}}
+    if(dist>REACH[pick]+(pick==='thrust'?.2:.1))return out;                                      // not in reach of the chosen move yet: keep closing
+    return start(A,out,pick,pick==='fall'?Math.floor(A.r()*13):0,tick)}
+  function start(A,out,m,hold,tick){A.last.push(m);if(A.last.length>3)A.last.shift();out.list.push({t:'atk',m,hold,e:tick});out.mx=out.mz=0;return out}
+  return{create,think,REACH,REACT,INTRO}})();
+if(typeof module!=='undefined')module.exports=DuelistAI;

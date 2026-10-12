@@ -15,7 +15,7 @@ await page.route(/^https?:\/\/(?!127\.0\.0\.1)/,r=>{if(/jsdelivr/.test(r.request
 await page.goto(`http://127.0.0.1:${port}/index.html?warden=1`);await page.fill('#name','T');await page.click('#create');
 await page.waitForFunction(()=>typeof S!=='undefined'&&me&&!document.getElementById('boot'),null,{timeout:120000});
 await page.evaluate(()=>{S.x=150;S.z=-2450+10;S.y=H(S.x,S.z)+1;S.flying=false;S.yaw=0;S.rot=Math.PI});
-await page.waitForFunction(()=>PlayerCombat.on(),null,{timeout:60000});await page.waitForTimeout(500);
+await page.waitForFunction(()=>PlayerCombat.on(),null,{timeout:60000});await page.evaluate(()=>{PlayerCombat.ai=false});await page.waitForTimeout(500);
 const r=await fn(page);await ctx.close();return{r,errs}}
 
 const clean=e=>e.filter(x=>!/favicon|Failed to load resource/.test(x));
@@ -35,7 +35,7 @@ const A=await session({width:844,height:390},async p=>{
   o.tabPrevented=await p.evaluate(()=>{const e=new KeyboardEvent('keydown',{code:'Tab',key:'Tab',bubbles:true,cancelable:true});dispatchEvent(e);return e.defaultPrevented});
   o.lockOn=(await st()).lock;await p.keyboard.press('Tab');
   // scripted fight: walk to the dummy, light x3, check damage + posture, then heavy
-  await p.evaluate(()=>{S.x=150;S.z=-2454+2.0;S.rot=Math.PI;const t=PlayerCombat._t();});
+  await p.evaluate(()=>{const t=PlayerCombat._t();S.x=t.D.x;S.z=t.D.z+1.9;S.rot=Math.PI;});
   await p.waitForTimeout(300);const hp0=(await st()).hp;
   for(let i=0;i<4;i++){await ptr('#wLight','pointerdown',20+i);await ptr('#wLight','pointerup',20+i);await until(()=>PlayerCombat._t().P.act==='attack',1500);await until(()=>PlayerCombat._t().P.act==='free',3000)}
   const s1=await st();o.lightDmg=hp0-s1.hp;o.po=s1.po;
@@ -45,7 +45,7 @@ const A=await session({width:844,height:390},async p=>{
   // kill the dummy and see it respawn
   await p.evaluate(()=>{PlayerCombat._t().D.hp=1});await p.waitForTimeout(500);
   for(let i=0;i<4&&(await st()).dact!=='dead';i++){await near();await p.waitForTimeout(100);await ptr('#wLight','pointerdown',50+i);await ptr('#wLight','pointerup',50+i);await until(()=>PlayerCombat._t().P.act==='free'&&PlayerCombat._t().D.act==='dead'||PlayerCombat._t().P.act==='free',3000);await p.waitForTimeout(300)}
-  o.dead=(await st()).dact;await p.waitForTimeout(4200);o.respawn=await st();
+  o.dead=(await st()).dact;await until(()=>{const t=PlayerCombat._t();return t.D.act==='free'&&t.D.hp>=219},9000);o.respawn=await st();
   // leaving the arena releases everything and restores the normal controls
   await p.evaluate(()=>{S.x=150;S.z=-2450+60});await p.waitForTimeout(600);
   o.left=await p.evaluate(()=>({on:PlayerCombat.on(),cls:document.body.classList.contains('warden-fight'),wc:getComputedStyle(document.getElementById('wc')).display}));
@@ -57,7 +57,7 @@ ok(a.g5===true,'guard button: a second pointer cannot steal or release the hold'
 ok(a.smackIn===0,'in the arena F is swallowed (no smack)');ok(a.tabPrevented===true,'in the arena Tab is captured (no focus jump)');
 ok(a.lightDmg>=28,'4 light taps hit the dummy ('+a.lightDmg.toFixed(0)+' dmg)');ok(a.po>0,'posture builds on the dummy ('+a.po.toFixed(0)+')');
 ok(a.charging==='charge','holding Heavy charges');ok(a.heavyDmg>=30,'released Heavy hits hard ('+a.heavyDmg.toFixed(0)+' dmg)');
-ok(a.dodgeAct==='dodge','Dodge button dodges');console.log(a.dbg,a.log);ok(a.dead==='dead','dummy can be killed');ok(a.respawn.dact==='free'&&a.respawn.hp>=299,'dummy respawns at full health');
+ok(a.dodgeAct==='dodge','Dodge button dodges');console.log(a.dbg,a.log,JSON.stringify(a.respawn));ok(a.dead==='dead','the Duelist can be felled');ok(a.respawn.dact==='free'&&a.respawn.hp>=219,'the Duelist is restored at full health for the next bout');
 ok(a.left.on===false&&a.left.cls===false&&a.left.wc==='none','leaving the arena turns combat off and restores the normal controls');ok(a.smackOut===1,'outside the arena F smacks again (normal controls)');
 ok(clean(A.errs).length===0,'no page errors '+JSON.stringify(clean(A.errs).slice(0,3)));
 // ---- B) layout: every touch button + HUD bar on 6 phone sizes, with 0 and 44px safe-area insets ----
