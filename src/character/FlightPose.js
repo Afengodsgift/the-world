@@ -51,7 +51,7 @@ const FlightPose=(()=>{
     const elev=Math.atan2(f.vy,Math.max(spd,4));                       // climb (+) / dive (-) angle of the flight path
 
     // ---- pose weights: rise quickly, decay slowly (braking from boost should feel heavy) ----
-    const tH=1-sstep(2,13,spd),tB=sstep(46,62,spd),tC=Math.max(0,1-tH-tB);
+    const ch=m.charge||0,tH=(1-sstep(2,13,spd))*(1-ch),tB=Math.max(sstep(46,62,spd),ch*.9),tC=Math.max(0,1-tH-tB);   // charging: the streamlined pose even though you are braking
     f.wH=lerpTo(f.wH,tH,dt,6,3.2);f.wC=lerpTo(f.wC,tC,dt,6,3.6);f.wB=lerpTo(f.wB,tB,dt,5,2.4);
     const ws=f.wH+f.wC+f.wB||1;f.wH/=ws;f.wC/=ws;f.wB/=ws;
     f.name=f.wB>.5?'boost':f.wC>.5?'cruise':f.wH>.5?'hover':(f.a>1?'takeoff':'cruise');
@@ -60,7 +60,8 @@ const FlightPose=(()=>{
     let th=f.wH*BASE_PITCH.h+f.wC*BASE_PITCH.c+f.wB*BASE_PITCH.b;
     th-=elev*.75*(1-f.wH);                                              // climbing stands you up a little, diving lays you flat
     th+=Math.min(.15,Math.max(0,f.a*.004));                             // leaning into acceleration
-    th-=Math.min(.35,Math.max(0,-f.a*.012))*(1-f.wH);                   // braking: flare back (head up)
+    th-=Math.min(.35,Math.max(0,-f.a*.012))*(1-f.wH)*(1-ch);            // braking: flare back (head up), but not while compressing for a charge
+    th+=.14*ch;                                                         // lean into the charge
     th=Math.max(0,Math.min(1.62,th));
     spring(f.th,th,dt,6.5,.58);                                         // underdamped: ~10% overshoot = intentional-looking takeoff
     const yr=m.yawRate||0;

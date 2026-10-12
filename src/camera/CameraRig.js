@@ -95,7 +95,8 @@ const CameraRig=(()=>{
     // in the frame with the space you're heading into above it (Cinemachine's 'vertical arm'). Trails slightly along the full 3D velocity.
     const fe=st.fw*(1-st.tpsK)*(1-st.fpsK),el=clamp(-pit,-1.2,1.2);       // el > 0 = looking up
     const dGround=9+2.4*st.boost-4.9*st.tpsK+5*dk;
-    const dFly=4.6+1.0*st.boost+1.0*dk-(el>0?1.2*el/1.2:.6*el/1.2);       // 3.4 m looking straight up .. 5.2 m looking down at the world (walking is 9 m)
+    const bvw=typeof Boost!=='undefined'?Boost.view:{charge:0,burst:0};                                   // charged boost: move in while charging, pull back on the burst
+    const dFly=Math.max(2.6,4.6+1.0*st.boost+1.0*dk-(el>0?1.2*el/1.2:.6*el/1.2)-1.1*bvw.charge+1.4*bvw.burst);       // 3.4 m looking straight up .. 5.2 m looking down at the world (walking is 9 m)
     const d=dGround+(dFly-dGround)*fe,sh=1.0*st.tpsK,shx=Math.cos(yaw)*sh,shz=-Math.sin(yaw)*sh;
     const lagG=Math.min(.7,st.spd*.045),lagF=Math.min(.6,sp3*.008),lag=lagG+(lagF-lagG)*fe;
     const lx=st.spd>.1?-st.vx/st.spd*lag*(1-fe):0,lz=st.spd>.1?-st.vz/st.spd*lag*(1-fe):0;   // ground: horizontal trail (unchanged)
@@ -131,7 +132,7 @@ const CameraRig=(()=>{
     // ---- FOV: speed widens it, first-person trims a little ----
     const gf=clamp((st.spd-5.5)/7,0,1);                                   // ground sprint: a touch wider
     st.zk+=(st.zoom-st.zk)*(1-Math.exp(-11*dt));   // scope zoom eases in/out
-    let tf=(fly?66+10*st.cruise+13*st.boost*(1-.6*dk)+4*dk:(S.gboost>0?80:65+4.5*gf))-4*st.fpsK+3*st.tpsK;   // combat camera is a touch wider
+    let tf=(fly?Math.min(90,66+10*st.cruise+13*st.boost*(1-.6*dk)+4*dk+7*(typeof Boost!=='undefined'?Boost.view.burst:0)-4*(typeof Boost!=='undefined'?Boost.view.charge:0)):(S.gboost>0?80:65+4.5*gf))-4*st.fpsK+3*st.tpsK;   // combat camera is a touch wider
     if(st.zk>1.002)tf=Scope.fov(tf,st.zk);
     if(Math.abs(camera.fov-tf)>.05){camera.fov+=(tf-camera.fov)*Math.min(1,dt*((st.zk>1.002||st.zoom>1)?12:4.5));camera.updateProjectionMatrix()}
   }
@@ -150,7 +151,7 @@ const CameraRig=(()=>{
     neutralPitch:()=>(st.fpsK>.5||(st.shooter&&(st.view==='fps'||st.scopeFps)))?0:.4,                  // the pitch that means "level" for flight climb/dive
     kick(p,y){st.kp.v+=p*40;st.ky.v+=(y||0)*40},
     land(imp){st.dip.v-=Math.min(4,Math.max(0,(imp-4)*.22))},   // landing impact: a short downward dip of the view (imp = fall speed in m/s)        // recoil impulse in radians of peak rotation
-    speedFrac:()=>({cruise:st.cruise,boost:st.boost}),
+    speedFrac:()=>{const b=typeof Boost!=='undefined'?Boost.view:null;return {cruise:st.cruise,boost:b?Math.min(1.3,st.boost+b.burst*.6):st.boost,charge:b?b.charge:0}},
     speed:()=>st.spd
   };
 })();

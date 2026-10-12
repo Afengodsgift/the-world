@@ -15,8 +15,14 @@ const FlightFX=(()=>{
     for(let i=0;i<44;i++)lines.push(mkLine());
   }
   // k = {boost:0..1, cruise:0..1} from CameraRig.speedFrac()
+  // launch shockwave: ONE additive ring, reused, expanding and fading in half a second, facing the direction you launch
+  let shock=null;
+  function shockFire(pos,dir){if(typeof scene==='undefined')return;
+    if(!shock){shock={m:new THREE.Mesh(new THREE.RingGeometry(.9,1,48),new THREE.MeshBasicMaterial({color:'#dff4ff',transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,fog:false})),t:9};shock.m.visible=false;shock.m.frustumCulled=false;scene.add(shock.m)}
+    shock.m.position.set(pos.x,pos.y+1.1,pos.z);shock.m.lookAt(pos.x+dir.x,pos.y+1.1+dir.y,pos.z+dir.z);shock.t=0;shock.m.visible=true}
+  function shockTick(dt){if(!shock||!shock.m.visible)return;shock.t+=dt;const k=shock.t/.55;if(k>=1){shock.m.visible=false;return}shock.m.scale.setScalar(1+k*13);shock.m.material.opacity=.7*(1-k)*(1-k)}
   function screen(dt,k){
-    ensure();const amt=k.boost+k.cruise*.16;
+    shockTick(dt);ensure();const amt=k.boost+k.cruise*.16+(k.charge||0)*.55;
     if(amt<.02){if(on){ctx.clearRect(0,0,W,Hh);on=false}return}
     on=true;ctx.clearRect(0,0,W,Hh);
     const cx=W/2,cy=Hh*.46,R=Math.hypot(W,Hh)/2;ctx.lineCap='round';
@@ -51,5 +57,5 @@ const FlightFX=(()=>{
     fx.gr.material.opacity+=((low?.3*(1-ex)*(1-alt/7):0)-fx.gr.material.opacity)*Math.min(1,dt*10);
     fx.sw.visible=fx.sw.material.opacity>.01;fx.gr.visible=fx.gr.material.opacity>.01;
   }
-  return {screen,avatar};
+  return {screen,avatar,shock:shockFire};
 })();
