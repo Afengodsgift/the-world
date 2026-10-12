@@ -5,7 +5,7 @@
 const PlayerCombat=(()=>{
   const PC={_pose:null};   // _pose=[nameA,nameB,u]: test hook that pins the pose layer
   const SPD=5,GSPD=2.5,CSPD=2;                       // m/s: free walk, guarding, charging a heavy
-  let on=false,C=null,ST=null,P=null,D=null,t0=0,lx=0,lz=0,lock=false,pendFace=null,pendT=0,hint=0;
+  let lightSeq='light_b',on=false,C=null,ST=null,P=null,D=null,t0=0,lx=0,lz=0,lock=false,pendFace=null,pendT=0,hint=0;
   const down={guard:false,heavy:false};              // logical button state (what the sim was told)
   const ptr={};                                       // touch: button -> pointerId
   let el=null,dum=null,dumHome=null,dumWob=0,dumWx=0,dumWz=0,dumFall=0,dumDead=0,flash=0,sword=null,swordTried=false;
@@ -98,13 +98,13 @@ const PlayerCombat=(()=>{
     sword.grip.position.set(GRIP.ox,GRIP.oy,GRIP.oz).divideScalar(ws.x)}
   // ---------- enter / leave ----------
   function enter(){
-    if(on)return;if(!el)build();if(!dum)buildDummy();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});
+    if(on)return;if(!el)build();if(!dum)buildDummy();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenAnim.Clips.load(me.userData);
     const A={x:WRD.x,z:WRD.z,R:WARDEN.arenaR-.5};C=CombatCore.create({arena:A,solids:WardenSolids()});ST=CombatCore.stepper(C,6);t0=performance.now();
     P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100});dumHome={x:WRD.x,z:WRD.z-4};D=C.add('D',{x:dumHome.x,z:dumHome.z,face:0,hp:300});D.r=.5;
     lx=S.x;lz=S.z;on=true;lock=false;down.guard=down.heavy=false;document.body.classList.add('warden-fight');attachSword();if(sword)sword.grip.visible=true;stW=0;gT=0;dumDead=0;dumFall=0;
     el.querySelector('#wLock').classList.remove('on');msg('The Warden Isles · Training Dummy')}
   function leave(){
-    if(!on)return;releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword)sword.grip.visible=false;if(dum)dum.visible=false;pendFace=null}
+    if(!on)return;releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword)sword.grip.visible=false;if(dum)dum.visible=false;pendFace=null;WardenAnim.Clips.off()}
   // ---------- per frame ----------
   function speedMul(sprint){
     if(!on||!P)return 1;const base=sprint?12:6;
@@ -112,7 +112,7 @@ const PlayerCombat=(()=>{
   function events(evs){
     if(PC._log)for(const e of evs)if(e.t!=='hitstop')PC._log.push(e);
     for(const e of evs){
-      if(e.t==='start'&&e.a==='P'){tone(e.move==='heavy'?220:380,e.move==='heavy'?90:150,e.move==='heavy'?.18:.1,'triangle',.1)}
+      if(e.t==='start'&&e.a==='P'){if(e.move==='light')lightSeq=WardenAnim.Clips.nextLight(performance.now()/1000);tone(e.move==='heavy'?220:380,e.move==='heavy'?90:150,e.move==='heavy'?.18:.1,'triangle',.1)}
       else if(e.t==='dodge'&&e.a==='P')tone(200,80,.14,'sine',.08);
       else if(e.t==='hit'&&e.a==='P'){flash=1;dumWob=Math.min(.35,.12+(e.dmg||0)*.006);const a=Math.atan2(D.x-P.x,D.z-P.z);dumWx=Math.cos(a);dumWz=Math.sin(a);tone(140,50,.14,'square',.14);if(e.crit)msg('CRITICAL');
         if(D.act!=='dead'&&D.hp<=0){}}
@@ -139,6 +139,6 @@ const PlayerCombat=(()=>{
     // 3) pose layer
     gT=P.guard?gT+1:0;const o=PC._pose?{a:WardenAnim.POSES[PC._pose[0]],b:WardenAnim.POSES[PC._pose[1]],u:PC._pose[2],w:1}:WardenAnim.target(P,gT);WardenAnim.mix(o.a,o.b,o.u,tg);stW+=((o.w)-stW)*Math.min(1,dt*10);
     const k=Math.min(1,dt*40);for(const kk of['ru','rf','lu','lf'])cur[kk].lerp(tg[kk],k).normalize();cur.tw+=(tg.tw-cur.tw)*k;cur.ln+=(tg.ln-cur.ln)*k;
-    WardenAnim.apply(me.userData,cur,stW);
+    {const fr=C.hs>0?0:Math.max(0,Math.min(1,now()/16.6667-ST.skew-C.tick)),mv=(me.userData.v||0)>.8,used=WardenAnim.Clips.update(me.userData,P,lightSeq,fr,mv,dt,true);if(!used&&!PC._skip)WardenAnim.apply(me.userData,cur,stW)}
     dummyTick(dt);hud();if(msgT>0){msgT-=dt;if(msgT<=0)el.querySelector('#wmsg').classList.remove('on')}}
-  return Object.assign(PC,{tick,speedMul,press,release,enter,leave,on:()=>on,GRIP,setGrip,_t:()=>({on,C,P,D,lock,sword,cur,stW,down})})})();
+  return Object.assign(PC,{setSeq:v=>{lightSeq=v},tick,speedMul,press,release,enter,leave,on:()=>on,GRIP,setGrip,_t:()=>({on,C,P,D,lock,sword,cur,stW,down})})})();

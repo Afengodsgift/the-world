@@ -42,4 +42,44 @@ const WardenAnim=(()=>{
       return _o}
     if(f.guard){_o.a=P.ready;_o.b=P.guard;_o.u=ease(gT/5);return _o}
     return _o}
-  return{POSES:P,mix,copy,apply,target,ease}})();
+
+  // ---------- REAL CLIPS (assets/warden_anims.json, baked from the Universal Animation Library by tools/retarget_ual.js, loaded when you enter the arena) ----------
+  // Attack clips are SCRUBBED by the combat sim: the clip time is a piecewise-linear function of the sim tick (knots below), so the visible cut lands exactly on the sim's active window
+  // and a hit-stop freezes the picture. Layers are blended with the game's own base layer by per-clip weights (Blend.w), the same way emote overlays are.
+  const SEQ={   // k = [simTick, clipSeconds] knots over the concatenated pair a + b. light: 10 startup / 4 active / 16 recovery ticks; heavy: 14 / 5 / 30
+    light_b:{a:'w_b',la:.53,b:'w_b_rec',k:[[0,0],[10,.25],[14,.5],[30,1.45]]},
+    light_h:{a:'w_hook',la:.47,b:'w_hook_rec',k:[[0,0],[10,.2],[14,.4],[30,1.05]]},
+    heavy:{a:'w_a',la:.43,b:'w_a_rec',k:[[0,.43],[14,.6],[19,.88],[49,1.4]]}};
+  const NAMES=['w_idle','w_idle_up','w_a','w_a_rec','w_b','w_b_rec','w_hook','w_hook_rec','w_block'];
+  const CL={st:'none',A:{},ws:{},blockT:0,sw:0,lastLight:-1e9};   // st: none|loading|ready|failed
+  function knot(k,t){if(t<=k[0][0])return k[0][1];for(let i=1;i<k.length;i++)if(t<=k[i][0]){const a=k[i-1],b=k[i],f=(t-a[0])/(b[0]-a[0]);return a[1]+(b[1]-a[1])*f}return k[k.length-1][1]}
+  function load(q){
+    if(CL.st!=='none'||!q.mixer)return;CL.st='loading';
+    fetch('assets/warden_anims.json').then(r=>r.json()).then(j=>{for(const c of j){if(NAMES.indexOf(c.name)<0)continue;const ac=THREE.AnimationClip.parse(c);ac.name=c.name;const a=q.mixer.clipAction(ac);a.enabled=false;a.setEffectiveWeight(.0001);CL.A[c.name]=a;CL.ws[c.name]=0}
+      CL.st='ready'}).catch(()=>{CL.st='failed'})}
+  const ready=()=>CL.st==='ready';
+  // choose the sequence for the next light attack: B and the hook alternate when chained within 1.3 s, otherwise start with B
+  function nextLight(nowS){const v=nowS-CL.lastLight<1.3&&CL.sw===0?1:0;CL.sw=v;CL.lastLight=nowS;return v?'light_h':'light_b'}
+  // f = sim fighter, seqName = current light variant, fr = fraction of the next tick already elapsed (0..1), moving = player is walking, dt = frame seconds
+  function update(q,f,seqName,fr,moving,dt,on){
+    if(!ready())return false;const A=CL.A,tgt={},tm={};for(const n of NAMES)tgt[n]=0;
+    let fight=on&&f.act!=='dead'&&f.act!=='dodge'&&f.act!=='stun';
+    const place=(sq,u)=>{if(u<sq.la){tgt[sq.a]=1;tm[sq.a]=u}else{tgt[sq.b]=1;tm[sq.b]=Math.min(u-sq.la,A[sq.b].getClip().duration-.001)}};
+    if(fight){
+      if(f.act==='charge'){const sq=SEQ.heavy;place(sq,sq.la*ease(f.c/16))}
+      else if(f.act==='attack'&&f.ph&&f.ph[f.pi]){let t=f.pk+fr;for(let i=0;i<f.pi;i++)t+=f.ph[i].n;const sq=f.mv&&f.mv.id==='heavy'?SEQ.heavy:SEQ[seqName]||SEQ.light_b;place(sq,knot(sq.k,t))}
+      else if(f.guard&&f.act==='free'){tgt.w_block=1;CL.blockT+=(.42-CL.blockT)*Math.min(1,dt*14);tm.w_block=CL.blockT}
+      else{tgt[moving?'w_idle_up':'w_idle']=1;CL.blockT=0}
+    }
+    if(!(f.guard&&f.act==='free')&&CL.ws.w_block>.01){CL.blockT=Math.min(1.2,Math.max(CL.blockT,.42)+dt*2.2);tm.w_block=CL.blockT}   // releasing: play the block clip out while its weight fades
+    let sum=0;const k=1-Math.exp(-dt*22);
+    for(const n of NAMES){CL.ws[n]+=(tgt[n]-CL.ws[n])*k;if(CL.ws[n]<.01&&tgt[n]===0)CL.ws[n]=0;sum+=CL.ws[n]}
+    const tot=Math.min(1,sum),W=Blend.w(tot);let any=false;
+    for(const n of NAMES){const a=A[n],r=CL.ws[n];
+      if(r<=0){if(a.enabled){a.enabled=false;a.setEffectiveWeight(.0001)}continue}
+      any=true;if(!a.enabled){a.enabled=true;a.play();if(n!=='w_idle'&&n!=='w_idle_up'){a.paused=true}}
+      a.setEffectiveWeight(W*r/sum||.0001);if(tm[n]!==undefined){a.paused=true;a.time=tm[n]}}
+    if(any)q.mixer.update(0);   // re-evaluate the pose with the new weights/times right now (no one-frame lag)
+    return any}
+  function off(){for(const n of NAMES){const a=CL.A[n];if(a&&a.enabled){a.enabled=false;a.setEffectiveWeight(.0001)}CL.ws[n]=0}CL.blockT=0}
+  return{POSES:P,mix,copy,apply,target,ease,Clips:{load,ready,update,off,nextLight,SEQ,state:CL}}})();
