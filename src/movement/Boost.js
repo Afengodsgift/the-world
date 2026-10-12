@@ -19,8 +19,9 @@ const Boost=(()=>{
     brakeRate:5.5,       // 1/s: how hard you brake while charging (normal glide-out is 3.2)
     peakMul:[2.0,3.2],   // burst peak speed relative to normal boost (70 m/s): min charge .. full charge => 140 .. 224 m/s
     rise:.1,             // s: how sharp the launch is
-    durMin:.5,durMax:1.15,   // s: burst length for min .. full charge
-    recover:.7,          // s of recovery (boost level, then the normal glide-out)
+    durMin:1.4,durMax:3.4,   // s: burst length for min .. full charge (was .5-1.15: too short for something this fast)
+    plateau:.38,         // fraction of the burst held at full burst speed before it starts to taper
+    recover:1.1,         // s of recovery (boost level, then the normal glide-out)
     cooldown:.3,         // s before you can charge again
     upRate:14,           // 1/s: acceleration rate during the burst (normal flight is 4)
     hurtCancel:.3        // a hit this hard cancels a charge
@@ -37,7 +38,8 @@ const Boost=(()=>{
   function fire(){
     st.launch=st.charge;st.peak=CFG.peakMul[0]+(CFG.peakMul[1]-CFG.peakMul[0])*st.charge;st.dur=CFG.durMin+(CFG.durMax-CFG.durMin)*st.charge;
     st.mode='burst';st.t=0;st.charge=0;st.full=0;st.ev++;if(st.pressed)st.needRelease=true}
-  const env=()=>st.t<CFG.rise?sm(st.t/CFG.rise):Math.pow(Math.max(0,1-(st.t-CFG.rise)/Math.max(1e-6,st.dur-CFG.rise)),2);
+  // sharp rise, a plateau at full burst speed, then a smooth taper
+  const env=()=>{const r=CFG.rise,p=r+CFG.plateau*(st.dur-r);if(st.t<r)return sm(st.t/r);if(st.t<p)return 1;return Math.pow(Math.max(0,1-(st.t-p)/Math.max(1e-6,st.dur-p)),1.6)};
   function update(S,dt){
     if(!S.flying){if(st.mode!=='ready'||st.charge)reset(0)}
     else{
@@ -53,7 +55,7 @@ const Boost=(()=>{
       else if(st.mode==='recover'){st.rec+=dt;if(st.rec>=CFG.recover)reset(CFG.cooldown)}}
     // the view other systems read (no allocation)
     view.mode=st.mode;view.charge=st.mode==='charging'?st.charge:0;view.ev=st.ev;view.launch=st.launch;
-    view.burst=st.mode==='burst'?sm(Math.min(1,st.t/.12))*(1-.35*(st.t/st.dur)):st.mode==='recover'?.65*Math.pow(Math.max(0,1-st.rec/CFG.recover),1.5):0;
+    view.burst=st.mode==='burst'?sm(Math.min(1,st.t/.12))*(1-.35*Math.max(0,(st.t/st.dur-CFG.plateau)/(1-CFG.plateau))):st.mode==='recover'?.65*Math.pow(Math.max(0,1-st.rec/CFG.recover),1.5):0;
   }
   // speed multiplier applied to the flight target speed
   const speedMul=()=>st.mode==='charging'?1+(CFG.brake-1)*st.charge:st.mode==='burst'?1+(st.peak-1)*env():1;
