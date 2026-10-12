@@ -3,7 +3,7 @@
 // and small floating islets. Built from the Quaternius nature + village kits (assets/nature.glb, assets/village.glb: loadPacks() in AssetLoader.js) plus a few primitives.
 // Exposes: SKYH(dx,dz) surface height (relative to SKY centre), SKYG(dx,dz) walkable ground or -Infinity, SKYI (layout), buildSkyIsland(), skyTick(t).
 // Globals read: SKY (src/data/islands.js), THREE, scene, solids, orbs, scatter, place, sstep, mulberry, AM, Env (optional).
-const SKYI={HX:46,HZ:-18,ab:.5,satGap:96,satR:56,pad:{dx:-78,dz:46,r:13},wf:[2.5,3.95,5.3]};
+const SKYI={HX:46,HZ:-18,ab:.5,satGap:96,satR:56,pad:{dx:-78,dz:46,r:13},wf:[2.5,3.95,5.3],spots:[]}; // spots: fishing spots at the pier ends (filled by buildSkyIsland, used by Fishing.js)
 const skyRim=a=>SKY.R*(1+.07*Math.sin(3*a+.5)+.045*Math.sin(5*a+2));
 const skyRim2=a=>SKYI.satR*(1+.08*Math.sin(4*a+1));
 const satCentre=()=>{const R=skyRim(SKYI.ab)+SKYI.satGap;return {x:Math.cos(SKYI.ab)*R,z:Math.sin(SKYI.ab)*R}};
@@ -130,7 +130,7 @@ function buildSkyIsland(){
       // hearth against the west wall
       bx(1.2,1.5,2.4,-3.45,.75,-1.6,stone);bx(1.5,.16,2.7,-3.4,1.58,-1.6,dark);bx(.12,.85,1.2,-2.84,.5,-1.6,'#2a2420');bx(.7,.3,1.2,-2.3,.15,-1.6,'#7d756b');
       // bed in the back-east corner
-      bx(2.1,.45,3.3,2.7,.22,-3.6,wood);bx(1.9,.3,3.05,2.7,.6,-3.6,'#f1e6cf');bx(1.9,.12,1.7,2.7,.82,-3.05,'#3f8fa3');bx(1.2,.2,.6,2.7,.85,-4.9,'#ffffff');bx(.14,1.1,3.4,1.72,.55,-3.6,dark);bx(2.1,1.3,.14,2.7,.65,-5.32,dark);
+      bx(2.1,.45,2.75,2.7,.22,-3.9,wood);bx(1.9,.3,2.5,2.7,.6,-3.9,'#f1e6cf');bx(1.9,.12,1.05,2.7,.82,-3.2,'#3f8fa3');for(const px of [2.2,3.2])bx(.8,.2,.55,px,.85,-4.85,'#ffffff');bx(.14,.7,2.75,1.62,.35,-3.9,dark);bx(2.1,1.3,.14,2.7,.65,-5.32,dark); // a bed for two: two pillows at the head, slots at x=2.2 and 3.2
       // bookshelf on the back wall
       bx(3.1,2.4,.5,-.4,1.2,-5.1,wood);for(const yy of [.55,1.15,1.75]){bx(2.8,.06,.46,-.4,yy-.3,-5.05,dark);const cols=['#c0392b','#2e86c1','#27ae60','#d4ac0d','#8e44ad','#ecf0f1','#e67e22'];for(let k=0;k<13;k++){const h=.42+((k*7)%3)*.07,m=bx(.17,h,.34,-1.65+k*.2,yy-.3+h/2+.03,-5.0,cols[(k*5+Math.round(yy*10))%7]);m.rotation.z=(k%5===0?.12:0)}}
       // round table, stools, lamp, bowl
@@ -147,9 +147,9 @@ function buildSkyIsland(){
       const fur=(lx,lz,rr,h)=>{const p=W(lx,lz);solids.push({x:p.x,z:p.z,r:rr,h:y+h})};
       fur(-3.2,-1.6,1.1,1.5);fur(-3.2,-.5,.9,1.5);fur(-3.2,-2.7,.9,1.5);fur(-1.2,2.0,.95,.9);fur(-.4,-4.8,1.0,2.3);fur(-1.5,-4.8,.9,2.3);fur(.7,-4.8,.9,2.3);fur(3.4,4.2,.5,1.0);fur(3.4,2.2,.7,2.3);
       // the bed top is walkable (h = mattress top): the Lie down interaction puts you on it
-      for(const dz of [-4.6,-3.6,-2.6]){const p=W(2.7,dz);solids.push({x:p.x,z:p.z,r:.8,h:y+.9})}
-      const bedP=W(2.7,-3.6),hearthP=W(-2.5,-1.6),fl=new THREE.Mesh(new THREE.ConeGeometry(.28,.8,6),new THREE.MeshBasicMaterial({color:'#ffb030',transparent:true,opacity:.9}));const fp=W(-2.9,-1.6);fl.position.set(fp.x,y+.65,fp.z);scene.add(fl);skyAnim.flames.push({m:fl});
-      skyAnim.cozy={bed:bedP,hearth:hearthP,y,cx,cz,hwm,hdm};
+      for(const dz of [-4.7,-3.9,-3.1]){const p=W(2.7,dz);solids.push({x:p.x,z:p.z,r:.8,h:y+.9})}
+      const bedP=W(2.7,-3.9),hearthP=W(-2.5,-1.6),fl=new THREE.Mesh(new THREE.ConeGeometry(.28,.8,6),new THREE.MeshBasicMaterial({color:'#ffb030',transparent:true,opacity:.9}));const fp=W(-2.9,-1.6);fl.position.set(fp.x,y+.65,fp.z);scene.add(fl);skyAnim.flames.push({m:fl});
+      skyAnim.cozy={bed:bedP,slots:[W(2.2,-4.12),W(3.2,-4.12)],hearth:hearthP,y,cx,cz,hwm,hdm};
     }
     const made=_bake(g),roofs=_bake(rg);if(o.walk)skyAnim.roofs.push({meshes:roofs,cx,cz,hw:hw*COT_S,hd:hd*COT_S,y,inside:false});
     return g}
@@ -201,7 +201,20 @@ function buildSkyIsland(){
     foam.rotation.y=-a;foam.position.set(SKY.x+ex+Math.cos(a)*1.4,ty-1,SKY.z+ez+Math.sin(a)*1.4);scene.add(foam);
     const rk=[],fr=[];for(let k=0;k<9;k++){const t=r()*TAU,rr=pr+.8+r()*2.5,x=w.x+Math.cos(t)*rr,z=w.z+Math.sin(t)*rr;rk.push({x:SKY.x+x,y:skyTop(x,z)-.1,z:SKY.z+z,ry:r()*TAU,s:.5+r()*.9})}
     for(let k=0;k<12;k++){const t=r()*TAU,rr=pr+1+r()*5,x=w.x+Math.cos(t)*rr,z=w.z+Math.sin(t)*rr;fr.push({x:SKY.x+x,y:skyTop(x,z),z:SKY.z+z,ry:r()*TAU,s:.7+r()*.6})}
-    _cscatter(['Rock_Medium_1','Rock_Medium_2','Rock_Medium_3'][wi%3],1.7,rk,'rock');_cscatter('Fern_1',.8,fr,'grass')});
+    _cscatter(['Rock_Medium_1','Rock_Medium_2','Rock_Medium_3'][wi%3],1.7,rk,'rock');_cscatter('Fern_1',.8,fr,'grass');
+    { // fishing pier from the inland shore out over the water; its end is a fishing spot
+      const ul=Math.hypot(w.x,w.z)||1,dx=-w.x/ul,dz=-w.z/ul,nx=-dz,nz=dx,sx=w.x+dx*(pr-.5),sz=w.z+dz*(pr-.5),L=6.6,surf=skyTop(w.x,w.z)+.12,yS=skyTop(sx,sz)+.03,yE=Math.max(yS,surf+.5);
+      const NP=Math.floor(L/.55),pl=new THREE.InstancedMesh(new THREE.BoxGeometry(.5,.14,2.4),new THREE.MeshLambertMaterial({flatShading:true}),NP),m4=new THREE.Matrix4(),q=new THREE.Quaternion(),sc1=new THREE.Vector3(1,1,1),pc=new THREE.Color(),vv=new THREE.Vector3();
+      q.setFromAxisAngle(Y,-Math.atan2(-dz,-dx));
+      for(let i=0;i<NP;i++){const u=(i+.5)/NP;vv.set(SKY.x+sx-dx*L*u,yS+(yE-yS)*u,SKY.z+sz-dz*L*u);m4.compose(vv,q,sc1);pl.setMatrixAt(i,m4);pl.setColorAt(i,pc.set(['#9a6a3a','#8b5a2b','#a8793f','#85552c'][i%4]))}
+      scene.add(pl);
+      const PG=new THREE.Group();scene.add(PG);const wm=stdM('#5b3b22');
+      for(const u of [.06,.38,.7,.97])for(const sd of [-1,1]){const dy=yS+(yE-yS)*u,po=new THREE.Mesh(new THREE.CylinderGeometry(.1,.12,2.1,6),wm);po.position.set(SKY.x+sx-dx*L*u+nx*1.2*sd,dy-.85,SKY.z+sz-dz*L*u+nz*1.2*sd);PG.add(po)}
+      _bake(PG);
+      for(let d=0;d<=L;d+=.65){const u=d/L;solids.push({x:SKY.x+sx-dx*L*u,z:SKY.z+sz-dz*L*u,r:.85,h:yS+(yE-yS)*u+.07})}
+      place(scene,'lantern',SKY.x+sx+nx*2.2,skyTop(sx+nx*2.2,sz+nz*2.2),SKY.z+sz+nz*2.2,0,2.6);solids.push({x:SKY.x+sx+nx*2.2,z:SKY.z+sz+nz*2.2,r:.35});
+      SKYI.spots.push({x:SKY.x+sx-dx*L*.93,z:SKY.z+sz-dz*L*.93,y:yE+.07,fx:-dx,fz:-dz,px:SKY.x+w.x,pz:SKY.z+w.z,pr,surf})}
+  });
   // ---- trees, bushes, undergrowth, flowers, rocks (kit instances) ----
   const placed=[];const addList=(P,nm,x,z,s)=>{(P[nm]=P[nm]||[]).push({x:SKY.x+x,y:skyTop(x,z),z:SKY.z+z,ry:r()*TAU,s});placed.push({x,z})};
   const apart=(x,z,d)=>!placed.some(p=>Math.hypot(p.x-x,p.z-z)<d),pick=(P,nm,x,z,s)=>{(P[nm]=P[nm]||[]).push({x:SKY.x+x,y:skyTop(x,z),z:SKY.z+z,ry:r()*TAU,s})};
@@ -265,9 +278,17 @@ function buildSkyIsland(){
    for(let k=0;k<300&&spots.length<8;k++){const a=r()*TAU,rr=R*(.2+r()*.65),x=Math.cos(a)*rr,z=Math.sin(a)*rr;if(!noRim(x,z,10)||!free(x,z,{hub:26}))continue;spots.push([SKY.x+x,SKY.z+z,skyTop(x,z)+1.5])}
    for(const [dx,dz] of [[-14,6],[12,10]])spots.push([cx2+dx,cz2+dz,skyTop2(dx,dz)+1.5]);
    for(const [x,z,y] of spots){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.55),shard);m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}}
+  if(typeof Fishing!=='undefined')Fishing.build(SKYI.spots);
   // cosy-cottage interactions: lie on the bed, sit by the fire (uses the emote system)
   if(typeof Interaction!=='undefined'&&skyAnim.cozy){const z=skyAnim.cozy,inside=()=>Math.abs(S.x-z.cx)<z.hwm+1&&Math.abs(S.z-z.cz)<z.hdm+1&&S.y<z.y+6&&S.y>z.y-5,emo=id=>{loadEmotes().then(()=>playEmote(id)).catch(()=>{})};
-    Interaction.register('cozy-bed','Lie down',()=>!S.flying&&inside()&&S.y<z.y+.5&&Math.hypot(S.x-z.bed.x,S.z-z.bed.z)<3.6,()=>{S.x=z.bed.x;S.z=z.bed.z;S.y=z.y+.95;S.vy=0;S.kx=0;S.kz=0;S.rot=Math.PI;setTimeout(()=>emo('lie'),180)});
+    Interaction.register('cozy-bed','Lie down',()=>!S.flying&&inside()&&S.y<z.y+.5&&Math.hypot(S.x-z.bed.x,S.z-z.bed.z)<3.8,()=>{
+      // two people fit: pick the slot that is free (or the one farthest from the partner)
+      const taken=z.slots.map(sl=>{let d=1e9;others.forEach(o=>{const g=o.group.position;if(Math.abs(g.y-(z.y+.9))<.7)d=Math.min(d,Math.hypot(g.x-sl.x,g.z-sl.z))});return d<.8});
+      const free=z.slots.map((sl,i)=>i).filter(i=>!taken[i]);if(!free.length){banner('The bed is full','🛏️');return}
+      const sl=z.slots[free.length>1?(Math.hypot(S.x-z.slots[0].x,S.z-z.slots[0].z)<=Math.hypot(S.x-z.slots[1].x,S.z-z.slots[1].z)?0:1):free[0]];
+      S.x=sl.x;S.z=sl.z;S.y=z.y+.95;S.vy=0;S.kx=0;S.kz=0;S.rot=0; // rot 0: head towards the pillows (-z)
+      if(me){me.position.set(S.x,S.y,S.z);me.userData.pp=null;me.userData.v=0} // no speed spike from the teleport (it used to cancel the pose at once)
+      skyAnim.pend={id:'lie',t:0}});
     Interaction.register('cozy-fire','Warm up by the fire',()=>!S.flying&&inside()&&S.y<z.y+.5&&Math.hypot(S.x-z.hearth.x,S.z-z.hearth.z)<3.4,()=>{S.rot=-Math.PI/2;emo('sit')})}
   skyAnim.objs=scene.children.slice(n0).filter(o=>!orbs.some(b=>b.m===o)&&!_chunks.some(c=>c.im===o)); // everything except the collectible shards; hidden while you are far away (see skyTick)
 }
@@ -280,6 +301,7 @@ function _adapt(t){
   if(ch){A.mul=[1,.72,.52,.36][A.tier];for(const m of A.recv)m.receiveShadow=A.tier<1;for(const f of A.falls)f.mesh.visible=A.tier<3;if(typeof Env!=='undefined')Env.state.cloudLod=A.tier>=2?.4:1}}
 function skyTick(t){
   const s=t/1000;
+  if(skyAnim.pend&&typeof S!=='undefined'){const p=skyAnim.pend;p.t+=1/60;if(S.grounded&&S.state==='idle'&&p.t>.12){skyAnim.pend=null;loadEmotes().then(()=>playEmote(p.id)).catch(()=>{})}else if(p.t>1.5)skyAnim.pend=null} // start the pose only once you have settled on the bed
   if(skyAnim.objs&&typeof S!=='undefined'){const d=Math.hypot(S.x-SKY.x,S.z-SKY.z)+Math.abs(S.y-SKY.base)*.6,vis=skyAnim.vis?d<1800:d<1500; // ~600k triangles of kit pieces: only draw the island when you are within ~1.5 km of it
     if(vis!==skyAnim.vis){skyAnim.vis=vis;for(const o of skyAnim.objs)o.visible=vis;if(!vis)for(const c of _chunks)c.im.visible=false}
     if(skyAnim.vis){_adapt(t);_updateChunks()}}

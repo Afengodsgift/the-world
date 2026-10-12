@@ -45,7 +45,7 @@ const CombatCore=(()=>{
     // (1) commands (with a short input buffer for ones that cannot start yet)
     for(const id of C.order){const f=C.F[id];const q=f.q;f.q=[];for(const c of q){if(!tryCmd(C,f,c)&&(c.t==='light'||c.t==='dodge')&&C.tick-c.e<BUF)f.q.push(c)}}
     // heavy: strike once released and min charge reached, or max charge
-    for(const id of C.order){const f=C.F[id];if(f.act==='charge'&&((f.rel2&&f.c>=Moves.heavy.chargeMin)||f.c>=Moves.heavy.chargeMax)){f.pk=f.c;startMove(C,f,'heavy');f.chg=Math.min(1,(f.pk-Moves.heavy.chargeMin)/(Moves.heavy.chargeMax-Moves.heavy.chargeMin))}}
+    for(const id of C.order){const f=C.F[id];if(f.act==='charge'&&((f.rel2&&f.c>=Moves.heavy.chargeMin)||f.c>=Moves.heavy.chargeMax)){{const ch=Math.max(0,Math.min(1,(f.c-Moves.heavy.chargeMin)/(Moves.heavy.chargeMax-Moves.heavy.chargeMin)));startMove(C,f,'heavy');f.chg=ch}}}
     // (2) snapshot
     const snap={};for(const id of C.order){const f=C.F[id];snap[id]={x:f.x,z:f.z,r:f.r}}
     // (3) root motion
@@ -91,8 +91,8 @@ const CombatCore=(()=>{
   // advance(nowMs) runs every tick up to floor(nowMs/16.667); at most MAXT ticks per call: a longer frame slows the sim (the dropped ticks shift the clock) instead of skipping simulation.
   function stepper(C,maxT){maxT=maxT||6;const S={pend:[],clamped:0,skew:0,tickMs:1000/60};
     S.input=(id,cmd,tms)=>{S.pend.push({id,cmd,tick:Math.floor(tms/S.tickMs+1e-9)-S.skew+1})};
-    S.advance=(nowMs,getHeld)=>{let n=Math.floor(nowMs/S.tickMs+1e-9)-S.skew-C.tick;if(n>maxT){S.skew+=n-maxT;for(const p of S.pend)p.tick-=n-maxT;n=maxT;S.clamped++}const evs=[];
+    S.advance=(nowMs,getHeld,post)=>{let n=Math.floor(nowMs/S.tickMs+1e-9)-S.skew-C.tick;if(n>maxT){S.skew+=n-maxT;for(const p of S.pend)p.tick-=n-maxT;n=maxT;S.clamped++}const evs=[];
       for(let i=0;i<n;i++){const nt=C.tick+1,cm={},held=getHeld?getHeld(nt):{};for(const id in held)cm[id]=Object.assign({list:[]},held[id]);
         for(const p of S.pend)if(p.tick<=nt){(cm[p.id]=cm[p.id]||{list:[]}).list.push(p.cmd)}S.pend=S.pend.filter(p=>p.tick>nt);
-        for(const e of C.step(cm))evs.push(e)}return evs};return S}
+        for(const e of C.step(cm))evs.push(e);if(post)post(nt)}return evs};return S}
   return{create,stepper,mkFighter,moveBy,CONST:{SPEED,SUBM,GUARD_ARC,REARM,DEFL,BUF}}})();

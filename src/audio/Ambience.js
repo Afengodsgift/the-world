@@ -41,6 +41,8 @@ const Ambience=(()=>{
     {dripIn=gain(1);const dl=A.createDelay(1),fb=gain(.42),wet=gain(.55);dl.delayTime.value=.23;dripIn.connect(bus);dripIn.connect(dl);dl.connect(fb);fb.connect(dl);dl.connect(wet);wet.connect(bus)}
     // space pad: a slow, wide drone (open fifths, softly breathing). Silent unless you are far above the world: mysterious and calm, not sci-fi
     {const lv=gain(0),lp=filt('lowpass',520,.4);for(const [fr,dt] of [[55,0],[82.6,4],[110.3,-5],[164.9,3]]){const o=A.createOscillator();o.type='sine';o.frequency.value=fr;o.detune.value=dt;const g=gain(fr>100?.25:.5);o.connect(g);g.connect(lp);lfo(.03+fr*.0002,.18,g.gain);o.start()}lp.connect(lv);lv.connect(bus);L.pad=lv}
+    // charged boost: a rising band of wind while you charge (gain and pitch follow the charge)
+    {const s=noise(),f=filt('bandpass',500,.9),g=gain(0);s.connect(f);f.connect(g);g.connect(bus);L.chg=g;L.chgF=f}
     // crickets: two detuned, fast-tremolo sines
     {const lv=gain(0);for(const [fr,tr] of [[4300,26],[4700,31]]){const o=A.createOscillator();o.frequency.value=fr;const t=gain(.5);o.connect(t);t.connect(lv);lfo(tr,.5,t.gain);o.start()}lv.connect(bus);L.cricket=lv}
   }
@@ -64,8 +66,9 @@ const Ambience=(()=>{
     const air=1/(1+alt/60);
     to(L.ocean.gain,(1-under)*Z.ocean*.30*air);
     to(L.surf.gain,(1-under)*Z.beach*.16);
-    to(L.wind.gain,(1-under)*(1-(typeof Space!=='undefined'?Space.f.quiet:0))*(1-cloud*.5)*(.05+.12*Z.alt+.10*storm+.06*rain+sp01*.5));
+    to(L.wind.gain,(1-under)*(1-(typeof Space!=='undefined'?Space.f.quiet:0))*(1-cloud*.5)*(.05+.12*Z.alt+.10*storm+.06*rain+sp01*.5+(typeof Boost!=='undefined'?Boost.view.burst*.25:0)));
     if(L.pad&&typeof Space!=='undefined')to(L.pad.gain,Space.f.space*Space.f.space*.07,1.8);
+    if(L.chg&&typeof Boost!=='undefined'){const bv=Boost.view;to(L.chg.gain,bv.charge*bv.charge*.11,.06);to(L.chgF.frequency,450+bv.charge*2600,.06)}
     to(L.windF.frequency,380+sp01*1500+Z.alt*300+storm*150,.3);
     to(L.under.gain,under*.2);
     to(L.fount.gain,(1-under)*Z.town*.10*(alt<10?1:0));
@@ -127,5 +130,9 @@ const Ambience=(()=>{
     if(s==='water')burst('bandpass',1200,.5,.3*v,.45,.01);else if(s==='sand')burst('lowpass',650,.6,.2*v,.2,.01);else burst('bandpass',s==='stone'?2200:1500,.9,.18*v,.14,.005);
   }
   function setOn(v){on=!!v;try{localStorage.setItem('w4amb',on?'1':'0')}catch(e){}if(A)to(bus.gain,on?MASTER:0,.15)}
-  return {update,jump,land,step,setOn,isOn:()=>on,_zones:Z};
+  // the launch: one filtered-noise sweep (high to low) that peaks at release and fades; stops itself
+  function whoosh(p){if(!A||!on||!bus)return;const t=A.currentTime,s=noise(),f=filt('bandpass',3600,.8),g=gain(0);s.connect(f);f.connect(g);g.connect(bus);
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.18+.25*(p||0),t+.04);g.gain.exponentialRampToValueAtTime(.001,t+1.1);
+    f.frequency.setValueAtTime(3600,t);f.frequency.exponentialRampToValueAtTime(500,t+1);s.stop(t+1.2)}
+  return {update,jump,land,step,setOn,whoosh,isOn:()=>on,_zones:Z};
 })();

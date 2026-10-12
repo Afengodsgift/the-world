@@ -45,5 +45,6 @@ const load=f=>new Promise((res,rej)=>{const b=fs.readFileSync(path.join(ROOT,'as
     const by={};scene.traverse(o=>{if(o.isInstancedMesh){const key=o.geometry.uuid;by[key]=by[key]||{count:0,t:(o.geometry.index?o.geometry.index.count:o.geometry.attributes.position.count)/3,n:0};by[key].count+=o.count;by[key].n++}});
     console.log('instanced groups (instances x tris-per-instance-mesh):',Object.values(by).sort((a,b)=>b.count*b.t-a.count*a.t).slice(0,14).map(v=>v.count+'x'+Math.round(v.t)+'='+Math.round(v.count*v.t/1000)+'k').join('  '))}
   const f32=new Float32Array(out);fs.writeFileSync(process.argv[2]||'/tmp/tris.bin',Buffer.from(f32.buffer));
+  if(process.env.SPOTS)console.log('SPOTS',JSON.stringify(A.SKYI.spots.map(s=>[+s.x.toFixed(1),+s.y.toFixed(2),+s.z.toFixed(1),+s.fx.toFixed(2),+s.fz.toFixed(2),+s.px.toFixed(1),+s.pz.toFixed(1),+s.pr.toFixed(1)])));
   console.log('triangles',ntri,'| scene objects',scene.children.length,'| solids',solids.length,'| island',JSON.stringify(A.SKY));
 })();

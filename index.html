@@ -100,8 +100,10 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
   body #owgun{right:calc(var(--R0) + var(--F) + var(--S) + 2*var(--g))}
   body #emopanel{max-height:var(--sheet-h);padding-left:var(--sheet-px);padding-right:var(--sheet-px)}
 }
+#boost.charging{background:conic-gradient(#ffd24a calc(var(--ch,0)*360deg),#7fd0ffdd 0)!important;color:#2a1c00;transform:scale(calc(1 + var(--ch,0)*.14));box-shadow:0 0 calc(8px + var(--ch,0)*22px) #ffd24aaa}
 </style>
 <link rel="stylesheet" href="src/ui/theme.css">
+<link rel="stylesheet" href="src/ui/warden.css">
 </head>
 <body>
 <div id="rotate"><div class="ic">📱</div><b>Rotate your phone</b><span>The World is played in landscape.</span></div>
@@ -140,6 +142,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/world/AssetLoader.js"></script>
 <script src="src/input/InputManager.js"></script>
 <script src="src/input/Locomotion.js"></script>
+<script src="src/movement/Boost.js"></script>
 <script src="src/character/Blend.js"></script>
 <script src="src/core/RemoteSmooth.js"></script>
 <script src="src/core/StaticBatch.js"></script>
@@ -150,15 +153,23 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/space/SpaceManager.js"></script>
 <script src="src/space/SpaceEnvironment.js"></script>
 <script src="src/world/SkyIsland.js"></script>
+<script src="src/world/Fishing.js"></script>
 <script src="src/combat/Melee.js"></script>
 <script src="src/interaction/InteractionManager.js"></script>
 <script src="src/games/Tag.js"></script>
 <script src="src/combat/CombatAnims.js"></script>
 <script src="src/character/CombatPose.js"></script>
+<script src="src/combat/Scope.js"></script>
 <script src="src/combat/HitZones.js"></script>
 <script src="src/data/warden.js"></script>
+<script src="src/combat/EnemyAI.js"></script>
 <script src="src/games/OutlawArena.js"></script>
 <script src="src/games/Outlaw.js"></script>
+<script src="src/combat/Moves.js"></script>
+<script src="src/combat/SwordHit.js"></script>
+<script src="src/combat/CombatCore.js"></script>
+<script src="src/combat/WardenAnim.js"></script>
+<script src="src/combat/PlayerCombat.js"></script>
 <script src="src/games/WardenIsles.js"></script>
 <script src="src/world/Farm.js"></script>
 <script src="src/character/FlightPose.js"></script>
@@ -278,6 +289,7 @@ async function enter(code){
   chan.on('broadcast',{event:'ss'},()=>startSharkRun(false));
   chan.on('broadcast',{event:'sls'},()=>startSlalom(false));
   chan.on('broadcast',{event:'ds'},()=>startDash(false));
+  chan.on('broadcast',{event:'fc'},({payload})=>Fishing.onCatch(payload));
   chan.on('broadcast',{event:'em'},({payload})=>{const o=others.get(payload.from);if(o)loadEmotes().then(()=>{o.group.userData.emoteReq=payload.e}).catch(()=>{})});
   chan.on('broadcast',{event:'df'},({payload})=>{if(dash.on)banner('Partner finished in '+fmt(payload.ms),'OBSTACLE DASH')});
   chan.on('broadcast',{event:'slp'},({payload})=>{slalom.pi=payload.i});
@@ -310,7 +322,7 @@ function updateHud(){
   const together=others.size>0;
   $('info').innerHTML='<div class="pill"><i class="dot'+(together?' on':'')+'"></i><span class="code">'+roomCode+'</span><span class="dim">'+(together?'Together':'Waiting\u2026')+'</span></div>'
     +'<div class="pill stats"><span><i>\u2726</i><b>'+got+'</b><span class="dim">/'+orbs.length+'</span></span><span><i>\u{1F4CD}</i><b>'+disc.size+'</b><span class="dim">/'+LOCS.length+'</span></span>'
-    +(treas?'<span><i>\u{1F9F0}</i><b>'+treas+'</b></span>':'')+(smacks?'<span><i>\u{1F94A}</i><b>'+smacks+'</b></span>':'')+'</div>';
+    +(treas?'<span><i>\u{1F9F0}</i><b>'+treas+'</b></span>':'')+(typeof Fishing!=='undefined'&&Fishing.count()?'<span><i>\u{1F3A3}</i><b>'+Fishing.count()+'</b></span>':'')+(smacks?'<span><i>\u{1F94A}</i><b>'+smacks+'</b></span>':'')+'</div>';
 }
 
 // ---------- three ----------
@@ -370,7 +382,7 @@ function openEmotes(){
   pn.innerHTML='<button class="x">✕</button>';pn.style.display='block';
   pn.firstChild.onclick=()=>{pn.style.display='none'};
   loadEmotes().then(()=>{let cat='',row=null;
-    for(const m of EMO.menu){if(m.cat!==cat){cat=m.cat;const h=document.createElement('h4');h.textContent=cat;pn.appendChild(h);row=document.createElement('div');row.className='row';pn.appendChild(row)}
+    for(const m of EMO.menu){if(m.hidden)continue;if(m.cat!==cat){cat=m.cat;const h=document.createElement('h4');h.textContent=cat;pn.appendChild(h);row=document.createElement('div');row.className='row';pn.appendChild(row)}
       const b=document.createElement('button');b.textContent=m.emoji+' '+m.label;b.onclick=()=>{pn.style.display='none';playEmote(m.id)};row.appendChild(b)}
   }).catch(()=>{pn.innerHTML+='<p>Couldn\'t load emotes - check your connection.</p>'})}
 function playEmote(id){
@@ -382,13 +394,14 @@ function unrel(q,a){if(q.rel)for(const r of q.rel)r.acts=r.acts.filter(x=>x!==a)
 function emoStart(q,id){
   const d=EMO.def[id];if(!d)return;emoStop(q);
   const main=emoAct(q,id);if(!main)return;unrel(q,main);const acts=[main],setup=(a,loopMode,clampEnd)=>{a.reset();a.setLoop(loopMode,loopMode===THREE.LoopOnce?1:Infinity);a.clampWhenFinished=!!clampEnd;a.setEffectiveTimeScale(1);a.setEffectiveWeight(300)}; // 300 vs the idle clip's 1 so the lying/plank poses aren't dragged up by the blended idle hips
-  if(d.kind==='once'){setup(main,THREE.LoopOnce,false);main.play();q.hold={acts,age:0,until:performance.now()/1000+main.getClip().duration,once:true};return}
+  if(d.kind==='once'){setup(main,THREE.LoopOnce,false);main.play();q.hold={id,acts,age:0,until:performance.now()/1000+main.getClip().duration,once:true};return}
   const mode=d.kind==='clamp'?THREE.LoopOnce:THREE.LoopRepeat,clampEnd=d.kind==='clamp';
-  if(d.intro){const ia=emoAct(q,id+'_in');if(ia){unrel(q,ia);acts.push(ia);setup(ia,THREE.LoopOnce,true);ia.play();q.hold={acts,age:0,main,mode,clampEnd,introAt:performance.now()/1000+ia.getClip().duration-.12,ia};return}}
-  setup(main,mode,clampEnd);main.play();q.hold={acts,age:0}}
+  if(d.intro){const ia=emoAct(q,id+'_in');if(ia){unrel(q,ia);acts.push(ia);setup(ia,THREE.LoopOnce,true);ia.play();q.hold={id,acts,age:0,main,mode,clampEnd,introAt:performance.now()/1000+ia.getClip().duration-.12,ia};return}}
+  setup(main,mode,clampEnd);main.play();q.hold={id,acts,age:0}}
 
 function animateClips(g,dt,st){
   const q=g.userData,A=q.nact,p=g.position;
+  if(q.rod)q.rod.visible=!!((q.hold&&q.hold.id&&q.hold.id.startsWith('fish_'))||q.fishing); // the fishing rod shows while a fishing pose is playing
   const mdx=q.pp?p.x-q.pp.x:0,mdz=q.pp?p.z-q.pp.z:0,rawU=q.pp&&dt>0?Math.hypot(p.x-q.pp.x,p.z-q.pp.z)/dt:0,raw=Math.min(16,rawU);q.pp={x:p.x,z:p.z};
   q.fs=(q.fs||0)+(rawU-(q.fs||0))*Math.min(1,dt*6);const sf=clamp(q.fs/70,0,1); // unclamped speed (flight is much faster than the 16 m/s clamp above)
   {const ly=q.lyaw===undefined?g.rotation.y:q.lyaw,yd=Math.atan2(Math.sin(g.rotation.y-ly),Math.cos(g.rotation.y-ly))/Math.max(dt,.001);q.yr=(q.yr||0)+(yd-(q.yr||0))*Math.min(1,dt*5);q.lyaw=g.rotation.y}const acc=(raw-(q.v||0))*10;q.v=(q.v||0)+(raw-(q.v||0))*Math.min(1,dt*10);const v=q.v;
@@ -404,6 +417,7 @@ function animateClips(g,dt,st){
   const armed=q.gunI>=0&&!q.noTwist&&st!=='fly'&&st!=='swim'&&st!=='jump'&&st!=='fall';   // q.noTwist: raiders keep the plain gait (the leg twist is for human players)
   if(armed)CombatPose.plan(q,dt,mdx,mdz,v,g.rotation.y,st==='walk'||st==='run');else{q.cpT=0;q.cpRev=false}
   if(q.cpRev&&LOCO[want])ts=-ts;
+  if(st==='crouch'){const cr=CombatAnims.act(q,'crouch');if(cr){A.crouch=cr;want='crouch'}}   // raiders ducking behind cover
   if(want==='idle'&&armed){const ca=CombatAnims.act(q,'cidle');if(ca){A.cidle=ca;want='cidle'}}
   const n=A[want];
   if(q.cur!==want){n.reset();if(LOCO[q.cur]&&LOCO[want]){const o=A[q.cur];n.time=o.time/o.getClip().duration*n.getClip().duration} // keep the stride phase when switching gait
@@ -434,7 +448,7 @@ function animateClips(g,dt,st){
   if(q.cpSaved)CombatPose.untwist(q);q.mixer.update(dt);
   if(armed&&Math.abs(q.cpT||0)>.01)CombatPose.twist(q);   // legs twisted toward travel, torso back on the aim
   // procedural layers on top of the baked clips: flight (src/character/FlightPose.js) or a held weapon (Outlaw.poseGun)
-  if(!FlightPose.apply(g,q,dt,st,{speed:q.fs,yawRate:q.yr})&&q.gunI>=0&&typeof Outlaw!=='undefined')Outlaw.poseGun(g,q,st,dt);
+  if(!FlightPose.apply(g,q,dt,st,{speed:q.fs,yawRate:q.yr,charge:q.bc||0})&&q.gunI>=0&&typeof Outlaw!=='undefined')Outlaw.poseGun(g,q,st,dt);
   FlightFX.avatar(g,q,dt);
   if(q.gun)q.gun.visible=!!q.gun.userData.ok&&st!=='fly'&&st!=='swim';
 }
@@ -485,6 +499,7 @@ function dress(g,skin){
       pn.position.set(.173,-19.68,31.046);piv.add(pn);piv.scale.setScalar((.36/5.915)/50);piv.position.set(0,.0016,0);piv.rotation.set(Math.PI,0,PAN_REST_Z);
       if(u.nact)piv.quaternion.set(...PAN_GRIP);piv.visible=false;bones.RightHand.add(piv);u.pan=piv;
     }).catch(()=>{});
+    if(bones.RightHand&&typeof Fishing!=='undefined')Fishing.attachRod(u,bones); // hidden fishing rod in the right hand
   }).catch(()=>{});
 }
 loadAssets();loadChar().catch(()=>{});
@@ -699,11 +714,11 @@ function onState(p){
   let o=others.get(p.id);
   if(!o){const m=(chan.presenceState()[p.id]||[{}])[0];addOther(p.id,m.name,m.color,m.skin);o=others.get(p.id);if(!o)return;o.group.position.set(p.x,p.y,p.z)}
   RemoteSmooth.snap(o,p,performance.now());if(o.group.userData.pan)o.group.userData.pan.visible=!!p.pn;
-  if(o.st==='fall'&&p.st!=='fall'&&p.st!=='jump')o.group.userData.land=.15;o.st=p.st||'idle';
+  if(o.st==='fall'&&p.st!=='fall'&&p.st!=='jump')o.group.userData.land=.15;o.st=p.st||'idle';o.group.userData.bc=+p.bc||0;
 }
 function send(){
   if(!chan||!entered)return;
-  chan.send({type:'broadcast',event:'s',payload:{id:myId,x:+S.x.toFixed(2),y:+S.y.toFixed(2),z:+S.z.toFixed(2),r:+S.rot.toFixed(2),st:S.state,pn:+panOn}});
+  chan.send({type:'broadcast',event:'s',payload:{id:myId,x:+S.x.toFixed(2),y:+S.y.toFixed(2),z:+S.z.toFixed(2),r:+S.rot.toFixed(2),st:S.state,pn:+panOn,bc:+Boost.view.charge.toFixed(2)}});
 }
 
 // ---------- exploration ----------
@@ -738,7 +753,7 @@ function wsBoot(){
 function banner(t,l){const b=$('banner');b.innerHTML='<div class="toast"><small>'+(l||'NEW LOCATION DISCOVERED')+'</small><span>'+t+'</span></div>';b.style.opacity=1;clearTimeout(banner.t);banner.t=setTimeout(()=>b.style.opacity=0,3200)}
 function take(i,local){const o=orbs[i];if(!o||!o.on)return;o.on=false;o.m.visible=false;got++;save();updateHud();if(local&&chan)chan.send({type:'broadcast',event:'c',payload:{i}})}
 function chime(){try{const a=WAudio.get();if(!a)return;const o=a.createOscillator(),g=a.createGain();o.frequency.value=660;o.connect(g);g.connect(WAudio.out());g.gain.setValueAtTime(.2,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+1.4);o.start();o.stop(a.currentTime+1.4)}catch(e){}}
-function doUse(){const t=$('use').style.display==='block',id=Interaction.current();Interaction.use();if(t&&me)me.userData.emote=id==='dig'&&me.userData.nact&&me.userData.nact.dig?'dig':'interact'}
+function doUse(){const t=$('use').style.display==='block',id=Interaction.current();Interaction.use();if(t&&me&&!/^(fish|cozy)/.test(id||''))me.userData.emote=id==='dig'&&me.userData.nact&&me.userData.nact.dig?'dig':'interact'}
 Interaction.register('dig','Dig!',
   ()=>hunt.on&&Math.hypot(S.x-hunt.x,S.z-hunt.z)<6&&Math.abs(S.y-hunt.y)<20,
   ()=>dig(true));
@@ -1047,7 +1062,12 @@ function dashTick(t){
 
 // ---------- sky race ----------
 const race={on:false,i:0,pi:0,t0:0,rings:[],el:null};
-let bvis=false;const bst=()=>S.flying&&(S.boost||S.burst>0);
+let bvis=false;const bst=()=>S.flying&&(S.boost||S.burst>0||Boost.holdsBoost());
+// charged-boost HUD: the button label + a charge ring (CSS var --ch), and the launch effects (shockwave, whoosh) on the burst event
+let bLab='',lastBoostEv=0;const _bd=new THREE.Vector3();
+function boostUI(bv){const b=$('boost'),lab=bv.mode==='charging'?(bv.charge>=1?'RELEASE':'CHARGE'):S.boost?'BOOST ON':'Boost';
+  if(lab!==bLab){bLab=lab;b.textContent=lab}b.style.setProperty('--ch',bv.charge.toFixed(2));b.classList.toggle('charging',bv.mode==='charging');b.style.opacity=(S.boost||bv.mode==='charging')?1:.75;
+  if(bv.ev!==lastBoostEv){lastBoostEv=bv.ev;camera.getWorldDirection(_bd);FlightFX.shock(me.position,_bd);if(typeof Ambience!=='undefined'&&Ambience.whoosh)Ambience.whoosh(bv.launch)}}
 function buildRace(){
   const pts=[];
   for(let k=0;k<WP.length-1;k++){const [ax,az]=WP[k],[bx,bz]=WP[k+1],n=Math.max(1,Math.round(Math.hypot(bx-ax,bz-az)/230));
@@ -1159,14 +1179,15 @@ function tickFrame(t){
   if(keys.KeyA||keys.ArrowLeft)ix-=1;if(keys.KeyD||keys.ArrowRight)ix+=1;
   if(keys.KeyW||keys.ArrowUp)iy-=1;if(keys.KeyS||keys.ArrowDown)iy+=1;
   if(typeof Ship!=='undefined'&&Ship.seated()){Ship.setInput(ix,iy);ix=0;iy=0}              // seated at the helm: the stick steers the ship
+  if(S.flying&&Boost.driving()&&Math.hypot(ix,iy)<.05)iy=-1;                // the burst drives you forward even if the stick is idle (steering still works)
   const len=Math.hypot(ix,iy);if(len>1){ix/=len;iy/=len}
   const sprint=keys.ShiftLeft||len>.9;
   const fp=S.flying?SpaceFlight.vertical(CameraRig.neutralPitch()-S.pitch,bst()?2.4:1,bst()?70:34):null;   // look up = go up (src/space/SpaceFlight.js); identical inside the old look range
-  const speed=S.flying?(bst()?70:34)*Math.min(1,len)*fp.h:(H(S.x,S.z)<-.5&&S.y<3?(sprint?16:9):(sprint?12:6))*Math.min(1,len)*kartMul();
+  const speed=S.flying?(bst()?70:34)*Math.min(1,len)*fp.h*Boost.speedMul():(H(S.x,S.z)<-.5&&S.y<3?(sprint?16:9):(sprint?12:6))*Math.min(1,len)*kartMul()*(typeof PlayerCombat!=='undefined'?PlayerCombat.speedMul(sprint):1);
   const sy=Math.sin(S.yaw),cy=Math.cos(S.yaw),px=S.x,pz=S.z;
   const dx=cy*ix+sy*iy,dz=-sy*ix+cy*iy;
   if(S.flying){ // flight has inertia: takeoff ~0.5 s to full speed, glide-out when you let go
-    const tx=len>.05?dx*speed:0,tz=len>.05?dz*speed:0,cur=Math.hypot(S.fvx||0,S.fvz||0),kk=1-Math.exp(-(Math.hypot(tx,tz)>cur?4:3.2)*dt);
+    const tx=len>.05?dx*speed:0,tz=len>.05?dz*speed:0,cur=Math.hypot(S.fvx||0,S.fvz||0),kk=1-Math.exp(-(Math.hypot(tx,tz)>cur?Boost.upRate(4):Boost.downRate(3.2))*dt);
     S.fvx=(S.fvx||0)+(tx-(S.fvx||0))*kk;S.fvz=(S.fvz||0)+(tz-(S.fvz||0))*kk;{const sMul=SpaceFlight.moveMulH(S.y,Math.hypot(S.x,S.z));S.x+=S.fvx*dt*sMul;S.z+=S.fvz*dt*sMul}Locomotion.carry(S);
     if(len>.05&&!CameraRig.shooterActive())S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt));
   }else{S.fvx=S.fvz=0;Locomotion.move(S,len>.05?dx*speed:0,len>.05?dz*speed:0,dt,S.dv?'swim':!S.grounded?'air':H(S.x,S.z)<-.5?'swim':'ground');if(len>.05&&!CameraRig.shooterActive())S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt))}
@@ -1203,7 +1224,8 @@ function tickFrame(t){
   }
   vegCull();CameraRig.update(dt);
   {const uT=clamp((-.25-camera.position.y)/.5,0,1);S.under=(S.under||0)+(uT-(S.under||0))*Math.min(1,dt*10)}   // 0 above water .. 1 camera fully submerged (drives fog, sound muffle, bubbles)                                                         // orbit / first-person / shoulder + flight FOV, roll, shake (src/camera/CameraRig.js)
-  Space.update(dt,t);Env.tick(dt,t);SpaceEnv.update(dt,t);skyTick(t);
+  Boost.update(S,dt);me.userData.bc=Boost.view.charge;boostUI(Boost.view);
+  Space.update(dt,t);Env.tick(dt,t);SpaceEnv.update(dt,t);skyTick(t);Fishing.tick(dt,t);
   WaterFX.update(dt,{x:S.x,y:S.y,z:S.z,heading:S.rot,speed:Math.hypot(S.gvx||0,S.gvz||0),swim:S.state==='swim',dv:!!S.dv,under:S.under||0,camX:camera.position.x,camY:camera.position.y,camZ:camera.position.z,dayF:Env.state.dayF,rain:S.y<300?Env.state.wx.rain:0,over:overSea,hAt:H});
   if(sun){Perf.snapSun(sun,S.x,S.y,S.z);sky.position.copy(camera.position);if(seaTex){seaTex.offset.x+=dt*.0006;seaTex.offset.y+=dt*.0004}
     if(sun.castShadow&&Perf.shadowTooSlow()){sun.castShadow=false;scene.traverse(o=>{if(o.material)o.material.needsUpdate=true})}}
