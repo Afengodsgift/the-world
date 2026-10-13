@@ -7,7 +7,7 @@
 const DuelistAI=(()=>{
   const REACH={cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4},REACT=14,INTRO=90;
   function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-  function create(seed,o){o=o||{};return{r:mulberry(seed|0),t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,mood:'patient',moodT:90,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null}}
+  function create(seed,o){o=o||{};return{foe:o.foe||'duelist',r:mulberry(seed|0),t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,mood:'patient',moodT:90,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null}}
   const key=P=>P.act==='attack'&&P.ph&&P.ph[P.pi]?'a'+P.ph[P.pi].k:P.act==='stun'?'stun':P.act==='dodge'?'dodge':P.act==='charge'?'charge':P.guard?'guard':'free';
   // A = ai state, P/D = sim fighters, evs = events of the previous tick. Returns {face,mx,mz,list}
   function think(A,P,D,evs,tick){
@@ -19,10 +19,11 @@ const DuelistAI=(()=>{
     A.gP=P.guard&&P.act==='free'?A.gP+1:0;if(A.cool>0)A.cool--;if(A.rip>1)A.rip--;
     for(const e of evs||[])if((e.t==='block'||e.t==='deflect')&&e.d===D.id&&A.rip===0)A.rip=REACT;   // we just blocked something: counter-attack soon
     if(D.act!=='free'){A.busy=true;return out}
-    if(A.busy){A.busy=false;A.cool=A.mood==='aggro'?20+Math.floor(A.r()*20):A.mood==='evasive'?40+Math.floor(A.r()*60):30+Math.floor(A.r()*60)}      // rest after every move or stagger: >= 20 ticks (shorter when aggressive)
+    if(A.busy){A.busy=false;A.cool=A.foe==='hollow'?45+Math.floor(A.r()*65):A.mood==='aggro'?20+Math.floor(A.r()*20):A.mood==='evasive'?40+Math.floor(A.r()*60):30+Math.floor(A.r()*60)}      // rest after every move or stagger: >= 20 ticks (shorter when aggressive)
     if(--A.moodT<=0){const q=A.r();A.mood=q<.34?'aggro':q<.68?'patient':'evasive';A.moodT=140+Math.floor(A.r()*220)}   // he changes his temper every few seconds so the pacing is never the same
     // guard handling
     if(D.guard){if(--A.guardT<=0)out.list.push({t:'guardUp',e:tick});else{out.mx=0;out.mz=0;return out}}
+    if(A.foe==='hollow')return hollow(A,P,D,out,tick,dist,ux,uz,k);
     // movement: hold a fighting distance and circle
     if(--A.strafeT<=0){A.strafe=A.r()<.5?-1:1;A.strafeT=70+Math.floor(A.r()*90)}
     const want=A.mood==='aggro'?1.6:A.mood==='evasive'?3.0:2.1;let mx=0,mz=0;
@@ -47,6 +48,23 @@ const DuelistAI=(()=>{
     let r=A.r()*tot,pick='cut';for(const m in w){r-=w[m];if(r<=0){pick=m;break}}
     if(dist>REACH[pick]+(pick==='thrust'?.2:.1))return out;                                      // not in reach of the chosen move yet: keep closing
     return start(A,out,pick,pick==='fall'?Math.floor(A.r()*13):0,tick)}
+  // The Hollow Warden: a slow heavy. Walks at 70% speed, rests 45-110 ticks between moves, three moves (sweep / slam with a variable hold / triple chain). Same fairness rules: only starts while free, tells + recoveries come from Moves.js.
+  const HR={sweep:3.0,slam:3.0,triple:2.8};
+  function hollow(A,P,D,out,tick,dist,ux,uz,k){
+    if(--A.strafeT<=0){A.strafe=A.r()<.5?-1:1;A.strafeT=80+Math.floor(A.r()*100)}
+    let mx=0,mz=0;if(dist>3.0){mx=ux;mz=uz}else if(dist<1.7){mx=-ux*.5;mz=-uz*.5}else{mx=-uz*A.strafe*.4;mz=ux*A.strafe*.4}
+    out.mx=mx*.7;out.mz=mz*.7;
+    if(A.t<=A.intro||A.cool>0||k==='dodge')return out;
+    if(dist>HR.sweep+.2)return out;
+    const w={sweep:3,triple:2.5,slam:2};
+    if(A.gP>30){w.slam+=4;w.sweep*=.5}
+    if((k==='arecovery'||k==='stun')&&A.see>=REACT){w.sweep+=3;w.triple+=2;w.slam*=.4}
+    if(dist<1.8)w.slam*=.5;
+    for(const m of Object.keys(w)){const L=A.last,n=L.length;if(n>=2&&L[n-1]===m&&L[n-2]===m)w[m]=0;else if(n&&L[n-1]===m)w[m]*=.4}
+    let tot=0;for(const m in w)tot+=w[m];if(tot<=0)return out;
+    let r=A.r()*tot,pick='sweep';for(const m in w){r-=w[m];if(r<=0){pick=m;break}}
+    if(dist>HR[pick]+.1)return out;
+    return start(A,out,pick,pick==='slam'?Math.floor(A.r()*13):0,tick)}
   function start(A,out,m,hold,tick){A.last.push(m);if(A.last.length>3)A.last.shift();out.list.push({t:'atk',m,hold,e:tick});out.mx=out.mz=0;return out}
-  return{create,think,REACH,REACT,INTRO}})();
+  return{create,think,REACH:Object.assign({},REACH,HR),REACT,INTRO}})();
 if(typeof module!=='undefined')module.exports=DuelistAI;
