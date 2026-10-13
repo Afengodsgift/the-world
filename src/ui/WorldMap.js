@@ -107,7 +107,7 @@ const WorldMap=(()=>{
     card.querySelector('#wmTrack').onclick=()=>{wp=tracking?null:p;if(wp)banner('Tracking '+p.n+' · follow the arrow','MAP');select(p)};
     const go=card.querySelector('#wmGo');if(go)go.onclick=()=>travel(p)}
   function travel(p){
-    const x=p.x,z=p.z+(p.n==='Outlaw Isle'?14:0)+((p.n==='Soccer Pitch'||p.n==='Stadium Isle')?PITCH.hh+5:0); // football: land beside the kick-off pad, not on the centre spot
+    const x=p.x,z=p.z+(p.n==='Outlaw Isle'?14:0)+((p.n==='Soccer Pitch'||p.n==='Stadium Isle')?SOCCER.hh+5:0); // football: land beside the kick-off pad, not on the centre spot
     S.x=x;S.z=z;S.y=Math.max(H(x,z),p.y||-9)+1;S.vy=0;S.kx=0;S.kz=0;banner(p.n,'TRAVELLED');toggle()}
   function fillChips(){
     chips.innerHTML='';

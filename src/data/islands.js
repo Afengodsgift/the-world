@@ -17,9 +17,9 @@ const LOCS=[{n:'Town Square',x:25,z:62,r:16},{n:'Whispering Forest',x:-110,z:40,
 // Farm: flat meadow on the main island (found by scanning H() for the flattest spot clear of town, forest, cave, Bonk Ring and beach)
 const FARM={x:30,z:120,R:19,clear:26};
 LOCS.push({n:'Farm',x:FARM.x,z:FARM.z,r:28});
-// Soccer pitch: flat rectangle at the centre of Stadium Isle. Natural terrain there varies 2.6-4.1 m, so H() flattens it to y (a blend of at most
-// ~0.7 m) and eases back to the island over 9 m. hw/hh are the FLAT half-extents (playing surface 26x16 + goals + run-off). Sites keeps other systems off it.
-const PITCH={x:STAD.x,z:STAD.z,y:3.3,hw:31,hh:20,clear:12};
+// Soccer pitch: flat rectangle at the centre of Stadium Isle. Natural terrain there varies 2.3-4.1 m, so H() flattens it to y (a blend of at most
+// ~1 m) and eases back to the island over 9 m. hw/hh are the FLAT half-extents (playing surface 80x50 + goals + run-off). Sites keeps other systems off it.
+const PITCH={x:STAD.x,z:STAD.z,y:3.3,hw:47,hh:31,clear:12};
 // The pitch used to sit on the main island here. The world build is a single seeded random stream, and trees inside this zone used to SKIP one draw,
 // so the zone must keep skipping it or every shard/tree after it would move in existing worlds. Trees may now grow here again, but they take their
 // rotation from their position instead of the stream (see `add` in buildWorld). Do not delete this without a world-version bump.

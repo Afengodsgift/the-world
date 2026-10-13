@@ -14,8 +14,10 @@ const ok=(c,m)=>{if(!c){fails++;console.log('FAIL',m)}else console.log('ok  ',m)
   ok(gap>700,'nearest other island is far away (edge-to-edge gap '+Math.round(gap)+' m)');
   // terrain: land under the pitch, flat, island has land all round, none of the main island's old flatten left
   const H=(x,z)=>A.H(x,z);let mn=1e9,mx=-1e9;
-  for(let x=I.x-31;x<=I.x+31;x+=2)for(let z=I.z-20;z<=I.z+20;z+=2){const h=H(x,z);mn=Math.min(mn,h);mx=Math.max(mx,h)}
-  ok(mx-mn<.02&&Math.abs(mn-g("PITCH.y"))<.05,'the playing field is perfectly flat at PITCH.y ('+mn.toFixed(2)+'..'+mx.toFixed(2)+')');
+  const FW=g('PITCH.hw'),FH=g('PITCH.hh'),PW=g('SOCCER.hw'),PH=g('SOCCER.hh'),GD=g('SOCCER.goalD');
+  ok(FW>=PW+GD+3&&FH>=PH+3,`the flat area (${FW*2}x${FH*2} m) holds the whole ${PW*2}x${PH*2} m pitch plus goals, nets and run-off`);
+  for(let x=I.x-FW;x<=I.x+FW;x+=2)for(let z=I.z-FH;z<=I.z+FH;z+=2){const h=H(x,z);mn=Math.min(mn,h);mx=Math.max(mx,h)}
+  ok(mx-mn<.02&&Math.abs(mn-g("PITCH.y"))<.05,'the whole flat area is perfectly level at PITCH.y ('+mn.toFixed(2)+'..'+mx.toFixed(2)+')');
   let landAll=true;for(let a=0;a<12;a++){if(!(H(I.x+Math.cos(a*.5236)*120,I.z+Math.sin(a*.5236)*120)>.5))landAll=false}
   ok(landAll,'there is dry land 120 m out in every direction (room for stands and lights)');
   ok(Math.abs(H(-43,17)-2.55)>.05,'the main island no longer has a flattened pitch at its old spot');

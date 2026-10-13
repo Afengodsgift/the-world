@@ -124,4 +124,8 @@ islands WITHOUT drawing from the shared random stream, so existing worlds do not
 it without a world-version bump). Code: `src/games/Soccer.js` (host/guest, match flow, actions) + `src/games/soccer/` {Ball (physics + possession),
 Play (pass/shot maths), Pitch (visuals), Hud (buttons), Sound}. Pacing goes through `PlayerMods`. Roadmap: football camera, AI teammates (same entity
 shape, same `hostAct`), goalkeeper, halves/halftime, stadium + time of day, then 5v5.
+Pitch: 80 x 50 m (`SOCCER.hw/hh` in data/soccer.js; `PITCH.hw/hh` in data/islands.js is the flat area and must stay >= hw+goalD+3). Match HUD (`soccer/Hud.js`): during a match
+`body.soccer-on` hides everything that is not football; the scoreboard is a corner pill, messages are a separate transient note, and a tap-twice Leave
+button ends the match. Kicks and tackles play the world's `kick` clip as an overlay (blends over running; one-shot emotes are cancelled by movement) and
+are mirrored to the partner (`anim` message / the host animating the guest on `act`).
 

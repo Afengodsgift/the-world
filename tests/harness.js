@@ -8,7 +8,7 @@ const DB={world_state:[],world_log:[]};
 function table(n){return{select(){const q={f:[],o:null};const api={eq(c,v){q.f.push(r=>r[c]===v);return api},in(c,vs){q.f.push(r=>vs.includes(r[c]));return api},order(c){q.o=c;return api},then(res){let r=DB[n].filter(x=>q.f.every(f=>f(x)));if(q.o)r=r.slice().sort((a,b)=>a[q.o]<b[q.o]?-1:1);res({data:JSON.parse(JSON.stringify(r)),error:null})}};return api},
   upsert(rows,opt){return Promise.resolve().then(()=>{const cols=opt.onConflict.split(',');for(const r of rows){const i=DB[n].findIndex(x=>cols.every(c=>x[c]===r[c]));if(i<0)DB[n].push(JSON.parse(JSON.stringify(r)));else if(!opt.ignoreDuplicates)Object.assign(DB[n][i],JSON.parse(JSON.stringify(r)))}return{error:null}})}}}
 const bus=[];
-function stubEl(){const e={style:{},children:[],textContent:'',appendChild(c){this.children.push(c);return c},set innerHTML(v){},addEventListener(){},remove(){}};return e}
+function stubEl(){const e={style:{},children:[],textContent:'',appendChild(c){this.children.push(c);return c},set innerHTML(v){this._h=String(v)},get innerHTML(){return this._h||''},addEventListener(){},remove(){}};return e}
 function client(id,name,room){
   const store={},els={};
   const log={banners:[],emotes:[],stops:[],chimes:0};

@@ -141,4 +141,44 @@ function setupTackle(exposed){
   SB._down('sprint');run(.05);ok(SO._s.pSprint===true,'the guest\'s sprint state reaches the host');SB._up('sprint');run(.05);ok(SO._s.pSprint===false,'...and releasing it does too');
   at(B,P.x+30,P.z+10);SB._view.x=P.x;SB._view.z=P.z;setBall(P.x,P.z);run(.05);const before=b.vx;ok(SB._act('shoot',1)===false,'the guest cannot kick a ball he is nowhere near');
 }
+
+// ---------- a bigger pitch ----------
+ok(C.hw*2>=80&&C.hh*2>=50,`the pitch is ${C.hw*2} x ${C.hh*2} m (was 52 x 32)`);
+ok(C.goalW>=8&&C.goalH>=2.7,`the goal grew with it (${C.goalW} x ${C.goalH} m)`);
+
+// ---------- kick / tackle animation (the world's kick clip, played as an overlay) ----------
+{
+  const emoteOf=(c)=>vm.runInContext('me.userData.emote',c);
+  const prep=()=>{vm.runInContext('me.userData.nact={};me.userData.emote=null',A.ctx);vm.runInContext('me.userData.nact={};me.userData.emote=null',B.ctx);
+    for(const [c,id] of [[A,'b'],[B,'a']]){const g=c.others.get(id).group;g.userData.nact={};g.userData.emote=null}};
+  newMatch();prep();at(A,P.x-4,P.z);setBall(P.x-3.4,P.z);run(.1);
+  ok(SO._act('shoot',1)&&emoteOf(A.ctx)==='kick','a shot plays the kick animation on you');
+  run(.1);ok(B.others.get('a').group.userData.emote==='kick','...and your partner sees your kick');
+  newMatch();prep();at(A,P.x-4,P.z);setBall(P.x+12,P.z+7);run(.05);
+  ok(SO._act('shoot',1)===false&&!emoteOf(A.ctx),'no ball in reach: no kick animation');
+  newMatch();prep();at(A,P.x-6,P.z);at(B,P.x-7.2,P.z);setBall(A.S.x+.95,P.z,0,0,'a');run(.05);
+  prep();SO._act('tackle');ok(emoteOf(A.ctx)==='kick','a tackle attempt plays the animation, hit or miss');
+  vm.runInContext('me.userData.emote=null',A.ctx);ok(SO._act('tackle')===false&&!emoteOf(A.ctx),'the swing has a short lockout: no tackle spamming, no animation replay');
+  newMatch();prep();at(A,P.x-14,P.z-8);at(B,P.x+1.5,P.z,-Math.PI/2);setBall(P.x,P.z);run(.5);
+  ok(SB._act('shoot',1)&&emoteOf(B.ctx)==='kick','the guest kicks: he sees his own animation instantly');
+  run(.1);ok(A.others.get('b').group.userData.emote==='kick','...and the host sees the guest kick');
+  newMatch();prep();at(B,P.x-20,P.z);SB._up('sprint');at(A,P.x-6,P.z);at(B,P.x-7.2,P.z);setBall(A.S.x+.95,P.z,0,0,'a');run(.05);prep();
+  SB._act('tackle');run(.1);ok(A.others.get('b').group.userData.emote==='kick','a guest tackle attempt is animated on the host too');
+}
+
+// ---------- a clean HUD: corner scoreboard, separate note, leave ----------
+{
+  const ui=SO._ui(),css=vm.runInContext('document.body.children.filter(c=>c.textContent&&c.textContent.indexOf("soccer-on")>=0).map(c=>c.textContent)[0]||""',A.ctx);
+  ok(['#hud','.dk','#emobtn','#panbtn','#owshop','#owgun','#owfire'].every(sel=>css.includes('body.soccer-on '+sel)),'a match hides the status pills, dock, emote, pan, shop and gun buttons');
+  ok(/#sochud\{[^}]*left:calc\(var\(--sl/.test(css)&&!/#sochud\{[^}]*left:50%/.test(css),'the scoreboard is a corner pill, not centred over the play');
+  SO._stop(true);run(.1);ok(ui.hud.style.display==='none','no scoreboard when no match is running');
+  at(A,P.x-4,P.z);SO._start();run(.1);
+  ok(/Practice|You/.test(ui.hud.innerHTML)&&ui.hud.style.display==='flex','scoreboard shows during a match: '+ui.hud.innerHTML.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim());
+  ok(/Kick off|Waiting|Head|Get ready|\d/.test(ui.noteEl.textContent)||ui.noteEl.style.display==='none','the kick-off message is its own transient note, not part of the scoreboard');
+  run(3.5);ok(ui.noteEl.style.display==='none','the note disappears once play starts');
+  ok(!/Kick off|Waiting/.test(ui.hud.innerHTML),'the scoreboard itself never carries the messages');
+  SO._leave();run(.1);ok(SO._s.phase==='idle','Leave ends the match for the host');
+  newMatch();SB._leave();run(.2);ok(SO._s.phase==='idle'&&SB._s.phase==='idle','the guest can leave too, which ends it for both');
+}
+
 console.log(fails?`\n${fails} failure(s)`:'\nall football gameplay checks passed');process.exit(fails?1:0);

@@ -14,7 +14,7 @@ const Soccer=(()=>{
   const st={phase:'idle',host:null,solo:false,a:0,b:0,t:C.match.time,pt:0,pw:0,ts:0,golden:false,note:'',owner:'',pSprint:false};
   const ball={x:P.x,y:BR.r,z:P.z,vx:0,vy:0,vz:0,owner:null,ownT:0};                    // y = height of the ball's CENTRE above the pitch surface
   const view={x:P.x,y:BR.r,z:P.z};                                    // what is drawn (guests smooth toward the extrapolated snapshot)
-  let snap=null,mesh=null,hud=null,ui=null,bar=null,built=false,charging=null,chargeT=0,sendT=0,lastSnapAt=0,hudKey='',sprintHeld=false,stunUntil=0,cur=[];
+  let snap=null,mesh=null,hud=null,ui=null,bar=null,built=false,charging=null,chargeT=0,sendT=0,lastSnapAt=0,hudKey='',sprintHeld=false,stunUntil=0,tkReady=0,cur=[];
   const trk={},rings=[];
   const now=()=>(typeof performance!=='undefined'?performance.now():Date.now())/1000;
   const isHost=()=>st.host===myId;
@@ -50,7 +50,7 @@ const Soccer=(()=>{
 
   // ---------- match flow (host) ----------
   function resetBall(){ball.x=ctr.x;ball.z=ctr.z;ball.y=BR.r;ball.vx=ball.vy=ball.vz=0;ball.owner=null;ball.ownT=0}
-    const holster=()=>{try{if(typeof Outlaw!=='undefined'&&Outlaw.equip)Outlaw.equip(-1)}catch(e){}};
+    const holster=()=>{try{if(typeof Outlaw!=='undefined'&&Outlaw.equip)Outlaw.equip(-1)}catch(e){}try{if(typeof loadEmotes==='function')loadEmotes()}catch(e){}};   // guns away; the kick clip comes with the emotes
   function startMatch(){
     holster();st.owner='';st.pSprint=false;sprintHeld=false;charging=null;
     st.host=myId;st.solo=!partner();st.a=st.b=0;st.t=C.match.time;st.golden=false;st.ts=Date.now();st.pt=0;st.pw=0;st.phase='kickoff';resetBall();
@@ -133,14 +133,19 @@ const Soccer=(()=>{
     applyKick(v);ball.owner=null;pl.t.lock=C.pass.lock;return true;
   }
   // ANYONE: ask for an action. The host does it; the guest sends it (aim and sprint travel with it) and shows an instant thump.
+  // the kick clip, played as an OVERLAY (like smack/dig) so it blends over running; a normal one-shot emote would be cancelled the moment you move.
+  const animOf=g=>{if(g&&g.userData&&g.userData.nact)g.userData.emote='kick'};
+  function kickAnim(){animOf(me);if(isHost())Net.emit('soc',{k:'anim'})}   // the host tells the guest; the guest's own 'act' message is how the host knows to animate the partner
   function act(kind,power){
     if(!inPlay())return false;
+    if(kind==='tackle'){if(now()<tkReady)return false;tkReady=now()+C.tackle.cd*1000}   // the swing itself has a short lockout, hit or miss: no tackle spamming
     const aim=aimDir()||{x:Math.sin(S.rot),z:Math.cos(S.rot)};
-    if(isHost())return hostAct(myId,kind,power||0,aim);
+    if(isHost()){const ok=hostAct(myId,kind,power||0,aim);if(kind==='tackle'||ok)kickAnim();return ok}
     const b=view;if(kind!=='tackle'&&st.owner!==myId&&(Math.hypot(b.x-S.x,b.z-S.z)>C.kick.reach+.3||S.y-H(S.x,S.z)>1.8))return false;
     Net.emit('soc',{k:'act',a:kind,p:+(power||0).toFixed(2),x:+aim.x.toFixed(3),z:+aim.z.toFixed(3),sp:sprintOn()?1:0});
-    if(kind!=='tackle')thump(power||0);return true;
+    animOf(me);if(kind!=='tackle')thump(power||0);return true;
   }
+  function leave(){if(st.phase==='idle')return;if(isHost())stopMatch(true);else Net.emit('soc',{k:'leave'})}   // leaving ends the match for both
   const tryKick=power=>act('shoot',power);                                  // legacy entry point (tests, old key binding): a shot
   const kickVector=power=>SocPlay.shootVel({x:S.x,z:S.z,face:S.rot,sprinting:false},goalX(st.solo?'A':myTeam()),power,null,()=>.5);
   // buttons: shoot and pass charge while held (hold = power); tackle fires on press; sprint is a held state that travels to the host
@@ -174,8 +179,10 @@ const Soccer=(()=>{
       case 'kick':{if(!isHost()||(st.phase!=='play'&&st.phase!=='goal'))break;const p=partner();if(!p)break;const gp=p[1].group.position||{x:0,z:0};
         if(Math.hypot(ball.x-gp.x,ball.z-gp.z)<C.kick.reach+1.2&&Array.isArray(d.v)){applyKick(d.v);ball.owner=null}break}              // legacy message from an older client
       case 'act':{if(!isHost())break;const p=partner();if(!p||!['pass','shoot','tackle'].includes(d.a))break;
-        st.pSprint=!!d.sp;hostAct(p[0],d.a,Math.max(0,Math.min(1,+d.p||0)),isFinite(d.x)&&isFinite(d.z)?{x:+d.x,z:+d.z}:null);break}
+        st.pSprint=!!d.sp;const ok=hostAct(p[0],d.a,Math.max(0,Math.min(1,+d.p||0)),isFinite(d.x)&&isFinite(d.z)?{x:+d.x,z:+d.z}:null);if(d.a==='tackle'||ok)animOf(p[1].group);break}
       case 'sp':if(isHost())st.pSprint=!!d.v;break;
+      case 'anim':{const o=others.get(from);if(o)animOf(o.group);break}
+      case 'leave':if(isHost()&&st.phase!=='idle')stopMatch(true);break;
       case 'fx':if(!isHost())stunUntil=now()+Math.min(2,+d.stun||0);break;
     }
   }
@@ -184,7 +191,7 @@ const Soccer=(()=>{
   function build(){
     if(built)return;built=true;
     const pit=SocPitch.build();mesh=pit.mesh;for(const r of pit.rings)rings.push(r);
-    ui=SocHud.build({down:btnDown,up:btnUp});hud=ui.hud;bar=ui.bar;
+    ui=SocHud.build({down:btnDown,up:btnUp,leave});hud=ui.hud;bar=ui.bar;
     Net.on('soc',onNet);Systems.add('soccer',step);
   }
 
@@ -226,14 +233,17 @@ const Soccer=(()=>{
       const setR=(r,x,z,team)=>{r.material.color.set(team==='A'?'#4aa3ff':'#ff5a5a');r.position.set(x,H(x,z)+.08,z)};
       setR(rings[0],S.x,S.z,myTeam());if(p){const gp=p[1].group.position||{x:0,z:0};setR(rings[1],gp.x,gp.z,myTeam()==='A'?'B':'A')}else rings[1].visible=false}
     else{for(const r of rings)r.visible=false}
-    // scoreboard
-    if(hud){let txt='';
-      if(!active)txt='';
-      else if(st.solo)txt='⚽ Practice · Goals '+st.a;
-      else{const you=isHost()?st.a:st.b,her=isHost()?st.b:st.a,m=Math.floor(st.t/60),s=Math.floor(st.t%60);
-        txt=(isHost()?'🔵 ':'🔴 ')+'You '+you+' – '+her+' '+pname()+(isHost()?' 🔴':' 🔵')+'  ·  '+(st.golden?'GOLDEN GOAL':m+':'+(s<10?'0':'')+s)}
-      if(active&&st.phase==='kickoff'&&st.note)txt+='<br><small style="font-weight:400">'+st.note+'</small>';
-      if(txt!==hudKey){hudKey=txt;hud.innerHTML=txt;hud.style.display=txt?'block':'none'}}
+    // scoreboard (a pill in the top-left corner) + a separate transient note; SocHud lays them out
+    if(ui){
+      let board='',note='';
+      if(active){
+        if(st.solo)board='<span class="tm">⚽ Practice</span><span class="sc">'+st.a+'</span><span class="clk">goals</span>';
+        else{const you=isHost()?st.a:st.b,her=isHost()?st.b:st.a,m=Math.floor(st.t/60),s2=Math.floor(st.t%60),mine=isHost()?'#4aa3ff':'#ff5a5a',theirs=isHost()?'#ff5a5a':'#4aa3ff';
+          board='<span class="tm"><i class="dot" style="background:'+mine+'"></i>You</span><span class="sc">'+you+' – '+her+'</span><span class="tm">'+pname()+'<i class="dot" style="background:'+theirs+'"></i></span><span class="clk">'+(st.golden?'GOLDEN GOAL':m+':'+(s2<10?'0':'')+s2)+'</span>'}
+        if(st.phase==='kickoff'&&st.note)note=st.note;
+      }
+      const key=board+'|'+note;if(key!==hudKey){hudKey=key;ui.board(board);ui.note(note)}
+    }
   }
 
   // ---------- interaction: the kick-off pad on the town side of the pitch ----------
@@ -243,5 +253,5 @@ const Soccer=(()=>{
 
   return {build,pos:{x:P.x,z:P.z},padPos:{x:padX,z:padZ},
     _s:st,_ball:ball,_view:view,_phys:phys,_players:players,_host:hostStep,_start:startMatch,_stop:stopMatch,_kick:tryKick,_kickVec:kickVector,_net:onNet,_step:step,_press:pressKick,_release:releaseKick,_setSnap:s=>{snap=s},
-    _act:act,_hostAct:hostAct,_down:btnDown,_up:btnUp,_possession:possession,_mods:modsNow,_cur:()=>cur};
+    _act:act,_hostAct:hostAct,_down:btnDown,_up:btnUp,_possession:possession,_mods:modsNow,_cur:()=>cur,_ui:()=>ui,_leave:leave};
 })();
