@@ -7,7 +7,7 @@
 const DuelistAI=(()=>{
   const REACH={cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4},REACT=14,INTRO=90;
   function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-  function create(seed,o){o=o||{};return{r:mulberry(seed|0),t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null}}
+  function create(seed,o){o=o||{};return{r:mulberry(seed|0),t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,mood:'patient',moodT:90,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null}}
   const key=P=>P.act==='attack'&&P.ph&&P.ph[P.pi]?'a'+P.ph[P.pi].k:P.act==='stun'?'stun':P.act==='dodge'?'dodge':P.act==='charge'?'charge':P.guard?'guard':'free';
   // A = ai state, P/D = sim fighters, evs = events of the previous tick. Returns {face,mx,mz,list}
   function think(A,P,D,evs,tick){
@@ -19,23 +19,26 @@ const DuelistAI=(()=>{
     A.gP=P.guard&&P.act==='free'?A.gP+1:0;if(A.cool>0)A.cool--;if(A.rip>1)A.rip--;
     for(const e of evs||[])if((e.t==='block'||e.t==='deflect')&&e.d===D.id&&A.rip===0)A.rip=REACT;   // we just blocked something: counter-attack soon
     if(D.act!=='free'){A.busy=true;return out}
-    if(A.busy){A.busy=false;A.cool=20+Math.floor(A.r()*50)}      // rest after every move or stagger: >= 20 ticks
+    if(A.busy){A.busy=false;A.cool=A.mood==='aggro'?20+Math.floor(A.r()*20):A.mood==='evasive'?40+Math.floor(A.r()*60):30+Math.floor(A.r()*60)}      // rest after every move or stagger: >= 20 ticks (shorter when aggressive)
+    if(--A.moodT<=0){const q=A.r();A.mood=q<.34?'aggro':q<.68?'patient':'evasive';A.moodT=140+Math.floor(A.r()*220)}   // he changes his temper every few seconds so the pacing is never the same
     // guard handling
     if(D.guard){if(--A.guardT<=0)out.list.push({t:'guardUp',e:tick});else{out.mx=0;out.mz=0;return out}}
     // movement: hold a fighting distance and circle
     if(--A.strafeT<=0){A.strafe=A.r()<.5?-1:1;A.strafeT=70+Math.floor(A.r()*90)}
-    const want=2.0;let mx=0,mz=0;
+    const want=A.mood==='aggro'?1.6:A.mood==='evasive'?3.0:2.1;let mx=0,mz=0;
     if(dist>want+.5){mx=ux;mz=uz}else if(dist<want-.6){mx=-ux*.7;mz=-uz*.7}else{mx=-uz*A.strafe*.55;mz=ux*A.strafe*.55}
     out.mx=mx;out.mz=mz;
-    if(A.t<A.intro)return out;                       // the fight has not started yet: just square up
+    if(A.t<=A.intro)return out;                       // the fight has not started yet: just square up
     // riposte after a block/deflect
     if(A.rip===1&&dist<REACH.riposte+.3){A.rip=0;return start(A,out,'riposte',0,tick)}
     // defence: after reacting to a visible heavy charge / wind-up at close range, sometimes guard it
     if(A.cool<=6&&dist<2.8&&(k==='charge'||k==='astartup')&&A.see>=REACT&&A.r()<.012*A.see){A.guardT=40+Math.floor(A.r()*25);out.list.push({t:'guardDown',e:tick});out.mx=out.mz=0;return out}
-    if(A.cool>0||k==='dodge')return out;             // resting, or the player is mid-dodge: wait for them to land
+    if(A.cool>0||k==='dodge')return out;
+    if(A.mood==='evasive'&&dist<2.4&&k!=='arecovery'&&k!=='stun'&&A.gP<=30){out.mx=-ux*.8;out.mz=-uz*.8;return out}   // baiting: back off to thrust range instead of trading             // resting, or the player is mid-dodge: wait for them to land
     if(dist>REACH.thrust+.2)return out;              // too far to do anything but close in
     // pick a move
-    const w={cut:3,twin:2,thrust:2,fall:1.5};
+    const w=A.mood==='aggro'?{cut:3,twin:3,thrust:1.2,fall:2}:A.mood==='evasive'?{cut:1,twin:.6,thrust:5,fall:1}:{cut:3,twin:2,thrust:2,fall:1.5};
+    const L0=A.last[A.last.length-1];if(A.mood==='aggro'&&L0==='cut'){w.twin*=2;w.thrust*=1.5}else if(L0==='thrust'){w.cut*=1.6;w.fall*=1.4}else if(L0==='twin'){w.fall*=1.8}
     if(dist>2.7){w.cut=0;w.twin=0;w.fall=0;w.thrust=4}else if(dist<1.7){w.thrust=.2}
     if(A.gP>30){w.fall+=4;w.thrust+=2;w.cut*=.4;w.twin*=.4}                                   // you are turtling: make the guard pay
     if((k==='arecovery'||k==='stun')&&A.see>=REACT){w.cut+=4;w.twin+=2;w.fall*=.3;w.thrust*=.5} // visibly recovering: punish
