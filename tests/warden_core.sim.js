@@ -1,6 +1,6 @@
 // Warden Isles combat core: fairness data rules, tick/phase timing, dodge i-frames, deflect window, hit-stop, missed hits, duplicate hits, tunnelling, obstacles, determinism, reactive bots.
 const fs=require('fs'),vm=require('vm'),R=__dirname+'/../';
-const load=()=>{const c={console,Math};vm.createContext(c);vm.runInContext(['Moves','SwordHit','CombatCore'].map(n=>fs.readFileSync(R+'src/combat/'+n+'.js','utf8')).join('\n')+';this.M=Moves;this.CC=CombatCore;this.SH=SwordHit;',c);return c};
+const load=()=>{const c={console,Math};vm.createContext(c);vm.runInContext(['Moves','SwordHit','Combos','CombatCore'].map(n=>fs.readFileSync(R+'src/combat/'+n+'.js','utf8')).join('\n')+';this.M=Moves;this.CC=CombatCore;this.SH=SwordHit;',c);return c};
 let bad=0;const ok=(v,m)=>{if(!v){console.log('FAIL',m);bad++}else console.log('ok',m)};
 const {M,CC,SH}=load();
 const duel=(o)=>{o=o||{};const C=CC.create({arena:o.arena||{x:0,z:0,R:14},solids:o.solids});const P=C.add('P',Object.assign({x:0,z:0,face:0},o.P));const D=C.add('D',Object.assign({x:0,z:2,face:Math.PI,hp:140},o.D));return{C,P,D}};

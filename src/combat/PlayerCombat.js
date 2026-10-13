@@ -27,11 +27,12 @@ const PlayerCombat=(()=>{
   function assist(){   // snap the facing toward the Duelist when he is close and roughly ahead
     if(D.act==='dead')return;const dx=D.x-S.x,dz=D.z-S.z,d=Math.hypot(dx,dz);if(d>4.5)return;const a=Math.atan2(dx,dz);
     if(lock||Math.abs(Math.atan2(Math.sin(a-S.rot),Math.cos(a-S.rot)))<1.0){pendFace=a;pendT=8;S.rot=a}}
+  function reject(){if(P.st>2||!el)return;const b=el.querySelector('.p .st');b.classList.add('bad');setTimeout(()=>b.classList.remove('bad'),260);tone(110,80,.08,'square',.05)}   // out of stamina: say so instead of silently dropping the tap
   function press(name,tms){
     if(!on||P.act==='dead')return false;const t=tms===undefined?now():tms;
     switch(name){
-      case'light':assist();ST.input('P',{t:'light',e:C.tick},t);break;
-      case'heavy':if(down.heavy)return true;assist();down.heavy=true;ST.input('P',{t:'heavyDown',e:C.tick},t);break;
+      case'light':{assist();reject();const c={t:'light',e:C.tick},d=stickDir(),fa=pendFace!==null?pendFace:S.rot;if(d&&d[0]*Math.sin(fa)+d[1]*Math.cos(fa)>.6)c.adv=true;ST.input('P',c,t);break}
+      case'heavy':if(down.heavy)return true;assist();reject();down.heavy=true;ST.input('P',{t:'heavyDown',e:C.tick},t);break;
       case'guard':if(down.guard)return true;down.guard=true;ST.input('P',{t:'guardDown',e:C.tick},t);break;
       case'dodge':{const d=stickDir();const c={t:'dodge',e:C.tick};if(d){c.dx=d[0];c.dz=d[1]}ST.input('P',c,t);break}
       case'lock':toggleLock();break;

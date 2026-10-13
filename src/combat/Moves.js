@@ -7,7 +7,12 @@ const ph=(k,n,o)=>Object.assign({k,n},o||{});
 const Moves={
   TICK,TELL_MIN,REC_MIN,HOLD_MAX,
   // ---- player (cancel thresholds are RECOVERY ticks; the one deliberate asymmetry: Duelist moves have none) ----
-  light:{id:'light',who:'P',stam:12,dmg:14,pdmg:12,hs:4,stun:18,kb:.5,reach:2.4,w:.12,phases:[ph('startup',10),ph('active',4,{seg:0,a0:.8,a1:-.8}),ph('recovery',16)],cancel:{light:6,dodge:8,guard:8}},
+  light:{id:'light',who:'P',chain:1,stam:12,dmg:14,pdmg:12,hs:4,stun:18,kb:.5,reach:2.4,w:.12,phases:[ph('startup',10),ph('active',4,{seg:0,a0:.8,a1:-.8}),ph('recovery',16)],cancel:{light:6,dodge:8,guard:8,heavy:8}},
+  light2:{id:'light2',who:'P',chain:2,stam:12,dmg:14,pdmg:12,hs:4,stun:18,kb:.5,reach:2.4,w:.12,phases:[ph('startup',10),ph('active',4,{seg:0,a0:-.8,a1:.8}),ph('recovery',16)],cancel:{light:6,dodge:8,guard:8,heavy:8}},
+  light3:{id:'light3',who:'P',chain:3,stam:16,dmg:20,pdmg:18,hs:6,stun:24,kb:.9,reach:2.5,w:.13,phases:[ph('startup',12),ph('active',4,{seg:0,a0:.9,a1:-.9}),ph('recovery',24)],cancel:{dodge:12}},
+  advance:{id:'advance',who:'P',chain:1,stam:14,dmg:16,pdmg:14,hs:4,stun:20,kb:.7,reach:2.5,w:.12,phases:[ph('startup',9,{move:1.3}),ph('active',4,{seg:0,a0:.6,a1:-.6}),ph('recovery',18)],cancel:{light:8,dodge:8,heavy:10}},
+  evade:{id:'evade',who:'P',chain:1,stam:12,dmg:16,pdmg:14,hs:4,stun:18,kb:.5,reach:2.4,w:.12,phases:[ph('startup',6),ph('active',4,{seg:0,a0:.8,a1:-.8}),ph('recovery',18)],cancel:{light:8,dodge:8}},
+  rising:{id:'rising',who:'P',chain:0,stam:22,dmg:28,pdmg:38,hs:6,stun:26,kb:1.0,reach:2.6,w:.13,phases:[ph('startup',14,{move:.6}),ph('active',5,{seg:0,a0:.5,a1:-.5}),ph('recovery',28)],cancel:{dodge:14}},
   heavy:{id:'heavy',who:'P',stam:25,dmg:34,pdmg:30,hs:7,stun:28,kb:1.2,reach:2.6,w:.12,chargeMin:18,chargeMax:45,phases:[ph('startup',14,{move:.8}),ph('active',5,{seg:0,a0:.6,a1:-.6}),ph('recovery',30)]},
   dodge:{id:'dodge',who:'*',stam:18,total:22,iStart:3,iEnd:11,dist:3.2,rootT0:1,rootT1:14},   // invulnerable pt 3..11 inclusive (9 ticks); vulnerable 12..21; can act at 22
   // ---- Duelist ----
