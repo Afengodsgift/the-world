@@ -113,7 +113,7 @@ const WorldMap=(()=>{
     S.x=x;S.z=z;S.y=Math.max(H(x,z),p.y||-9)+1;S.vy=0;S.kx=0;S.kz=0;banner(p.n,'TRAVELLED');toggle()}
   function fillChips(){
     chips.innerHTML='';
-    for(const p of places().filter(p=>p.big||p.icon||p.n==='Town Square'||p.n==='Farm'||p.n==='Soccer Pitch'||p.n==='Harbor')&&!p.dyn){
+    for(const p of places().filter(p=>(p.big||p.icon||p.n==='Town Square'||p.n==='Farm'||p.n==='Soccer Pitch'||p.n==='Harbor')&&!p.dyn)){
       const c=E('button','',icon(p)+' '+p.n);
       c.className='mchip'+(p.n==='Outlaw Isle'?' hot':'');c.onclick=()=>{centerOn(p,.25);select(p)};chips.appendChild(c)}}
   function toggle(){
