@@ -202,6 +202,9 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/world/events/visitor.js"></script>
 <script src="src/world/events/rings.js"></script>
 <script src="src/data/soccer.js"></script>
+<script src="src/data/ship.js"></script>
+<script src="src/ship/Sailing.js"></script>
+<script src="src/ship/Ship.js"></script>
 <script src="src/games/Soccer.js"></script>
 <script>
 const SUPABASE_URL='https://lzqnxawxehmqgswuzpyn.supabase.co';
@@ -614,7 +617,7 @@ function buildWorld(code){
   rng=mulberry(hashSeed(code));
   if(AM.plant_bushLarge)AM.plant_bushLarge.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.material.side=THREE.DoubleSide;o.material.emissive=new THREE.Color('#2a6a30')}});
   const dist=(x,z)=>Math.hypot(x-TOWN.x,z-TOWN.z),P={};
-  const add=(n,x,z,s)=>{if(Math.hypot(x-OUT.x,z-OUT.z)<OUT.clear||Math.hypot(x-FARM.x,z-FARM.z)<FARM.clear||(Math.abs(x-PITCH.x)<PITCH.hw+PITCH.clear&&Math.abs(z-PITCH.z)<PITCH.hh+PITCH.clear))return;(P[n]=P[n]||[]).push({x,y:H(x,z),z,ry:rng()*6.283,s})};
+  const add=(n,x,z,s)=>{if(Math.hypot(x-OUT.x,z-OUT.z)<OUT.clear||Math.hypot(x-FARM.x,z-FARM.z)<FARM.clear||(Math.abs(x-PITCH.x)<PITCH.hw+PITCH.clear&&Math.abs(z-PITCH.z)<PITCH.hh+PITCH.clear)||(Math.abs(x-DOCK.x)<12&&z>DOCK.z0-10&&z<DOCK.z1))return;(P[n]=P[n]||[]).push({x,y:H(x,z),z,ry:rng()*6.283,s})};
   // forest (west), scattered trees, beach palms, bushes, rocks
   const kinds=['tree_pineDefaultA','tree_pineRoundA','tree_oak','tree_fat'];
   for(let i=0,n=0;i<1500&&n<300;i++){const a=rng()*6.283,r=rng()*80,x=-110+Math.cos(a)*r,z=40+Math.sin(a)*r,h=H(x,z);
@@ -660,7 +663,7 @@ function buildWorld(code){
   while(pts.length<40){const a=rng()*6.283,r=12+rng()*195,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<40&&dist(x,z)>45)pts.push([x,z])}
   for(const I of ISL)for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
-  buildRace();buildHunt();buildSeaLife();buildKartTrack();Tag.build();Outlaw.build();WardenIsles.build();Farm.build();Soccer.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
+  buildRace();buildHunt();buildSeaLife();buildKartTrack();Tag.build();Outlaw.build();WardenIsles.build();Farm.build();Soccer.build();Ship.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
 }
 const S={x:0,y:0,z:0,vy:0,rot:0,yaw:0,pitch:.35,grounded:true,state:'idle',flying:false,kx:0,kz:0,hurt:0,iframe:0};
 
@@ -679,7 +682,7 @@ async function startGame(){
   try{buildWorld(roomCode);load();wsBoot()}catch(e){showErr(e);throw e}
   // Everything that used to load/build in the background AFTER you were already playing (the lag in the first ~20 s) now happens here, behind the loading screen.
   // Each wait has a timeout so a slow connection can never trap you on this screen.
-  {const jobs=[loadPacks(),seaReady(),Farm.whenReady(),Promise.all([loadEmotes(),typeof VerbAnims!=='undefined'?VerbAnims.load():0,typeof CombatAnims!=='undefined'?CombatAnims.load():0])];let done=0;   // models, sea creatures, farm animals, animation files: all in parallel
+  {const jobs=[loadPacks(),seaReady(),Farm.whenReady(),Ship.whenReady(),Promise.all([loadEmotes(),typeof VerbAnims!=='undefined'?VerbAnims.load():0,typeof CombatAnims!=='undefined'?CombatAnims.load():0])];let done=0;   // models, sea creatures, farm animals, animation files: all in parallel
     boot('Loading islands and creatures…',40);
     try{await Promise.race([Promise.all(jobs.map(p=>Promise.resolve(p).catch(()=>{}).then(()=>{done++;boot('Loading islands and creatures…',40+Math.round(done/jobs.length*28))}))),nap(30000)])}catch(e){showErr(e)}}
   boot('Building the sky island…',70);await nap(40);try{buildSkyIsland()}catch(e){showErr(e)}
@@ -1176,6 +1179,7 @@ function tickFrame(t){
   let ix=stickV.x,iy=stickV.y;
   if(keys.KeyA||keys.ArrowLeft)ix-=1;if(keys.KeyD||keys.ArrowRight)ix+=1;
   if(keys.KeyW||keys.ArrowUp)iy-=1;if(keys.KeyS||keys.ArrowDown)iy+=1;
+  if(typeof Ship!=='undefined'&&Ship.seated()){Ship.setInput(ix,iy);ix=0;iy=0}              // seated at the helm: the stick steers the ship
   if(S.flying&&Boost.driving()&&Math.hypot(ix,iy)<.05)iy=-1;                // the burst drives you forward even if the stick is idle (steering still works)
   const len=Math.hypot(ix,iy);if(len>1){ix/=len;iy/=len}
   const sprint=keys.ShiftLeft||len>.9;
