@@ -33,10 +33,25 @@ const WardenIsles=(()=>{
   function pillars(){const m=mat('#4a4852');for(const p of WARDEN.pillars){const x=WRD.x+Math.sin(p.a)*p.d,z=WRD.z+Math.cos(p.a)*p.d,y=H(x,z);
       const c=new THREE.Mesh(new THREE.CylinderGeometry(p.r*.85,p.r*1.15,6.5,7),m);c.position.set(x,y+3.2,z);c.castShadow=c.receiveShadow=true;G.add(c);
       const cap=new THREE.Mesh(new THREE.BoxGeometry(p.r*2.6,.5,p.r*2.6),m);cap.position.set(x,y+6.6,z);cap.rotation.y=p.a;G.add(cap);brazier(x,y+7.2,z)}}
+  // DRESSING: the kit pieces from assets/warden/props.glb placed by WardenProps() (data/warden.js), merged per 90 m cell into a handful of static meshes (a few draw calls, no per-frame work). Scenery only - not solid.
+  let propsMesh=[],propTris=0;
+  function dress(){
+    if(typeof WardenProps==='undefined'||!THREE.GLTFLoader)return;
+    new THREE.GLTFLoader().load('assets/warden/props.glb',gl=>{
+      const geo={};gl.scene.traverse(o=>{if(o.isMesh)geo[o.name]=o.geometry});
+      const cells={},M=new THREE.Matrix4(),N=new THREE.Matrix3(),q=new THREE.Quaternion(),e=new THREE.Euler(),v=new THREE.Vector3(),sc=new THREE.Vector3(),p=new THREE.Vector3();
+      for(const it of WardenProps()){const g=geo[it.p];if(!g)continue;const k=Math.floor((it.x-WRD.x)/90)+','+Math.floor((it.z-WRD.z)/90),c=cells[k]||(cells[k]={pos:[],nor:[],col:[]});
+        e.set(it.tx,it.ry,it.tz,'YXZ');q.setFromEuler(e);sc.setScalar(it.s);p.set(it.x,it.y,it.z);M.compose(p,q,sc);N.getNormalMatrix(M);
+        const P=g.attributes.position,Nn=g.attributes.normal,C=g.attributes.color;
+        for(let i=0;i<P.count;i++){v.fromBufferAttribute(P,i).applyMatrix4(M);c.pos.push(v.x,v.y,v.z);v.fromBufferAttribute(Nn,i).applyMatrix3(N).normalize();c.nor.push(v.x,v.y,v.z);c.col.push(C.getX(i),C.getY(i),C.getZ(i))}}
+      const mat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,metalness:0});if(typeof TERRAIN_MATS!=='undefined')TERRAIN_MATS.push(mat);
+      for(const k in cells){const c=cells[k],bg=new THREE.BufferGeometry();bg.setAttribute('position',new THREE.Float32BufferAttribute(c.pos,3));bg.setAttribute('normal',new THREE.Float32BufferAttribute(c.nor,3));bg.setAttribute('color',new THREE.Float32BufferAttribute(c.col,3));bg.computeBoundingSphere();
+        const m=new THREE.Mesh(bg,mat);m.name='WardenProps';m.matrixAutoUpdate=false;m.castShadow=false;m.receiveShadow=false;G.add(m);propsMesh.push(m);propTris+=c.pos.length/9}
+    },undefined,()=>{})}
   function build(){
     if(!WRD.on||built)return;built=true;
     G=new THREE.Group();G.name='WardenIsles';scene.add(G);
-    terrainMesh();
+    terrainMesh();dress();
     const sol=WardenSolids();wall(sol.filter(s=>s.wall));pillars();
     for(const s of sol){solids.push(s);added.push(s)}
     T.arena={x:WRD.x,z:WRD.z,R:WARDEN.arenaR};
@@ -71,4 +86,4 @@ const WardenIsles=(()=>{
     inside=d<WARDEN.arenaR;fishVis(!inside);PlayerCombat.tick(dt,t);
     const k=.75+.25*Math.sin(t/110)+.1*Math.sin(t/37);for(let i=0;i<fire.length;i++)fire[i].scale.setScalar(.9+.18*Math.sin(t/130+i*1.7)*k);
   }
-  return{build,tick,inArena:()=>inside,hidden:()=>hiddenN,arena:()=>T.arena,_t:()=>({built,added,fire,G})}})();
+  return{build,tick,inArena:()=>inside,hidden:()=>hiddenN,arena:()=>T.arena,props:()=>({meshes:propsMesh.length,tris:propTris}),_t:()=>({built,added,fire,G})}})();
