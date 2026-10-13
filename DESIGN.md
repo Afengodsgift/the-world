@@ -118,6 +118,15 @@ Outlaw Isle: stays specialized · Sky: wind currents, cloud platforms · Main: t
 - Snipers (zoom >= 4) get the lens view: first person (your avatar and viewmodel hidden), black vignette lens, thin crosshair with a red dot, zoom label and a live range readout to whatever is under the crosshair; the normal reticle is hidden. Shots start at the eye there. Other guns just zoom without the lens.
 - Verified in the real game: 5x scope narrows the FOV 67 -> ~19 deg, a scoped headshot at 150 m kills a raider.
 
+## Gunfight pass: awareness, purposeful AI, the Heavy (phases 1-2 of the battlefield plan)
+- **Directional damage indicator**: a red arc on the screen edge toward whoever hurt you (yellow = a bullet passed within ~3 m), relative to where the camera looks; arcs fade in 1.6 s.
+- **Positional audio**: enemy gunfire/steps/shouts get distance falloff and left/right pan (`sfxAt`). Raiders running within 20 m make footsteps (a flank warning), shout when they first spot you, and the Heavy rev/vent are distinct cues.
+- **Fair knowledge**: a raider only knows where you were last SEEN or HEARD (gunfire within ~95 m; partner's shots count). Whoever sees you tells squad mates within 55 m; everyone else works from that stale position, searches the area when they reach it. Visibility is height-aware (cover heights, crouching), nothing sees through buildings.
+- **No more weaving**: movement is straight toward where they believe you are, bounding cover to cover (`pickCover` with fwd/back/near/avoid + role bands); in their band they stand and shoot, peek by standing up (low cover) or a short step (tall cover), and RELOCATE when they take > 22% health or you get inside their comfort band. Measured: lateral reversals 26 -> 15 per raider-minute and path efficiency 0.55 -> 0.82 over the first 35 s of a wave.
+- **Roles**: riflemen (band 20-30 m), suppressors (24-32 m; fire bursts at where you were last seen and chew cover), flankers (ONE side route, only while the squad is engaged, no circling), aggressors (hold ~26 m, push when you reload / are low / partner down), rushers (shotgunners: cover-to-cover into 7-13 m), marksmen (perch), grunts.
+- **The Heavy** (was the Brute): slow (2.7 m/s), 130 hp, heavy gun: rev + laser wind-up 0.95 s -> 2.1 s burst (4 dmg/shot, 45% accuracy) -> 2.4 s VENT (steam cue, x1.6 damage), then ~2 s walk-up. Frontal plating 35% damage, side 100%, rear 150% (`EnemyAI.heavyArmor`), "ARMOR" floats when plated; melee only if you stand next to it (22 dmg after a 0.6 s wind-up).
+- Next (phase 3): enterable buildings + rooftops/high ground + main street layout.
+
 ## Roadmap
 0 Net adapter ✔ · 1 WorldState + Journal ✔ · 2 Verbs v1 ✔ (cave interior still open) ·
 3 Link ✔ (twin plates, synced shrine; lockpick+lookout later) · 4 Event Director ✔ (meteor, visitor, golden rings; shark surge later) · 5 Zones (Storm Cay wind, Frost friction first) · 6 Home v1 (trophy shelf, aquarium) ·

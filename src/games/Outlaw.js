@@ -26,7 +26,7 @@ const Outlaw=(()=>{
   // NPC archetypes. 0 Bandit 1 Brute 2 Sniper 3 Sheriff(boss) 4 Dynamiter 5 Shotgunner 6 Medic 7 Warlord(gatling boss)
   const TYPES=[
     {n:'Bandit',skin:2,hp:60,sp:5,range:28,dmg:8,cd:1.15,acc:.5,react:.55,sc:1},
-    {n:'Brute',skin:2,hp:90,sp:7.4,range:2.2,dmg:14,cd:.9,acc:1,react:0,sc:1.15},
+    {n:'Heavy',skin:2,hp:130,sp:2.7,range:30,dmg:4,cd:.12,acc:.45,react:.5,sc:1.2},   // THE HEAVY: slow, heavy gun with a wind-up, burst and a vulnerable vent window; frontal plating, weak rear
     {n:'Sniper',skin:3,hp:40,sp:3.6,range:60,dmg:24,cd:2.6,acc:.7,react:.9,sc:1},
     {n:'Sheriff',skin:3,hp:520,sp:4.6,range:34,dmg:11,cd:.5,acc:.55,react:.3,sc:1.6},
     {n:'Dynamiter',skin:2,hp:55,sp:4.4,range:34,dmg:38,cd:3.4,acc:1,react:.6,sc:1},
@@ -38,7 +38,7 @@ const Outlaw=(()=>{
   const DIFF=[{n:'Normal',hp:1,dmg:1,cnt:1,coin:1},{n:'Hard',hp:1.4,dmg:1.25,cnt:1.3,coin:1.5},{n:'Outlaw',hp:2,dmg:1.6,cnt:1.7,coin:2.2}];
   const cover=[],npcs=new Map(),cache={};
   let wiped=false,clock=0,C=null,active=false,host=null,wave=0,kills=0,best=0,nextWave=0,queue=[],spawnT=0,nid=1,snapT=0;
-  let wi=-1,hp=100,down=false,downT=0,cdT=0,firing=false,pdown=false,pw=-1,hudEl,hpEl,xh,fireBtn,gunBtn,hitT=0,xSp=0,bloom=0,critT=0,huntT=0,huntOn=false,scoped=false,scopeEl,scopeBtn,scopeRng,scopeT=0,fx=[];
+  let wi=-1,hp=100,down=false,downT=0,cdT=0,firing=false,pdown=false,pw=-1,hudEl,hpEl,xh,fireBtn,gunBtn,hitT=0,xSp=0,bloom=0,critT=0,huntT=0,huntOn=false,scoped=false,dirEl,lastNoise=null,lastShout=0,scopeEl,scopeBtn,scopeRng,scopeT=0,fx=[];
   const prev={x:0,z:0,vx:0,vz:0},pprev={x:0,z:0,vx:0,vz:0};
   let diff=1,mode='survive',bank={x:0,z:0,hp:1500,max:1500},ammo=[],reloadT=0,reloading=false,dyn=[],drops=[],reloadBtn,shopEl,pick={m:'survive',d:1};
   let SAVE={coins:0,own:WEAPONS.map((_,i)=>FREE.includes(i)?1:0),lv:WEAPONS.map(()=>0),hp:0,mag:0,rl:0,crit:0,v:0};
@@ -135,8 +135,14 @@ const Outlaw=(()=>{
 
   // ---------- effects ----------
   const ac=()=>WAudio.resume();
-  function noise(f,len,vol,type){const a=ac();if(!a)return;const n=a.createBuffer(1,Math.max(1,a.sampleRate*len|0),a.sampleRate),d=n.getChannelData(0);for(let k=0;k<d.length;k++)d[k]=(Math.random()*2-1)*Math.pow(1-k/d.length,3);const o=a.createBufferSource(),g=a.createGain(),fl=a.createBiquadFilter();fl.type=type||'lowpass';fl.frequency.value=f;g.gain.value=vol;o.buffer=n;o.connect(fl);fl.connect(g);g.connect(WAudio.out());o.start()}
-  function tone(f0,f1,len,vol,type){const a=ac();if(!a)return;const o=a.createOscillator(),g=a.createGain(),t=a.currentTime;o.type=type||'sine';o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+len);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+len);o.connect(g);g.connect(WAudio.out());o.start();o.stop(t+len)}
+  const aud={pan:0,vol:1};   // set by sfxAt(): enemy sounds get distance falloff and left/right pan, so you can tell where fire comes from
+  function outTo(a,g){if(aud.pan&&a.createStereoPanner){const pn=a.createStereoPanner();pn.pan.value=aud.pan;g.connect(pn);pn.connect(WAudio.out())}else g.connect(WAudio.out())}
+  function sfxAt(k,x,z,gain){
+    const d=Math.hypot(x-S.x,z-S.z);camera.getWorldDirection(camDir);const h=Math.atan2(camDir.x,camDir.z);
+    aud.vol=Math.max(.08,Math.min(1,1.15-d/110))*(gain||1);aud.pan=d<2?0:Math.max(-1,Math.min(1,(-(x-S.x)*Math.cos(h)+(z-S.z)*Math.sin(h))/d));
+    try{sfx(k)}finally{aud.vol=1;aud.pan=0}}
+  function noise(f,len,vol,type){const a=ac();if(!a)return;const n=a.createBuffer(1,Math.max(1,a.sampleRate*len|0),a.sampleRate),d=n.getChannelData(0);for(let k=0;k<d.length;k++)d[k]=(Math.random()*2-1)*Math.pow(1-k/d.length,3);const o=a.createBufferSource(),g=a.createGain(),fl=a.createBiquadFilter();fl.type=type||'lowpass';fl.frequency.value=f;g.gain.value=vol*aud.vol;o.buffer=n;o.connect(fl);fl.connect(g);outTo(a,g);o.start()}
+  function tone(f0,f1,len,vol,type){const a=ac();if(!a)return;const o=a.createOscillator(),g=a.createGain(),t=a.currentTime;o.type=type||'sine';o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+len);g.gain.setValueAtTime(Math.max(.002,vol*aud.vol),t);g.gain.exponentialRampToValueAtTime(.001,t+len);o.connect(g);outTo(a,g);o.start();o.stop(t+len)}
   function sfx(k){switch(k){
     case 'pistol':noise(2200,.1,.3);tone(220,60,.08,.2,'square');break;
     case 'smg':noise(2600,.06,.22);break;
@@ -144,6 +150,11 @@ const Outlaw=(()=>{
     case 'shotgun':noise(900,.28,.45);tone(110,35,.2,.3,'sawtooth');break;
     case 'sniper':noise(700,.45,.5);tone(90,30,.3,.35,'sawtooth');break;
     case 'enemy':noise(1200,.1,.18);break;
+    case 'crack':noise(3400,.05,.22);break;   // a bullet passing close
+    case 'rev':tone(80,300,.9,.22,'sawtooth');noise(600,.9,.12);break;   // the Heavy spinning up (its telegraph)
+    case 'vent':noise(2600,.55,.3,'highpass');break;   // the Heavy venting: your window
+    case 'shout':tone(300,430,.11,.1,'sawtooth');break;
+    case 'step':noise(420,.05,.07);break;
     case 'reload':tone(900,500,.05,.15,'square');setTimeout(()=>tone(500,900,.07,.15,'square'),350);break;
     case 'hit':tone(1500,1200,.05,.18,'triangle');break;
     case 'crit':tone(1800,2600,.12,.25,'triangle');break;
@@ -206,6 +217,7 @@ const Outlaw=(()=>{
     if(wi<0||down||!camera||reloading)return;const W=WEAPONS[wi];if(cdT>0)return;
     if(am(wi)<=0){reload();return}
     cdT=W.cd;ammo[wi]=am(wi)-1;
+    lastNoise={x:S.x,z:S.z,t:clock/1000};   // raiders hear gunfire
     camera.getWorldDirection(camDir);   // the aim is the camera's: what is under the crosshair is what you hit (the gun only has to have a clear line to it)
     const co=camera.position.clone().addScaledVector(camDir,Math.min(6,Math.hypot(camera.position.x-S.x,camera.position.y-(S.y+1.4),camera.position.z-S.z)));
     S.rot=Math.atan2(camDir.x,camDir.z);me.rotation.y=S.rot;
@@ -226,7 +238,7 @@ const Outlaw=(()=>{
       if(p===0)lastShot={M:[+M.x.toFixed(2),+M.y.toFixed(2),+M.z.toFixed(2)],P:[+E.x.toFixed(2),+E.y.toFixed(2),+E.z.toFixed(2)],tn:+tn.toFixed(2),wall:+wall.toFixed(1),zone,hit:!!hit,spr:+spr.toFixed(4)};
       if(!hit&&wc&&tn===wall&&!W.rocket&&wc.brk!==undefined){OutlawArena.hitCover(wc,dmgOf(wi));spark(endp[0],endp[1],endp[2],'#d8b45a');anyHit=true}
       if(W.rocket){aoe(endp,dmgOf(wi),W.rad||6);tracer(M.x,M.y,M.z,endp[0],endp[1],endp[2],'#ff9a2e');anyHit=true;continue}
-      if(hit){const crit=zone==='head',kill=crit&&HitZones.headKills(W.snd,HS[hit.type]),dmg=kill?9999:Math.max(1,Math.round(dmgOf(wi)*HitZones.zoneMult(zone,W.snd,HS[hit.type],SAVE.crit)));anyHit=true;if(crit)anyCrit=true;reportHit(hit.id,dmg,zone);spark(endp[0],endp[1],endp[2],crit?'#ffd24a':undefined);
+      if(hit){const am=hit.type===1?EnemyAI.heavyArmor(hit.group.rotation.y,S.x-hit.x,S.z-hit.z,hit.st==='vent'):1,crit=zone==='head',kill=crit&&am>=1&&HitZones.headKills(W.snd,HS[hit.type]),dmg=kill?9999:Math.max(1,Math.round(dmgOf(wi)*HitZones.zoneMult(zone,W.snd,HS[hit.type],SAVE.crit)*am));if(am<.5)popText(endp[0],endp[1]+.9,endp[2],'ARMOR','#9fb0bd',.9);anyHit=true;if(crit)anyCrit=true;reportHit(hit.id,dmg,zone);spark(endp[0],endp[1],endp[2],crit?'#ffd24a':undefined);
         if(p<3)popText(endp[0],endp[1]+.7,endp[2],(kill?'💥 HEADSHOT':crit?'💥'+dmg:dmg),crit?'#ffd24a':zone==='torso'?'#fff':'#b8c4cc',crit?1.35:zone==='torso'?1:.85)}
       if(p<3)tracer(M.x,M.y,M.z,endp[0],endp[1],endp[2]);
     }
@@ -270,7 +282,7 @@ const Outlaw=(()=>{
   const hitBuf={};let lastF=0,lastH=0;
   const HS={1:.7,3:.6,7:.5}; // headshot multiplier scale per raider type: brutes and bosses are not one-tap-able
   function reportHit(id,d,zone){if(isHost())damageNpc(id,d,zone);else{const b=hitBuf[id]||(hitBuf[id]={d:0,z:zone});b.d+=d;if(zone==='head')b.z='head'}} // client hits are batched (flushed in tick)
-  function damageNpc(id,d,zone){const n=npcs.get(id);if(!n||n.dead)return;n.hp-=d;n.flash=.12;n.lastZone=zone||'torso';n.lastHitAt=clock;n.stg=clock+(zone==='head'?520:260)*(HS[n.type]||1);if(n.type===1&&n.cd<.35)n.cd=.35;if(n.hp<=0)killNpc(n)}
+  function damageNpc(id,d,zone){const n=npcs.get(id);if(!n||n.dead)return;n.hp-=d;n.flash=.12;n.lastZone=zone||'torso';n.lastHitAt=clock;n.rdmg=(n.rdmg||0)+d;n.stg=clock+(zone==='head'?520:260)*(HS[n.type]||1);if(n.type===1&&n.cd<.35)n.cd=.35;if(n.hp<=0)killNpc(n)}
   function earn(c){SAVE.coins+=c;save();sfx('coin');popText(S.x,S.y+2.6,S.z,'+'+c+' 🪙','#ffd24a');updateHud()}
   function killNpc(n){n.dead=1;kills++;const c=Math.round(COIN[n.type]*DIFF[diff].coin*(1+wave*.03));send({k:'kill',c});earn(c);if(Math.random()<.16){const id=nid++;send({k:'dr',id,x:n.x,z:n.z});addDrop(id,n.x,n.z)}}
   function addDrop(id,x,z){const m=new THREE.Mesh(new THREE.BoxGeometry(.6,.6,.6),new THREE.MeshStandardMaterial({color:'#2ecc71',emissive:'#1e9e55',emissiveIntensity:.8}));m.position.set(x,H(x,z)+.6,z);scene.add(m);drops.push({id,m,x,z})}
@@ -278,8 +290,14 @@ const Outlaw=(()=>{
     if(!down&&Math.hypot(S.x-d.x,S.z-d.z)<2){hp=Math.min(maxHp(),hp+35);send({k:'pk',id:d.id});scene.remove(d.m);drops.splice(i,1);sfx('heal');popText(S.x,S.y+2.4,S.z,'+35 ❤️','#5dff8a');updateHud()}}}
 
   // ---------- player health ----------
+  // DIRECTIONAL DAMAGE INDICATOR: a red arc on the screen edge toward whoever hurt you (yellow = a bullet passed close), relative to where the camera looks
+  function dmgDir(fx,fz,kind){
+    if(!dirEl||!camera)return;camera.getWorldDirection(camDir);const h=Math.atan2(camDir.x,camDir.z),dx=fx-S.x,dz=fz-S.z;
+    const deg=Math.atan2(-dx*Math.cos(h)+dz*Math.sin(h),dx*Math.sin(h)+dz*Math.cos(h))*57.2958;   // 0 = ahead (top), +90 = to your right
+    const a=document.createElement('div');a.className='a'+(kind==='n'?' n':'');a.style.transform='rotate('+deg.toFixed(0)+'deg)';dirEl.appendChild(a);
+    while(dirEl.childNodes.length>8)dirEl.removeChild(dirEl.firstChild);setTimeout(()=>{if(a.parentNode)a.parentNode.removeChild(a)},1700)}
   function hurt(d,fx_,fz_){
-    if(down)return;hp-=d;S.hurt=.35;sfx('hurt');if(fx_!==undefined){const l=Math.hypot(S.x-fx_,S.z-fz_)||1;S.kx+=(S.x-fx_)/l*4;S.kz+=(S.z-fz_)/l*4}
+    if(down)return;if(fx_!==undefined)dmgDir(fx_,fz_);hp-=d;S.hurt=.35;sfx('hurt');if(fx_!==undefined){const l=Math.hypot(S.x-fx_,S.z-fz_)||1;S.kx+=(S.x-fx_)/l*4;S.kz+=(S.z-fz_)/l*4}
     if(navigator.vibrate)navigator.vibrate(30);
     if(hp<=0){hp=0;down=true;downT=6;send({k:'dn',v:1});banner('You are down! Respawning…','OUTLAW TOWN')}
     updateHud();
@@ -317,12 +335,20 @@ const Outlaw=(()=>{
     queue=q;banner('Wave '+wave+(boss?' · BOSS!':''),'OUTLAW TOWN');sfx('horn');send({k:'wv',n:wave});
     {const fr=OutlawArena.pickFronts(EnemyAI.frontsFor(wave,np));OutlawArena.setFronts(fr,true);send({k:'fr',f:fr});OutlawArena.reset();send({k:'rs'})} // raiders come from 1-3 of the island's fronts; cover grows back
   }
-  function pickCover(n,t){
-    let b=null,bs=1e9;
-    for(const c of cover){const dn=Math.hypot(c.x-n.x,c.z-n.z);if(dn>32)continue;
+  function pickCover(n,t,o){
+    o=o||{};const band=o.band||[14,24],mid=(band[0]+band[1])/2,dn0=Math.hypot(t.x-n.x,t.z-n.z);let b=null,bs=1e9;
+    for(const c of cover){const dn=Math.hypot(c.x-n.x,c.z-n.z);if(dn>(o.reach||32))continue;
       const ux=c.x-t.x,uz=c.z-t.z,l=Math.hypot(ux,uz)||1,px=c.x+ux/l*(c.r+1.1),pz=c.z+uz/l*(c.r+1.1);
-      if(los(px,pz,t.x,t.z))continue;const dt=Math.hypot(px-t.x,pz-t.z),s=dn+Math.abs(dt-(n.type===2?35:16))*.6;if(s<bs){bs=s;b={x:px,z:pz,c}}}
+      if(los(px,pz,t.x,t.z))continue;const dt=Math.hypot(px-t.x,pz-t.z);
+      if(o.fwd&&dt>dn0-5)continue;if(o.back&&dt<dn0+4)continue;if(o.near&&dn>9)continue;if(o.avoid&&Math.hypot(px-o.avoid.x,pz-o.avoid.z)<6)continue;
+      const s=dn+Math.abs(dt-(n.type===2?35:mid))*.6;if(s<bs){bs=s;b={x:px,z:pz,c}}}
     return b}
+  const squadEngaged=(n,now)=>{for(const o of npcs.values())if(o!==n&&!o.dead&&o.sawT&&now-o.sawT<4&&Math.hypot(o.x-n.x,o.z-n.z)<80)return true;return false};
+  function suppressFire(n){ // suppressive burst at where it last saw you: no damage unless you are standing right there, but it chews cover and you hear/see it
+    const L=n.lk;if(!L)return;const gy=H(L.x,L.z),x=L.x+rnd(-1.2,1.2),z=L.z+rnd(-1.2,1.2),M=muzzle(n.group,-1);n.group.userData.recoil=1;
+    tracer(M.x,M.y,M.z,x,gy+1,z,'#ff9a7a');sfxAt('enemy',n.x,n.z);spark(x,gy+.8,z);send({k:'f',m:[M.x,M.y,M.z],e:[x,gy+1,z],ai:1});
+    for(const c of cover){if(c.brk!==undefined&&Math.hypot(c.x-x,c.z-z)<c.r+1.2){OutlawArena.hitCover(c,10);break}}
+    if(Math.hypot(x-S.x,z-S.z)<3.2){dmgDir(n.x,n.z,'n');sfx('crack')}}
   function dealDmg(n,t,d){d=Math.round(d*n.dm);if(t.id==='bank'){bank.hp=Math.max(0,bank.hp-d);return}if(t.id===myId)hurt(d,n.x,n.z);else send({k:'hurt',to:t.id,d,x:n.x,z:n.z})}
   function healBeam(a,b){tracer(a.x,H(a.x,a.z)+1.3,a.z,b.x,H(b.x,b.z)+1.3,b.z,'#5dff8a');popText(b.x,H(b.x,b.z)+2.6,b.z,'+','#5dff8a');sfx('heal')}
   function throwDyn(n,t){const p={k:'dy',x0:n.x,z0:n.z,x1:t.x+t.vx*1.2,z1:t.z+t.vz*1.2,d:Math.round(TYPES[4].dmg*n.dm)};send(p);addDyn(p)}
@@ -344,7 +370,7 @@ const Outlaw=(()=>{
     if(t.id!=='bank'){ // cover has a height: a shot at a head over a crate can hit, one at a chest behind it hits the crate (and damages it)
       const o={x:M.x,y:M.y,z:M.z},dx=ex-o.x,dy=ey-o.y,dz=ez-o.z,L=Math.hypot(dx,dy,dz)||1,r=HitZones.coverT(o,{x:dx/L,y:dy/L,z:dz/L},L,cover);
       if(r.c){hitIt=false;ex=o.x+dx/L*r.t;ey=o.y+dy/L*r.t;ez=o.z+dz/L*r.t;if(r.c.brk!==undefined&&isHost())OutlawArena.hitCover(r.c,T.dmg*n.dm*.8)}}
-    tracer(M.x,M.y,M.z,ex,ey,ez,'#ff9a7a');sfx('enemy');
+    tracer(M.x,M.y,M.z,ex,ey,ez,'#ff9a7a');sfxAt('enemy',n.x,n.z);if(t.id===myId&&!hitIt&&Math.hypot(ex-S.x,ez-S.z)<3.2){dmgDir(n.x,n.z,'n');sfx('crack')}
     send({k:'f',m:[M.x,M.y,M.z],e:[ex,ey,ez],ai:1});
     if(hitIt){dealDmg(n,t,T.dmg)}}
   function detour(n,t){ // nearest blocking cover on the line to the target -> a point beside it to walk around
@@ -359,44 +385,72 @@ const Outlaw=(()=>{
     let dx=t.x-n.x,dz=t.z-n.z;const d=Math.hypot(dx,dz)||1,ux=dx/d,uz=dz/d,tfy=t.y===undefined?C.y:t.y,seen=t.id==='bank'?los(n.x,n.z,t.x,t.z):EnemyAI.sees(cover,n.x,H(n.x,n.z),n.z,n.st==='crouch'?'crouch':'stand',t.x,tfy,t.z)>0;
     let gx=ux,gz=uz;if(!seen){const dv=detour(n,t);if(dv){const q=Math.hypot(dv.x-n.x,dv.z-n.z)||1;gx=(dv.x-n.x)/q;gz=(dv.z-n.z)/q}}
     if(seen&&!n.seen)n.react=T.react*Math.max(.35,1-wave*.06);n.seen=seen;if(n.react>0)n.react-=dt;
+    // AWARENESS: a raider only knows where you were last SEEN (or heard shooting). Whoever sees you tells squad mates within 55 m; everyone else works from that, which goes stale.
+    const now0=clock/1000;
+    if(seen&&t.id!=='bank'){if(!n.sawT||now0-n.sawT>4){if(now0-lastShout>.9&&d<70){lastShout=now0;sfxAt('shout',n.x,n.z)}}n.sawT=now0;n.lk={x:t.x,z:t.z};n.lkT=now0;
+      for(const o of npcs.values()){if(o===n||o.dead)continue;if(Math.hypot(o.x-n.x,o.z-n.z)<55&&(!o.lkT||now0-o.lkT>1.5)){o.lk={x:t.x,z:t.z};o.lkT=now0-.8}}}
+    if(!n.lk){n.lk={x:t.x,z:t.z};n.lkT=now0-30}
+    if(!seen&&lastNoise&&now0-lastNoise.t<5&&now0-n.lkT>1.2&&Math.hypot(lastNoise.x-n.x,lastNoise.z-n.z)<95){n.lk={x:lastNoise.x+rnd(-4,4),z:lastNoise.z+rnd(-4,4)};n.lkT=now0-1.5}   // gunfire draws them
+    if(!seen&&Math.hypot(n.lk.x-n.x,n.lk.z-n.z)<5&&now0-n.lkT>3){n.lk={x:t.x+rnd(-22,22),z:t.z+rnd(-22,22)};n.lkT=now0-8}   // reached the stale spot: search the area you probably are in
+    const tpK=(seen||t.id==='bank')?t:n.lk;
     let mx=0,mz=0,sp=T.sp;n.st='run';
     if(n.type===7){if(n.hp<n.max*.3)sp*=1.4;for(const th of [.6,.3])if(n.hp<n.max*th&&!n['s'+th]){n['s'+th]=1;queue.unshift(0,0,5);send({k:'bn',t:'The Warlord calls for backup!'});banner('The Warlord calls for backup!','OUTLAW TOWN')}}
     if(n.type===6){ // MEDIC: heal the most wounded ally, otherwise keep away from players
       let a=null,r=1;for(const o of npcs.values()){if(o===n||o.dead||o.type===6)continue;const q=o.hp/o.max;if(q<r&&Math.hypot(o.x-n.x,o.z-n.z)<26){r=q;a=o}}
       if(a&&r<.9){const ax=a.x-n.x,az=a.z-n.z,ad=Math.hypot(ax,az)||1;if(ad>8){mx=ax/ad;mz=az/ad}else{sp=0;n.st='idle';if(n.cd<=0){n.cd=T.cd;a.hp=Math.min(a.max,a.hp+a.max*.3);send({k:'hl',a:n.id,b:a.id});healBeam(n,a)}}}
       else if(d<20){mx=-ux;mz=-uz}else{sp=0;n.st='idle'}
-    }else if(n.type===1){ // BRUTE: flanking weaving charge
-      const a=n.flank*Math.min(.9,d/22),c=Math.cos(a),s=Math.sin(a),w=Math.sin(n.t*4+n.ph)*.45;
-      mx=gx*c-gz*s-gz*w;mz=gx*s+gz*c+gx*w;if(d<2.2){sp=0;n.st='idle';if(n.cd<=0&&EnemyAI.meleeReach(d,tfy-H(n.x,n.z),2.2)){n.cd=T.cd;dealDmg(n,t,T.dmg)}}   // a player flying overhead is out of reach
+    }else if(n.type===1){ // THE HEAVY: slow and deliberate. Wind-up (rev + laser) -> 2 s burst -> VENT (vulnerable). Plated front, weak rear. Melee only if you stand next to it.
+      n.hs=n.hs||'advance';n.hst=(n.hst||0)-dt;sp=T.sp;const hx=tpK.x-n.x,hz=tpK.z-n.z,hd=Math.hypot(hx,hz)||1;
+      if(n.hs==='advance'){mx=hx/hd;mz=hz/hd;
+        if(d<2.6&&EnemyAI.meleeReach(d,tfy-H(n.x,n.z),2.6)){n.hs='swing';n.hst=.6;sfxAt('rev',n.x,n.z,.7)}
+        else if(seen&&d<T.range*.8&&d>3.5&&n.react<=0&&n.hst<=0){n.hs='windup';n.hst=.95;sfxAt('rev',n.x,n.z)}}
+      else if(n.hs==='windup'){sp=0;n.st='aim';if(n.hst<=0){n.hs='burst';n.hst=2.1;n.bcd=0}}
+      else if(n.hs==='burst'){sp=T.sp*.3;mx=hx/hd;mz=hz/hd;n.st='aim';n.bcd-=dt;if(n.bcd<=0){n.bcd=T.cd;if(seen)enemyShoot(n,t,d,T)}if(n.hst<=0){n.hs='vent';n.hst=2.4;sfxAt('vent',n.x,n.z)}}
+      else if(n.hs==='vent'){sp=0;n.st='vent';if(n.hst<=0){n.hs='advance';n.hst=1.8}}   // after venting it walks up for ~2 s before the next wind-up
+      else if(n.hs==='swing'){sp=0;n.st='idle';if(n.hst<=0){if(EnemyAI.meleeReach(d,tfy-H(n.x,n.z),2.8))dealDmg(n,t,22);n.hs='advance'}}
     }else{
-      const want=n.type===2?34:n.type===3?16:n.type===7?20:n.role==='rifle'?28:15,boss=n.type===3||n.type===7,hurtMode=n.hp<n.max*.35&&!boss&&!brave;
+      // GUNMEN: every move has a reason. Bound cover to cover toward where they believe you are, hold a band for their role, peek to shoot, relocate when it gets hot,
+      // flankers take ONE side route and only while the squad is engaged, aggressors push when you reload / are low, suppressors pin you, marksmen perch. No weaving.
+      const boss=n.type===3||n.type===7,role=boss?'rifle':n.type===4?'bomber':n.type===2?'sniper':(n.role||'grunt'),tp=tpK,dp=Math.hypot(tp.x-n.x,tp.z-n.z)||1,lkAge=now0-(n.lkT||0),
+        pushNow=role==='aggr'&&EnemyAI.shouldPush({reloading:t.id===myId&&reloading,partnerDown:t.id===myId&&pdown,lowHp:t.id===myId&&hp<maxHp()*.4,stalemate:brave}),
+        band=(role==='aggr'&&!pushNow)?[22,30]:EnemyAI.bandOf(role),tpd={x:tp.x,z:tp.z};
+      n.rdmg=Math.max(0,(n.rdmg||0)-dt*T.hp*.08);
       if(brave&&n.mode==='cover')n.mode='advance';
       if(n.dec<=0){n.dec=rnd(.5,.9);
-        if(hurtMode){n.mode='cover';n.cp=pickCover(n,t)}
-        else if(n.mode==='cover'&&n.cp&&n.pt>0){/* stay */}
-        else if((n.type===2&&!brave)||(!boss&&!brave&&n.role!=='rusher'&&Math.random()<(n.role==='rifle'?.5:.3)&&seen)){n.cp=pickCover(n,t);n.mode=n.cp?'cover':'fight';n.pt=rnd(2,4)}
-        else n.mode=seen&&d<=T.range?'fight':'advance'}
+        if(brave||n.hunt)n.mode='advance';
+        else if(role==='sniper'){/* perches below */}
+        else if(n.mode==='flank'){if(!n.route||now0>n.routeT||Math.hypot(n.route.x-n.x,n.route.z-n.z)<5){n.mode='advance';n.route=null;n.flanked=true}}
+        else if(role==='flanker'&&!n.flanked&&squadEngaged(n,now0)){n.route=EnemyAI.flankPoint(tp,n,n.flank,Math.max(24,Math.min(40,dp*.7)),(x,z)=>H(x,z)>.8&&Math.hypot(x-C.x,z-C.z)<190);if(n.route){n.mode='flank';n.routeT=now0+16}else n.flanked=true}
+        else if(EnemyAI.relocateNeeded(n.rdmg||0,T.hp,dp,band[0])){const c=pickCover(n,tpd,{avoid:n.cp,band});n.rdmg=0;if(c){n.cp=c;n.mode='cover';n.pt=rnd(3,5)}else n.mode='advance'}
+        else if(pushNow)n.mode='advance';
+        else if(n.mode==='cover'&&n.cp&&n.pt>0){/* hold */}
+        else if(dp>band[1]+3){const c=pickCover(n,tpd,{fwd:true,band});if(c){n.cp=c;n.mode='cover';n.pt=role==='rusher'?rnd(.7,1.3):rnd(1.4,2.6)}else n.mode='advance'}
+        else if(dp<band[0]*.7&&role!=='flanker'&&role!=='rusher'&&role!=='aggr'){const c=pickCover(n,tpd,{back:true,band});if(c){n.cp=c;n.mode='cover';n.pt=rnd(2,4)}else{n.mode='backoff';n.bo=1.4}}
+        else{const c=seen?pickCover(n,tpd,{near:true,band}):null;if(c){n.cp=c;n.mode='cover';n.pt=rnd(3,5)}else n.mode='fight'}}
       if(n.mode==='cover'&&n.cp){
         n.pt-=dt;n.peek-=dt;const cx=n.cp.x-n.x,cz=n.cp.z-n.z,cd=Math.hypot(cx,cz);
         if(cd>1){mx=cx/cd;mz=cz/cd;n.peekOut=false}
-        else{ // at cover: hide, then peek sideways and shoot
+        else{ // at cover: crouch (hidden), then stand up to shoot. Low cover: stand in place; tall cover: a short step out.
           if(n.peek<=0){n.peekOut=!n.peekOut;n.peek=n.peekOut?rnd(.9,1.4):rnd(.8,1.5);if(n.type===2)n.aim=0}
-          sp=0;n.st=n.peekOut?'idle':'crouch';if(n.peekOut){mx=-uz*n.flank;mz=ux*n.flank;sp=T.sp*.8;n.st='run'}}
-        if(n.pt<=0&&!hurtMode)n.mode='fight';
-      }else if(n.mode==='fight'){
-        // hold standoff distance, strafe, back off when crowded
-        const off=d-want,s=Math.sin(n.t*1.3+n.ph);mx=ux*Math.max(-1,Math.min(1,off*.25))-uz*s*.9;mz=uz*Math.max(-1,Math.min(1,off*.25))+ux*s*.9;sp=T.sp*.8;
-        if(Math.abs(off)<2&&Math.abs(s)<.2){sp=0;n.st='idle'}
-      }else{ // advance toward flank approach point (flankers curl well round to one side until they are close)
-        const a=n.flank*(n.role==='flanker'&&d>14?1.25:.8),c=Math.cos(a),s=Math.sin(a);mx=gx*c-gz*s;mz=gx*s+gz*c}
-      if(n.type===2&&!brave){ // SNIPER: climb to the nearest high ground (ridge top / mine mesa) and shoot from there
+          const low=n.cp.c&&n.cp.c.h!==undefined&&n.cp.c.h<=1.45;sp=0;n.st=n.peekOut?'idle':'crouch';
+          if(n.peekOut&&!low){mx=-uz*n.flank;mz=ux*n.flank;sp=T.sp*.35;n.st='run'}}
+        if(n.pt<=0)n.mode='fight';
+      }else if(n.mode==='flank'&&n.route){const rx=n.route.x-n.x,rz=n.route.z-n.z,rd=Math.hypot(rx,rz)||1;mx=rx/rd;mz=rz/rd}
+      else if(n.mode==='backoff'){mx=-(tp.x-n.x)/dp;mz=-(tp.z-n.z)/dp;n.bo=(n.bo||1)-dt;if(n.bo<=0)n.mode='fight'}
+      else if(n.mode==='fight'){ // hold ground: stand and shoot (no weaving). If it has lost you for a couple of seconds it moves up.
+        sp=0;n.st='idle';if(!seen){n.nsT=(n.nsT||0)+dt;if(n.nsT>2.2){n.mode='advance';n.nsT=0}}else n.nsT=0}
+      else{ // advance: straight toward where it believes you are (around cover), stopping to fight inside its band
+        mx=(tp.x-n.x)/dp;mz=(tp.z-n.z)/dp;if(!seen){const dv=detour(n,tp);if(dv){const q=Math.hypot(dv.x-n.x,dv.z-n.z)||1;mx=(dv.x-n.x)/q;mz=(dv.z-n.z)/q}}
+        if(seen&&dp<=band[1]&&role!=='rusher'&&!pushNow&&!brave)n.mode='fight'}
+      if(n.type===2&&!brave){ // MARKSMAN: climb to the nearest high ground (ridge top / mine mesa) and shoot from there
         if(!n.perch){let bd=1e9;for(const q of OutlawArena.perches()){const dd=Math.hypot(q.x-n.x,q.z-n.z);if(dd<bd){bd=dd;n.perch=q}}}
         if(n.perch){const pd=Math.hypot(n.perch.x-n.x,n.perch.z-n.z);n.mode='fight';if(pd>3){mx=(n.perch.x-n.x)/pd;mz=(n.perch.z-n.z)/pd;sp=T.sp;n.st='run'}else{mx=mz=0;sp=0;n.st='idle'}}}
       const peeking=n.mode!=='cover'||n.peekOut;
       if(peeking&&seen&&d<T.range&&n.react<=0){
         if(n.type===2){n.aim+=dt;n.st='aim';sp=0;if(n.aim>=.9&&n.cd<=0){n.aim=0;n.cd=T.cd;enemyShoot(n,t,d,T)}}
         else if(n.cd<=0){n.cd=T.cd*rnd(.85,1.2);if(n.type===4)throwDyn(n,t);else{enemyShoot(n,t,d,T);if(n.type===7){n.bc=(n.bc||0)+1;n.cd=n.bc>=14?(n.bc=0,2.2):T.cd}}}
-      }else if(n.type===2)n.aim=0;
+      }else if(role==='suppress'&&peeking&&!seen&&lkAge<7&&n.cd<=0&&n.mode!=='advance'&&n.mode!=='flank'){n.cd=rnd(.28,.45);suppressFire(n)}   // pins you down: fires where you were last seen
+      else if(n.type===2)n.aim=0;
     }
     // separation from other NPCs
     for(const o of npcs.values()){if(o===n||o.dead)continue;const ox=n.x-o.x,oz=n.z-o.z,od=Math.hypot(ox,oz);if(od<2.6&&od>.01){mx+=ox/od*.8;mz+=oz/od*.8}}
@@ -460,7 +514,8 @@ const Outlaw=(()=>{
       if(n.lhp===undefined)n.lhp=n.hp;
       if(n.hp<n.lhp-.5){const drop=n.lhp-n.hp;if(clock-(n.reactAt||-1e9)>450){n.reactAt=clock;const q=g.userData;q.hitReq=1;if(drop>=.3*n.max||n.lastZone==='head')q.hitHead=1}}
       n.lhp=n.hp;
-      animate(g,dt,n.st==='aim'?'idle':n.st);   // 'crouch' (behind cover) is handled by animateClips
+      if(n.st==='run'){const dd=Math.hypot(n.x-S.x,n.z-S.z);if(dd<20){n.stepT=(n.stepT||0)-dt;if(n.stepT<=0){n.stepT=.32;sfxAt('step',n.x,n.z,.9)}}}   // you can hear them coming (and which side)
+      animate(g,dt,n.st==='aim'||n.st==='vent'?'idle':n.st);   // 'crouch' (behind cover) is handled by animateClips
       n.fg.scale.x=Math.max(.001,n.hp/n.max);n.fg.position.x=-(1-n.fg.scale.x)*.6;n.bar.lookAt(camera.position);
       if(n.st==='aim'){const t=[...others.values()].map(o=>o.group.position).concat([{x:S.x,y:S.y,z:S.z}]).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];
         const dx=t.x-p.x,dz=t.z-p.z,L=Math.hypot(dx,dz);n.laser.visible=true;n.laser.scale.set(1,1,L);n.laser.position.set(p.x+dx/2,p.y+1.2,p.z+dz/2);n.laser.lookAt(t.x,p.y+1.2,t.z)}
@@ -514,7 +569,7 @@ const Outlaw=(()=>{
     if(hudEl)return;
     const st=document.createElement('style');st.textContent='#owhud{position:fixed;z-index:6;left:12px;top:calc(env(safe-area-inset-top,0px) + 88px);color:#fff;font-size:13px;text-shadow:0 1px 4px #000;pointer-events:none;display:none}#owhud .bar{width:150px;height:10px;background:#0008;border-radius:6px;overflow:hidden;margin-bottom:4px}#owhp{height:100%}'
       +'#owxh{position:fixed;z-index:6;left:50%;top:50%;width:0;height:0;pointer-events:none;display:none;--g:4px;transition:transform .08s}#owxh i{position:absolute;background:#fff;box-shadow:0 0 2px #000;opacity:.92}#owxh i:nth-child(1){left:-1px;top:calc(-1*var(--g) - 8px);width:2px;height:8px}#owxh i:nth-child(2){left:-1px;top:var(--g);width:2px;height:8px}#owxh i:nth-child(3){top:-1px;left:calc(-1*var(--g) - 8px);height:2px;width:8px}#owxh i:nth-child(4){top:-1px;left:var(--g);height:2px;width:8px}#owxh:after{content:\"\";position:absolute;left:-1px;top:-1px;width:2px;height:2px;border-radius:50%;background:#fff;box-shadow:0 0 2px #000}#owxh.hit i{background:#ff5a4e}#owxh.crit{transform:scale(1.4)}#owxh.crit i{background:#ffd24a}'
-      +'.owb{position:fixed;z-index:5;border-radius:50%;border:0;color:#fff;font-size:26px}#owfire{right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 232px);width:78px;height:78px;background:#e0443ecc;display:none;touch-action:none}#owview{right:264px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#bfe3ffcc}#owshop{right:200px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#ffd24acc}#owrl{right:136px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#ffffffcc}#owscope{right:136px;bottom:calc(env(safe-area-inset-bottom,0px) + 276px);width:56px;height:56px;background:#9ad7ffcc;display:none}#owsc{position:fixed;inset:0;z-index:4;pointer-events:none;display:none;background:radial-gradient(circle at 50% 50%,transparent 0,transparent 42vh,rgba(0,0,0,.97) 42.7vh)}#owsc:before,#owsc:after{content:"";position:absolute;background:#000}#owsc:before{left:50%;top:calc(50% - 42vh);width:1.5px;height:84vh;transform:translateX(-50%)}#owsc:after{top:50%;left:calc(50% - 42vh);height:1.5px;width:84vh;transform:translateY(-50%)}#owsc i{position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px;border-radius:50%;background:#e8372c}#owsc b{position:absolute;left:50%;top:calc(50% + 34vh);transform:translateX(-50%);color:#fff;font:700 15px system-ui;text-shadow:0 0 4px #000;letter-spacing:.5px}#owsc em{position:absolute;left:calc(50% - 40vh);top:calc(50% - 3px);color:#ddd;font:700 11px system-ui;font-style:normal}#owgun{right:200px;bottom:calc(env(safe-area-inset-bottom,0px) + 144px);width:56px;height:56px;background:#ffffffcc}';
+      +'.owb{position:fixed;z-index:5;border-radius:50%;border:0;color:#fff;font-size:26px}#owfire{right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 232px);width:78px;height:78px;background:#e0443ecc;display:none;touch-action:none}#owview{right:264px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#bfe3ffcc}#owshop{right:200px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#ffd24acc}#owrl{right:136px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#ffffffcc}#owscope{right:136px;bottom:calc(env(safe-area-inset-bottom,0px) + 276px);width:56px;height:56px;background:#9ad7ffcc;display:none}#owdir{position:fixed;inset:0;pointer-events:none;z-index:7}#owdir .a{position:absolute;left:50%;top:50%;width:0;height:0;animation:owdf 1.6s ease-out forwards}#owdir .a:before{content:"";position:absolute;left:-80px;top:-37vh;width:160px;height:30px;border-radius:50%;background:radial-gradient(ellipse at center,rgba(255,40,30,.95),rgba(255,40,30,0) 70%)}#owdir .a.n:before{background:radial-gradient(ellipse at center,rgba(255,205,70,.9),rgba(255,205,70,0) 70%);height:22px}@keyframes owdf{0%{opacity:1}100%{opacity:0}}#owsc{position:fixed;inset:0;z-index:4;pointer-events:none;display:none;background:radial-gradient(circle at 50% 50%,transparent 0,transparent 42vh,rgba(0,0,0,.97) 42.7vh)}#owsc:before,#owsc:after{content:"";position:absolute;background:#000}#owsc:before{left:50%;top:calc(50% - 42vh);width:1.5px;height:84vh;transform:translateX(-50%)}#owsc:after{top:50%;left:calc(50% - 42vh);height:1.5px;width:84vh;transform:translateY(-50%)}#owsc i{position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px;border-radius:50%;background:#e8372c}#owsc b{position:absolute;left:50%;top:calc(50% + 34vh);transform:translateX(-50%);color:#fff;font:700 15px system-ui;text-shadow:0 0 4px #000;letter-spacing:.5px}#owsc em{position:absolute;left:calc(50% - 40vh);top:calc(50% - 3px);color:#ddd;font:700 11px system-ui;font-style:normal}#owgun{right:200px;bottom:calc(env(safe-area-inset-bottom,0px) + 144px);width:56px;height:56px;background:#ffffffcc}';
     document.head.appendChild(st);
     hudEl=document.createElement('div');hudEl.id='owhud';hudEl.innerHTML='<div class="bar"><div id="owhp" style="width:100%"></div></div><div id="owtxt"></div>';document.body.appendChild(hudEl);hpEl=$('owhp');
     xh=document.createElement('div');xh.id='owxh';xh.innerHTML='<i></i><i></i><i></i><i></i>';document.body.appendChild(xh);
@@ -523,6 +578,7 @@ const Outlaw=(()=>{
     const viewBtn=document.createElement('button');viewBtn.id='owview';viewBtn.className='owb';viewBtn.textContent='👁';document.body.appendChild(viewBtn);
     viewBtn.addEventListener('pointerdown',e=>{const v=CameraRig.toggleView();banner(v==='fps'?'First-person view':'Third-person view','CAMERA');e.preventDefault()});
     const shopBtn=document.createElement('button');shopBtn.id='owshop';shopBtn.className='owb';shopBtn.textContent='🛒';document.body.appendChild(shopBtn);shopBtn.addEventListener('pointerdown',e=>{shopPanel();e.preventDefault()});
+    dirEl=document.createElement('div');dirEl.id='owdir';document.body.appendChild(dirEl);
     scopeBtn=document.createElement('button');scopeBtn.id='owscope';scopeBtn.className='owb';scopeBtn.textContent='🔭';document.body.appendChild(scopeBtn);scopeBtn.addEventListener('pointerdown',e=>{setScope(!scoped);e.preventDefault()});
     scopeEl=document.createElement('div');scopeEl.id='owsc';scopeEl.innerHTML='<i></i><b></b><em></em>';document.body.appendChild(scopeEl);scopeRng=scopeEl.querySelector('b');
     addEventListener('keydown',e=>{if(e.code==='KeyZ'&&!/INPUT|TEXTAREA/.test((e.target||{}).tagName||''))setScope(!scoped)});
@@ -563,7 +619,7 @@ const Outlaw=(()=>{
       case 'pk':{const i=drops.findIndex(d=>d.id===p.id);if(i>=0){scene.remove(drops[i].m);drops.splice(i,1)}break}
       case 'dy':addDyn(p);break;
       case 'hl':{const a=npcs.get(p.a),b=npcs.get(p.b);if(a&&b)healBeam(a,b);break}
-      case 'f':{const e=p.e||[0,0,0];if(!p.ai&&WEAPONS[p.w]&&WEAPONS[p.w].rocket)boom(e[0],e[2],5);if(!p.ai){const pr=partner();if(pr)pr[1].group.userData.recoil=1}tracer(p.m[0],p.m[1],p.m[2],e[0],e[1],e[2],p.ai?'#ff9a7a':'#ffe9a0');sfx(p.ai?'enemy':(WEAPONS[p.w]||WEAPONS[0]).snd);break}
+      case 'f':{const e=p.e||[0,0,0];if(!p.ai&&WEAPONS[p.w]&&WEAPONS[p.w].rocket)boom(e[0],e[2],5);if(!p.ai){const pr=partner();if(pr)pr[1].group.userData.recoil=1}tracer(p.m[0],p.m[1],p.m[2],e[0],e[1],e[2],p.ai?'#ff9a7a':'#ffe9a0');if(p.ai)sfxAt('enemy',p.m[0],p.m[2]);else{lastNoise={x:p.m[0],z:p.m[2],t:clock/1000};sfx((WEAPONS[p.w]||WEAPONS[0]).snd)}break}
     }
   }
 
@@ -593,5 +649,5 @@ const Outlaw=(()=>{
 
   Interaction.register('ow-start','Start Showdown',()=>C&&!active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>missionPanel());
   Interaction.register('ow-end','End Showdown',()=>C&&active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>{send({k:'end'});onMsg({k:'end'})});
-  return {build,tick,onMsg,equip,fire,lockTarget,poseGun,loadGun,_t:()=>({get lastShot(){return lastShot},get hp(){return hp},get huntOn(){return huntOn},WEAPONS,get wave(){return wave},get queueLen(){return queue.length},get nextWave(){return nextWave},damageNpc,cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
+  return {build,tick,onMsg,equip,fire,lockTarget,poseGun,loadGun,_t:()=>({get lastShot(){return lastShot},dmgDir,get hp(){return hp},get huntOn(){return huntOn},WEAPONS,get wave(){return wave},get queueLen(){return queue.length},get nextWave(){return nextWave},damageNpc,cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
 })();
