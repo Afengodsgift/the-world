@@ -5,7 +5,7 @@ vm.runInContext(['Moves','SwordHit','CombatCore','DuelistAI'].map(n=>fs.readFile
 const {M,CC,AI}=c;let bad=0;const ok=(v,m)=>{if(!v){console.log('FAIL',m);bad++}else console.log('ok',m)};
 // player bots return a command object for P each tick
 function fight(seed,ticks,pbot,o){o=o||{};const C=CC.create({arena:{x:0,z:0,R:14}});const P=C.add('P',{x:0,z:-3,face:0,hp:o.php||1e5});const D=C.add('D',{x:0,z:0,face:Math.PI,hp:o.dhp||1e5});
-  const A=AI.create(seed,{intro:o.intro});const st={starts:[],hits:0,dodged:0,blocked:0,deflected:0,moves:{},hash:0,busyStart:0,minRest:1e9,lastEnd:-1,fell:0};let evs=[],prevAct='free';
+  const A=AI.create(seed,{intro:o.intro,foe:o.foe});const st={starts:[],hits:0,dodged:0,blocked:0,deflected:0,moves:{},hash:0,busyStart:0,minRest:1e9,lastEnd:-1,fell:0};let evs=[],prevAct='free';
   for(let t=0;t<ticks;t++){const tick=C.tick+1,d=AI.think(A,P,D,evs,tick),pc=pbot?pbot(C,P,D,tick):{};
     if(d.list.some(x=>x.t==='atk')&&D.act!=='free')st.busyStart++;                               // must only start while free
     const cm={D:{face:d.face,mx:d.mx,mz:d.mz,list:d.list},P:Object.assign({list:[]},pc)};
@@ -37,4 +37,9 @@ function fight(seed,ticks,pbot,o){o=o||{};const C=CC.create({arena:{x:0,z:0,R:14
   let rip=0,blk=0;for(let sd=1;sd<=10;sd++){const s2=fight(sd,8000,swing);rip+=s2.moves.riposte||0}ok(rip>0,'he ripostes after blocking an aggressive player ('+rip+' ripostes over 10 fights)')}
 // 7. it can actually beat an idle player (it is a real opponent) and the player can beat it (light spam in range wins sometimes)
 {const s=fight(4,30000,null,{php:100});ok(s.hits>=3,'a standing-still player is hit ('+s.hits+' hits, 100 hp)')}
+// 6. The Hollow Warden
+{const s=fight(3,30000,null,{foe:'hollow'});ok(['sweep','slam','triple'].every(m=>s.moves[m]>0)&&!s.moves.cut&&!s.moves.thrust,'Hollow Warden uses only sweep, slam, triple: '+JSON.stringify(s.moves));
+ ok(s.busyStart===0,'Hollow Warden never starts a move while busy');ok(s.minRest>=45,'Hollow Warden rests >= 45 ticks between moves (min '+s.minRest+')');
+ const f=fight(3,30000,null,{foe:'duelist'});ok(s.starts.length<f.starts.length,'Hollow Warden attacks less often than the Duelist ('+s.starts.length+' vs '+f.starts.length+')');
+ const a=fight(9,6000,null,{foe:'hollow'}),b=fight(9,6000,null,{foe:'hollow'});ok(a.hash===b.hash,'Hollow Warden fight is deterministic')}
 process.exit(bad?1:0);

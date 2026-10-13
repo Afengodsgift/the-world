@@ -71,6 +71,11 @@ const PlayerCombat=(()=>{
     const c=P.act==='charge'?Math.min(1,P.c/Moves.heavy.chargeMax)*360:0,r=Math.round(c/6);if(bars.chg!==r){bars.chg=r;el.querySelector('#wHeavy').style.setProperty('--chg',r*6+'deg')}}
   function msg(t,sec){const m=el.querySelector('#wmsg');m.textContent=t;m.classList.add('on');msgT=sec||1.4}
   // ---------- avatars + swords ----------
+  // Foes, fought in order: beat one and the next steps in (loop back after the last); die and you face the same one again.
+  const FOES=[{id:'duelist',name:'The Duelist',hp:220,r:.5,scale:1,tint:1},{id:'hollow',name:'The Hollow Warden',hp:340,r:.72,scale:1.32,tint:.07}];let foeI=0;
+  function applyFoe(){const f=FOES[foeI];if(duel){duel.scale.setScalar(f.scale);
+      if(duel.userData.model)duel.userData.model.traverse(c=>{if(c.isSkinnedMesh&&c.material&&c.material.color){if(!c.material.userData._own){c.material=c.material.clone();c.material.userData._own=true;c.material.userData.c0=c.material.color.clone()}c.material.color.copy(c.material.userData.c0).multiply(new THREE.Color(f.tint,f.tint*(f.tint<1?.7:1),f.tint*(f.tint<1?.75:1)))}})}
+    if(el){const sp=el.querySelector('.wb.d span');if(sp)sp.textContent=f.name}}
   function buildDuelist(){
     if(duelBuilt)return;duelBuilt=true;duel=makeAvatar('The Duelist','#3a2a2a');for(const c of duel.children.slice())if(c.isSprite)duel.remove(c);   // no floating nameplate: the HUD names him
     scene.add(duel);dress(duel,2)}                                   // dress() fills in the skinned model + mixer asynchronously
@@ -91,8 +96,8 @@ const PlayerCombat=(()=>{
   // ---------- fight lifecycle ----------
   function newFight(){
     fightN++;const A=C.arena;P=C.F.P=CombatCore.mkFighter('P',{x:S.x,z:S.z,face:S.rot,hp:100});
-    dHome={x:WRD.x,z:WRD.z-9};D=C.F.D=CombatCore.mkFighter('D',{x:dHome.x,z:dHome.z,face:0,hp:220});D.r=.5;
-    AI=DuelistAI.create(fightN*7919+1,{intro:75});state='fight';stateT=0;lock=lock&&false;dv.init=false;pv.init=false;down.guard=down.heavy=false;
+    dHome={x:WRD.x,z:WRD.z-9};D=C.F.D=CombatCore.mkFighter('D',{x:dHome.x,z:dHome.z,face:0,hp:FOES[foeI].hp});D.r=FOES[foeI].r;
+    AI=DuelistAI.create(fightN*7919+1,{intro:75,foe:FOES[foeI].id});applyFoe();state='fight';stateT=0;lock=lock&&false;dv.init=false;pv.init=false;down.guard=down.heavy=false;
     if(duel&&duel.userData.mixer&&typeof emoStop==='function')emoStop(duel.userData);
     if(el)el.querySelector('#wLock').classList.remove('on')}
   // Inside the walled arena the screen is the cost on a low-end phone: render at 1.25x (not 2x) while you fight, restore on leaving. Skipped when ?dpr= was given.
@@ -103,9 +108,9 @@ const PlayerCombat=(()=>{
   function enter(){
     if(on)return;if(!el)build();buildDuelist();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenAnim.Clips.fetch().catch(()=>{});
     const A={x:WRD.x,z:WRD.z,R:WARDEN.arenaR-.5};C=CombatCore.create({arena:A,solids:WardenSolids()});ST=CombatCore.stepper(C,6);t0=performance.now();
-    C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100});C.add('D',{x:0,z:0});fightN=0;newFight();
+    C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100});C.add('D',{x:0,z:0});fightN=0;foeI=0;newFight();
     lx=S.x;lz=S.z;on=true;lock=false;document.body.classList.add('warden-fight');stW=0;gT=0;lastEv=[];ensureAvatars();if(sword&&sword.grip)sword.grip.visible=true;if(dSword&&dSword.grip)dSword.grip.visible=true;if(duel)duel.visible=true;
-    arenaRes(true);msg('The Warden Isles · The Duelist',2.2)}
+    arenaRes(true);msg('The Warden Isles · '+FOES[foeI].name,2.2)}
   function leave(){
     if(!on)return;releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;if(dSword&&dSword.grip)dSword.grip.visible=false;if(duel)duel.visible=false;pendFace=null;
     if(pAnim)pAnim.off();if(dAnim)dAnim.off();arenaRes(false)}
@@ -124,7 +129,7 @@ const PlayerCombat=(()=>{
       else if(e.t==='posturebreak'&&e.d==='D'){msg('POSTURE BROKEN');tone(500,120,.3,'sawtooth',.12)}
       else if(e.t==='posturebreak'&&e.d==='P'){msg('POSTURE BROKEN',.8);tone(300,90,.3,'sawtooth',.12)}
       else if(e.t==='guardbreak'){tone(250,70,.3,'sawtooth',.14)}
-      else if(e.t==='dead'&&e.d==='D'){msg('THE DUELIST IS FELLED',3);tone(200,40,.5,'sawtooth',.14);lock=false;el.querySelector('#wLock').classList.remove('on');state='won';stateT=performance.now();if(duel)duel.userData.emoteReq='playdead'}
+      else if(e.t==='dead'&&e.d==='D'){msg(FOES[foeI].name.toUpperCase()+' IS FELLED',3);tone(200,40,.5,'sawtooth',.14);lock=false;el.querySelector('#wLock').classList.remove('on');state='won';stateT=performance.now();foeI=(foeI+1)%FOES.length;if(duel)duel.userData.emoteReq='playdead'}
       else if(e.t==='dead'&&e.d==='P'){msg('YOU DIED',3);tone(180,35,.6,'sawtooth',.16);state='lost';stateT=performance.now()}}}
   function locoOf(v,x,z,face,dt){   // smoothed world velocity -> speed + components along / to the left of the facing
     if(!v.init||dt<=0){v.x=x;v.z=z;v.init=true;v.vf=v.vs=v.sp=0;return}
@@ -136,7 +141,7 @@ const PlayerCombat=(()=>{
     if(d>WARDEN.arenaR+1.5||S.flying||S.state==='swim'){leave();return}
     ensureAvatars();if(duel)duel.visible=true;
     // end-of-fight handling: 3 s after a result the fight restarts (the player keeps their position)
-    if(state!=='fight'&&performance.now()-stateT>(state==='won'?5000:3200)){newFight();msg('Again.',1)}
+    if(state!=='fight'&&performance.now()-stateT>(state==='won'?5000:3200)){newFight();msg(state==='fight'&&FOES[foeI].id==='hollow'?'The Hollow Warden stirs.':'Again.',1.4)}
     // 1) hand the sim the player's current position, run the due ticks, apply the forced motion back to S
     P.x=S.x;P.z=S.z;lx=S.x;lz=S.z;
     const held=nt=>{const f=lock&&D.act!=='dead'?heading():pendT>0&&pendFace!==null?pendFace:S.rot;if(pendT>0)pendT--;
@@ -167,4 +172,4 @@ const PlayerCombat=(()=>{
     if(typeof animate==='function')animate(duel,dt,dv.sp>.6&&D.act==='free'?'walk':'idle');   // the game's own locomotion + emote/hit overlays for him
     if(dAnim)dAnim.update(D,fr,dloco,dt,true);
     dFlash=Math.max(0,dFlash-dt*5);if((dFlash>0||dFlashOn)&&duel.userData.model){dFlashOn=dFlash>0;duel.userData.model.traverse(c=>{if(c.isSkinnedMesh&&c.material&&c.material.emissive)c.material.emissive.setRGB(dFlash*.7,dFlash*.25,dFlash*.1)})}}
-  return Object.assign(PC,{setSeq:v=>{if(pAnim)pAnim.variant=v},tick,speedMul,press,release,enter,leave,on:()=>on,GRIP,setGrip:()=>{setGrip(sword);setGrip(dSword)},newFight,_t:()=>({on,C,P,D,lock,sword,dSword,duel,AI,state,cur,stW,down,pAnim,dAnim})})})();
+  return Object.assign(PC,{foe:i=>{foeI=i%FOES.length;if(on)newFight()},setSeq:v=>{if(pAnim)pAnim.variant=v},tick,speedMul,press,release,enter,leave,on:()=>on,GRIP,setGrip:()=>{setGrip(sword);setGrip(dSword)},newFight,_t:()=>({on,C,P,D,lock,sword,dSword,duel,AI,state,cur,stW,down,pAnim,dAnim})})})();
