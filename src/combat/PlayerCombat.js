@@ -9,7 +9,7 @@ const PlayerCombat=(()=>{
   let on=false,C=null,ST=null,P=null,D=null,t0=0,lx=0,lz=0,lock=false,pendFace=null,pendT=0;
   const down={guard:false,heavy:false};              // logical button state (what the sim was told)
   const ptr={};                                       // touch: button -> pointerId
-  let el=null,duel=null,duelBuilt=false,dHome=null,dFlash=0,sword=null,swordTried=false,dSword=null,dSwordTried=false,pAnim=null,dAnim=null,AI=null,fightN=0,state='fight',stateT=0,lastEv=[];
+  let el=null,duel=null,duelBuilt=false,dHome=null,dFlash=0,dFlashOn=false,sword=null,swordTried=false,dSword=null,dSwordTried=false,pAnim=null,dAnim=null,AI=null,fightN=0,state='fight',stateT=0,lastEv=[],dFlashOn=false;
   const pv={x:0,z:0,vf:0,vs:0,sp:0,init:false},dv={x:0,z:0,vf:0,vs:0,sp:0,init:false};
   const cur=WardenAnim.copy(WardenAnim.POSES.ready),tg=WardenAnim.copy(WardenAnim.POSES.ready);let stW=0,gT=0,msgT=0,lastTone=0;
   const GRIP={rx:0,ry:0,rz:0,len:.95,ox:0,oy:0,oz:0};
@@ -95,15 +95,20 @@ const PlayerCombat=(()=>{
     AI=DuelistAI.create(fightN*7919+1,{intro:75});state='fight';stateT=0;lock=lock&&false;dv.init=false;pv.init=false;down.guard=down.heavy=false;
     if(duel&&duel.userData.mixer&&typeof emoStop==='function')emoStop(duel.userData);
     if(el)el.querySelector('#wLock').classList.remove('on')}
+  // Inside the walled arena the screen is the cost on a low-end phone: render at 1.25x (not 2x) while you fight, restore on leaving. Skipped when ?dpr= was given.
+  let resPrev=null;
+  function arenaRes(inn){if(typeof Perf==='undefined'||!Perf.state||!Perf.state.r||Perf.state.fixed)return;const st=Perf.state;
+    if(inn&&resPrev===null){resPrev={dpr:st.dpr,min:st.min,locked:st.locked};st.min=1;if(st.dpr>1.25){st.dpr=1.25;st.r.setPixelRatio(1.25)}st.locked=true}
+    else if(!inn&&resPrev){st.min=resPrev.min;st.locked=resPrev.locked;if(st.dpr!==resPrev.dpr){st.dpr=resPrev.dpr;st.r.setPixelRatio(resPrev.dpr)}resPrev=null}}
   function enter(){
     if(on)return;if(!el)build();buildDuelist();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenAnim.Clips.fetch().catch(()=>{});
     const A={x:WRD.x,z:WRD.z,R:WARDEN.arenaR-.5};C=CombatCore.create({arena:A,solids:WardenSolids()});ST=CombatCore.stepper(C,6);t0=performance.now();
     C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100});C.add('D',{x:0,z:0});fightN=0;newFight();
     lx=S.x;lz=S.z;on=true;lock=false;document.body.classList.add('warden-fight');stW=0;gT=0;lastEv=[];ensureAvatars();if(sword&&sword.grip)sword.grip.visible=true;if(dSword&&dSword.grip)dSword.grip.visible=true;if(duel)duel.visible=true;
-    msg('The Warden Isles · The Duelist',2.2)}
+    arenaRes(true);msg('The Warden Isles · The Duelist',2.2)}
   function leave(){
     if(!on)return;releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;if(dSword&&dSword.grip)dSword.grip.visible=false;if(duel)duel.visible=false;pendFace=null;
-    if(pAnim)pAnim.off();if(dAnim)dAnim.off()}
+    if(pAnim)pAnim.off();if(dAnim)dAnim.off();arenaRes(false)}
   // ---------- per frame ----------
   function speedMul(sprint){
     if(!on||!P)return 1;const base=sprint?12:6;if(P.act==='dead')return 0;
@@ -111,7 +116,7 @@ const PlayerCombat=(()=>{
   function events(evs){
     if(PC._log)for(const e of evs)if(e.t!=='hitstop')PC._log.push(e);
     for(const e of evs){
-      if(e.t==='start'){if(e.a==='P'){if(e.move==='light'&&pAnim)pAnim.nextLight(performance.now()/1000);tone(e.move==='heavy'?220:380,e.move==='heavy'?90:150,e.move==='heavy'?.18:.1,'triangle',.1)}else tone(160,70,.16,'sawtooth',.07)}
+      if(e.t==='start'){if(e.a==='P'){if(e.move==='light'&&pAnim)pAnim.nextLight(performance.now()/1000);tone(e.move==='heavy'?220:380,e.move==='heavy'?90:150,e.move==='heavy'?.18:.1,'triangle',.1)}else{if(dAnim&&dAnim.pickAlt)dAnim.pickAlt(e.move,Math.random());tone(160,70,.16,'sawtooth',.07)}}
       else if(e.t==='dodge'&&e.a==='P')tone(200,80,.14,'sine',.08);
       else if(e.t==='hit'){if(e.d==='D'){dFlash=1;tone(140,50,.14,'square',.14);if(e.crit)msg('CRITICAL');if(duel)duel.userData.hitReq=1}else{tone(110,40,.18,'square',.16);if(e.d==='P'&&P.hp>0)msg('',0)}}
       else if(e.t==='block')tone(420,260,.1,'square',.1);
@@ -161,5 +166,5 @@ const PlayerCombat=(()=>{
     locoOf(dv,D.x,D.z,duel.rotation.y,dt);const dloco={moving:dv.sp>.6&&D.act==='free',vf:dv.vf,vs:dv.vs};
     if(typeof animate==='function')animate(duel,dt,dv.sp>.6&&D.act==='free'?'walk':'idle');   // the game's own locomotion + emote/hit overlays for him
     if(dAnim)dAnim.update(D,fr,dloco,dt,true);
-    dFlash=Math.max(0,dFlash-dt*5);if(duel.userData.model)duel.userData.model.traverse(c=>{if(c.isSkinnedMesh&&c.material&&c.material.emissive)c.material.emissive.setRGB(dFlash*.7,dFlash*.25,dFlash*.1)})}
+    dFlash=Math.max(0,dFlash-dt*5);if((dFlash>0||dFlashOn)&&duel.userData.model){dFlashOn=dFlash>0;duel.userData.model.traverse(c=>{if(c.isSkinnedMesh&&c.material&&c.material.emissive)c.material.emissive.setRGB(dFlash*.7,dFlash*.25,dFlash*.1)})}}
   return Object.assign(PC,{setSeq:v=>{if(pAnim)pAnim.variant=v},tick,speedMul,press,release,enter,leave,on:()=>on,GRIP,setGrip:()=>{setGrip(sword);setGrip(dSword)},newFight,_t:()=>({on,C,P,D,lock,sword,dSword,duel,AI,state,cur,stW,down,pAnim,dAnim})})})();

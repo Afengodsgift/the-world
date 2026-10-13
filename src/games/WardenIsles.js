@@ -52,7 +52,7 @@ const WardenIsles=(()=>{
       _b.setFromObject(o);if(_b.isEmpty())return;_b.getBoundingSphere(_s);if(_s.radius>1500)return;far.push({o,x:_s.center.x,z:_s.center.z,r:_s.radius})})}
   function farCull(on,t){
     if(!on){if(farOn){if(typeof Env!=='undefined'&&Env.state.cloudLod===CLOUD_LOD)Env.state.cloudLod=1;for(const f of far)if(f.o.userData._wh){f.o.userData._wh=false;f.o.visible=true}farOn=false;hiddenN=0}return}
-    if(t-farT>8000||!farOn){for(const f of far)if(f.o.userData._wh){f.o.userData._wh=false;f.o.visible=true}farList();farT=t}
+    if(t-farT>30000||!farOn){for(const f of far)if(f.o.userData._wh){f.o.userData._wh=false;f.o.visible=true}farList();farT=t}
     if(typeof Env!=='undefined')Env.state.cloudLod=CLOUD_LOD;   // the cloud deck is ~217k triangles (3 big instanced meshes, never culled): fewer clouds here, using Environment's own quality knob
     farOn=true;const cx=camera.position.x,cz=camera.position.z,lim=(scene.fog?scene.fog.far:1700)*.97;hiddenN=0;
     for(const f of far){const hide=Math.hypot(f.x-cx,f.z-cz)-f.r>lim,o=f.o;

@@ -54,19 +54,20 @@ const WardenAnim=(()=>{
     cut:[['b',0,.25],['b',.25,.5],['b',.5,1.45]],
     fall:[['a',0,.43],['a',.43,.43],['a',.43,.6],['a',.6,.88],['a',.88,1.4]],
     thrust:[['h',0,.2],['h',.2,.4],['h',.4,.5],['h',.5,1.05]],
+    twin2:[['h',0,.2],['h',.2,.4],['h',.4,.5],['b',.2,.5],['b',.5,1.45]],
     twin:[['b',0,.25],['b',.25,.5],['b',.5,.8],['h',.2,.4],['h',.4,1.05]],
     riposte:[['h',0,.2],['h',.2,.42],['h',.42,1.05]]};
   const NAMES=['w_idle','w_arms','w_a','w_a_rec','w_b','w_b_rec','w_hook','w_hook_rec','w_block','w_back','w_sl','w_sr'];
   const DIRS=['w_back','w_sl','w_sr'];
   const SH={st:'none',clips:null,p:null};
   function fetchClips(){if(!SH.p)SH.p=fetch('assets/warden_anims.json').then(r=>r.json()).then(j=>{SH.clips={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=c.name;SH.clips[c.name]=ac}SH.st='ready'}).catch(e=>{SH.st='failed';SH.p=null;throw e});return SH.p}
-  const moveKey=(f,variant)=>{const id=f.mv&&f.mv.id;return id==='light'?variant:id};
+  const moveKey=(f,variant,alt)=>{const id=f.mv&&f.mv.id;return id==='light'?variant:(alt&&alt[id])||id};
   // one animation controller per avatar. q = avatar.userData (needs .mixer).
   function make(q){
     const I={st:'none',A:{},ws:{},blockT:0,sw:0,lastLight:-1e9,ready:()=>I.st==='ready',variant:'light_b'};
     fetchClips().then(()=>{for(const n of NAMES){const a=q.mixer.clipAction(SH.clips[n]);a.enabled=false;a.setEffectiveWeight(.0001);I.A[n]=a;I.ws[n]=0}I.st='ready'}).catch(()=>{I.st='failed'});
     // B and the hook alternate when chained within 1.3 s, otherwise start with B
-    I.nextLight=nowS=>{const v=nowS-I.lastLight<1.3&&I.sw===0?1:0;I.sw=v;I.lastLight=nowS;I.variant=v?'light_h':'light_b';return I.variant};
+    I.alt={};I.pickAlt=(id,r)=>{if(id==='cut')I.alt.cut=r<.5?'light_h':'light_b';else if(id==='twin')I.alt.twin=r<.5?'twin2':'twin'};I.nextLight=nowS=>{const v=nowS-I.lastLight<1.3&&I.sw===0?1:0;I.sw=v;I.lastLight=nowS;I.variant=v?'light_h':'light_b';return I.variant};
     // f = sim fighter, fr = elapsed fraction of the next tick (0..1), loco = {moving, vf, vs} (m/s along / left of his facing), dt = frame seconds, on = in a fight
     I.update=(f,fr,loco,dt,on)=>{
       if(I.st!=='ready')return false;const A=I.A,tgt={},tm={},tsc={};for(const n of NAMES)tgt[n]=0;
@@ -74,7 +75,7 @@ const WardenAnim=(()=>{
       const place=(pr,u)=>{const P2=PAIR[pr];if(u<P2.la){tgt[P2.a]=1;tm[P2.a]=u}else{tgt[P2.b]=1;tm[P2.b]=Math.min(u-P2.la,A[P2.b].getClip().duration-.001)}};
       if(fight){
         if(f.act==='charge')place('a',.43*ease(f.c/16));
-        else if(f.act==='attack'&&f.ph&&f.ph[f.pi]){const m=MAP[moveKey(f,I.variant)],e=m&&m[f.pi];
+        else if(f.act==='attack'&&f.ph&&f.ph[f.pi]){const m=MAP[moveKey(f,I.variant,I.alt)],e=m&&m[f.pi];
           if(e){const n=f.ph[f.pi].n||1,p=Math.min(1,(f.pk+fr)/n);place(e[0],e[1]+(e[2]-e[1])*p)}}
         else if(f.guard&&f.act==='free'){tgt.w_block=1;I.blockT+=(.42-I.blockT)*Math.min(1,dt*14);tm.w_block=I.blockT}
         else if(loco&&loco.moving){
