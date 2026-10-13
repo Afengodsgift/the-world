@@ -13,7 +13,7 @@ const DEPS={ // file -> files that must come first
   'combat/Melee.js':['core/Audio.js'],
   'games/OutlawArena.js':['utils/random.js'],
   'data/warden.js':['data/islands.js','utils/math.js'],
-  'combat/Moves.js':[],'combat/SwordHit.js':[],'combat/CombatCore.js':['combat/Moves.js','combat/SwordHit.js'],'combat/WardenAnim.js':[],
+  'combat/Moves.js':[],'combat/SwordHit.js':[],'combat/Combos.js':[],'combat/CombatCore.js':['combat/Moves.js','combat/SwordHit.js','combat/Combos.js'],'combat/WardenAnim.js':[],
   'combat/DuelistAI.js':[],'combat/PlayerCombat.js':['combat/DuelistAI.js','combat/CombatCore.js','combat/Moves.js','combat/WardenAnim.js','data/warden.js'],
   'games/WardenIsles.js':['data/islands.js','data/warden.js','utils/math.js','combat/PlayerCombat.js'],
   'combat/Scope.js':[],

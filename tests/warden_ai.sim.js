@@ -1,7 +1,7 @@
 // Duelist AI: deterministic, fair (every attack is dodgeable by a bot that only watches the visible tell), rests between moves, varied, reacts to a turtling guard, never starts a move while busy.
 const fs=require('fs'),vm=require('vm'),R=__dirname+'/../';
 const c={console,Math};vm.createContext(c);
-vm.runInContext(['Moves','SwordHit','CombatCore','DuelistAI'].map(n=>fs.readFileSync(R+'src/combat/'+n+'.js','utf8')).join('\n')+';this.M=Moves;this.CC=CombatCore;this.AI=DuelistAI',c);
+vm.runInContext(['Moves','SwordHit','Combos','CombatCore','DuelistAI'].map(n=>fs.readFileSync(R+'src/combat/'+n+'.js','utf8')).join('\n')+';this.M=Moves;this.CC=CombatCore;this.AI=DuelistAI',c);
 const {M,CC,AI}=c;let bad=0;const ok=(v,m)=>{if(!v){console.log('FAIL',m);bad++}else console.log('ok',m)};
 // player bots return a command object for P each tick
 function fight(seed,ticks,pbot,o){o=o||{};const C=CC.create({arena:{x:0,z:0,R:14}});const P=C.add('P',{x:0,z:-3,face:0,hp:o.php||1e5});const D=C.add('D',{x:0,z:0,face:Math.PI,hp:o.dhp||1e5});

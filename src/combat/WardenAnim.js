@@ -54,6 +54,11 @@ const WardenAnim=(()=>{
     cut:[['b',0,.25],['b',.25,.5],['b',.5,1.45]],
     fall:[['a',0,.43],['a',.43,.43],['a',.43,.6],['a',.6,.88],['a',.88,1.4]],
     thrust:[['h',0,.2],['h',.2,.4],['h',.4,.5],['h',.5,1.05]],
+    light2:[['h',0,.2],['h',.2,.4],['h',.4,1.05]],
+    light3:[['a',.18,.43],['a',.43,.6],['a',.6,1.4]],
+    advance:[['h',0,.2],['h',.2,.4],['h',.4,1.05]],
+    evade:[['b',0,.25],['b',.25,.5],['b',.5,1.45]],
+    rising:[['h',0,.2],['h',.2,.42],['h',.42,1.05]],
     sweep:[['b',0,.25],['b',.25,.5],['b',.5,1.45]],
     slam:[['a',0,.43],['a',.43,.43],['a',.43,.6],['a',.6,.88],['a',.88,1.4]],
     triple:[['b',0,.25],['b',.25,.5],['b',.5,.8],['h',.2,.4],['h',.4,.5],['a',.5,.75],['a',.75,1.4]],
@@ -64,7 +69,7 @@ const WardenAnim=(()=>{
   const DIRS=['w_back','w_sl','w_sr'];
   const SH={st:'none',clips:null,p:null};
   function fetchClips(){if(!SH.p)SH.p=fetch('assets/warden_anims.json').then(r=>r.json()).then(j=>{SH.clips={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=c.name;SH.clips[c.name]=ac}SH.st='ready'}).catch(e=>{SH.st='failed';SH.p=null;throw e});return SH.p}
-  const moveKey=(f,variant,alt)=>{const id=f.mv&&f.mv.id;return id==='light'?variant:(alt&&alt[id])||id};
+  const moveKey=(f,variant,alt)=>{const id=f.mv&&f.mv.id;return id==='light'?'light_b':(alt&&alt[id])||id};
   // one animation controller per avatar. q = avatar.userData (needs .mixer).
   function make(q){
     const I={st:'none',A:{},ws:{},blockT:0,sw:0,lastLight:-1e9,ready:()=>I.st==='ready',variant:'light_b'};

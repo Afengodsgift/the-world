@@ -5,7 +5,7 @@
 const CombatCore=(()=>{
   const SPEED=.05,SUBM=.1,GUARD_ARC=1.2,REARM=14,DEFL=7,BUF=6;
   function mkFighter(id,o){o=o||{};return{id,x:o.x||0,z:o.z||0,y:0,r:.45,face:o.face||0,hp:o.hp||100,hpMax:o.hp||100,st:100,stMax:100,po:0,poMax:100,
-    act:'free',pt:0,ph:null,pi:0,pk:0,mv:null,hold:0,done:{},sk:null,stun:0,kx:0,kz:0,kr:0,dir:null,guard:false,gpt:99,rel:99,sr:99,pr:99,c:0,rel2:false,buf:null,q:[],ex:0,ez:0}}
+    act:'free',pt:0,ph:null,pi:0,pk:0,mv:null,hold:0,done:{},sk:null,stun:0,kx:0,kz:0,kr:0,dir:null,guard:false,gpt:99,rel:99,sr:99,pr:99,c:0,rel2:false,buf:null,q:[],ex:0,ez:0,lc:0,lcT:-999,dEnd:-999}}
   function create(o){o=o||{};const C={tick:0,hs:0,ev:[],F:{},solids:(o.solids||[]).slice(),arena:o.arena||{x:0,z:0,R:1e9},order:[]};
     C.add=(id,fo)=>{C.F[id]=mkFighter(id,fo);C.order.push(id);return C.F[id]};
     C.step=cmds=>step(C,cmds||{});return C}
@@ -30,12 +30,15 @@ const CombatCore=(()=>{
     if(f.act==='dead')return true;
     const free=f.act==='free'||(f.act==='charge'&&c.t!=='heavyUp');
     switch(c.t){
-      case'light':if(f.act==='free'&&f.st>0){startMove(C,f,'light');return true}if(canCancel(f,'light')&&f.st>0){startMove(C,f,'light');return true}return false;
+      case'light':{const from=f.act==='attack'&&f.mv?f.mv.id:null;if(!(f.act==='free'||canCancel(f,'light'))||f.st<=0)return false;
+        const id=Combos.light({from:f.act==='free'?null:from,adv:!!c.adv,chain:C.tick-f.lcT<=Combos.CHAIN_GAP?f.lc:0,sinceDodge:C.tick-f.dEnd});startMove(C,f,id);f.lc=Moves[id].chain||0;return true}
       case'atk':if(f.act==='free'){startMove(C,f,c.m,c.hold||0);return true}return false;
       case'dodge':{if((f.act==='free'||f.act==='charge'||canCancel(f,'dodge'))&&f.st>0){const D=Moves.dodge;let dx=c.dx,dz=c.dz;if(!(Math.hypot(dx||0,dz||0)>.01)){dx=-Math.sin(f.face);dz=-Math.cos(f.face)}const L=Math.hypot(dx,dz);f.dir=[dx/L,dz/L];f.act='dodge';f.pt=0;f.guard=false;f.ph=null;f.mv=null;f.c=0;spend(f,D.stam);emit(C,'dodge',f.id,null);return true}return false}
       case'guardDown':if(f.act==='free'||canCancel(f,'guard')){if(f.act==='attack'){f.act='free';f.ph=null;f.mv=null}f.guard=true;f.gpt=f.rel>=REARM?0:99;return true}return false;
       case'guardUp':if(f.guard){f.guard=false;f.rel=0}return true;
-      case'heavyDown':if(f.act==='free'&&f.st>0){f.act='charge';f.c=0;f.rel2=false;f.guard=false;return true}return false;
+      case'heavyDown':{const from=f.act==='attack'&&f.mv?f.mv.id:null;
+        if(from&&canCancel(f,'heavy')&&f.st>0){const id=Combos.heavy({from});if(id){startMove(C,f,id);f.lc=Moves[id].chain||0;return true}}
+        if(f.act==='free'&&f.st>0&&!c.q){f.act='charge';f.c=0;f.rel2=false;f.guard=false;return true}return false}
       case'heavyUp':if(f.act==='charge'){f.rel2=true}return true}
     return true}
   function step(C,cmds){
@@ -43,7 +46,7 @@ const CombatCore=(()=>{
     for(const id of C.order){const f=C.F[id],c=cmds[id];if(!c)continue;if(c.face!==undefined&&(f.act==='free'||f.act==='charge'))f.face=c.face;f.ex=c.mx||0;f.ez=c.mz||0;if(c.list)for(const k of c.list)f.q.push(Object.assign({e:C.tick},k))}
     if(C.hs>0){C.hs--;emit(C,'hitstop',null,null,{left:C.hs});return C.ev}
     // (1) commands (with a short input buffer for ones that cannot start yet)
-    for(const id of C.order){const f=C.F[id];const q=f.q;f.q=[];for(const c of q){if(!tryCmd(C,f,c)&&(c.t==='light'||c.t==='dodge')&&C.tick-c.e<BUF)f.q.push(c)}}
+    for(const id of C.order){const f=C.F[id];const q=f.q;f.q=[];for(const c of q){if(!tryCmd(C,f,c)){if((c.t==='light'||c.t==='dodge')&&C.tick-c.e<BUF)f.q.push(c);else if(c.t==='heavyDown'&&f.act==='attack'&&C.tick-c.e<18)f.q.push(Object.assign({},c,{q:1}))}}}
     // heavy: strike once released and min charge reached, or max charge
     for(const id of C.order){const f=C.F[id];if(f.act==='charge'&&((f.rel2&&f.c>=Moves.heavy.chargeMin)||f.c>=Moves.heavy.chargeMax)){{const ch=Math.max(0,Math.min(1,(f.c-Moves.heavy.chargeMin)/(Moves.heavy.chargeMax-Moves.heavy.chargeMin)));startMove(C,f,'heavy');f.chg=ch}}}
     // (2) snapshot
@@ -82,8 +85,8 @@ const CombatCore=(()=>{
       f.sr=Math.min(999,f.sr+1);f.pr=Math.min(999,f.pr+1);
       if(f.sr>=30&&f.st<f.stMax)f.st=Math.min(f.stMax,f.st+(f.guard?.15:.4));
       if(f.pr>=90&&f.po>0)f.po=Math.max(0,f.po-.35);
-      if(f.act==='attack'){f.pt++;f.pk++;skipEmpty(f);if(f.act==='free'){f.ph=null;f.mv=null}}
-      else if(f.act==='dodge'){f.pt++;if(f.pt>=Moves.dodge.total){f.act='free';f.pt=0}}
+      if(f.act==='attack'){f.lcT=C.tick;f.pt++;f.pk++;skipEmpty(f);if(f.act==='free'){f.ph=null;f.mv=null}}
+      else if(f.act==='dodge'){f.pt++;if(f.pt>=Moves.dodge.total){f.act='free';f.pt=0;f.dEnd=C.tick}}
       else if(f.act==='charge')f.c++;
       else if(f.act==='stun'){f.stun--;if(f.stun<=0){f.act='free';f.sk=null}}}
     return C.ev}
