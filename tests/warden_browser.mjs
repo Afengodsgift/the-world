@@ -23,12 +23,12 @@ async function session(query,fn){
   await page.fill('#name','Tester');await page.click('#create');
   await page.waitForFunction(()=>typeof S!=='undefined'&&typeof me!=='undefined'&&me&&!document.getElementById('boot'),null,{timeout:120000});
   const r=await fn(page);await ctx.close();return{r,errs}}
-// A) flag off: the world must contain no Warden objects and no extra solids
-const A=await session('',async p=>p.evaluate(()=>({g:!!scene.getObjectByName('WardenIsles'),loc:LOCS.some(l=>l.n==='The Warden Isles'),wrd:WRD.on,h:H(150,-2450)})));
+// A) ?warden=0: the world must contain no Warden objects and no extra solids
+const A=await session('?warden=0',async p=>p.evaluate(()=>({g:!!scene.getObjectByName('WardenIsles'),loc:LOCS.some(l=>l.n==='The Warden Isles'),wrd:WRD.on,h:H(150,-2450)})));
 ok(A.r.g===false&&A.r.loc===false&&A.r.wrd===false,'flag off: no Warden group, no map place, WRD.on=false');ok(A.r.h<-5,'flag off: H() at the isle centre is open sea ('+A.r.h.toFixed(1)+')');
 ok(A.errs.filter(e=>!/favicon|Failed to load resource/.test(e)).length===0,'flag off: no page errors '+JSON.stringify(A.errs.slice(0,3)));
 // B) flag on
-const B=await session('?warden=1&perf=1',async p=>{
+const B=await session('?perf=1',async p=>{
   const info=await p.evaluate(()=>({g:!!scene.getObjectByName('WardenIsles'),loc:LOCS.some(l=>l.n==='The Warden Isles'),h:H(150,-2450),ns:solids.length,tris:renderer.info.render.triangles}));
   await p.evaluate(()=>WorldMap.toggle());await p.waitForTimeout(800);if(shots)await p.screenshot({path:shots+'/warden_map.png'});await p.evaluate(()=>WorldMap.toggle());
   await p.evaluate(()=>{S.x=150;S.z=-2450+110;S.y=H(S.x,S.z)+1;S.flying=false;S.yaw=Math.PI});await p.waitForTimeout(1500);
