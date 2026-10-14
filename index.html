@@ -164,6 +164,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/games/Tag.js"></script>
 <script src="src/combat/CombatAnims.js"></script>
 <script src="src/character/CombatPose.js"></script>
+<script src="src/character/GunLoco.js"></script>
 <script src="src/combat/Scope.js"></script>
 <script src="src/combat/HitZones.js"></script>
 <script src="src/data/warden.js"></script>
@@ -420,14 +421,18 @@ function animateClips(g,dt,st){
   else if(st==='walk'||st==='run'){const c=q.cur; // thresholds have hysteresis so it doesn't flicker between clips
     want=v<.4?'idle':(c==='sprint'?v>7.2:v>8.4)?'sprint':(c==='jog'?v>2.4:v>3.2)?'jog':'walk';
     ts=want==='walk'?clamp(v/1.06,.6,2.2):want==='jog'?clamp(v/5.8,.5,1.5):want==='sprint'?clamp(v/9,.8,1.7):1}
-  // armed: strafe / backpedal by twisting the legs (src/character/CombatPose.js) and stand in the pistol-ready stance instead of the relaxed idle
-  const armed=q.gunI>=0&&!q.noTwist&&st!=='fly'&&st!=='swim'&&st!=='jump'&&st!=='fall';   // q.noTwist: raiders keep the plain gait (the leg twist is for human players)
-  if(armed)CombatPose.plan(q,dt,mdx,mdz,v,g.rotation.y,st==='walk'||st==='run');else{q.cpT=0;q.cpRev=false}
+  // armed (a gun in hand, on foot): the Mixamo rifle clips (src/character/GunLoco.js) - walk/run/sprint in 8 directions relative to the body's facing, so strafing and backpedalling are real
+  // clips and the feet match the speed. Until assets/gun_anims.json has loaded (or if it can't) the old path stays: leg twist (src/character/CombatPose.js) + pistol-ready idle.
+  const gunOk=q.gunI>=0&&st!=='fly'&&st!=='swim'&&st!=='jump'&&st!=='fall'&&st!=='crouch'&&typeof GunLoco!=='undefined'&&GunLoco.ready();
+  const armed=!gunOk&&q.gunI>=0&&!q.noTwist&&st!=='fly'&&st!=='swim'&&st!=='jump'&&st!=='fall';   // q.noTwist: raiders keep the plain gait (the leg twist is for human players)
+  if(gunOk){q.cpT=0;q.cpRev=false;const gp=GunLoco.pick(q,dt,mdx,mdz,v,g.rotation.y,g.scale.x);want=gp.name;ts=gp.ts;fade=gp.fade;A[want]=GunLoco.act(q,want)||A.idle}
+  else if(armed)CombatPose.plan(q,dt,mdx,mdz,v,g.rotation.y,st==='walk'||st==='run');else{q.cpT=0;q.cpRev=false}
+  if(q.gdn&&typeof GunLoco!=='undefined'){const da=GunLoco.act(q,q.gdn);if(da){want=q.gdn;ts=1;fade=.12;A[want]=da}}   // downed / dying: hold the fall (set by Outlaw)
   if(q.cpRev&&LOCO[want])ts=-ts;
-  if(st==='crouch'){const cr=CombatAnims.act(q,'crouch');if(cr){A.crouch=cr;want='crouch'}}   // raiders ducking behind cover
+  if(st==='crouch'&&!q.gdn){const cr=CombatAnims.act(q,'crouch');if(cr){A.crouch=cr;want='crouch'}}   // raiders ducking behind cover
   if(want==='idle'&&armed){const ca=CombatAnims.act(q,'cidle');if(ca){A.cidle=ca;want='cidle'}}
   const n=A[want];
-  if(q.cur!==want){n.reset();if(LOCO[q.cur]&&LOCO[want]){const o=A[q.cur];n.time=o.time/o.getClip().duration*n.getClip().duration} // keep the stride phase when switching gait
+  if(q.cur!==want){n.reset();if((LOCO[q.cur]&&LOCO[want])||(gunOk&&typeof GunLoco!=='undefined'&&GunLoco.isLoco(q.cur)&&GunLoco.isLoco(want))){const o=A[q.cur];n.time=o.time/o.getClip().duration*n.getClip().duration} // keep the stride phase when switching gait / direction
     n.setEffectiveWeight(1);n.fadeIn(fade).play();if(q.cur)A[q.cur].fadeOut(fade);q.cur=want}
   n.setEffectiveTimeScale(ts);
   // one-shot overlays
@@ -447,7 +452,7 @@ function animateClips(g,dt,st){
   q.land=Math.max(0,(q.land||0)-dt);
   const oy=st==='swim'?.7:(st==='fly'&&want==='swim')?.5:0;q.oy=(q.oy||0)+(oy-(q.oy||0))*Math.min(1,dt*6); // swim clips are authored with the waterline at the chest: lift the body to the surface
   q.lunge=(q.lunge||0)+((q.pan?Math.sin(Math.min(1,q.swing)*Math.PI)*.3:0)-(q.lunge||0))*Math.min(1,dt*10); // small lunge into the pan swing
-  {const gnd=st==='walk'||st==='run'||st==='idle',lk=Math.min(1,dt*9);   // body language on the ground: lean forward when speeding up / sprinting, back when braking, bank into turns (turning left = yaw rate > 0 = lean toward +x)
+  {const gnd=(st==='walk'||st==='run'||st==='idle')&&!gunOk,lk=Math.min(1,dt*9);   // body language on the ground: lean forward when speeding up / sprinting, back when braking, bank into turns (turning left = yaw rate > 0 = lean toward +x)
    q.lx=(q.lx||0)+((gnd?clamp(acc*.006,-.06,.10)+(want==='sprint'?.04:0):0)-(q.lx||0))*lk;
    q.lz=(q.lz||0)+((gnd?-clamp(q.yr*.035,-.14,.14)*clamp(v/5,0,1):0)-(q.lz||0))*lk}
   q.model.rotation.set(q.lunge+(q.lx||0),0,q.lz||0);q.model.position.set(0,q.oy,0);        // base transform; FlightPose overrides it while flying
@@ -455,9 +460,9 @@ function animateClips(g,dt,st){
   if(q.cpSaved)CombatPose.untwist(q);q.mixer.update(dt);
   if(armed&&Math.abs(q.cpT||0)>.01)CombatPose.twist(q);   // legs twisted toward travel, torso back on the aim
   // procedural layers on top of the baked clips: flight (src/character/FlightPose.js) or a held weapon (Outlaw.poseGun)
-  if(!FlightPose.apply(g,q,dt,st,{speed:q.fs,yawRate:q.yr,charge:q.bc||0})&&q.gunI>=0&&typeof Outlaw!=='undefined')Outlaw.poseGun(g,q,st,dt);
+  if(!FlightPose.apply(g,q,dt,st,{speed:q.fs,yawRate:q.yr,charge:q.bc||0})&&q.gunI>=0&&!q.gdn&&typeof Outlaw!=='undefined')Outlaw.poseGun(g,q,st,dt);
   FlightFX.avatar(g,q,dt);
-  if(q.gun)q.gun.visible=!!q.gun.userData.ok&&st!=='fly'&&st!=='swim';
+  if(q.gun)q.gun.visible=!!q.gun.userData.ok&&st!=='fly'&&st!=='swim'&&!q.gdn;
 }
 function animate(g,dt,st){
   const q=g.userData;
@@ -1190,7 +1195,7 @@ function tickFrame(t){
   const len=Math.hypot(ix,iy);if(len>1){ix/=len;iy/=len}
   const sprint=keys.ShiftLeft||len>.9;
   const fp=S.flying?SpaceFlight.vertical(CameraRig.neutralPitch()-S.pitch,bst()?2.4:1,bst()?70:34):null;   // look up = go up (src/space/SpaceFlight.js); identical inside the old look range
-  const speed=S.flying?(bst()?70:34)*Math.min(1,len)*fp.h*Boost.speedMul():(H(S.x,S.z)<-.5&&S.y<3?(sprint?16:9):(sprint?12:6))*Math.min(1,len)*kartMul()*(typeof PlayerCombat!=='undefined'?PlayerCombat.speedMul(sprint):1);
+  const speed=S.flying?(bst()?70:34)*Math.min(1,len)*fp.h*Boost.speedMul():(H(S.x,S.z)<-.5&&S.y<3?(sprint?16:9):(sprint?12:6))*Math.min(1,len)*kartMul()*(typeof PlayerCombat!=='undefined'?PlayerCombat.speedMul(sprint):1)*(typeof Outlaw!=='undefined'?Outlaw.moveMul():1);
   const sy=Math.sin(S.yaw),cy=Math.cos(S.yaw),px=S.x,pz=S.z;
   const dx=cy*ix+sy*iy,dz=-sy*ix+cy*iy;
   if(S.flying){ // flight has inertia: takeoff ~0.5 s to full speed, glide-out when you let go
