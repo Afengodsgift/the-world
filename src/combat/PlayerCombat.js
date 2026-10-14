@@ -6,7 +6,7 @@
 const PlayerCombat=(()=>{
   const PC={_pose:null,ai:true};   // _pose=[nameA,nameB,u]: test hook that pins the procedural pose layer; ai=false: the Duelist stands still (tests / practice)
   const SPD=5,GSPD=2.5,CSPD=2;                       // m/s: free walk, guarding, charging a heavy
-  let ph2Said=false,on=false,C=null,ST=null,P=null,D=null,t0=0,lx=0,lz=0,lock=false,pendFace=null,pendT=0;
+  let mxSaid='',ph2Said=false,on=false,C=null,ST=null,P=null,D=null,t0=0,lx=0,lz=0,lock=false,pendFace=null,pendT=0;
   const down={guard:false,heavy:false};              // logical button state (what the sim was told)
   const ptr={};                                       // touch: button -> pointerId
   let el=null,duel=null,duelBuilt=false,dHome=null,dFlash=0,dFlashOn=false,sword=null,swordTried=false,dSword=null,dSwordTried=false,pAnim=null,dAnim=null,dAnims={},AI=null,fightN=0,state='fight',stateT=0,lastEv=[];
@@ -143,6 +143,8 @@ const PlayerCombat=(()=>{
     ensureAvatars();if(duel)duel.visible=true;
     // end-of-fight handling: 3 s after a result the fight restarts (the player keeps their position)
     if(state!=='fight'&&performance.now()-stateT>(state==='won'?5000:3200)){newFight();msg(state==='fight'&&FOES[foeI].id==='hollow'?'The Hollow Warden stirs.':'Again.',1.4)}
+    // one-time status toast so a missing animation set is visible instead of silent (player set + current foe set)
+    {const ka=(pAnim?pAnim.st:'none')+'/'+(dAnim?dAnim.st:'none');if(ka!==mxSaid&&pAnim&&dAnim&&pAnim.st!=='none'&&dAnim.st!=='none'){mxSaid=ka;msg(pAnim.st==='ready'&&dAnim.st==='ready'?'Animations '+WardenMX.BUILD+' loaded':'Animation load FAILED ('+(pAnim.err||dAnim.err||ka)+')',2.2)}}
     // camera: pull back for a big foe and when he is far, so the whole fight stays readable
     try{const fd=Math.hypot(S.x-D.x,S.z-D.z);CameraRig.setBias((FOES[foeI].scale-1)*5+Math.min(4,Math.max(0,fd-4))*.5)}catch(e){}
     if(AI&&AI.ph2&&!ph2Said&&state==='fight'){ph2Said=true;msg(FOES[foeI].id==='hollow'?'The Hollow Warden rages.':'The Duelist quickens.',2);tone(120,60,.4,'sawtooth',.12)}

@@ -64,9 +64,9 @@ const WardenMX=(()=>{
             if(mid<cut){const e=en(A),g0=f0/cut,g1=f1/cut;out[q]={c:A.c,a:A.h[1]+(e-A.h[1])*Math.min(1,g0)*.6,b:A.h[1]+(e-A.h[1])*Math.min(1,g1)*.6}}
             else{const a0=t0(B),g0=(f0-cut)/(1-cut),g1=(f1-cut)/(1-cut);out[q]={c:B.c,a:a0+(B.h[0]-a0)*Math.max(0,g0),b:a0+(B.h[0]-a0)*Math.min(1,g1)}}}}}}
     return out}
-  const SH={};      // role -> {st,clips,p}
+  const BUILD='mx1';const SH={};      // role -> {st,clips,p}
   function fetchRole(role){const s=SH[role]||(SH[role]={st:'none',clips:null,meta:null,p:null});
-    if(!s.p)s.p=fetch(ROLES[role].file).then(r=>r.json()).then(j=>{s.clips={};s.meta={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=c.name;s.clips[c.name]=ac;s.meta[c.name]={dur:c.duration,v:Math.hypot(c.trav?c.trav[0]:0,c.trav?c.trav[1]:0)/Math.max(.1,c.duration)}}s.st='ready';return s}).catch(e=>{s.st='failed';s.p=null;throw e});return s.p}
+    if(!s.p)s.p=fetch(ROLES[role].file).then(r=>r.json()).then(j=>{s.clips={};s.meta={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=c.name;s.clips[c.name]=ac;s.meta[c.name]={dur:c.duration,v:Math.hypot(c.trav?c.trav[0]:0,c.trav?c.trav[1]:0)/Math.max(.1,c.duration)}}s.st='ready';return s}).catch(e=>{s.st='failed';s.err=String(e&&e.message||e);s.p=null;throw e});return s.p}
   function make(q,role){
     const R=ROLES[role],I={st:'none',role,A:{},ws:{},gT:0,sw:0,lastLight:-1e9,ready:()=>I.st==='ready',variant:'light_b',alt:{},plans:{},tmem:{}};
     I.pickAlt=()=>{};I.nextLight=()=>'light_b';
@@ -74,7 +74,7 @@ const WardenMX=(()=>{
     fetchRole(role).then(s=>{const used=new Set(Object.values(R.loco));if(R.guard)used.add(R.guard);
       for(const m of Object.values(R.moves))for(const g of norm(m))used.add(g.c);
       names=[...used].filter(n=>s.clips[n]);I.names=names;I.S=s;
-      for(const n of names){const a=q.mixer.clipAction(s.clips[n]);a.enabled=false;a.setEffectiveWeight(.0001);I.A[n]=a;I.ws[n]=0}I.st='ready'}).catch(()=>{I.st='failed'});
+      for(const n of names){const a=q.mixer.clipAction(s.clips[n]);a.enabled=false;a.setEffectiveWeight(.0001);I.A[n]=a;I.ws[n]=0}I.st='ready'}).catch(e=>{I.st='failed';I.err=String(e&&e.message||e)});
     const planOf=mv=>I.plans[mv.id]||(I.plans[mv.id]=R.moves[mv.id]?plan(mv.phases,R.moves[mv.id],c=>I.S.clips[c]?I.S.clips[c].duration:9):null);
     I.update=(f,fr,loco,dt,on)=>{
       if(I.st!=='ready')return false;const A=I.A,tgt={},tm={},tsc={};for(const n of names)tgt[n]=0;
@@ -108,5 +108,5 @@ const WardenMX=(()=>{
       return any};
     I.off=()=>{for(const n of names){const a=I.A[n];if(a&&a.enabled){a.enabled=false;a.setEffectiveWeight(.0001)}I.ws[n]=0}I.gT=0};
     return I}
-  return{ROLES,plan,norm,make,fetch:fetchRole,shared:SH}})();
+  return{BUILD,ROLES,plan,norm,make,fetch:fetchRole,shared:SH}})();
 if(typeof module!=='undefined')module.exports=WardenMX;
