@@ -1,0 +1,55 @@
+{
+"root": "Creature_Pack",
+"fps": 20,
+"dg": 3,
+"clips": [
+{
+"name": "idle",
+"file": "mutant breathing idle.fbx"
+},
+{
+"name": "walk",
+"file": "mutant walking.fbx"
+},
+{
+"name": "run",
+"file": "mutant run.fbx"
+},
+{
+"name": "swipe",
+"file": "mutant swiping.fbx"
+},
+{
+"name": "punch",
+"file": "mutant punch.fbx"
+},
+{
+"name": "jatk",
+"file": "mutant jump attack.fbx"
+},
+{
+"name": "jump",
+"file": "mutant jumping (2).fbx"
+},
+{
+"name": "roar",
+"file": "mutant roaring.fbx"
+},
+{
+"name": "flex",
+"file": "mutant flexing muscles.fbx"
+},
+{
+"name": "death",
+"file": "mutant dying.fbx"
+},
+{
+"name": "turnl",
+"file": "mutant left turn 45.fbx"
+},
+{
+"name": "turnr",
+"file": "mutant right turn 45.fbx"
+}
+]
+}

@@ -1,0 +1,115 @@
+{
+"root": "Pro_Sword_and_Shield_Pack",
+"fps": 20,
+"dg": 3,
+"clips": [
+{
+"name": "idle",
+"file": "sword and shield idle.fbx"
+},
+{
+"name": "walk",
+"file": "sword and shield walk.fbx"
+},
+{
+"name": "run",
+"file": "sword and shield run.fbx"
+},
+{
+"name": "back",
+"file": "sword and shield walk (2).fbx"
+},
+{
+"name": "sl",
+"file": "sword and shield strafe (2).fbx"
+},
+{
+"name": "sr",
+"file": "sword and shield strafe.fbx"
+},
+{
+"name": "rsl",
+"file": "sword and shield strafe (3).fbx"
+},
+{
+"name": "rsr",
+"file": "sword and shield strafe (4).fbx"
+},
+{
+"name": "rback",
+"file": "sword and shield run (2).fbx"
+},
+{
+"name": "guard",
+"file": "sword and shield block idle.fbx"
+},
+{
+"name": "guardin",
+"file": "sword and shield block.fbx"
+},
+{
+"name": "hit1",
+"file": "sword and shield impact.fbx"
+},
+{
+"name": "hit2",
+"file": "sword and shield impact (2).fbx"
+},
+{
+"name": "hit3",
+"file": "sword and shield impact (3).fbx"
+},
+{
+"name": "death",
+"file": "sword and shield death.fbx"
+},
+{
+"name": "turn",
+"file": "sword and shield 180 turn.fbx"
+},
+{
+"name": "slash",
+"file": "sword and shield slash.fbx"
+},
+{
+"name": "slash3",
+"file": "sword and shield slash (3).fbx"
+},
+{
+"name": "slash4",
+"file": "sword and shield slash (4).fbx"
+},
+{
+"name": "slash5",
+"file": "sword and shield slash (5).fbx"
+},
+{
+"name": "atk",
+"file": "sword and shield attack.fbx"
+},
+{
+"name": "atk2",
+"file": "sword and shield attack (2).fbx"
+},
+{
+"name": "atk3",
+"file": "sword and shield attack (3).fbx"
+},
+{
+"name": "atk4",
+"file": "sword and shield attack (4).fbx"
+},
+{
+"name": "kick",
+"file": "sword and shield kick.fbx"
+},
+{
+"name": "power",
+"file": "sword and shield power up.fbx"
+},
+{
+"name": "jump",
+"file": "sword and shield jump.fbx"
+}
+]
+}
