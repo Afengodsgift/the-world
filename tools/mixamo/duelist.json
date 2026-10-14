@@ -1,0 +1,99 @@
+{
+"root": "Great_Sword_Pack",
+"fps": 20,
+"dg": 3,
+"clips": [
+{
+"name": "idle",
+"file": "great sword idle.fbx"
+},
+{
+"name": "walk",
+"file": "great sword walk.fbx"
+},
+{
+"name": "run",
+"file": "great sword run.fbx"
+},
+{
+"name": "back",
+"file": "great sword walk (2).fbx"
+},
+{
+"name": "sl",
+"file": "great sword strafe.fbx"
+},
+{
+"name": "sr",
+"file": "great sword strafe (2).fbx"
+},
+{
+"name": "guard",
+"file": "great sword blocking.fbx"
+},
+{
+"name": "hit1",
+"file": "great sword impact.fbx"
+},
+{
+"name": "hit2",
+"file": "great sword impact (2).fbx"
+},
+{
+"name": "hit3",
+"file": "great sword impact (3).fbx"
+},
+{
+"name": "death",
+"file": "two handed sword death.fbx"
+},
+{
+"name": "slash",
+"file": "great sword slash.fbx"
+},
+{
+"name": "slash2",
+"file": "great sword slash (2).fbx"
+},
+{
+"name": "slash3",
+"file": "great sword slash (3).fbx"
+},
+{
+"name": "slash4",
+"file": "great sword slash (4).fbx"
+},
+{
+"name": "slash5",
+"file": "great sword slash (5).fbx"
+},
+{
+"name": "atk",
+"file": "great sword attack.fbx"
+},
+{
+"name": "spin",
+"file": "great sword high spin attack.fbx"
+},
+{
+"name": "kick",
+"file": "great sword kick.fbx"
+},
+{
+"name": "kick2",
+"file": "great sword kick (2).fbx"
+},
+{
+"name": "power",
+"file": "great sword power up.fbx"
+},
+{
+"name": "jump",
+"file": "great sword jump.fbx"
+},
+{
+"name": "jump2",
+"file": "great sword jump (2).fbx"
+}
+]
+}

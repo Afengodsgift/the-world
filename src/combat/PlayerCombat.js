@@ -9,7 +9,7 @@ const PlayerCombat=(()=>{
   let ph2Said=false,on=false,C=null,ST=null,P=null,D=null,t0=0,lx=0,lz=0,lock=false,pendFace=null,pendT=0;
   const down={guard:false,heavy:false};              // logical button state (what the sim was told)
   const ptr={};                                       // touch: button -> pointerId
-  let el=null,duel=null,duelBuilt=false,dHome=null,dFlash=0,dFlashOn=false,sword=null,swordTried=false,dSword=null,dSwordTried=false,pAnim=null,dAnim=null,AI=null,fightN=0,state='fight',stateT=0,lastEv=[];
+  let el=null,duel=null,duelBuilt=false,dHome=null,dFlash=0,dFlashOn=false,sword=null,swordTried=false,dSword=null,dSwordTried=false,pAnim=null,dAnim=null,dAnims={},AI=null,fightN=0,state='fight',stateT=0,lastEv=[];
   const pv={x:0,z:0,vf:0,vs:0,sp:0,init:false},dv={x:0,z:0,vf:0,vs:0,sp:0,init:false};
   const cur=WardenAnim.copy(WardenAnim.POSES.ready),tg=WardenAnim.copy(WardenAnim.POSES.ready);let stW=0,gT=0,msgT=0,lastTone=0;
   const GRIP={rx:0,ry:0,rz:0,len:.95,ox:0,oy:0,oz:0};
@@ -90,9 +90,9 @@ const PlayerCombat=(()=>{
     const q=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),v);q.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(g.rx,g.ry,g.rz)));st.grip.quaternion.copy(q);
     st.grip.position.set(g.ox,g.oy,g.oz).divideScalar(ws.x)}
   function ensureAvatars(){
-    if(!pAnim&&me.userData.mixer)pAnim=WardenAnim.Clips.make(me.userData);
+    if(!pAnim&&me.userData.mixer)pAnim=WardenMX.make(me.userData,'player');
     if(!sword&&!swordTried&&me.userData.bones){swordTried=true;sword=attachSword(me,'sword_falchion.glb',.95,{len:5.36,set tried(v){swordTried=v}})}
-    if(duel&&duel.userData.mixer){if(!dAnim)dAnim=WardenAnim.Clips.make(duel.userData);
+    if(duel&&duel.userData.mixer){const role=FOES[foeI].id;if(!dAnims[role])dAnims[role]=WardenMX.make(duel.userData,role);if(dAnim!==dAnims[role]){if(dAnim)dAnim.off();dAnim=dAnims[role]}
       if(!dSword&&!dSwordTried&&duel.userData.bones){dSwordTried=true;dSword=attachSword(duel,'sword_claymore.glb',1.45,{len:6.6,set tried(v){dSwordTried=v}})}}}
   // ---------- fight lifecycle ----------
   function newFight(){
@@ -107,7 +107,7 @@ const PlayerCombat=(()=>{
     if(inn&&resPrev===null){resPrev={dpr:st.dpr,min:st.min,locked:st.locked};st.min=1;if(st.dpr>1.25){st.dpr=1.25;st.r.setPixelRatio(1.25)}st.locked=true}
     else if(!inn&&resPrev){st.min=resPrev.min;st.locked=resPrev.locked;if(st.dpr!==resPrev.dpr){st.dpr=resPrev.dpr;st.r.setPixelRatio(resPrev.dpr)}resPrev=null}}
   function enter(){
-    if(on)return;if(!el)build();buildDuelist();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenAnim.Clips.fetch().catch(()=>{});
+    if(on)return;if(!el)build();buildDuelist();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenMX.fetch('player').catch(()=>{});WardenMX.fetch(FOES[foeI].id).catch(()=>{});
     const A={x:WRD.x,z:WRD.z,R:WARDEN.arenaR-.5};C=CombatCore.create({arena:A,solids:WardenSolids()});ST=CombatCore.stepper(C,6);t0=performance.now();
     C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100});C.add('D',{x:0,z:0});fightN=0;foeI=0;newFight();
     lx=S.x;lz=S.z;on=true;lock=false;document.body.classList.add('warden-fight');stW=0;gT=0;lastEv=[];ensureAvatars();if(sword&&sword.grip)sword.grip.visible=true;if(dSword&&dSword.grip)dSword.grip.visible=true;if(duel)duel.visible=true;
@@ -174,6 +174,7 @@ const PlayerCombat=(()=>{
     if(D.act==='attack'||D.act==='stun'||D.act==='dead'){duel.rotation.y=D.face}else duel.rotation.y=lerpAngle(duel.rotation.y,D.face,1-Math.exp(-12*dt));
     locoOf(dv,D.x,D.z,duel.rotation.y,dt);const dloco={moving:dv.sp>.6&&D.act==='free',vf:dv.vf,vs:dv.vs};
     if(typeof animate==='function')animate(duel,dt,dv.sp>.6&&D.act==='free'?'walk':'idle');   // the game's own locomotion + emote/hit overlays for him
+    if(dSword&&dSword.grip)dSword.grip.visible=FOES[foeI].id!=='hollow';   // the Hollow Warden fights bare-handed (creature clips)
     if(dAnim)dAnim.update(D,fr,dloco,dt,true);
     dFlash=Math.max(0,dFlash-dt*5);if((dFlash>0||dFlashOn)&&duel.userData.model){dFlashOn=dFlash>0;duel.userData.model.traverse(c=>{if(c.isSkinnedMesh&&c.material&&c.material.emissive)c.material.emissive.setRGB(dFlash*.7,dFlash*.25,dFlash*.1)})}}
   return Object.assign(PC,{foe:i=>{foeI=i%FOES.length;if(on)newFight()},setSeq:v=>{if(pAnim)pAnim.variant=v},tick,speedMul,press,release,enter,leave,on:()=>on,GRIP,setGrip:()=>{setGrip(sword);setGrip(dSword)},newFight,_t:()=>({on,C,P,D,lock,sword,dSword,duel,AI,state,cur,stW,down,pAnim,dAnim})})})();
