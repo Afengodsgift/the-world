@@ -6,7 +6,7 @@
 const PlayerCombat=(()=>{
   const PC={_pose:null,ai:true};   // _pose=[nameA,nameB,u]: test hook that pins the procedural pose layer; ai=false: the Duelist stands still (tests / practice)
   const SPD=5,GSPD=2.5,CSPD=2;                       // m/s: free walk, guarding, charging a heavy
-  let on=false,C=null,ST=null,P=null,D=null,t0=0,lx=0,lz=0,lock=false,pendFace=null,pendT=0;
+  let ph2Said=false,on=false,C=null,ST=null,P=null,D=null,t0=0,lx=0,lz=0,lock=false,pendFace=null,pendT=0;
   const down={guard:false,heavy:false};              // logical button state (what the sim was told)
   const ptr={};                                       // touch: button -> pointerId
   let el=null,duel=null,duelBuilt=false,dHome=null,dFlash=0,dFlashOn=false,sword=null,swordTried=false,dSword=null,dSwordTried=false,pAnim=null,dAnim=null,AI=null,fightN=0,state='fight',stateT=0,lastEv=[];
@@ -73,7 +73,7 @@ const PlayerCombat=(()=>{
   function msg(t,sec){const m=el.querySelector('#wmsg');m.textContent=t;m.classList.add('on');msgT=sec||1.4}
   // ---------- avatars + swords ----------
   // Foes, fought in order: beat one and the next steps in (loop back after the last); die and you face the same one again.
-  const FOES=[{id:'duelist',name:'The Duelist',hp:220,r:.5,scale:1,tint:1},{id:'hollow',name:'The Hollow Warden',hp:340,r:.72,scale:1.32,tint:.07}];let foeI=0;
+  const FOES=[{id:'duelist',name:'The Duelist',hp:220,r:.5,scale:1,tint:1,spd:1.5},{id:'hollow',name:'The Hollow Warden',hp:340,r:.72,scale:1.32,tint:.07,spd:1.25}];let foeI=0;
   function applyFoe(){const f=FOES[foeI];if(duel){duel.scale.setScalar(f.scale);
       if(duel.userData.model)duel.userData.model.traverse(c=>{if(c.isSkinnedMesh&&c.material&&c.material.color){if(!c.material.userData._own){c.material=c.material.clone();c.material.userData._own=true;c.material.userData.c0=c.material.color.clone()}c.material.color.copy(c.material.userData.c0).multiply(new THREE.Color(f.tint,f.tint*(f.tint<1?.7:1),f.tint*(f.tint<1?.75:1)))}})}
     if(el){const sp=el.querySelector('.wb.d span');if(sp)sp.textContent=f.name}}
@@ -97,8 +97,8 @@ const PlayerCombat=(()=>{
   // ---------- fight lifecycle ----------
   function newFight(){
     fightN++;const A=C.arena;P=C.F.P=CombatCore.mkFighter('P',{x:S.x,z:S.z,face:S.rot,hp:100});
-    dHome={x:WRD.x,z:WRD.z-9};D=C.F.D=CombatCore.mkFighter('D',{x:dHome.x,z:dHome.z,face:0,hp:FOES[foeI].hp});D.r=FOES[foeI].r;
-    AI=DuelistAI.create(fightN*7919+1,{intro:75,foe:FOES[foeI].id});applyFoe();state='fight';stateT=0;lock=lock&&false;dv.init=false;pv.init=false;down.guard=down.heavy=false;
+    dHome={x:WRD.x,z:WRD.z-9};D=C.F.D=CombatCore.mkFighter('D',{x:dHome.x,z:dHome.z,face:0,hp:FOES[foeI].hp});D.r=FOES[foeI].r;D.spd=FOES[foeI].spd||1.3;
+    AI=DuelistAI.create(fightN*7919+1,{intro:75,foe:FOES[foeI].id});applyFoe();state='fight';stateT=0;lock=true;ph2Said=false;try{if(el)el.querySelector('#wLock').classList.add('on')}catch(e){}dv.init=false;pv.init=false;down.guard=down.heavy=false;
     if(duel&&duel.userData.mixer&&typeof emoStop==='function')emoStop(duel.userData);
     if(el)el.querySelector('#wLock').classList.remove('on')}
   // Inside the walled arena the screen is the cost on a low-end phone: render at 1.25x (not 2x) while you fight, restore on leaving. Skipped when ?dpr= was given.
@@ -114,7 +114,7 @@ const PlayerCombat=(()=>{
     arenaRes(true);msg('The Warden Isles · '+FOES[foeI].name,2.2)}
   function leave(){
     if(!on)return;releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;if(dSword&&dSword.grip)dSword.grip.visible=false;if(duel)duel.visible=false;pendFace=null;
-    if(pAnim)pAnim.off();if(dAnim)dAnim.off();arenaRes(false)}
+    if(pAnim)pAnim.off();if(dAnim)dAnim.off();arenaRes(false);try{CameraRig.setBias(0)}catch(e){}}
   // ---------- per frame ----------
   function speedMul(sprint){
     if(!on||!P)return 1;const base=sprint?12:6;if(P.act==='dead')return 0;
@@ -143,6 +143,9 @@ const PlayerCombat=(()=>{
     ensureAvatars();if(duel)duel.visible=true;
     // end-of-fight handling: 3 s after a result the fight restarts (the player keeps their position)
     if(state!=='fight'&&performance.now()-stateT>(state==='won'?5000:3200)){newFight();msg(state==='fight'&&FOES[foeI].id==='hollow'?'The Hollow Warden stirs.':'Again.',1.4)}
+    // camera: pull back for a big foe and when he is far, so the whole fight stays readable
+    try{const fd=Math.hypot(S.x-D.x,S.z-D.z);CameraRig.setBias((FOES[foeI].scale-1)*5+Math.min(4,Math.max(0,fd-4))*.5)}catch(e){}
+    if(AI&&AI.ph2&&!ph2Said&&state==='fight'){ph2Said=true;msg(FOES[foeI].id==='hollow'?'The Hollow Warden rages.':'The Duelist quickens.',2);tone(120,60,.4,'sawtooth',.12)}
     // 1) hand the sim the player's current position, run the due ticks, apply the forced motion back to S
     P.x=S.x;P.z=S.z;lx=S.x;lz=S.z;
     const held=nt=>{const f=lock&&D.act!=='dead'?heading():pendT>0&&pendFace!==null?pendFace:S.rot;if(pendT>0)pendT--;

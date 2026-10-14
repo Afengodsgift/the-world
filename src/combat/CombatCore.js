@@ -53,7 +53,7 @@ const CombatCore=(()=>{
     const snap={};for(const id of C.order){const f=C.F[id];snap[id]={x:f.x,z:f.z,r:f.r}}
     // (3) root motion
     for(const id of C.order){const f=C.F[id];if(f.act==='dead')continue;
-      if(f.act==='free'||f.act==='charge'){const k=f.act==='charge'?.4:f.guard?.5:1,L=Math.hypot(f.ex,f.ez),s=L>1?1/L:1;moveBy(C,f,f.ex*s*SPEED*k,f.ez*s*SPEED*k)}
+      if(f.act==='free'||f.act==='charge'){const k=(f.act==='charge'?.4:f.guard?.5:1)*(f.spd||1),L=Math.hypot(f.ex,f.ez),s=L>1?1/L:1;moveBy(C,f,f.ex*s*SPEED*k,f.ez*s*SPEED*k)}
       else if(f.act==='attack'){const p=f.ph[f.pi];if(p&&p.move){const d=p.move/p.n,[fx,fz]=faceV(f);moveBy(C,f,fx*d,fz*d)}}
       else if(f.act==='dodge'){const D=Moves.dodge,i=f.pt-D.rootT0;if(i>=0&&i<Moves.dodgeRoot.length)moveBy(C,f,f.dir[0]*Moves.dodgeRoot[i],f.dir[1]*Moves.dodgeRoot[i])}
       if(f.kr>0){const s=Math.min(f.kr,.12);f.kr-=s;moveBy(C,f,f.kx*s,f.kz*s)}}
