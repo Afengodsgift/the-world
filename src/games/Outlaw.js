@@ -38,7 +38,7 @@ const Outlaw=(()=>{
   const DIFF=[{n:'Normal',hp:1,dmg:1,cnt:1,coin:1},{n:'Hard',hp:1.4,dmg:1.25,cnt:1.3,coin:1.5},{n:'Outlaw',hp:2,dmg:1.6,cnt:1.7,coin:2.2}];
   const cover=[],npcs=new Map(),cache={};
   let wiped=false,clock=0,C=null,active=false,host=null,wave=0,kills=0,best=0,nextWave=0,queue=[],spawnT=0,nid=1,snapT=0;
-  let wi=-1,hp=100,down=false,downT=0,cdT=0,firing=false,pdown=false,pw=-1,hudEl,hpEl,xh,fireBtn,gunBtn,hitT=0,xSp=0,bloom=0,critT=0,huntT=0,huntOn=false,scoped=false,dirEl,lastNoise=null,lastShout=0,scopeEl,scopeBtn,scopeRng,scopeT=0,fx=[];
+  let wi=-1,hp=100,down=false,downT=0,cdT=0,firing=false,pdown=false,pw=-1,hudEl,hpEl,xh,fireBtn,fireBtn2,gunBtn,hitT=0,xSp=0,bloom=0,critT=0,huntT=0,huntOn=false,scoped=false,dirEl,lastNoise=null,lastShout=0,scopeEl,scopeBtn,scopeRng,scopeT=0,fx=[];
   const prev={x:0,z:0,vx:0,vz:0},pprev={x:0,z:0,vx:0,vz:0};
   let diff=1,mode='survive',bank={x:0,z:0,hp:1500,max:1500},ammo=[],reloadT=0,reloading=false,dyn=[],drops=[],reloadBtn,shopEl,pick={m:'survive',d:1};
   let SAVE={coins:0,own:WEAPONS.map((_,i)=>FREE.includes(i)?1:0),lv:WEAPONS.map(()=>0),hp:0,mag:0,rl:0,crit:0,v:0};
@@ -533,7 +533,7 @@ const Outlaw=(()=>{
     if(!hudEl)return;hudEl.style.display=(wi>=0||active)?'block':'none';
     const pc=Math.max(0,hp/maxHp()*100);hpEl.style.width=pc+'%';hpEl.style.background=pc>50?'#5be37d':pc>25?'#ffcc4d':'#ff5050';
     $('owtxt').textContent=(wi>=0?WEAPONS[wi].n+' '+(reloading?'⏳ reloading':am(wi)+'/'+magOf(wi)):'Unarmed')+'  ·  🪙'+SAVE.coins+(active?'  ·  Wave '+wave+'  ·  ☠ '+kills+(mode==='defend'?'  ·  🏦 '+Math.round(bank.hp)+'/'+bank.max:''):'');
-    xh.style.display=wi>=0&&!scopeLens()?'block':'none';if(scopeBtn)scopeBtn.style.display=wi>=0?'block':'none';fireBtn.style.display=wi>=0?'block':'none';reloadBtn.style.display=wi>=0?'block':'none';$('owview').style.display=wi>=0?'block':'none';
+    xh.style.display=wi>=0&&!scopeLens()?'block':'none';if(scopeBtn)scopeBtn.style.display=wi>=0?'block':'none';fireBtn.style.display=wi>=0?'block':'none';fireBtn2.style.display=wi>=0?'block':'none';reloadBtn.style.display=wi>=0?'block':'none';$('owview').style.display=wi>=0?'block':'none';
   }
   function panel(html){
     if(!shopEl){shopEl=document.createElement('div');shopEl.className='veil';
@@ -569,11 +569,16 @@ const Outlaw=(()=>{
     if(hudEl)return;
     const st=document.createElement('style');st.textContent='#owhud{position:fixed;z-index:6;left:12px;top:calc(env(safe-area-inset-top,0px) + 88px);color:#fff;font-size:13px;text-shadow:0 1px 4px #000;pointer-events:none;display:none}#owhud .bar{width:150px;height:10px;background:#0008;border-radius:6px;overflow:hidden;margin-bottom:4px}#owhp{height:100%}'
       +'#owxh{position:fixed;z-index:6;left:50%;top:50%;width:0;height:0;pointer-events:none;display:none;--g:4px;transition:transform .08s}#owxh i{position:absolute;background:#fff;box-shadow:0 0 2px #000;opacity:.92}#owxh i:nth-child(1){left:-1px;top:calc(-1*var(--g) - 8px);width:2px;height:8px}#owxh i:nth-child(2){left:-1px;top:var(--g);width:2px;height:8px}#owxh i:nth-child(3){top:-1px;left:calc(-1*var(--g) - 8px);height:2px;width:8px}#owxh i:nth-child(4){top:-1px;left:var(--g);height:2px;width:8px}#owxh:after{content:\"\";position:absolute;left:-1px;top:-1px;width:2px;height:2px;border-radius:50%;background:#fff;box-shadow:0 0 2px #000}#owxh.hit i{background:#ff5a4e}#owxh.crit{transform:scale(1.4)}#owxh.crit i{background:#ffd24a}'
-      +'.owb{position:fixed;z-index:5;border-radius:50%;border:0;color:#fff;font-size:26px}#owfire{right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 232px);width:78px;height:78px;background:#e0443ecc;display:none;touch-action:none}#owview{right:264px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#bfe3ffcc}#owshop{right:200px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#ffd24acc}#owrl{right:136px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#ffffffcc}#owscope{right:136px;bottom:calc(env(safe-area-inset-bottom,0px) + 276px);width:56px;height:56px;background:#9ad7ffcc;display:none}#owdir{position:fixed;inset:0;pointer-events:none;z-index:7}#owdir .a{position:absolute;left:50%;top:50%;width:0;height:0;animation:owdf 1.6s ease-out forwards}#owdir .a:before{content:"";position:absolute;left:-80px;top:-37vh;width:160px;height:30px;border-radius:50%;background:radial-gradient(ellipse at center,rgba(255,40,30,.95),rgba(255,40,30,0) 70%)}#owdir .a.n:before{background:radial-gradient(ellipse at center,rgba(255,205,70,.9),rgba(255,205,70,0) 70%);height:22px}@keyframes owdf{0%{opacity:1}100%{opacity:0}}#owsc{position:fixed;inset:0;z-index:4;pointer-events:none;display:none;background:radial-gradient(circle at 50% 50%,transparent 0,transparent 42vh,rgba(0,0,0,.97) 42.7vh)}#owsc:before,#owsc:after{content:"";position:absolute;background:#000}#owsc:before{left:50%;top:calc(50% - 42vh);width:1.5px;height:84vh;transform:translateX(-50%)}#owsc:after{top:50%;left:calc(50% - 42vh);height:1.5px;width:84vh;transform:translateY(-50%)}#owsc i{position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px;border-radius:50%;background:#e8372c}#owsc b{position:absolute;left:50%;top:calc(50% + 34vh);transform:translateX(-50%);color:#fff;font:700 15px system-ui;text-shadow:0 0 4px #000;letter-spacing:.5px}#owsc em{position:absolute;left:calc(50% - 40vh);top:calc(50% - 3px);color:#ddd;font:700 11px system-ui;font-style:normal}#owgun{right:200px;bottom:calc(env(safe-area-inset-bottom,0px) + 144px);width:56px;height:56px;background:#ffffffcc}';
+      +'.owb{position:fixed;z-index:5;border-radius:50%;border:0;color:#fff;font-size:26px}#owfire{right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 232px);width:78px;height:78px;background:#e0443ecc;display:none;touch-action:none}#owfire2{left:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 232px);width:78px;height:78px;background:#e0443ecc;display:none;touch-action:none}#owview{right:264px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#bfe3ffcc}#owshop{right:200px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#ffd24acc}#owrl{right:136px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#ffffffcc}#owscope{right:136px;bottom:calc(env(safe-area-inset-bottom,0px) + 276px);width:56px;height:56px;background:#9ad7ffcc;display:none}#owdir{position:fixed;inset:0;pointer-events:none;z-index:7}#owdir .a{position:absolute;left:50%;top:50%;width:0;height:0;animation:owdf 1.6s ease-out forwards}#owdir .a:before{content:"";position:absolute;left:-80px;top:-37vh;width:160px;height:30px;border-radius:50%;background:radial-gradient(ellipse at center,rgba(255,40,30,.95),rgba(255,40,30,0) 70%)}#owdir .a.n:before{background:radial-gradient(ellipse at center,rgba(255,205,70,.9),rgba(255,205,70,0) 70%);height:22px}@keyframes owdf{0%{opacity:1}100%{opacity:0}}#owsc{position:fixed;inset:0;z-index:4;pointer-events:none;display:none;background:radial-gradient(circle at 50% 50%,transparent 0,transparent 42vh,rgba(0,0,0,.97) 42.7vh)}#owsc:before,#owsc:after{content:"";position:absolute;background:#000}#owsc:before{left:50%;top:calc(50% - 42vh);width:1.5px;height:84vh;transform:translateX(-50%)}#owsc:after{top:50%;left:calc(50% - 42vh);height:1.5px;width:84vh;transform:translateY(-50%)}#owsc i{position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px;border-radius:50%;background:#e8372c}#owsc b{position:absolute;left:50%;top:calc(50% + 34vh);transform:translateX(-50%);color:#fff;font:700 15px system-ui;text-shadow:0 0 4px #000;letter-spacing:.5px}#owsc em{position:absolute;left:calc(50% - 40vh);top:calc(50% - 3px);color:#ddd;font:700 11px system-ui;font-style:normal}#owgun{right:200px;bottom:calc(env(safe-area-inset-bottom,0px) + 144px);width:56px;height:56px;background:#ffffffcc}';
     document.head.appendChild(st);
     hudEl=document.createElement('div');hudEl.id='owhud';hudEl.innerHTML='<div class="bar"><div id="owhp" style="width:100%"></div></div><div id="owtxt"></div>';document.body.appendChild(hudEl);hpEl=$('owhp');
     xh=document.createElement('div');xh.id='owxh';xh.innerHTML='<i></i><i></i><i></i><i></i>';document.body.appendChild(xh);
     fireBtn=document.createElement('button');fireBtn.id='owfire';fireBtn.className='owb';fireBtn.textContent='🔥';document.body.appendChild(fireBtn);
+    // second fire button for the LEFT thumb (shown on Outlaw Isle while armed): same hold-to-fire + drag-to-aim, so you can fire with either thumb
+    fireBtn2=document.createElement('button');fireBtn2.id='owfire2';fireBtn2.className='owb';fireBtn2.textContent='🔥';document.body.appendChild(fireBtn2);
+    // tiny menu button: the minimal Outlaw HUD hides the map/journal/etc.; this shows them again for a few seconds
+    {const mb=document.createElement('button');mb.className='dk dk-owm';mb.textContent='☰';mb.title='Show menu';document.body.appendChild(mb);
+     mb.addEventListener('pointerdown',e=>{document.body.classList.add('ow-reveal');clearTimeout(revealT);revealT=setTimeout(()=>document.body.classList.remove('ow-reveal'),7000);e.preventDefault()})}
     reloadBtn=document.createElement('button');reloadBtn.id='owrl';reloadBtn.className='owb';reloadBtn.textContent='🔄';document.body.appendChild(reloadBtn);reloadBtn.addEventListener('pointerdown',e=>{reload();e.preventDefault()});
     const viewBtn=document.createElement('button');viewBtn.id='owview';viewBtn.className='owb';viewBtn.textContent='👁';document.body.appendChild(viewBtn);
     viewBtn.addEventListener('pointerdown',e=>{const v=CameraRig.toggleView();banner(v==='fps'?'First-person view':'Third-person view','CAMERA');e.preventDefault()});
@@ -584,10 +589,13 @@ const Outlaw=(()=>{
     addEventListener('keydown',e=>{if(e.code==='KeyZ'&&!/INPUT|TEXTAREA/.test((e.target||{}).tagName||''))setScope(!scoped)});
     gunBtn=document.createElement('button');gunBtn.id='owgun';gunBtn.className='owb';gunBtn.textContent='🔫';document.body.appendChild(gunBtn);
     { // HOLD FIRE + DRAG THE SAME THUMB = shoot while aiming: the button captures its pointer, so dragging keeps firing and turns the camera (no need to lift to look)
-      let fid=null,fx0=0,fy0=0;fireBtn.style.touchAction='none';
-      fireBtn.addEventListener('pointerdown',e=>{firing=true;fid=e.pointerId;fx0=e.clientX;fy0=e.clientY;try{fireBtn.setPointerCapture(fid)}catch(_){}e.preventDefault()});
-      fireBtn.addEventListener('pointermove',e=>{if(e.pointerId!==fid)return;const dx=e.clientX-fx0,dy=e.clientY-fy0;fx0=e.clientX;fy0=e.clientY;lookBy(dx,dy,1.15);e.preventDefault()});
-      const stopF=e=>{if(e.pointerId===fid){fid=null;firing=false}};['pointerup','pointercancel','lostpointercapture'].forEach(ev=>fireBtn.addEventListener(ev,stopF))}
+      // Two fire buttons (left + right thumb): nF counts how many are held, so releasing one while the other is still down keeps firing.
+      let nF=0;
+      const bindFire=btn=>{let fid=null,fx0=0,fy0=0;btn.style.touchAction='none';
+        btn.addEventListener('pointerdown',e=>{if(fid!==null)return;nF++;firing=true;fid=e.pointerId;fx0=e.clientX;fy0=e.clientY;try{btn.setPointerCapture(fid)}catch(_){}e.preventDefault()});
+        btn.addEventListener('pointermove',e=>{if(e.pointerId!==fid)return;const dx=e.clientX-fx0,dy=e.clientY-fy0;fx0=e.clientX;fy0=e.clientY;lookBy(dx,dy,1.15);e.preventDefault()});
+        const stopF=e=>{if(e.pointerId===fid){fid=null;nF=Math.max(0,nF-1);if(nF===0)firing=false}};['pointerup','pointercancel','lostpointercapture'].forEach(ev=>btn.addEventListener(ev,stopF))};
+      bindFire(fireBtn);bindFire(fireBtn2)}
     gunBtn.addEventListener('pointerdown',e=>{equip(nextW());e.preventDefault()});
     addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;
       if(e.code.startsWith('Digit')){const k=+e.code.slice(5);if(k===0){if(wi>=0)equip(wi)}else if(k<=WEAPONS.length)equip(k-1)}
@@ -623,8 +631,16 @@ const Outlaw=(()=>{
     }
   }
 
+  // Minimal combat HUD: body.ow-isle while you are on Outlaw Isle (hides the social/utility HUD), body.ow-scope while looking through a scope (hides even more). See src/ui/outlaw-hud.css.
+  let _isle=false,_scp=false,revealT=0;
+  function hudMode(){
+    if(typeof OUT==='undefined'||!document.body.classList)return;   // (headless simulations have no real DOM)
+    const on=Math.hypot(S.x-OUT.x,S.z-OUT.z)<OUT.R+90,sc=scoped&&scopeLens(),b=document.body.classList;
+    if(on!==_isle){_isle=on;b.toggle('ow-isle',on);if(!on)b.remove('ow-reveal')}
+    if(sc!==_scp){_scp=sc;b.toggle('ow-scope',sc)}
+  }
   function tick(dt,t){
-    if(!C||!me)return;ui();clock+=dt*1000;OutlawArena.tick(dt);if(dbgOn)zoneDebug();
+    if(!C||!me)return;ui();hudMode();clock+=dt*1000;OutlawArena.tick(dt);if(dbgOn)zoneDebug();
     if(scoped){if(down||wi<0||S.flying)setScope(false);else if(scopeLens()&&(scopeT-=dt)<=0){scopeT=.12;camera.getWorldDirection(camDir);const P=aimPoint(WEAPONS[wi].rng),r=Math.hypot(P.x-camera.position.x,P.y-camera.position.y,P.z-camera.position.z);scopeRng.textContent=r>=WEAPONS[wi].rng-.5?'-- m':Math.round(r)+' m';scopeEl.querySelector('em').textContent=scopeEl.dataset.z||''}}
     prev.vx=(S.x-prev.x)/Math.max(dt,.001);prev.vz=(S.z-prev.z)/Math.max(dt,.001);prev.x=S.x;prev.z=S.z;
     const p=partner();if(p){const g=p[1].group.position;pprev.vx=(g.x-pprev.x)/Math.max(dt,.001);pprev.vz=(g.z-pprev.z)/Math.max(dt,.001);pprev.x=g.x;pprev.z=g.z;if(p[1].group.userData.gunI!==pw)setGun(p[1].group,pw)}

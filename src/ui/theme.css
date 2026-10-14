@@ -34,16 +34,16 @@ html,body{font-family:var(--w-ui)}
 /* ---------- the glass surface ---------- */
 .gl,.dk,.pill,.toast,.act,
 html #share,html #emobtn,html #panbtn,html #use,html #boost,html #smack,html #jump,
-html #owfire,html #owrl,html #owshop,html #owgun,html #owview,html #sockick,html #owhud,html .pbar{
+html #owfire,html #owfire2,html #owrl,html #owshop,html #owgun,html #owview,html #sockick,html #owhud,html .pbar{
   background-color:var(--w-g);background-image:var(--w-sheen);
   -webkit-backdrop-filter:var(--w-blur);backdrop-filter:var(--w-blur);
   border:1px solid var(--w-edge);box-shadow:var(--w-lift);color:var(--w-ink);text-shadow:none;
 }
-html #share,html #emobtn,html #panbtn,html #use,html #boost,html #smack,html #jump,html #owfire,html #owrl,html #owshop,html #owgun,html #owview,html #sockick,.dk{
+html #share,html #emobtn,html #panbtn,html #use,html #boost,html #smack,html #jump,html #owfire,html #owfire2,html #owrl,html #owshop,html #owgun,html #owview,html #sockick,.dk{
   font-family:var(--w-ui);transition:transform .12s ease,background-color .2s ease;-webkit-tap-highlight-color:transparent;
 }
 html #share:active,html #emobtn:active,html #panbtn:active,html #use:active,html #boost:active,html #smack:active,html #jump:active,
-html #owfire:active,html #owrl:active,html #owshop:active,html #owgun:active,html #owview:active,html #sockick:active,.dk:active{transform:scale(.92)}
+html #owfire:active,html #owfire2:active,html #owrl:active,html #owshop:active,html #owgun:active,html #owview:active,html #sockick:active,.dk:active{transform:scale(.92)}
 
 /* ---------- top-left: status + progress ---------- */
 html #hud{text-shadow:none}
@@ -80,7 +80,7 @@ html #smack{background-color:rgba(255,128,138,.58);border-color:rgba(255,200,205
 html #boost{background-color:rgba(110,190,255,.58);border-color:rgba(200,230,255,.6)}
 html #use{border-radius:999px;font:700 14px/1 var(--w-ui);color:#fff;background-color:rgba(255,210,122,.34);border-color:rgba(255,210,122,.75);animation:usepulse 1.9s ease-in-out infinite}
 @keyframes usepulse{50%{box-shadow:var(--w-lift),0 0 0 6px rgba(255,210,122,.16)}}
-html #owfire{padding:0;font-size:24px;background-color:rgba(255,86,78,.58);border-color:rgba(255,190,185,.6)}
+html #owfire,html #owfire2{padding:0;font-size:24px;background-color:rgba(255,86,78,.58);border-color:rgba(255,190,185,.6)}
 html #sockick{padding:0;border-radius:50%;font-size:26px;line-height:1;background-color:rgba(61,220,132,.55);border-color:rgba(190,255,215,.6)}
 
 /* ---------- portrait / desktop fallback layout (phones in landscape are laid out by index.html) ---------- */

@@ -1,0 +1,35 @@
+/* Outlaw Isle: minimal combat HUD (classes are switched by Outlaw.js hudMode()).
+     body.ow-isle   you are on Outlaw Isle  -> hide the social/utility HUD, keep the combat HUD; a small ☰ button reveals the rest for a few seconds
+     body.ow-scope  you are looking through a scope -> hide the rest of the buttons too (keep joystick, both fire buttons, reload, scope toggle, health/ammo)
+   Layout (positions/sizes) lives in index.html's landscape block; this file only shows/hides and nudges the combat pill. */
+
+/* the left-thumb fire button only exists on Outlaw Isle (elsewhere the emote/pan buttons use that spot), and not on desktop */
+body:not(.ow-isle) #owfire2{display:none!important}
+@media (pointer:fine){#owfire2{display:none!important}}
+
+/* the ☰ reveal button: only on the isle, not while scoped or already revealed */
+.dk-owm{display:none;right:var(--map-r,12px);top:var(--map-t,58px);width:var(--T,44px);height:var(--T,44px);padding:0;font-size:18px}
+body.ow-isle:not(.ow-reveal):not(.ow-scope) .dk-owm{display:flex}
+
+/* minimal HUD on the isle: room code + stats pill, Invite, emote, pan, weather/time, journal, map, fullscreen hint */
+body.ow-isle:not(.ow-reveal) #info,
+body.ow-isle:not(.ow-reveal) #share,
+body.ow-isle:not(.ow-reveal) #emobtn,
+body.ow-isle:not(.ow-reveal) #panbtn,
+body.ow-isle:not(.ow-reveal) #fshint,
+body.ow-isle:not(.ow-reveal) .dk-wx,
+body.ow-isle:not(.ow-reveal) .dk-jrn,
+body.ow-isle:not(.ow-reveal) .dk-map{display:none!important}
+
+/* health / weapon / ammo / coins / wave pill moves up into the corner the room code used to occupy */
+body.ow-isle:not(.ow-reveal) #owhud{top:calc(var(--st,0px) + 8px)}
+
+/* scoped: only what you need to shoot */
+body.ow-scope #jump,
+body.ow-scope #owgun,
+body.ow-scope #owview,
+body.ow-scope #owshop,
+body.ow-scope #boost,
+body.ow-scope #use,
+body.ow-scope #smack,
+body.ow-scope #banner{display:none!important}

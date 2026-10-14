@@ -96,6 +96,10 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
   body #owfire{right:var(--R0);bottom:calc(var(--B0) + var(--J) + var(--g));width:var(--F);height:var(--F)}
   body #sockick{right:var(--R0);bottom:calc(var(--B0) + var(--J) + var(--F) + 2*var(--g));width:var(--F);height:var(--F);font-size:24px}
   body #owrl,body #owgun{bottom:calc(var(--B0) + var(--J) + var(--g) + (var(--F) - var(--S))/2);width:var(--S);height:var(--S);font-size:20px}
+  /* second fire button for the left thumb (Outlaw Isle): above the joystick, same size as the right one */
+  body #owfire2{left:var(--L0);bottom:calc(var(--B0) + var(--SK) + var(--g));width:var(--F);height:var(--F)}
+  /* scope toggle: above the right fire button (it used to have no landscape position and sat on top of the journal button) */
+  body #owscope{right:var(--R0);bottom:calc(var(--B0) + var(--J) + var(--F) + 2*var(--g));width:var(--S);height:var(--S);font-size:20px}
   body #owrl{right:calc(var(--R0) + var(--F) + var(--g))}
   body #owgun{right:calc(var(--R0) + var(--F) + var(--S) + 2*var(--g))}
   body #emopanel{max-height:var(--sheet-h);padding-left:var(--sheet-px);padding-right:var(--sheet-px)}
@@ -104,6 +108,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 </style>
 <link rel="stylesheet" href="src/ui/theme.css">
 <link rel="stylesheet" href="src/ui/warden.css">
+<link rel="stylesheet" href="src/ui/outlaw-hud.css">
 </head>
 <body>
 <div id="rotate"><div class="ic">📱</div><b>Rotate your phone</b><span>The World is played in landscape.</span></div>
