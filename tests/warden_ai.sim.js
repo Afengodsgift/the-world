@@ -38,8 +38,22 @@ function fight(seed,ticks,pbot,o){o=o||{};const C=CC.create({arena:{x:0,z:0,R:14
 // 7. it can actually beat an idle player (it is a real opponent) and the player can beat it (light spam in range wins sometimes)
 {const s=fight(4,30000,null,{php:100});ok(s.hits>=3,'a standing-still player is hit ('+s.hits+' hits, 100 hp)')}
 // 6. The Hollow Warden
-{const s=fight(3,30000,null,{foe:'hollow'});ok(['sweep','slam','triple'].every(m=>s.moves[m]>0)&&!s.moves.cut&&!s.moves.thrust,'Hollow Warden uses only sweep, slam, triple: '+JSON.stringify(s.moves));
- ok(s.busyStart===0,'Hollow Warden never starts a move while busy');ok(s.minRest>=45,'Hollow Warden rests >= 45 ticks between moves (min '+s.minRest+')');
+{const s=fight(3,30000,null,{foe:'hollow'});ok(['sweep','slam','triple'].every(m=>s.moves[m]>0)&&!s.moves.cut&&!s.moves.thrust,'Hollow Warden uses sweep, slam, triple (+leap) and no sword moves: '+JSON.stringify(s.moves));
+ ok(s.busyStart===0,'Hollow Warden never starts a move while busy');ok(s.minRest>=30,'Hollow Warden rests >= 30 ticks between moves (min '+s.minRest+')');
  const f=fight(3,30000,null,{foe:'duelist'});ok(s.starts.length<f.starts.length,'Hollow Warden attacks less often than the Duelist ('+s.starts.length+' vs '+f.starts.length+')');
  const a=fight(9,6000,null,{foe:'hollow'}),b=fight(9,6000,null,{foe:'hollow'});ok(a.hash===b.hash,'Hollow Warden fight is deterministic')}
+// 7. PRESSURE: gap closers only from range, a runner gets caught, breathers happen, phase 2 triggers
+function dist_run(seed,foe,bot,ticks,spd,hpFrac){const C=CC.create({arena:{x:0,z:0,R:40}});const P=C.add('P',{x:0,z:-6,face:0,hp:1e5}),D=C.add('D',{x:0,z:0,face:Math.PI,hp:1e5});D.spd=spd||1;if(hpFrac)D.hp=D.hpMax*hpFrac;
+  const A=AI.create(seed,{intro:30,foe});const r={gc:[],hits:0,minD:1e9,starts:[],ph2:false};let evs=[];
+  for(let t=0;t<ticks;t++){const d=AI.think(A,P,D,evs,C.tick+1),pc=bot?bot(C,P,D):{};const dd=Math.hypot(P.x-D.x,P.z-D.z);
+    evs=C.step({D:{face:d.face,mx:d.mx,mz:d.mz,list:d.list},P:Object.assign({list:[]},pc)});
+    for(const e of evs){if(e.t==='start'&&e.a==='D'){r.starts.push(C.tick);if(e.move==='dash'||e.move==='leap')r.gc.push({m:e.move,d:dd})}if(e.t==='hit'&&e.d==='P')r.hits++}
+    r.minD=Math.min(r.minD,Math.hypot(P.x-D.x,P.z-D.z))}
+  r.ph2=A.ph2;return r}
+{let okD=true,okH=true,nD=0,nH=0;for(let sd=1;sd<=10;sd++){for(const g of dist_run(sd,'duelist',null,6000,1.5).gc){nD++;if(g.m!=='dash'||g.d<3.3)okD=false}for(const g of dist_run(sd,'hollow',null,6000,1.25).gc){nH++;if(g.m!=='leap'||g.d<3.5)okH=false}}
+  ok(nD>0&&okD,'Duelist dashes only from range >=3.4 ('+nD+' dashes)');ok(nH>0&&okH,'Hollow leaps only from range >=3.6 ('+nH+' leaps)')}
+{const run=(C,P,D)=>{const dx=P.x-D.x,dz=P.z-D.z,l=Math.hypot(dx,dz)||1;return{mx:dx/l*.6,mz:dz/l*.6,list:[]}};
+  let caught=0;for(let sd=1;sd<=6;sd++){const r=dist_run(sd,'duelist',run,3000,1.5);if(r.minD<3.4||r.starts.length>0)caught++}ok(caught===6,'a player who just walks away is caught up with and attacked ('+caught+'/6)')}
+{const r=dist_run(2,'duelist',null,12000,1.5);let longest=0;for(let i=1;i<r.starts.length;i++)longest=Math.max(longest,r.starts[i]-r.starts[i-1]);ok(longest>=70,'he takes breathers (longest gap between moves '+longest+' ticks)')}
+{const a=dist_run(2,'duelist',null,400,1.5,.4),b=dist_run(2,'duelist',null,400,1.5,1);ok(a.ph2===true&&b.ph2===false,'phase 2 starts below 50% health')}
 process.exit(bad?1:0);

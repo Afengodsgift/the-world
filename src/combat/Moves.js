@@ -24,6 +24,9 @@ const Moves={
   sweep:{id:'sweep',who:'D',dmg:22,pdmg:20,hs:6,stun:24,kb:1.0,reach:3.0,w:.14,phases:[ph('startup',26),ph('active',5,{seg:0,a0:1.3,a1:-1.3}),ph('recovery',40)]},
   slam:{id:'slam',who:'D',dmg:38,pdmg:34,hs:8,stun:30,kb:1.4,reach:3.0,w:.16,hold:true,phases:[ph('raise',20),ph('hold',0),ph('down',24),ph('active',6,{seg:0,a0:.2,a1:-.2}),ph('recovery',48)]},
   triple:{id:'triple',who:'D',dmg:14,pdmg:12,hs:4,stun:16,kb:.5,reach:2.8,w:.13,phases:[ph('startup',22),ph('active',4,{seg:0,a0:.8,a1:-.8}),ph('rechamber',22),ph('active',4,{seg:1,a0:-.8,a1:.8}),ph('rechamber',22),ph('active',4,{seg:2,a0:.8,a1:-.8}),ph('recovery',30)]},
+  // ---- gap closers (used from range, so a kiting player is not safe): long tell, long recovery ----
+  dash:{id:'dash',who:'D',dmg:20,pdmg:18,hs:5,stun:22,kb:.8,reach:2.4,w:.12,phases:[ph('windup',16),ph('lunge',12,{move:3.4}),ph('active',5,{seg:0,a0:.8,a1:-.8}),ph('recovery',32)]},
+  leap:{id:'leap',who:'D',dmg:34,pdmg:30,hs:7,stun:28,kb:1.2,reach:3.0,w:.15,phases:[ph('raise',22),ph('lunge',14,{move:4.6}),ph('active',6,{seg:0,a0:.3,a1:-.3}),ph('recovery',50)]},
   riposte:{id:'riposte',who:'D',dmg:16,pdmg:14,hs:5,stun:20,kb:.6,reach:2.4,w:.12,phases:[ph('startup',20),ph('active',4,{seg:0,a0:.5,a1:-.5}),ph('recovery',24)]},
 };
 // expand a move into concrete phases (hold ticks decided at start, clamped to HOLD_MAX)
