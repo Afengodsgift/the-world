@@ -7,12 +7,19 @@ const SKYI={HX:46,HZ:-18,ab:.5,satGap:96,satR:56,pad:{dx:-78,dz:46,r:13},wf:[2.5
 const skyRim=a=>SKY.R*(1+.07*Math.sin(3*a+.5)+.045*Math.sin(5*a+2));
 const skyRim2=a=>SKYI.satR*(1+.08*Math.sin(4*a+1));
 const satCentre=()=>{const R=skyRim(SKYI.ab)+SKYI.satGap;return {x:Math.cos(SKYI.ab)*R,z:Math.sin(SKYI.ab)*R}};
-function skyTop(dx,dz){
+function skyTopRaw(dx,dz){
   const a=Math.atan2(dz,dx),d=Math.hypot(dx,dz),R=skyRim(a),dh=Math.hypot(dx-SKYI.HX,dz-(SKYI.HZ+16)),plat=1-sstep(26,48,dh);
   let h=SKY.base+(Math.sin(dx*.045)*Math.cos(dz*.04)*1.1+Math.sin(dx*.09+dz*.07)*.5+Math.sin(dz*.021+1)*.8)*(1-.9*plat);
   const hill=(x,z,hx,hz,amp,sg)=>amp*Math.exp(-((x-hx)*(x-hx)+(z-hz)*(z-hz))/(2*sg*sg));
   h+=(hill(dx,dz,-58,-46,9,26)+hill(dx,dz,64,58,6,21)+hill(dx,dz,-18,80,4.5,17)+hill(dx,dz,18,-84,7,22))*(1-plat);
   h+=1.6*plat;h-=sstep(R-12,R,d)*1.2;return h}
+let _pc=null;
+function _ponds(){ // pond centres with the natural ground height under them; each pond gets a flat shoreline and a shallow bowl (so the water never floats on a slope)
+  if(!_pc)_pc=SKYI.wf.map((a,i)=>{const R=skyRim(a)-34,x=Math.cos(a)*R,z=Math.sin(a)*R;return {x,z,pr:10+i*1.5,h:skyTopRaw(x,z)}});return _pc}
+function skyTop(dx,dz){
+  let h=skyTopRaw(dx,dz);
+  for(const p of _ponds()){const d=Math.hypot(dx-p.x,dz-p.z);if(d<p.pr+18){const k=1-sstep(p.pr+2,p.pr+18,d);h+=(p.h-h)*k;if(d<p.pr)h-=.55*(1-(d/p.pr)*(d/p.pr))}}
+  return h}
 function skyTop2(dx,dz){const d=Math.hypot(dx,dz),R=skyRim2(Math.atan2(dz,dx));return SKY.base+Math.sin(dx*.08)*Math.cos(dz*.07)*.5-sstep(R-9,R,d)*1.1}
 function SKYH(dx,dz){const d=Math.hypot(dx,dz);return d<=skyRim(Math.atan2(dz,dx))?skyTop(dx,dz):SKY.base-4}
 function SKYG(dx,dz){ // ground you can stand on: the main island, the satellite, or nothing (step off the edge and you fall)
@@ -199,7 +206,7 @@ function buildSkyIsland(){
   const fallTex=_waterTex();
   wfAt.forEach((w,wi)=>{
     const a=w.a,Rw=skyRim(a),ex=Math.cos(a)*(Rw-.6),ez=Math.sin(a)*(Rw-.6),ty=skyTop(ex,ez),pr=10+wi*1.5;
-    const pond=new THREE.Mesh(new THREE.CircleGeometry(pr,36),waterM);pond.rotation.x=-Math.PI/2;pond.position.set(SKY.x+w.x,skyTop(w.x,w.z)+.12,SKY.z+w.z);scene.add(pond);
+    const pond=new THREE.Mesh(new THREE.CircleGeometry(pr,36),waterM);pond.rotation.x=-Math.PI/2;pond.position.set(SKY.x+w.x,_ponds()[wi].h+.08,SKY.z+w.z);scene.add(pond);
     const pts=bez({x:w.x,z:w.z},{x:w.x+Math.sin(a)*14,z:w.z-Math.cos(a)*14},{x:ex,z:ez},26),pos=[],idx=[];
     pts.forEach((p,i)=>{const q=pts[Math.min(i+1,pts.length-1)],q0=pts[Math.max(i-1,0)],tx=q.x-q0.x,tz=q.z-q0.z,l=Math.hypot(tx,tz)||1,nx=-tz/l,nz=tx/l,wd=(5.5-i/26*.8)/2,y=skyTop(p.x,p.z)+.1-i/26*.9;pos.push(SKY.x+p.x+nx*wd,y,SKY.z+p.z+nz*wd,SKY.x+p.x-nx*wd,y,SKY.z+p.z-nz*wd);if(i<pts.length-1)idx.push(i*2,i*2+2,i*2+1,i*2+1,i*2+2,i*2+3)});
     const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));sg.setIndex(idx);sg.computeVertexNormals();scene.add(new THREE.Mesh(sg,waterM));
@@ -219,15 +226,15 @@ function buildSkyIsland(){
     for(let k=0;k<12;k++){const t=r()*TAU,rr=pr+1+r()*5,x=w.x+Math.cos(t)*rr,z=w.z+Math.sin(t)*rr;fr.push({x:SKY.x+x,y:skyTop(x,z),z:SKY.z+z,ry:r()*TAU,s:.7+r()*.6})}
     _cscatter(['Rock_Medium_1','Rock_Medium_2','Rock_Medium_3'][wi%3],1.7,rk,'rock');_cscatter('Fern_1',.8,fr,'grass');
     { // fishing pier from the inland shore out over the water; its end is a fishing spot
-      const ul=Math.hypot(w.x,w.z)||1,dx=-w.x/ul,dz=-w.z/ul,nx=-dz,nz=dx,sx=w.x+dx*(pr-.5),sz=w.z+dz*(pr-.5),L=6.6,surf=skyTop(w.x,w.z)+.12,yS=skyTop(sx,sz)+.03,yE=Math.max(yS,surf+.5);
-      const NP=Math.floor(L/.55),pl=new THREE.InstancedMesh(new THREE.BoxGeometry(.5,.14,2.4),new THREE.MeshLambertMaterial({flatShading:true}),NP),m4=new THREE.Matrix4(),q=new THREE.Quaternion(),sc1=new THREE.Vector3(1,1,1),pc=new THREE.Color(),vv=new THREE.Vector3();
+      const ul=Math.hypot(w.x,w.z)||1,dx=-w.x/ul,dz=-w.z/ul,nx=-dz,nz=dx,sx=w.x+dx*(pr-.5),sz=w.z+dz*(pr-.5),L=6.6,surf=_ponds()[wi].h+.08,yS=skyTop(sx,sz)+.03,yE=Math.max(yS,surf+.5);
+      const NP=Math.floor(L/.55),NL=3,pl=new THREE.InstancedMesh(new THREE.BoxGeometry(.5,.14,2.4),new THREE.MeshLambertMaterial({flatShading:true}),NP+NL),m4=new THREE.Matrix4(),q=new THREE.Quaternion(),sc1=new THREE.Vector3(1,1,1),pc=new THREE.Color(),vv=new THREE.Vector3();
       q.setFromAxisAngle(Y,-Math.atan2(-dz,-dx));
-      for(let i=0;i<NP;i++){const u=(i+.5)/NP;vv.set(SKY.x+sx-dx*L*u,yS+(yE-yS)*u,SKY.z+sz-dz*L*u);m4.compose(vv,q,sc1);pl.setMatrixAt(i,m4);pl.setColorAt(i,pc.set(['#9a6a3a','#8b5a2b','#a8793f','#85552c'][i%4]))}
+      for(let i=0;i<NP+NL;i++){const u2=(i-NL+.5)/NP,px=sx-dx*L*u2,pz=sz-dz*L*u2,py=u2<0?skyTop(px,pz)+.06:yS+(yE-yS)*u2;vv.set(SKY.x+px,py,SKY.z+pz);m4.compose(vv,q,sc1);pl.setMatrixAt(i,m4);pl.setColorAt(i,pc.set(['#9a6a3a','#8b5a2b','#a8793f','#85552c'][i%4]))} // the first 3 boards lie flush on the shore
       scene.add(pl);
       const PG=new THREE.Group();scene.add(PG);const wm=stdM('#5b3b22');
       for(const u of [.06,.38,.7,.97])for(const sd of [-1,1]){const dy=yS+(yE-yS)*u,po=new THREE.Mesh(new THREE.CylinderGeometry(.1,.12,2.1,6),wm);po.position.set(SKY.x+sx-dx*L*u+nx*1.2*sd,dy-.85,SKY.z+sz-dz*L*u+nz*1.2*sd);PG.add(po)}
       _bake(PG);
-      for(let d=0;d<=L;d+=.65){const u=d/L;solids.push({x:SKY.x+sx-dx*L*u,z:SKY.z+sz-dz*L*u,r:.85,h:yS+(yE-yS)*u+.07})}
+      for(let d=-2.6;d<=L;d+=.65){const u=d/L,px=sx-dx*L*u,pz=sz-dz*L*u;solids.push({x:SKY.x+px,z:SKY.z+pz,r:.85,h:(u<0?skyTop(px,pz)+.05:yS+(yE-yS)*u+.07)})} // starts on the shore and follows the ground, so you walk on without a step
       lantern(scene,SKY.x+sx+nx*2.2,skyTop(sx+nx*2.2,sz+nz*2.2),SKY.z+sz+nz*2.2);solids.push({x:SKY.x+sx+nx*2.2,z:SKY.z+sz+nz*2.2,r:.35});
       SKYI.spots.push({x:SKY.x+sx-dx*L*.93,z:SKY.z+sz-dz*L*.93,y:yE+.07,fx:-dx,fz:-dz,px:SKY.x+w.x,pz:SKY.z+w.z,pr,surf})}
   });

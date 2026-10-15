@@ -29,9 +29,12 @@ for(const prim of j.meshes[j.nodes[node].mesh].primitives){
 const hand=new T.Matrix4().copy(W[by.RightHand.i]);const hp=place(new T.Vector3().setFromMatrixPosition(hand).multiplyScalar(S));
 function cyl(p0,p1,r0,r1,col,seg=8){const d=p1.clone().sub(p0),L=d.length(),u=d.clone().normalize(),h=Math.abs(u.y)>.9?new T.Vector3(1,0,0):new T.Vector3(0,1,0),a=new T.Vector3().crossVectors(u,h).normalize(),b=new T.Vector3().crossVectors(u,a);
   for(let s=0;s<seg;s++){const t0=s/seg*Math.PI*2,t1=(s+1)/seg*Math.PI*2,q=(t,r,p)=>p.clone().addScaledVector(a,Math.cos(t)*r).addScaledVector(b,Math.sin(t)*r);tri(q(t0,r0,p0),q(t0,r1,p1),q(t1,r1,p1),col,1);tri(q(t0,r0,p0),q(t1,r1,p1),q(t1,r0,p0),col,1)}}
-if(flags.includes('rod')){const q0=new T.Quaternion(-0.18679,0,-0.76778,0.61288),hq=new T.Quaternion();hand.decompose(new T.Vector3(),hq,new T.Vector3());const axis=new T.Vector3(0,1,0).applyQuaternion(q0).applyQuaternion(hq).applyAxisAngle(new T.Vector3(0,1,0),YAW).normalize();
-  cyl(hp.clone().addScaledVector(axis,-.38),hp.clone().addScaledVector(axis,.04),.05,.05,[.78,.64,.4]);cyl(hp.clone().addScaledVector(axis,-.05),hp.clone().addScaledVector(axis,2.45),.034,.012,[.48,.32,.19]);
-  console.log('rod axis (world): fwd',axis.z.toFixed(2),'up',axis.y.toFixed(2),'side',axis.x.toFixed(2),'| tip at',hp.clone().addScaledVector(axis,2.45).toArray().map(x=>x.toFixed(2)).join(','))}
+if(flags.includes('rod')){ // mirrors Fishing.poseRod(): base at the hand (or a fixed point in front of the chest while casting), pointing forward + up, never behind the chest line
+  const id=clipName,t=clip.duration*parseFloat(frac),sstep=(a,b,x)=>{const k=Math.max(0,Math.min(1,(x-a)/(b-a)));return k*k*(3-2*k)};let e=28,w=0;
+  if(id==='fish_cast'){e=t<.35?25+t/.35*50:t<.75?75-(t-.35)/.4*65:10+sstep(.75,1.1,t)*18;w=1-sstep(1.0,1.5,t)}else if(id==='fish_bite')e=42;else if(id==='fish_reel')e=46;else if(id==='fish_catch')e=62;
+  const base=new T.Vector3(hp.x-AT[0],hp.y-AT[1],hp.z-AT[2]);if(w>0)base.lerp(new T.Vector3(-.14,1.0,.42),w);if(base.z<.12)base.z=.12;const er=e*Math.PI/180,axis=new T.Vector3(0,Math.sin(er),Math.cos(er));
+  const b0=base.clone().add(new T.Vector3(...AT));cyl(b0.clone().addScaledVector(axis,-.25),b0.clone().addScaledVector(axis,.05),.05,.05,[.78,.64,.4]);cyl(b0.clone().addScaledVector(axis,-.02),b0.clone().addScaledVector(axis,2.48),.034,.012,[.48,.32,.19]);
+  console.log('rod: elevation',e.toFixed(0)+'deg, base',base.toArray().map(x=>x.toFixed(2)).join(','),'tip',b0.clone().addScaledVector(axis,2.48).toArray().map(x=>x.toFixed(2)).join(','))}
 // ground slab (and optional bed) for reference
 const box=(x0,y0,z0,x1,y1,z1,col)=>{const c=[[x0,y0,z0],[x1,y0,z0],[x1,y1,z0],[x0,y1,z0],[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]].map(a=>new T.Vector3(...a)),f=[[0,3,2,1],[4,5,6,7],[0,1,5,4],[3,7,6,2],[0,4,7,3],[1,2,6,5]];for(const q of f){tri(c[q[0]],c[q[1]],c[q[2]],col,1);tri(c[q[0]],c[q[2]],c[q[3]],col,1)}};
 box(-30,-.3,-30,30,0,30,[.45,.7,.35]);

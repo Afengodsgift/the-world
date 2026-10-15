@@ -412,7 +412,6 @@ function emoStart(q,id){
 
 function animateClips(g,dt,st){
   const q=g.userData,A=q.nact,p=g.position;
-  if(q.rod)q.rod.visible=!!((q.hold&&q.hold.id&&q.hold.id.startsWith('fish_'))||q.fishing); // the fishing rod shows while a fishing pose is playing
   const mdx=q.pp?p.x-q.pp.x:0,mdz=q.pp?p.z-q.pp.z:0,rawU=q.pp&&dt>0?Math.hypot(p.x-q.pp.x,p.z-q.pp.z)/dt:0,raw=Math.min(16,rawU);q.pp={x:p.x,z:p.z};
   q.fs=(q.fs||0)+(rawU-(q.fs||0))*Math.min(1,dt*6);const sf=clamp(q.fs/70,0,1); // unclamped speed (flight is much faster than the 16 m/s clamp above)
   {const ly=q.lyaw===undefined?g.rotation.y:q.lyaw,yd=Math.atan2(Math.sin(g.rotation.y-ly),Math.cos(g.rotation.y-ly))/Math.max(dt,.001);q.yr=(q.yr||0)+(yd-(q.yr||0))*Math.min(1,dt*5);q.lyaw=g.rotation.y}const acc=(raw-(q.v||0))*10;q.v=(q.v||0)+(raw-(q.v||0))*Math.min(1,dt*10);const v=q.v;
@@ -466,6 +465,7 @@ function animateClips(g,dt,st){
   if(!FlightPose.apply(g,q,dt,st,{speed:q.fs,yawRate:q.yr,charge:q.bc||0})&&q.gunI>=0&&!q.gdn&&typeof Outlaw!=='undefined')Outlaw.poseGun(g,q,st,dt);
   FlightFX.avatar(g,q,dt);
   if(q.gun)q.gun.visible=!!q.gun.userData.ok&&st!=='fly'&&st!=='swim'&&!q.gdn;
+  if(q.rod)Fishing.poseRod(g,q,dt);   // fishing rod (src/world/Fishing.js)
 }
 function animate(g,dt,st){
   const q=g.userData;
@@ -514,7 +514,7 @@ function dress(g,skin){
       pn.position.set(.173,-19.68,31.046);piv.add(pn);piv.scale.setScalar((.36/5.915)/50);piv.position.set(0,.0016,0);piv.rotation.set(Math.PI,0,PAN_REST_Z);
       if(u.nact)piv.quaternion.set(...PAN_GRIP);piv.visible=false;bones.RightHand.add(piv);u.pan=piv;
     }).catch(()=>{});
-    if(bones.RightHand&&typeof Fishing!=='undefined')Fishing.attachRod(u,bones); // hidden fishing rod in the right hand
+    if(bones.RightHand&&typeof Fishing!=='undefined')Fishing.attachRod(u,bones,g); // hidden fishing rod, posed per frame by Fishing.poseRod
   }).catch(()=>{});
 }
 loadAssets();loadChar().catch(()=>{});

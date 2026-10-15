@@ -17,15 +17,35 @@ const Fishing=(()=>{
   const save=()=>{try{localStorage.setItem('w4fish',JSON.stringify(st.rec))}catch(e){}};
   const v=new THREE.Vector3();
   // ---------- rod ----------
-  function attachRod(u,bones){
-    if(!bones.RightHand||u.rod)return;
-    const g=new THREE.Group(),wood=new THREE.MeshLambertMaterial({color:'#7a5230',flatShading:true}),cork=new THREE.MeshLambertMaterial({color:'#c9a36a',flatShading:true}),tipM=new THREE.MeshLambertMaterial({color:'#e24a3b',flatShading:true});
-    const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.012,.034,2.5,6),wood);shaft.position.y=1.2;g.add(shaft);
-    const grip=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,.42,8),cork);grip.position.y=-.17;g.add(grip); // grip stops ~.4 m behind the hand so it does not poke through the chest
-    const bead=new THREE.Mesh(new THREE.IcosahedronGeometry(.035,0),tipM);bead.position.y=2.46;g.add(bead);
-    const tip=new THREE.Object3D();tip.position.y=2.48;g.add(tip);
-    g.scale.setScalar(1/50);g.quaternion.set(...ROD_Q); // the bone is ~50x world scale (Root 100 x model 0.5), same trick as the pan
-    g.visible=false;bones.RightHand.add(g);u.rod=g;u.rodTip=tip}
+  // The rod is NOT glued to the hand bone any more (the cast / reel poses swing the hand behind the back, which pushed a rigid rod through the body). It is parented to the avatar and
+  // posed every frame by poseRod(): base at the hand (or a fixed point in front of the chest during the cast), always pointing forward and up with an elevation that follows the phase.
+  const _v=new THREE.Vector3(),_Y=new THREE.Vector3(0,1,0),_d=new THREE.Vector3(),FRONT=new THREE.Vector3(-.14,1.0,.42);
+  function attachRod(u,bones,g){
+    if(!bones.RightHand||u.rod||!g)return;
+    const r=new THREE.Group(),wood=new THREE.MeshLambertMaterial({color:'#7a5230',flatShading:true}),cork=new THREE.MeshLambertMaterial({color:'#c9a36a',flatShading:true}),tipM=new THREE.MeshLambertMaterial({color:'#e24a3b',flatShading:true});
+    const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.012,.034,2.5,6),wood);shaft.position.y=1.2;r.add(shaft);
+    const grip=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,.3,8),cork);grip.position.y=-.1;r.add(grip);
+    const bead=new THREE.Mesh(new THREE.IcosahedronGeometry(.035,0),tipM);bead.position.y=2.46;r.add(bead);
+    const tip=new THREE.Object3D();tip.position.y=2.48;r.add(tip);
+    r.visible=false;g.add(r);u.rod=r;u.rodTip=tip;u.rodHand=bones.RightHand}
+  const sstep=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t)};
+  function poseRod(g,q,dt){
+    const rod=q.rod;if(!rod)return;
+    const id=q.hold&&q.hold.id&&q.hold.id.startsWith('fish_')?q.hold.id:(q.fishing?(q.rodId||'fish_idle'):null);
+    if(!id){rod.visible=false;q.rodId=null;return}
+    rod.visible=true;const now=performance.now()/1000;if(q.rodId!==id){q.rodId=id;q.rodT0=now}const t=now-q.rodT0;
+    let e=28,w=0;
+    if(id==='fish_cast'){e=t<.35?25+t/.35*50:t<.75?75-(t-.35)/.4*65:10+sstep(.75,1.1,t)*18;w=1-sstep(1.0,1.5,t)} // flick up, then forward - never behind the shoulders
+    else if(id==='fish_idle')e=28+Math.sin(now*1.3)*2.5;
+    else if(id==='fish_bite')e=42+Math.sin(now*32)*5;
+    else if(id==='fish_reel')e=46+Math.sin(now*14)*3;
+    else if(id==='fish_catch')e=62;
+    q.rodE=q.rodE===undefined?e:q.rodE+(e-q.rodE)*Math.min(1,dt*10);
+    const hand=q.rodHand;hand.updateWorldMatrix(true,false);_v.setFromMatrixPosition(hand.matrixWorld);g.worldToLocal(_v);
+    if(w>0)_v.lerp(FRONT,w);
+    // never let the base drift behind the chest line
+    if(_v.z<.12)_v.z=.12;rod.position.copy(_v);
+    const er=q.rodE*Math.PI/180;_d.set(0,Math.sin(er),Math.cos(er));rod.quaternion.setFromUnitVectors(_Y,_d)}
   // ---------- world objects: bobber, line, caught-fish display ----------
   function build(spots){
     st.spots=spots||[];
@@ -93,5 +113,5 @@ const Fishing=(()=>{
     }
     // line from the rod tip to the bobber (hidden when there is nothing in the water)
     if(bob.visible&&(st.state==='cast'||st.state==='wait'||st.state==='bite'||st.state==='reel')){const l=st.lpos;l[0]=st.tip.x;l[1]=st.tip.y;l[2]=st.tip.z;l[3]=bob.position.x;l[4]=bob.position.y+.12;l[5]=bob.position.z;st.line.geometry.attributes.position.needsUpdate=true;st.line.visible=true}else st.line.visible=false}
-  return {build,tick,attachRod,onCatch,count:()=>st.rec.count,state:st,FISH}
+  return {build,tick,attachRod,poseRod,onCatch,count:()=>st.rec.count,state:st,FISH}
 })();
