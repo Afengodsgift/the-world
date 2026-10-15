@@ -64,9 +64,10 @@ const WardenMX=(()=>{
             if(mid<cut){const e=en(A),g0=f0/cut,g1=f1/cut;out[q]={c:A.c,a:A.h[1]+(e-A.h[1])*Math.min(1,g0)*.6,b:A.h[1]+(e-A.h[1])*Math.min(1,g1)*.6}}
             else{const a0=t0(B),g0=(f0-cut)/(1-cut),g1=(f1-cut)/(1-cut);out[q]={c:B.c,a:a0+(B.h[0]-a0)*Math.max(0,g0),b:a0+(B.h[0]-a0)*Math.min(1,g1)}}}}}}
     return out}
-  const BUILD='mx1';const SH={};      // role -> {st,clips,p}
+  const BUILD='mx2';const SH={};      // role -> {st,clips,p}
   function fetchRole(role){const s=SH[role]||(SH[role]={st:'none',clips:null,meta:null,p:null});
-    if(!s.p)s.p=fetch(ROLES[role].file).then(r=>r.json()).then(j=>{s.clips={};s.meta={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=c.name;s.clips[c.name]=ac;s.meta[c.name]={dur:c.duration,v:Math.hypot(c.trav?c.trav[0]:0,c.trav?c.trav[1]:0)/Math.max(.1,c.duration)}}s.st='ready';return s}).catch(e=>{s.st='failed';s.err=String(e&&e.message||e);s.p=null;throw e});return s.p}
+    if(!s.p)s.p=fetch(ROLES[role].file).then(r=>r.json()).then(j=>{s.clips={};s.meta={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=role+':'+c.name;ac.uuid=role+':'+c.name;s.clips[c.name]=ac;   // unique uuid per role: three.js caches actions by clip uuid, and the game's own clips are also called idle/walk/jump (sharing one action stole the game's base layer -> T-pose on hit)
+      s.meta[c.name]={dur:c.duration,v:Math.hypot(c.trav?c.trav[0]:0,c.trav?c.trav[1]:0)/Math.max(.1,c.duration)}}s.st='ready';return s}).catch(e=>{s.st='failed';s.err=String(e&&e.message||e);s.p=null;throw e});return s.p}
   function make(q,role){
     const R=ROLES[role],I={st:'none',role,A:{},ws:{},gT:0,sw:0,lastLight:-1e9,ready:()=>I.st==='ready',variant:'light_b',alt:{},plans:{},tmem:{}};
     I.pickAlt=()=>{};I.nextLight=()=>'light_b';
