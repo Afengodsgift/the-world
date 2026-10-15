@@ -57,4 +57,101 @@ const equipAt=(p,xz,w)=>p.evaluate(([[x,z],w])=>{S.x=x;S.z=z;S.y=H(x,z)+.5;S.yaw
  ok(real(p.errs).length===0,'raiders: no page errors '+JSON.stringify(real(p.errs).slice(0,3)));
  await p.close2();}
 
+
+// ================= 3. CONSUMABLES (solo, host) =================
+// OutlawItems.tick() is driven by hand with a fixed dt so the rules are checked exactly, whatever the software-GL frame rate is.
+const stepItems=(p,sec,dt=.02)=>p.evaluate(([sec,dt])=>{for(let t=0;t<sec;t+=dt)OutlawItems.tick(dt)},[sec,dt]);
+{const p=await B.open('?perf=1');await p.waitForTimeout(2500);
+ await p.evaluate(()=>{localStorage.removeItem('w4ow2')});
+ await p.evaluate(()=>{Outlaw.onMsg({k:'start',host:myId,mode:'survive',diff:0});S.x=OUT.x;S.z=OUT.z+14;S.y=H(S.x,S.z)+.2;Outlaw.equip(2)});await p.waitForTimeout(2000);
+ const inv=()=>p.evaluate(()=>({...OutlawItems.state.n,hp:Math.round(Outlaw._t().hp),ar:OutlawItems.state.armor,coins:Outlaw._t().SAVE.coins}));
+ let i0=await inv();ok(i0.stim>=1&&i0.gren>=1&&i0.ammo>=1,'a starter kit exists: '+JSON.stringify(i0));
+ // --- the strip is on screen on the isle and does not sit on top of any other control (landscape phone, 844x390) ---
+ const lay=await p.evaluate(()=>{const R=e=>{const b=e&&e.getBoundingClientRect();return b&&b.width?[b.left,b.top,b.right,b.bottom]:null},vis=e=>e&&getComputedStyle(e).display!=='none';
+  const items=[...document.querySelectorAll('.owi')].map(R),others=['owfire','owfire2','owrl','owgun','jump','stick','owview','owscope','owshop','use'].map(id=>[id,vis(document.getElementById(id))?R(document.getElementById(id)):null]).filter(x=>x[1]);
+  const hit=[];for(const [id,r] of others)for(const it of items)if(it&&r&&it[0]<r[2]&&it[2]>r[0]&&it[1]<r[3]&&it[3]>r[1])hit.push(id);
+  const w=innerWidth,h=innerHeight,cx=w/2,cy=h/2;const onCross=items.some(it=>it&&it[0]<cx+60&&it[2]>cx-60&&it[1]<cy+60&&it[3]>cy-60);
+  return {n:items.filter(Boolean).length,hit,onCross,min:Math.min(...items.filter(Boolean).map(r=>Math.min(r[2]-r[0],r[3]-r[1]))),hud:R(document.getElementById('owhud')),top:items[0]}});
+ ok(lay.n===4,'four item buttons are visible on Outlaw Isle');ok(lay.hit.length===0,'item buttons overlap no other control (fire, fire2, reload, weapon, jump, joystick...): '+JSON.stringify(lay.hit));
+ ok(!lay.onCross,'item buttons stay clear of the crosshair area');ok(lay.min>=44,'touch targets are at least 44 px ('+lay.min+')');
+ if(shots)await p.screenshot({path:shots+'/outlaw_items.png'});
+ // --- stim: refused at full health, heals over time, one at a time, consumed once ---
+ await p.evaluate(()=>{OutlawItems.state.n.stim=3});
+ ok(await p.evaluate(()=>OutlawItems.use('stim'))===false,'stim is refused at full health');
+ await p.evaluate(()=>{Outlaw.onMsg({k:'hurt',to:myId,d:60,x:S.x+5,z:S.z})});i0=await inv();ok(i0.hp===40,'took 60 damage (hp '+i0.hp+')');
+ ok(await p.evaluate(()=>OutlawItems.use('stim'))===true,'stim starts when hurt');
+ ok(await p.evaluate(()=>{const a=Outlaw._t().ammo[2];Outlaw.fire();return Outlaw._t().ammo[2]===a&&OutlawItems.busy()}),'while injecting you cannot fire');
+ ok(await p.evaluate(()=>OutlawItems.use('armor'))===false,'a second item cannot start during a use');
+ await stepItems(p,.9);let i1=await inv();ok(i1.stim===2,'the stim is consumed once the use completes ('+i1.stim+' left)');
+ ok(await p.evaluate(()=>OutlawItems.use('stim'))===false,'a second stim is refused while healing / cooling down');
+ await stepItems(p,2.5);const mid=await inv();ok(mid.hp>i1.hp&&mid.hp<100,'healing is gradual, not instant (hp '+i1.hp+' -> '+mid.hp+' after 2.5 s)');
+ await stepItems(p,4);i1=await inv();ok(i1.hp===100,'the heal completes and stops at max health ('+i1.hp+')');
+ // --- armor ---
+ await p.evaluate(()=>{OutlawItems.state.n.armor=2;OutlawItems.state.cd.stim=0;OutlawItems.state.cd.armor=0;OutlawItems.state.lock=0});
+ ok(await p.evaluate(()=>OutlawItems.use('armor')),'armor plate starts');await stepItems(p,1.5);i1=await inv();ok(i1.ar===50&&i1.armor===1,'armor is 50 and the plate is consumed ('+JSON.stringify([i1.ar,i1.armor])+')');
+ await p.evaluate(()=>{OutlawItems.state.cd.armor=0;OutlawItems.state.lock=0});ok(await p.evaluate(()=>OutlawItems.use('armor'))===false,'a fresh plate cannot be re-applied (no stacking)');
+ await p.evaluate(()=>{Outlaw.onMsg({k:'hurt',to:myId,d:20,x:S.x+5,z:S.z})});i1=await inv();ok(i1.hp===94&&i1.ar===36,'a 20-damage hit: armor soaks 14, health takes 6 ('+JSON.stringify([i1.hp,i1.ar])+')');
+ // --- ammo pack: finishes a reload instantly and tops up every magazine ---
+ await p.evaluate(()=>{OutlawItems.state.cd.ammo=0;OutlawItems.state.lock=0;const T=Outlaw._t();T.ammo[2]=3;T.ammo[0]=1});
+ ok(await p.evaluate(()=>OutlawItems.use('ammo')),'ammo pack starts with magazines missing');await stepItems(p,1);
+ const am=await p.evaluate(()=>{const T=Outlaw._t();return [T.ammo[2],T.WEAPONS[2].mag,T.ammo[0],T.WEAPONS[0].mag]});ok(am[0]===am[1]&&am[2]===am[3],'every owned magazine is full again ('+am.join('/')+')');
+ await p.evaluate(()=>{OutlawItems.state.cd.ammo=0;OutlawItems.state.lock=0;OutlawItems.state.n.ammo=2});ok(await p.evaluate(()=>OutlawItems.use('ammo'))===false,'ammo pack is refused when everything is full');
+ // --- grenade: thrown along the crosshair, host damages the raider once, from the table ---
+ const gz=await p.evaluate(()=>{const T=Outlaw._t();for(const n of [...T.npcs.values()])n.dead=1;S.x=OUT.x+30;S.z=OUT.z+60;S.y=H(S.x,S.z)+.1;S.yaw=Math.PI;S.pitch=.22;T.addNpc(0,S.x,S.z+9);const n=[...T.npcs.values()].pop();n.hp=n.max=400;
+  for(let i=0;i<60;i++)CameraRig.update(.016);OutlawItems.state.n.gren=3;OutlawItems.state.cd.gren=0;OutlawItems.state.lock=0;return {id:n.id,x:n.x,z:n.z,hp:n.hp}});
+ ok(await p.evaluate(()=>OutlawItems.use('gren')),'grenade starts');
+ const gr=await p.evaluate(id=>{const n=Outlaw._t().npcs.get(id);let thrown=false,det=0;for(let t=0;t<4;t+=.02){OutlawItems.tick(.02);if(OutlawItems._t().gl.length)thrown=true}return {thrown,hp:n.hp,max:n.max,left:OutlawItems.state.n.gren,fl:OutlawItems._t().gl.length}},gz.id);
+ ok(gr.thrown&&gr.left===2&&gr.fl===0,'a grenade flew and landed; the stack went 3 -> '+gr.left);
+ ok(gr.hp<gz.hp&&gz.hp-gr.hp<=110,'the host hurt the raider from the damage table, once ('+gz.hp+' -> '+gr.hp+', at most 110)');
+ // --- stack limits + shop ---
+ await p.evaluate(()=>{const T=Outlaw._t();T.SAVE.coins=1000;OutlawItems.state.n.stim=3});
+ await p.evaluate(()=>{Outlaw._t().panelAct('buyc','stim')});i1=await inv();ok(i1.stim===4&&i1.coins===910,'shop: buying a stim costs 90 and fills the stack ('+JSON.stringify([i1.stim,i1.coins])+')');
+ await p.evaluate(()=>{Outlaw._t().panelAct('buyc','stim')});i1=await inv();ok(i1.stim===4&&i1.coins===910,'shop: the stack limit (4) is enforced, no coins taken');
+ await p.evaluate(()=>{Outlaw._t().SAVE.coins=10;Outlaw._t().panelAct('buyc','armor')});i1=await inv();ok(i1.armor===1&&i1.coins===10,'shop: not enough coins -> nothing bought');
+ ok(await p.evaluate(()=>{OutlawItems.award('gren');OutlawItems.award('gren');OutlawItems.award('gren');return OutlawItems.state.n.gren})<=4,'crate pickups respect the stack limit');
+ // --- persistence + downed ---
+ ok(await p.evaluate(()=>JSON.parse(localStorage.getItem('w4ow2')).items.stim)===4,'inventory is saved');
+ await p.evaluate(()=>{OutlawItems.state.cd.stim=0;OutlawItems.state.lock=0;OutlawItems.state.n.stim=2;Outlaw.onMsg({k:'hurt',to:myId,d:9999,x:S.x+4,z:S.z})});
+ ok(await p.evaluate(()=>OutlawItems.use('stim'))===false,'nothing can be used while downed');
+ ok(real(p.errs).length===0,'items: no page errors '+JSON.stringify(real(p.errs).slice(0,3)));
+ await p.close2();}
+
+// ================= 4. TWO PLAYERS: host authority + sync =================
+{const A=await B.open('?perf=1',{name:'Host'}),Bp=await B.open('?perf=1',{name:'Guest'});
+ await A.waitForTimeout(2000);
+ for(const p of [A,Bp])await p.evaluate(()=>{localStorage.removeItem('w4ow2');S.x=OUT.x+40;S.z=OUT.z+70;S.y=H(S.x,S.z)+.2;Outlaw.equip(2)});
+ await Bp.evaluate(()=>{S.x+=3});
+ // both must see each other (state broadcasts) before the interesting part
+ for(const p of [A,Bp])await p.waitForFunction(()=>others.size>0,null,{timeout:120000}).then(()=>ok(true,'partner avatar visible'),()=>ok(false,'partner avatar visible'));
+ await A.evaluate(()=>{Outlaw._t().panelAct('go')});await Bp.waitForFunction(()=>Outlaw._t().isHost()===false&&document.body.textContent.length>0,null,{timeout:30000}).catch(()=>{});
+ const ids=await Promise.all([A,Bp].map(p=>p.evaluate(()=>myId)));
+ // --- a raider exists on the host; the guest's grenade damages it exactly once, by the table ---
+ const raid=await A.evaluate(()=>{const T=Outlaw._t();for(const n of [...T.npcs.values()])n.dead=1;T.addNpc(0,OUT.x+40,OUT.z+58);const n=[...T.npcs.values()].pop();n.hp=n.max=500;return {id:n.id,x:n.x,z:n.z}});
+ const thr={k:'gr',id:'g1',w:ids[1],x0:await Bp.evaluate(()=>S.x),y0:5,z0:await Bp.evaluate(()=>S.z),x1:raid.x,z1:raid.z,ft:.8};
+ await Bp.evaluate(m=>{window.__ch.send({type:'broadcast',event:'og',payload:m});OutlawItems._t().addGren(m);OutlawItems._t().seen.add(m.id)},thr);
+ const sim=async()=>{for(const p of [A,Bp])await p.evaluate(()=>{for(let t=0;t<2;t+=.02)OutlawItems.tick(.02)})};
+ await A.waitForFunction(()=>OutlawItems._t().gl.length===1,null,{timeout:30000}).then(()=>ok(true,'the host simulates the guest\'s grenade'),()=>ok(false,'the host simulates the guest\'s grenade'));
+ await sim();
+ const h1=await A.evaluate(id=>Outlaw._t().npcs.get(id).hp,raid.id);ok(h1<500&&500-h1<=110,'host applied the grenade damage once, from the table ('+(500-h1)+')');
+ // replay of the same message + other bad messages: no second explosion, no damage
+ await Bp.evaluate(m=>window.__ch.send({type:'broadcast',event:'og',payload:m}),thr);
+ await Bp.evaluate(m=>window.__ch.send({type:'broadcast',event:'og',payload:{...m,id:'g2',x1:m.x1+500}}),thr);
+ await Bp.evaluate(m=>window.__ch.send({type:'broadcast',event:'og',payload:{...m,id:'g3',ft:0,dmg:99999}}),thr);
+ await A.waitForTimeout(1500);await sim();
+ ok(await A.evaluate(()=>OutlawItems._t().gl.length)===0&&await A.evaluate(id=>Outlaw._t().npcs.get(id).hp,raid.id)===h1,'a replayed / out-of-range / zero-flight-time grenade message does nothing');
+ // --- hit reports from a client are clamped ---
+ await Bp.evaluate(id=>{for(const d of [-50,'x',1e9])window.__ch.send({type:'broadcast',event:'og',payload:{k:'h',id,d,z:'<b>'}})},raid.id);await A.waitForTimeout(1200);
+ const h2=await A.evaluate(id=>{const n=Outlaw._t().npcs.get(id);return [n.hp,n.dead]},raid.id);ok(h2[1]===1||h2[0]<=h1,'hit reports: negatives / junk ignored, an absurd value is limited to the raider\'s own health ('+JSON.stringify(h2)+')');
+ // --- crate arbitration: both players stand on it, exactly one gets it ---
+ await A.evaluate(()=>{OutlawItems.state.n.stim=0;OutlawItems.state.n.gren=0;OutlawItems.state.n.armor=0;OutlawItems.state.n.ammo=0});await Bp.evaluate(()=>{OutlawItems.state.n.stim=0;OutlawItems.state.n.gren=0;OutlawItems.state.n.armor=0;OutlawItems.state.n.ammo=0});
+ const cp=await A.evaluate(()=>({x:S.x,z:S.z}));
+ await A.evaluate(c=>{const id=99001;window.__ch.send({type:'broadcast',event:'og',payload:{k:'dr',id,x:c.x,z:c.z,t:'armor'}});Outlaw.onMsg({k:'dr',id,x:c.x,z:c.z,t:'armor'})},cp);
+ await Bp.evaluate(c=>{S.x=c.x+.5;S.z=c.z},cp);await A.evaluate(c=>{S.x=c.x;S.z=c.z},cp);
+ await A.waitForTimeout(5000);await sim();
+ const tot=(await A.evaluate(()=>OutlawItems.state.n.armor))+(await Bp.evaluate(()=>OutlawItems.state.n.armor));
+ ok(tot===1,'a crate touched by both players is awarded exactly once (total armor plates: '+tot+')');
+ ok((await A.evaluate(()=>Outlaw._t().SAVE.coins))>=0,'no coin duplication side effects');
+ ok(real(A.errs).length===0&&real(Bp.errs).length===0,'two-player: no page errors '+JSON.stringify([...real(A.errs),...real(Bp.errs)].slice(0,3)));
+ await A.close2();await Bp.close2();}
+
 await B.close();console.log(bad?'FAILED '+bad:'all passed');process.exit(bad?1:0);

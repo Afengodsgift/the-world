@@ -46,6 +46,7 @@ const Outlaw=(()=>{
   while(SAVE.own.length<WEAPONS.length)SAVE.own.push(0);while(SAVE.lv.length<WEAPONS.length)SAVE.lv.push(0);
   FREE.forEach(i=>SAVE.own[i]=1);if(!SAVE.v||SAVE.v<3){SAVE.v=3;SAVE.coins+=500}
   if(SAVE.v<4){SAVE.v=4;SAVE.coins+=1000000} // one-time 1,000,000 coin grant (arsenal shopping spree) // arsenal update: welcome gift so the shop is worth a look
+  if(SAVE.v<5){SAVE.v=5;SAVE.items=Consumables.starter()}   // consumables update: a starter kit (1 stim, 2 frags, 1 ammo pack), once
   const save=()=>{try{localStorage.setItem('w4ow2',JSON.stringify(SAVE))}catch(e){}};
   const maxHp=()=>100+20*SAVE.hp,magOf=i=>Math.round(WEAPONS[i].mag*(1+.2*SAVE.mag)),dmgOf=i=>WEAPONS[i].d*(1+.18*SAVE.lv[i]),am=i=>ammo[i]===undefined?magOf(i):ammo[i];
   try{best=+localStorage.getItem('w4ow')||0}catch(e){}
@@ -99,6 +100,11 @@ const Outlaw=(()=>{
     OutlawArena.build({C,cover,solids,scene,send:o=>send(o),isHost,boom,sfx,spark,hurtMe:(d,x,z)=>hurt(d,x,z),
       dropAt:(x,z)=>{const id=nid++;send({k:'dr',id,x,z});addDrop(id,x,z)},
       aoeNpc:(x,z,rad,dmg)=>{for(const n of npcs.values()){if(n.dead)continue;const d=Math.hypot(n.x-x,n.z-z);if(d<rad+1)damageNpc(n.id,Math.max(1,Math.round(dmg*(1-d/(rad+1)))))}}}); // zones, breakable cover, train (src/games/OutlawArena.js)
+    OutlawItems.init({SAVE,save,S,H,scene,C,send:o=>send(o),isHost,partner,banner,popText,sfx,boom,updateHud:()=>updateHud(),
+      hp:()=>hp,setHp:v=>{hp=Math.min(maxHp(),v)},maxHp,down:()=>down,setScope:o=>setScope(o),hurt:(d,x,z)=>hurt(d,x,z),
+      cancelReload:()=>{reloading=false;updateHud()},ammoMissing:()=>reloading||WEAPONS.some((_,i)=>SAVE.own[i]&&am(i)<magOf(i)),
+      refillAmmo:()=>{reloading=false;for(let i=0;i<WEAPONS.length;i++)if(SAVE.own[i])ammo[i]=magOf(i)},
+      aimPoint:aimGround,coverBetween,npcs:()=>npcs.values(),damageNpc:(id,d,z)=>damageNpc(id,d,z),isBoss:n=>n.type===3||n.type===7,blast:(x,z,r,d)=>OutlawArena.blast(x,z,r,d)});   // consumables (src/games/OutlawItems.js)
   }
 
   // ---------- portals: town <-> Outlaw Isle ----------
@@ -163,6 +169,7 @@ const Outlaw=(()=>{
     case 'coin':tone(880,1320,.12,.15,'triangle');break;
     case 'boom':noise(260,.6,.7);tone(70,25,.5,.4,'sawtooth');break;
     case 'horn':tone(180,140,.7,.25,'sawtooth');break;
+    case 'armor':tone(1100,700,.07,.2,'square');noise(1500,.06,.2);break;   // a hit soaked by armor
     case 'heal':tone(500,900,.2,.15,'sine');break;}}
   function tracer(ax,ay,az,bx,by,bz,col){
     const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(ax,ay,az),new THREE.Vector3(bx,by,bz)]);
@@ -215,9 +222,9 @@ const Outlaw=(()=>{
     CameraRig.setZoom(z,on&&Scope.overlay(z));S.lookK=on?Scope.lookK(z):1;
     if(scopeEl){scopeEl.style.display=scopeLens()?'block':'none';scopeRng.textContent='';scopeEl.dataset.z=z>=4?z+'x':''}
     if(scopeBtn)scopeBtn.style.outline=on?'3px solid #ffd24a':'none';sfx('click');updateHud()}
-  function reload(){if(wi<0||reloading||am(wi)>=magOf(wi))return;if(scoped)setScope(false);reloading=true;reloadT=WEAPONS[wi].rl*(1-.12*SAVE.rl);sfx('reload');send({k:'rl',d:+reloadT.toFixed(2)});updateHud()}
+  function reload(){if(wi<0||reloading||OutlawItems.busy()||am(wi)>=magOf(wi))return;if(scoped)setScope(false);reloading=true;reloadT=WEAPONS[wi].rl*(1-.12*SAVE.rl);sfx('reload');send({k:'rl',d:+reloadT.toFixed(2)});updateHud()}
   function fire(){
-    if(wi<0||down||!camera||reloading)return;const W=WEAPONS[wi];if(cdT>0)return;
+    if(wi<0||down||!camera||reloading||OutlawItems.busy())return;const W=WEAPONS[wi];if(cdT>0)return;
     if(am(wi)<=0){reload();return}
     cdT=W.cd;ammo[wi]=am(wi)-1;
     lastNoise={x:S.x,z:S.z,t:clock/1000};   // raiders hear gunfire
@@ -277,6 +284,10 @@ const Outlaw=(()=>{
     let t=rayCover(o,camDir,range);
     for(const n of npcs.values()){if(n.dead||!n.group)continue;const h=zoneHit(o,camDir,t,n);if(h&&h.t<t)t=h.t}
     return o.addScaledVector(camDir,t)}
+  // where a thrown item lands: along the crosshair ray, the first terrain / cover / raider it meets (aimPoint alone ignores the ground)
+  function aimGround(range){camera.getWorldDirection(camDir);const P=aimPoint(range),o=camera.position,L=Math.hypot(P.x-o.x,P.y-o.y,P.z-o.z);
+    for(let t=1;t<L;t+=1){const x=o.x+camDir.x*t,y=o.y+camDir.y*t,z=o.z+camDir.z*t;if(y<=H(x,z)+.15)return new THREE.Vector3(x,y,z)}return P}
+  function coverBetween(ax,ay,az,bx,by,bz){const dx=bx-ax,dy=by-ay,dz=bz-az,L=Math.hypot(dx,dy,dz);if(L<.5)return false;return HitZones.coverT({x:ax,y:ay,z:az},{x:dx/L,y:dy/L,z:dz/L},L-.05,cover).c!==null}   // is solid cover between a blast and a body?
   function lockMarker(){
     const lk=wi>=0&&!down?lockTarget(WEAPONS[wi].rng):null;lockN=lk;
     if(!lockM){lockM=new THREE.Mesh(new THREE.RingGeometry(.55,.7,28),new THREE.MeshBasicMaterial({color:'#ff3030',depthTest:false,transparent:true,opacity:.9,side:THREE.DoubleSide}));lockM.renderOrder=10;lockM.visible=false;scene.add(lockM)}
@@ -287,9 +298,16 @@ const Outlaw=(()=>{
   function reportHit(id,d,zone){if(isHost())damageNpc(id,d,zone);else{const b=hitBuf[id]||(hitBuf[id]={d:0,z:zone});b.d+=d;if(zone==='head')b.z='head'}} // client hits are batched (flushed in tick)
   function damageNpc(id,d,zone){const n=npcs.get(id);if(!n||n.dead)return;n.hp-=d;n.flash=.12;n.lastZone=zone||'torso';n.lastHitAt=clock;n.rdmg=(n.rdmg||0)+d;n.stg=clock+(zone==='head'?520:260)*(HS[n.type]||1);if(n.type===1&&n.cd<.35)n.cd=.35;if(n.hp<=0)killNpc(n)}
   function earn(c){SAVE.coins+=c;save();sfx('coin');popText(S.x,S.y+2.6,S.z,'+'+c+' 🪙','#ffd24a');updateHud()}
-  function killNpc(n){n.dead=1;kills++;const c=Math.round(COIN[n.type]*DIFF[diff].coin*(1+wave*.03));send({k:'kill',c});earn(c);if(Math.random()<.16){const id=nid++;send({k:'dr',id,x:n.x,z:n.z});addDrop(id,n.x,n.z)}}
-  function addDrop(id,x,z){const m=new THREE.Mesh(new THREE.BoxGeometry(.6,.6,.6),new THREE.MeshStandardMaterial({color:'#2ecc71',emissive:'#1e9e55',emissiveIntensity:.8}));m.position.set(x,H(x,z)+.6,z);scene.add(m);drops.push({id,m,x,z})}
+  function killNpc(n){n.dead=1;kills++;const c=Math.round(COIN[n.type]*DIFF[diff].coin*(1+wave*.03));send({k:'kill',c});earn(c);if(Math.random()<.16){const id=nid++;send({k:'dr',id,x:n.x,z:n.z});addDrop(id,n.x,n.z)}
+    const it=Consumables.rollDrop(Math.random,n.type===3||n.type===7);if(it){const id=nid++,ox=n.x+1.2;send({k:'dr',id,x:ox,z:n.z,t:it});addDrop(id,ox,n.z,it)}}   // supply crate (host decides what is in it)
+  function addDrop(id,x,z,t){const it=Consumables.isItem(t)?t:null,m=it?OutlawItems.crate(it):new THREE.Mesh(new THREE.BoxGeometry(.6,.6,.6),new THREE.MeshStandardMaterial({color:'#2ecc71',emissive:'#1e9e55',emissiveIntensity:.8}));m.position.set(x,H(x,z)+.6,z);scene.add(m);drops.push({id,m,x,z,t:it,born:clock})}
+  function grantCrate(id,who){ // host only: remove the crate once, tell everyone who got it
+    const i=drops.findIndex(d=>d.id===id&&d.t);if(i<0)return;const d=drops[i];if(who!==myId&&!(partner()&&partner()[0]===who))return;scene.remove(d.m);drops.splice(i,1);send({k:'pk',id,to:who,t:d.t});if(who===myId)OutlawItems.award(d.t)}
   function dropTick(dt,t){for(let i=drops.length-1;i>=0;i--){const d=drops[i];d.m.rotation.y+=dt*2;d.m.position.y=H(d.x,d.z)+.7+Math.sin(t/300+i)*.15;
+    if(d.t){ // supply crate: the HOST decides who gets it (first valid request wins)
+      if(clock-d.born>60000){scene.remove(d.m);drops.splice(i,1);continue}
+      if(!down&&Math.hypot(S.x-d.x,S.z-d.z)<2.2&&OutlawItems.canTake(d.t)&&clock-(d.req||0)>900){d.req=clock;if(isHost())grantCrate(d.id,myId);else send({k:'pkq',id:d.id,w:myId})}
+      continue}
     if(!down&&Math.hypot(S.x-d.x,S.z-d.z)<2){hp=Math.min(maxHp(),hp+35);send({k:'pk',id:d.id});scene.remove(d.m);drops.splice(i,1);sfx('heal');popText(S.x,S.y+2.4,S.z,'+35 ❤️','#5dff8a');updateHud()}}}
 
   // ---------- player health ----------
@@ -300,14 +318,15 @@ const Outlaw=(()=>{
     const a=document.createElement('div');a.className='a'+(kind==='n'?' n':'');a.style.transform='rotate('+deg.toFixed(0)+'deg)';dirEl.appendChild(a);
     while(dirEl.childNodes.length>8)dirEl.removeChild(dirEl.firstChild);setTimeout(()=>{if(a.parentNode)a.parentNode.removeChild(a)},1700)}
   function hurt(d,fx_,fz_){
-    if(down)return;if(fx_!==undefined)dmgDir(fx_,fz_);hp-=d;S.hurt=.35;sfx('hurt');if(fx_!==undefined){const l=Math.hypot(S.x-fx_,S.z-fz_)||1;S.kx+=(S.x-fx_)/l*4;S.kz+=(S.z-fz_)/l*4}
+    if(down)return;if(fx_!==undefined)dmgDir(fx_,fz_);const raw=d;d=OutlawItems.absorb(d);hp-=d;S.hurt=d>0?.35:.12;sfx(d<raw?'armor':'hurt');   // armor soaks 70% of the hit first (src/combat/Consumables.js)
+    if(fx_!==undefined){const l=Math.hypot(S.x-fx_,S.z-fz_)||1;S.kx+=(S.x-fx_)/l*4;S.kz+=(S.z-fz_)/l*4}
     if(navigator.vibrate)navigator.vibrate(30);
-    if(hp<=0){hp=0;down=true;downT=6;if(scoped)setScope(false);
+    if(hp<=0){hp=0;down=true;downT=6;if(scoped)setScope(false);OutlawItems.reset();
       const c=GunLoco.ready()?GunLoco.deathClip(fx_!==undefined?GunLoco.wrap(Math.atan2(fx_-S.x,fz_-S.z)-S.rot):0,false,false):null;me.userData.gdn=c;   // fall away from whatever hit you (see GunLoco.deathClip)
       send({k:'dn',v:1,c});banner('You are down! Respawning…','OUTLAW TOWN')}
     updateHud();
   }
-  function respawn(){hp=maxHp();down=false;me.userData.gdn=null;S.x=C.x+(Math.random()-.5)*4;S.z=C.z+14;S.y=H(S.x,S.z)+.1;S.vy=0;send({k:'dn',v:0});updateHud()}
+  function respawn(){hp=maxHp();down=false;OutlawItems.reset();me.userData.gdn=null;S.x=C.x+(Math.random()-.5)*4;S.z=C.z+14;S.y=H(S.x,S.z)+.1;S.vy=0;send({k:'dn',v:0});updateHud()}
 
   // ---------- NPC visuals ----------
   function spawnVisual(n){
@@ -542,7 +561,7 @@ const Outlaw=(()=>{
   // ---------- UI ----------
   function updateHud(){
     if(!hudEl)return;hudEl.style.display=(wi>=0||active)?'block':'none';
-    const pc=Math.max(0,hp/maxHp()*100);hpEl.style.width=pc+'%';hpEl.style.background=pc>50?'#5be37d':pc>25?'#ffcc4d':'#ff5050';
+    const pc=Math.max(0,hp/maxHp()*100);hpEl.style.width=pc+'%';hpEl.style.background=pc>50?'#5be37d':pc>25?'#ffcc4d':'#ff5050';$('owar').style.width=OutlawItems.armorPct()+'%';
     $('owtxt').textContent=(wi>=0?WEAPONS[wi].n+' '+(reloading?'⏳ reloading':am(wi)+'/'+magOf(wi)):'Unarmed')+'  ·  🪙'+SAVE.coins+(active?'  ·  Wave '+wave+'  ·  ☠ '+kills+(mode==='defend'?'  ·  🏦 '+Math.round(bank.hp)+'/'+bank.max:''):'');
     xh.style.display=wi>=0&&!scopeLens()?'block':'none';if(scopeBtn)scopeBtn.style.display=wi>=0?'block':'none';fireBtn.style.display=wi>=0?'block':'none';fireBtn2.style.display=wi>=0?'block':'none';reloadBtn.style.display=wi>=0?'block':'none';$('owview').style.display=wi>=0?'block':'none';
   }
@@ -564,6 +583,8 @@ const Outlaw=(()=>{
     let h='<div class="gs-head"><h3>\u{1F52B} Gunsmith</h3><div class="coins">\u{1FA99} <b>'+SAVE.coins+'</b></div></div><div class="gs-hint">Switch guns with the \u{1F52B} button, or keys 1\u20139 / E</div>';
     WEAPONS.forEach((W,i)=>{if(!SAVE.own[i])h+=row('\u{1F512} '+W.n,W.mag+' rounds \u00B7 '+W.d+' dmg',bt('buyw',i,W.price,'Buy'),true);
       else{const L=SAVE.lv[i],c=Math.round(100*(L+1)*(1+i*.25));h+=row(W.n+' '+pips(L,5),Math.round(dmgOf(i))+' dmg \u00B7 '+magOf(i)+' mag',L>=5?'<span class="max">MAX</span>':bt('upw',i,c,'\u2B06'))}});
+    h+='<div class="gs-sec">Supplies <small style="opacity:.7">(hold up to the limit; raiders also drop crates)</small></div>';
+    for(const id of Consumables.ORDER){const I=Consumables.ITEMS,n=OutlawItems.count(id);h+=row(I[id].icon+' '+I[id].n+' <small>'+n+'/'+I[id].max+'</small>',I[id].sub,n>=I[id].max?'<span class="max">FULL</span>':bt('buyc',id,I[id].price,'Buy'))}
     h+='<div class="gs-sec">Upgrades</div>';
     for(const [k,t,sub,mx,base] of [['hp','❤️ Max Health','+20 HP',5,130],['mag','📦 Mag Size','+20% rounds',4,120],['rl','⚡ Fast Reload','−12% time',4,110],['crit','🎯 Crit Chance','+5%',5,140]]){const L=SAVE[k];h+=row(t+' '+pips(L,mx),sub,L>=mx?'<span class="max">MAX</span>':bt('ug',k,base*(L+1),'\u2B06'))}
     panel(h+'<div class="gs-foot"><button class="btn" data-a="x" data-v="">Close</button></div>')}
@@ -572,6 +593,7 @@ const Outlaw=(()=>{
     if(a==='m'){pick.m=v;missionPanel();return}if(a==='d'){pick.d=+v;missionPanel();return}
     if(a==='go'){closePanel();const m={k:'start',host:myId,mode:pick.m,diff:pick.d};send(m);onMsg(m);return}
     const spend=c=>SAVE.coins>=c?(SAVE.coins-=c,sfx('coin'),true):(banner('Not enough coins','GUNSMITH'),false);
+    if(a==='buyc'){if(Consumables.isItem(v))OutlawItems.buy(v);shopPanel();updateHud();return}
     if(a==='buyw'){const i=+v;if(!SAVE.own[i]&&spend(WEAPONS[i].price))SAVE.own[i]=1}
     else if(a==='upw'){const i=+v,L=SAVE.lv[i];if(L<5&&spend(Math.round(100*(L+1)*(1+i*.25))))SAVE.lv[i]++}
     else if(a==='ug'){const mx={hp:5,mag:4,rl:4,crit:5}[v],base={hp:130,mag:120,rl:110,crit:140}[v],L=SAVE[v];if(L<mx&&spend(base*(L+1))){SAVE[v]++;if(v==='hp')hp=maxHp()}}
@@ -582,7 +604,7 @@ const Outlaw=(()=>{
       +'#owxh{position:fixed;z-index:6;left:50%;top:50%;width:0;height:0;pointer-events:none;display:none;--g:4px;transition:transform .08s}#owxh i{position:absolute;background:#fff;box-shadow:0 0 2px #000;opacity:.92}#owxh i:nth-child(1){left:-1px;top:calc(-1*var(--g) - 8px);width:2px;height:8px}#owxh i:nth-child(2){left:-1px;top:var(--g);width:2px;height:8px}#owxh i:nth-child(3){top:-1px;left:calc(-1*var(--g) - 8px);height:2px;width:8px}#owxh i:nth-child(4){top:-1px;left:var(--g);height:2px;width:8px}#owxh:after{content:\"\";position:absolute;left:-1px;top:-1px;width:2px;height:2px;border-radius:50%;background:#fff;box-shadow:0 0 2px #000}#owxh.hit i{background:#ff5a4e}#owxh.crit{transform:scale(1.4)}#owxh.crit i{background:#ffd24a}'
       +'.owb{position:fixed;z-index:5;border-radius:50%;border:0;color:#fff;font-size:26px}#owfire{right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 232px);width:78px;height:78px;background:#e0443ecc;display:none;touch-action:none}#owfire2{left:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 232px);width:78px;height:78px;background:#e0443ecc;display:none;touch-action:none}#owview{right:264px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#bfe3ffcc}#owshop{right:200px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#ffd24acc}#owrl{right:136px;bottom:calc(env(safe-area-inset-bottom,0px) + 208px);width:56px;height:56px;background:#ffffffcc}#owscope{right:136px;bottom:calc(env(safe-area-inset-bottom,0px) + 276px);width:56px;height:56px;background:#9ad7ffcc;display:none}#owdir{position:fixed;inset:0;pointer-events:none;z-index:7}#owdir .a{position:absolute;left:50%;top:50%;width:0;height:0;animation:owdf 1.6s ease-out forwards}#owdir .a:before{content:"";position:absolute;left:-80px;top:-37vh;width:160px;height:30px;border-radius:50%;background:radial-gradient(ellipse at center,rgba(255,40,30,.95),rgba(255,40,30,0) 70%)}#owdir .a.n:before{background:radial-gradient(ellipse at center,rgba(255,205,70,.9),rgba(255,205,70,0) 70%);height:22px}@keyframes owdf{0%{opacity:1}100%{opacity:0}}#owsc{position:fixed;inset:0;z-index:4;pointer-events:none;display:none;background:radial-gradient(circle at 50% 50%,transparent 0,transparent 42vh,rgba(0,0,0,.97) 42.7vh)}#owsc:before,#owsc:after{content:"";position:absolute;background:#000}#owsc:before{left:50%;top:calc(50% - 42vh);width:1.5px;height:84vh;transform:translateX(-50%)}#owsc:after{top:50%;left:calc(50% - 42vh);height:1.5px;width:84vh;transform:translateY(-50%)}#owsc i{position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px;border-radius:50%;background:#e8372c}#owsc b{position:absolute;left:50%;top:calc(50% + 34vh);transform:translateX(-50%);color:#fff;font:700 15px system-ui;text-shadow:0 0 4px #000;letter-spacing:.5px}#owsc em{position:absolute;left:calc(50% - 40vh);top:calc(50% - 3px);color:#ddd;font:700 11px system-ui;font-style:normal}#owgun{right:200px;bottom:calc(env(safe-area-inset-bottom,0px) + 144px);width:56px;height:56px;background:#ffffffcc}';
     document.head.appendChild(st);
-    hudEl=document.createElement('div');hudEl.id='owhud';hudEl.innerHTML='<div class="bar"><div id="owhp" style="width:100%"></div></div><div id="owtxt"></div>';document.body.appendChild(hudEl);hpEl=$('owhp');
+    hudEl=document.createElement('div');hudEl.id='owhud';hudEl.innerHTML='<div class="bar"><div id="owhp" style="width:100%"></div></div><div class="bar ar"><div id="owar" style="width:0"></div></div><div id="owtxt"></div>';document.body.appendChild(hudEl);hpEl=$('owhp');OutlawItems.armorBar($('owar'));OutlawItems.ui();
     xh=document.createElement('div');xh.id='owxh';xh.innerHTML='<i></i><i></i><i></i><i></i>';document.body.appendChild(xh);
     fireBtn=document.createElement('button');fireBtn.id='owfire';fireBtn.className='owb';fireBtn.textContent='🔥';document.body.appendChild(fireBtn);
     // second fire button for the LEFT thumb (shown on Outlaw Isle while armed): same hold-to-fire + drag-to-aim, so you can fire with either thumb
@@ -616,7 +638,7 @@ const Outlaw=(()=>{
   }
 
   // ---------- messages ----------
-  function stopGame(){active=false;if(scoped)setScope(false);OutlawArena.reset();for(const n of npcs.values())removeVisual(n);npcs.clear();for(const d of drops)scene.remove(d.m);drops=[];for(const e of dyn){scene.remove(e.m);scene.remove(e.r)}dyn=[];updateHud()}
+  function stopGame(){active=false;if(scoped)setScope(false);OutlawItems.reset(true);OutlawArena.reset();for(const n of npcs.values())removeVisual(n);npcs.clear();for(const d of drops)scene.remove(d.m);drops=[];for(const e of dyn){scene.remove(e.m);scene.remove(e.r)}dyn=[];updateHud()}
   function onMsg(p){
     if(!p)return;
     if(p.k==='cv'||p.k==='cb'||p.k==='fr'||p.k==='rs'){OutlawArena.onMsg(p);return}
@@ -626,7 +648,8 @@ const Outlaw=(()=>{
       case 'end':stopGame();if(p.msg)banner(p.msg,'SHOWDOWN');break;
       case 'win':earn(p.c);stopGame();banner('BANK DEFENDED! +'+p.c+' 🪙','VICTORY');sfx('horn');break;
       case 'n':if(!isHost())applySnap(p);break;
-      case 'h':if(isHost())damageNpc(p.id,p.d,p.z);break;
+      case 'h':if(isHost()){const n=npcs.get(p.id),v=Consumables.hitOk(p,n);if(v)damageNpc(p.id,v.d,v.z)}break;   // clamp to what the raider has, whitelist the zone
+      case 'ci':case 'gr':OutlawItems.onMsg(p);break;
       case 'hurt':if(p.to===myId)hurt(p.d,p.x,p.z);break;
       case 'dn':{pdown=!!p.v;const pr=partner();if(pr)pr[1].group.userData.gdn=p.v&&typeof p.c==='string'&&/^d_[a-z_]{2,12}$/.test(p.c)?p.c:null;break}   // the partner falls / gets up (only known clip names are used)
       case 'wv':if(p.n>0){banner('Wave '+p.n+(p.n%3===0?' · BOSS!':''),'OUTLAW TOWN');sfx('horn')}else if(p.n===-1&&!isHost())banner('Wiped out! Retrying…','OUTLAW TOWN');break;
@@ -635,8 +658,9 @@ const Outlaw=(()=>{
       case 'rl':{const pr=partner();if(pr&&p.d>0){const u=pr[1].group.userData;u.rlD=u.rlT=Math.min(4,p.d)}break}   // partner reload (visual only)
       case 'kill':earn(p.c);break;
       case 'wc':earn(p.c);banner('Wave cleared! +'+p.c+' 🪙','OUTLAW TOWN');break;
-      case 'dr':addDrop(p.id,p.x,p.z);break;
-      case 'pk':{const i=drops.findIndex(d=>d.id===p.id);if(i>=0){scene.remove(drops[i].m);drops.splice(i,1)}break}
+      case 'dr':if(Number.isFinite(p.x)&&Number.isFinite(p.z))addDrop(p.id,p.x,p.z,p.t);break;
+      case 'pk':{const i=drops.findIndex(d=>d.id===p.id);if(i>=0){scene.remove(drops[i].m);drops.splice(i,1)}if(p.to===myId&&Consumables.isItem(p.t))OutlawItems.award(p.t);break}
+      case 'pkq':if(isHost())grantCrate(p.id,p.w);break;
       case 'dy':addDyn(p);break;
       case 'hl':{const a=npcs.get(p.a),b=npcs.get(p.b);if(a&&b)healBeam(a,b);break}
       case 'f':{const e=p.e||[0,0,0];if(!p.ai&&WEAPONS[p.w]&&WEAPONS[p.w].rocket)boom(e[0],e[2],5);if(!p.ai){const pr=partner();if(pr)pr[1].group.userData.recoil=1}tracer(p.m[0],p.m[1],p.m[2],e[0],e[1],e[2],p.ai?'#ff9a7a':'#ffe9a0');if(p.ai)sfxAt('enemy',p.m[0],p.m[2]);else{lastNoise={x:p.m[0],z:p.m[2],t:clock/1000};sfx((WEAPONS[p.w]||WEAPONS[0]).snd)}break}
@@ -657,7 +681,7 @@ const Outlaw=(()=>{
     prev.vx=(S.x-prev.x)/Math.max(dt,.001);prev.vz=(S.z-prev.z)/Math.max(dt,.001);prev.x=S.x;prev.z=S.z;
     const p=partner();if(p){const g=p[1].group.position;pprev.vx=(g.x-pprev.x)/Math.max(dt,.001);pprev.vz=(g.z-pprev.z)/Math.max(dt,.001);pprev.x=g.x;pprev.z=g.z;if(p[1].group.userData.gunI!==pw)setGun(p[1].group,pw)}
     if(clock-lastH>100){lastH=clock;for(const id in hitBuf){send({k:'h',id:+id,d:hitBuf[id].d,z:hitBuf[id].z});delete hitBuf[id]}}
-    cdT-=dt;hitT=Math.max(0,hitT-dt);critT=Math.max(0,critT-dt);bloom=Math.max(0,bloom-dt*.9);xSp=bloom*12+(wi>=0&&WEAPONS[wi].pel>1?6:0);if(xh){xh.className=hitT>0?(critT>0?'crit':'hit'):'';xh.style.setProperty('--g',(4+xSp+Math.min(3,Math.hypot(prev.vx,prev.vz)*.35))+'px')} // reticle: opens with recoil and movement, flashes on a hit
+    OutlawItems.tick(dt);cdT-=dt;hitT=Math.max(0,hitT-dt);critT=Math.max(0,critT-dt);bloom=Math.max(0,bloom-dt*.9);xSp=bloom*12+(wi>=0&&WEAPONS[wi].pel>1?6:0);if(xh){xh.className=hitT>0?(critT>0?'crit':'hit'):'';xh.style.setProperty('--g',(4+xSp+Math.min(3,Math.hypot(prev.vx,prev.vz)*.35))+'px')} // reticle: opens with recoil and movement, flashes on a hit
     if(firing)fire();
     lockMarker();
     // a weapon is out (and you're not swimming): CameraRig picks first-person or shoulder view; Viewmodel draws the arms + gun
@@ -667,9 +691,9 @@ const Outlaw=(()=>{
       let ap=Math.atan2(tp.y-(S.y+1.3),Math.hypot(tp.x-S.x,tp.z-S.z)),face=Math.atan2(camDir.x,camDir.z);
       if(armed){S.rot=lerpAngle(S.rot,face,1-Math.exp(-18*dt));me.rotation.y=S.rot}  // the body always faces the crosshair
       me.userData.aimP=Math.max(-.7,Math.min(.7,ap))}
-    Viewmodel.update(dt,{vis:CameraRig.isFPS()&&wi>=0&&!down&&!scopeLens(),wi,len:wi>=0?WEAPONS[wi].len:.5,reload:reloading&&wi>=0?1-reloadT/(WEAPONS[wi].rl*(1-.12*SAVE.rl)):-1});
+    Viewmodel.update(dt,{vis:CameraRig.isFPS()&&wi>=0&&!down&&!scopeLens(),wi,len:wi>=0?WEAPONS[wi].len:.5,reload:reloading&&wi>=0?1-reloadT/(WEAPONS[wi].rl*(1-.12*SAVE.rl)):OutlawItems.useProgress()});
     if(reloading){reloadT-=dt;if(reloadT<=0){reloading=false;if(wi>=0)ammo[wi]=magOf(wi);updateHud()}}
-    me.userData.rl=reloading&&wi>=0?1-Math.max(0,reloadT)/(WEAPONS[wi].rl*(1-.12*SAVE.rl)):-1;
+    me.userData.rl=reloading&&wi>=0?1-Math.max(0,reloadT)/(WEAPONS[wi].rl*(1-.12*SAVE.rl)):OutlawItems.useProgress();   // using an item reuses the reload arm dip
     if(p){const u=p[1].group.userData;if(u.rlT>0){u.rlT-=dt;u.rl=1-Math.max(0,u.rlT)/u.rlD}else u.rl=-1}
     dropTick(dt,t);dynTick(dt);
     if(down){downT-=dt;if(downT<=0)respawn()}
@@ -680,7 +704,7 @@ const Outlaw=(()=>{
   // Armed on Outlaw Isle you move at ARMED_SPEED of the shared walking speed (a 12 m/s sprint with a rifle outruns every raider and no gait clip can match it without skating); a downed player cannot move.
   // index.html multiplies this into the ground speed. 1 everywhere else (flying, swimming, other islands, unarmed).
   const ARMED_SPEED=.75;
-  function moveMul(){if(down)return 0;if(wi<0||!C||S.flying||S.dv||S.state==='swim')return 1;return Math.hypot(S.x-C.x,S.z-C.z)<OUT.R?ARMED_SPEED:1}
+  function moveMul(){if(down)return 0;const im=OutlawItems.moveMul();if(wi<0||!C||S.flying||S.dv||S.state==='swim')return im;return (Math.hypot(S.x-C.x,S.z-C.z)<OUT.R?ARMED_SPEED:1)*im}
   Interaction.register('ow-start','Start Showdown',()=>C&&!active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>missionPanel());
   Interaction.register('ow-end','End Showdown',()=>C&&active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>{send({k:'end'});onMsg({k:'end'})});
   return {build,tick,onMsg,equip,fire,lockTarget,poseGun,loadGun,moveMul,ARMED_SPEED,_t:()=>({get lastShot(){return lastShot},dmgDir,get hp(){return hp},get huntOn(){return huntOn},WEAPONS,get wave(){return wave},get queueLen(){return queue.length},get nextWave(){return nextWave},damageNpc,cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};

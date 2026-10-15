@@ -33,3 +33,14 @@ body.ow-scope #boost,
 body.ow-scope #use,
 body.ow-scope #smack,
 body.ow-scope #banner{display:none!important}
+
+/* consumables (src/games/OutlawItems.js): a four-button strip under the health pill, top-left: clear of both thumbs, the crosshair and the fire buttons. Hidden while scoped. */
+#owitems{position:fixed;z-index:5;left:calc(var(--sl,0px) + 12px);top:calc(var(--st,0px) + 72px);display:none;gap:6px;touch-action:none}
+body.ow-isle #owitems{display:flex}
+body.ow-isle.ow-reveal #owitems{top:calc(var(--st,0px) + 112px)}
+body.ow-scope #owitems{display:none!important}
+.owi{position:relative;width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(20,28,40,.62);color:#fff;font-size:21px;padding:0;touch-action:none}
+.owi span{pointer-events:none}.owi.off{opacity:.4}.owi.act{border-color:rgba(255,210,74,1);box-shadow:0 0 8px rgba(255,210,74,.6)}
+.owi b{position:absolute;right:-3px;bottom:-3px;min-width:18px;height:18px;border-radius:9px;background:#ffd24a;color:#1b1b1b;font:700 11px/18px system-ui;text-align:center;pointer-events:none}
+.owi i{position:absolute;inset:0;border-radius:50%;background:conic-gradient(rgba(0,0,0,.62) calc(var(--cd,0)*360deg),transparent 0);pointer-events:none}
+#owhud .bar.ar{height:5px;margin-top:-1px}#owar{height:100%;background:#7fc4ff}

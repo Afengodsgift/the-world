@@ -6,7 +6,7 @@ let bad=0;const ok=(c,m)=>{console.log((c?'ok ':'FAIL ')+m);if(!c)bad++};
 ok(/href="src\/ui\/outlaw-hud\.css"/.test(html),'index.html links outlaw-hud.css');
 // every #id / .dk-* selector used by the CSS exists somewhere in the code
 const ids=[...new Set([...css.matchAll(/#([a-zA-Z][\w-]*)/g)].map(m=>m[1]))];
-const all=html+ow+R('src/ui/Theme.js')+R('src/ui/Journal.js')+R('src/ui/WorldMap.js')+R('src/world/Environment.js')+R('src/interaction/Link.js');
+const all=html+ow+R('src/ui/Theme.js')+R('src/ui/Journal.js')+R('src/ui/WorldMap.js')+R('src/world/Environment.js')+R('src/interaction/Link.js')+R('src/games/OutlawItems.js');
 for(const id of ids)ok(new RegExp("id=\"?'?"+id+"|\\.id=['\"]"+id+"|\\$\\(['\"]"+id+"['\"]\\)|getElementById\\(['\"]"+id+"|'"+id+"'").test(all)||new RegExp('#'+id+'\\b').test(html),'#'+id+' (used in outlaw-hud.css) exists in the code');
 for(const c of ['dk-wx','dk-jrn','dk-map','dk-owm'])ok(all.includes(c),'.'+c+' exists in the code');
 // second fire button
