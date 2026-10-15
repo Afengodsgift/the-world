@@ -27,6 +27,11 @@ const Moves={
   // ---- gap closers (used from range, so a kiting player is not safe): long tell, long recovery ----
   dash:{id:'dash',who:'D',dmg:20,pdmg:18,hs:5,stun:22,kb:.8,reach:2.4,w:.12,phases:[ph('windup',16),ph('lunge',12,{move:3.4}),ph('active',5,{seg:0,a0:.8,a1:-.8}),ph('recovery',32)]},
   leap:{id:'leap',who:'D',dmg:34,pdmg:30,hs:7,stun:28,kb:1.2,reach:3.0,w:.15,phases:[ph('raise',22),ph('lunge',14,{move:4.6}),ph('active',6,{seg:0,a0:.3,a1:-.3}),ph('recovery',50)]},
+  // ---- ranged / magic (effects, see CombatCore): a long visible cast, then the effect; nothing here is a sword arc ----
+  orb:{id:'orb',who:'D',dmg:16,pdmg:14,hs:4,stun:20,kb:.6,reach:12,w:0,fx:[{on:'release',k:'proj',spd:.2,life:90,r:.5,off:.9}],phases:[ph('cast',30),ph('release',2),ph('recovery',34)]},          // slow magic orb: sidestep it or block it
+  bolt:{id:'bolt',who:'D',dmg:14,pdmg:12,hs:4,stun:18,kb:.5,reach:16,w:0,fx:[{on:'release',k:'proj',spd:.36,life:70,r:.4,off:.9}],phases:[ph('cast',24),ph('release',2),ph('recovery',30)]},            // arrow: fast, long range, long draw
+  quake:{id:'quake',who:'D',dmg:30,pdmg:26,hs:7,stun:26,kb:1.4,reach:4.2,w:0,fx:[{on:'start',k:'aoe',at:'self',r:4.2,delay:40,dur:3}],phases:[ph('windup',38),ph('release',2),ph('recovery',52)]},   // giant's stomp: the ring shows on the ground first; leave it or dodge through it
+  rain:{id:'rain',who:'D',dmg:22,pdmg:20,hs:5,stun:22,kb:.8,reach:14,w:0,fx:[{on:'start',k:'aoe',at:'target',r:3,delay:52,dur:3}],phases:[ph('windup',50),ph('release',2),ph('recovery',30)]},       // a strike called down on where you stood when the cast began
   riposte:{id:'riposte',who:'D',dmg:16,pdmg:14,hs:5,stun:20,kb:.6,reach:2.4,w:.12,phases:[ph('startup',20),ph('active',4,{seg:0,a0:.5,a1:-.5}),ph('recovery',24)]},
 };
 // expand a move into concrete phases (hold ticks decided at start, clamped to HOLD_MAX)

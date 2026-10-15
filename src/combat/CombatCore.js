@@ -2,11 +2,14 @@
 // Driven by commands, emits events. Order of work in step(): (1) consume buffered commands, (2) snapshot positions, (3) root motion in <=0.1 m sub-steps with circle collision,
 // (4) hit tests against the SNAPSHOT (so fighter order cannot matter), (5) resolve outcomes + emit events, (6) advance counters. A hit-stop freezes everything (counters, i-frames, deflect window) and buffers commands.
 // Facing convention: angle th -> direction (sin th, cos th) in (x,z).
+// TEAMS: a fighter may have `team`; same-team fighters never hurt each other (melee, projectiles, area bursts). EFFECTS (C.fx): moves can carry `fx:[{on:'start'|'release',k:'proj'|'aoe',...}]` -
+//   proj = a travelling bolt (blockable/deflectable, dodgeable, stopped by solids), aoe = a ground circle that telegraphs for `delay` ticks and then bursts for `dur` ticks (unblockable, dodgeable by i-frames or by leaving it).
+//   They resolve through the same outcome list as sword hits, so hit-stop freezes them and every event keeps its shape (hit/block/deflect/dodged/dead).
 const CombatCore=(()=>{
   const SPEED=.05,SUBM=.1,GUARD_ARC=1.2,REARM=14,DEFL=7,BUF=6;
   function mkFighter(id,o){o=o||{};return{id,x:o.x||0,z:o.z||0,y:0,r:.45,face:o.face||0,hp:o.hp||100,hpMax:o.hp||100,st:100,stMax:100,po:0,poMax:100,
-    act:'free',pt:0,ph:null,pi:0,pk:0,mv:null,hold:0,done:{},sk:null,stun:0,kx:0,kz:0,kr:0,dir:null,guard:false,gpt:99,rel:99,sr:99,pr:99,c:0,rel2:false,buf:null,q:[],ex:0,ez:0,lc:0,lcT:-999,dEnd:-999}}
-  function create(o){o=o||{};const C={tick:0,hs:0,ev:[],F:{},solids:(o.solids||[]).slice(),arena:o.arena||{x:0,z:0,R:1e9},order:[]};
+    team:o.team||null,act:'free',pt:0,ph:null,pi:0,pk:0,mv:null,hold:0,done:{},sk:null,stun:0,kx:0,kz:0,kr:0,dir:null,guard:false,gpt:99,rel:99,sr:99,pr:99,c:0,rel2:false,buf:null,q:[],ex:0,ez:0,lc:0,lcT:-999,dEnd:-999}}
+  function create(o){o=o||{};const C={tick:0,hs:0,ev:[],fx:[],fxN:0,F:{},solids:(o.solids||[]).slice(),arena:o.arena||{x:0,z:0,R:1e9},order:[]};
     C.add=(id,fo)=>{C.F[id]=mkFighter(id,fo);C.order.push(id);return C.F[id]};
     C.step=cmds=>step(C,cmds||{});return C}
   const emit=(C,t,a,d,x)=>{const e=Object.assign({tk:C.tick,t,a,d},x||{});C.ev.push(e);return e};
@@ -22,7 +25,17 @@ const CombatCore=(()=>{
   function addPo(C,f,v){if(f.act==='dead')return;f.po=Math.min(f.poMax,f.po+v);f.pr=0;
     if(f.po>=f.poMax&&!(f.act==='stun'&&f.sk==='stagger')){f.po=0;stunF(f,60,'stagger');emit(C,'posturebreak',null,f.id)}}
   function stunF(f,n,kind){f.act='stun';f.sk=kind;f.stun=n;f.guard=false;f.ph=null;f.mv=null;f.buf=null;f.rel2=false;f.c=0}
-  function startMove(C,f,id,hold){const m=Moves[id];f.act='attack';f.mv=m;f.ph=Moves.expand(id,hold);f.hold=hold|0;f.pi=0;f.pk=0;f.pt=0;f.done={};f.guard=false;if(m.stam)spend(f,m.stam);emit(C,'start',f.id,null,{move:id});skipEmpty(f)}
+  function startMove(C,f,id,hold){const m=Moves[id];f.act='attack';f.mv=m;f.ph=Moves.expand(id,hold);f.hold=hold|0;f.pi=0;f.pk=0;f.pt=0;f.done={};f.guard=false;if(m.stam)spend(f,m.stam);emit(C,'start',f.id,null,{move:id});
+    if(m.fx)for(const d of m.fx)if(d.on==='start')spawnFx(C,f,d);skipEmpty(f)}
+  const enemyOf=(a,t)=>t!==a&&t.act!=='dead'&&!(a.team&&t.team===a.team);
+  function nearestFoe(C,a){let best=null,bd=1e9;for(const id of C.order){const t=C.F[id];if(!enemyOf(a,t))continue;const d=Math.hypot(t.x-a.x,t.z-a.z);if(d<bd){bd=d;best=t}}return best}
+  // effects: spawned by startMove (on:'start') or when a `release` phase begins (on:'release'). The projectile/zone keeps the move's damage numbers unless the effect overrides them.
+  function spawnFx(C,a,d){const t=nearestFoe(C,a),m=a.mv||{},id=++C.fxN;
+    const mv={id:(m.id||'fx'),dmg:d.dmg!==undefined?d.dmg:m.dmg,pdmg:d.pdmg!==undefined?d.pdmg:m.pdmg,hs:d.hs!==undefined?d.hs:m.hs,stun:d.stun!==undefined?d.stun:m.stun,kb:d.kb!==undefined?d.kb:m.kb,reach:0,w:0};
+    const fx={id,o:a.id,team:a.team,k:d.k,x:a.x,z:a.z,dx:0,dz:0,spd:0,r:d.r||.5,life:d.life||60,delay:d.delay||0,dur:d.dur||3,live:false,done:{},mv};
+    if(d.k==='proj'){let dx=Math.sin(a.face),dz=Math.cos(a.face);if(d.aim!=='face'&&t){const L=Math.hypot(t.x-a.x,t.z-a.z)||1;dx=(t.x-a.x)/L;dz=(t.z-a.z)/L}fx.dx=dx;fx.dz=dz;fx.x=a.x+dx*(d.off||.8);fx.z=a.z+dz*(d.off||.8);fx.spd=d.spd||.25}
+    else{const at=d.at||'self';if(at==='target'&&t){fx.x=t.x;fx.z=t.z}else if(at==='ahead'){fx.x=a.x+Math.sin(a.face)*(d.d||3);fx.z=a.z+Math.cos(a.face)*(d.d||3)}}
+    C.fx.push(fx);emit(C,'fx',a.id,null,{fid:id,k:fx.k,x:fx.x,z:fx.z,dx:fx.dx,dz:fx.dz,r:fx.r,delay:fx.delay,dur:fx.dur,move:mv.id});return fx}
   function skipEmpty(f){while(f.act==='attack'&&f.ph[f.pi]&&f.pk>=f.ph[f.pi].n){f.pi++;f.pk=0}if(f.act==='attack'&&f.pi>=f.ph.length)f.act='free'}
   const recT=f=>{if(!f.ph||f.act!=='attack')return -1;const p=f.ph[f.pi];return p&&p.k==='recovery'?f.pk:-1};
   function canCancel(f,to){const r=recT(f);if(r<0||!f.mv||!f.mv.cancel)return false;const t=f.mv.cancel[to];return t!==undefined&&r>=t}
@@ -57,10 +70,27 @@ const CombatCore=(()=>{
       else if(f.act==='attack'){const p=f.ph[f.pi];if(p&&p.move){const d=p.move/p.n,[fx,fz]=faceV(f);moveBy(C,f,fx*d,fz*d)}}
       else if(f.act==='dodge'){const D=Moves.dodge,i=f.pt-D.rootT0;if(i>=0&&i<Moves.dodgeRoot.length)moveBy(C,f,f.dir[0]*Moves.dodgeRoot[i],f.dir[1]*Moves.dodgeRoot[i])}
       if(f.kr>0){const s=Math.min(f.kr,.12);f.kr-=s;moveBy(C,f,f.kx*s,f.kz*s)}}
-    // (4) hit tests on the snapshot
+    // (3b) effects: `release` phases fire their effects on the first tick; live effects move / burst and add to the same outcome list as the sword
+    for(const aid of C.order){const a=C.F[aid];if(a.act!=='attack'||!a.mv||!a.mv.fx)continue;const p=a.ph[a.pi];if(p&&p.k==='release'&&a.pk===0)for(const d of a.mv.fx)if(d.on==='release')spawnFx(C,a,d)}
     const out=[];
+    if(C.fx.length)C.fx=C.fx.filter(fx=>{const own=C.F[fx.o]||{id:fx.o,team:fx.team},foes=C.order.map(i=>C.F[i]).filter(t=>t.act!=='dead'&&!(fx.team&&t.team===fx.team)&&t.id!==fx.o);
+      const iframe=t=>t.act==='dodge'&&t.pt>=Moves.dodge.iStart&&t.pt<=Moves.dodge.iEnd;
+      if(fx.k==='proj'){fx.x+=fx.dx*fx.spd;fx.z+=fx.dz*fx.spd;fx.life--;
+        for(const s of C.solids){if(s.nb&&!s.wall)continue;if(Math.hypot(fx.x-s.x,fx.z-s.z)<s.r){emit(C,'fxend',fx.o,null,{fid:fx.id,why:'wall',x:fx.x,z:fx.z});return false}}
+        for(const t of foes){if(fx.done[t.id]||Math.hypot(t.x-fx.x,t.z-fx.z)>=fx.r+t.r)continue;fx.done[t.id]=true;
+          if(iframe(t)){out.push({k:'dodged',a:own,t,fx:fx.id});continue}
+          const br=Math.atan2(-fx.dx,-fx.dz);out.push({k:t.guard&&t.act==='free'&&SwordHit.angd(t.face,br)<=GUARD_ARC?(t.gpt<=DEFL?'deflect':'block'):'hit',a:own,t,mv:fx.mv,br,fx:fx.id});
+          emit(C,'fxend',fx.o,t.id,{fid:fx.id,why:'hit',x:fx.x,z:fx.z});return false}
+        if(fx.life<=0){emit(C,'fxend',fx.o,null,{fid:fx.id,why:'expire',x:fx.x,z:fx.z});return false}return true}
+      if(fx.delay>0){fx.delay--;return true}
+      if(!fx.live){fx.live=true;emit(C,'fxburst',fx.o,null,{fid:fx.id,x:fx.x,z:fx.z,r:fx.r})}
+      for(const t of foes){if(fx.done[t.id]||Math.hypot(t.x-fx.x,t.z-fx.z)>=fx.r+t.r*.5)continue;fx.done[t.id]=true;
+        if(iframe(t)){out.push({k:'dodged',a:own,t,fx:fx.id});continue}
+        out.push({k:'hit',a:own,t,mv:fx.mv,br:Math.atan2(fx.x-t.x,fx.z-t.z),fx:fx.id})}
+      if(--fx.dur<=0){emit(C,'fxend',fx.o,null,{fid:fx.id,why:'done',x:fx.x,z:fx.z});return false}return true});
+    // (4) hit tests on the snapshot
     for(const aid of C.order){const a=C.F[aid];if(a.act!=='attack')continue;const p=a.ph[a.pi];if(!p||p.k!=='active'||a.done[p.seg])continue;
-      for(const tid of C.order){if(tid===aid)continue;const t=C.F[tid];if(t.act==='dead')continue;
+      for(const tid of C.order){if(tid===aid)continue;const t=C.F[tid];if(t.act==='dead'||(a.team&&t.team===a.team))continue;
         const hit=SwordHit.tickHits(snap[aid],a.face,a.mv,p,a.pk,p.n,snap[tid],C.solids,a.y,t.y);if(!hit)continue;
         if(t.act==='dodge'&&t.pt>=Moves.dodge.iStart&&t.pt<=Moves.dodge.iEnd){out.push({k:'dodged',a,t,seg:p.seg});continue}
         const br=Math.atan2(snap[aid].x-snap[tid].x,snap[aid].z-snap[tid].z);
@@ -70,11 +100,11 @@ const CombatCore=(()=>{
     let hs=0;const stag0={};for(const id of C.order)stag0[id]=C.F[id].act==='stun'&&C.F[id].sk==='stagger';
     for(const o of out){const{a,t,mv}=o;
       if(o.k==='dodged'){emit(C,'dodged',a.id,t.id,{seg:o.seg});continue}
-      a.done[o.seg]=true;const sc=a.mv&&a.mv.id==='heavy'?1+.5*(a.chg||0):1;
-      if(o.k==='deflect'){addPo(C,a,mv.pdmg*1.6);addPo(C,t,mv.pdmg*.15);if(a.act==='attack')stunF(a,16,'recoil');emit(C,'deflect',a.id,t.id,{seg:o.seg});hs=Math.max(hs,5)}
+      if(!o.fx)a.done[o.seg]=true;const sc=!o.fx&&a.mv&&a.mv.id==='heavy'?1+.5*(a.chg||0):1;
+      if(o.k==='deflect'){if(!o.fx){addPo(C,a,mv.pdmg*1.6);if(a.act==='attack')stunF(a,16,'recoil')}addPo(C,t,mv.pdmg*.15);emit(C,'deflect',a.id,t.id,{seg:o.seg});hs=Math.max(hs,5)}
       else if(o.k==='block'){t.st=Math.max(0,t.st-mv.dmg*.8*sc);t.sr=0;addPo(C,t,mv.pdmg*.7*sc);emit(C,'block',a.id,t.id,{seg:o.seg});hs=Math.max(hs,3);
         if(t.st<=0&&t.act==='free'){stunF(t,45,'stagger');emit(C,'guardbreak',a.id,t.id)}}
-      else{const crit=stag0[t.id]?2.5:1,dm=mv.dmg*sc*crit;t.hp=Math.max(0,t.hp-dm);t.pr=0;emit(C,'hit',a.id,t.id,{seg:o.seg,dmg:dm,crit:crit>1});hs=Math.max(hs,mv.hs);
+      else{const crit=stag0[t.id]?2.5:1,dm=mv.dmg*sc*crit;t.hp=Math.max(0,t.hp-dm);t.pr=0;emit(C,'hit',a.id,t.id,{seg:o.seg,dmg:dm,crit:crit>1,fx:o.fx});hs=Math.max(hs,mv.hs);
         if(t.hp<=0){t.act='dead';t.guard=false;t.ph=null;t.mv=null;emit(C,'dead',a.id,t.id)}
         else{const wasStag=t.act==='stun'&&t.sk==='stagger';if(!wasStag)stunF(t,mv.stun,'hit');addPo(C,t,mv.pdmg*sc);
           const bx=Math.sin(o.br+Math.PI),bz=Math.cos(o.br+Math.PI);t.kx=-bx;t.kz=-bz;t.kr=mv.kb*sc}}}

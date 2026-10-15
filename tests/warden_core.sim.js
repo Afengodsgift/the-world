@@ -7,7 +7,7 @@ const duel=(o)=>{o=o||{};const C=CC.create({arena:o.arena||{x:0,z:0,R:14},solids
 const run=(C,n,fn)=>{const ev=[];for(let i=0;i<n;i++){const cm=fn?fn(C.tick+1):{};for(const e of C.step(cm))ev.push(e)}return ev};
 // ---------- A. fairness data rules (no exceptions) ----------
 const EXCEPTIONS=[];ok(EXCEPTIONS.length===0,'fairness exceptions list is empty');
-const dm=Object.keys(M).filter(k=>M[k]&&M[k].who==='D');ok(dm.length===10,'10 foe moves (5 Duelist + 3 Hollow Warden + 2 gap closers): '+dm.join(','));
+const dm=Object.keys(M).filter(k=>M[k]&&M[k].who==='D');ok(dm.length===14,'14 foe moves (5 Duelist + 3 Hollow Warden + 2 gap closers + 4 ranged/magic): '+dm.join(','));
 for(const id of dm){let worst=1e9,rec=M.endRecovery(id);for(let h=0;h<=M.HOLD_MAX;h++)for(const t of M.tells(id,h))worst=Math.min(worst,t);
   ok(worst>=M.TELL_MIN,id+': every hit has a tell >= '+M.TELL_MIN+' ticks for hold 0..12 (min '+worst+')');
   ok(rec>=M.REC_MIN,id+': ends in >= '+M.REC_MIN+' uncancellable recovery ('+rec+')');
@@ -94,7 +94,13 @@ function script(fps){const{C,P,D}=duel2({});const S=CC2.stepper(C);const evs=[];
   return{h:evs.filter(e=>!/hitstop/.test(e)).join('|'),clamped:S.clamped}}
 const f60=script(60);for(const fps of[15,30,144])ok(script(fps).h===f60.h,'identical event log at '+fps+' fps vs 60 fps');ok(script(15).clamped===0,'15 fps needs no catch-up clamp (4 ticks/frame <= 6)');
 // ---------- M. reactive bots (18-tick reaction) ----------
-for(const id of dm){let hold=id==='fall'?0:0,okAll=true;for(const h of(id==='fall'?[0,6,12]:[0])){const{C,P,D}=duel2({P:{hp:1e4}});const cues=[];let off=0,list=M.expand(id,h);
+const isAoe=id=>(M[id].fx||[]).some(d=>d.k==='aoe');
+for(const id of dm.filter(isAoe)){const dl=M[id].fx.find(d=>d.k==='aoe').delay;let hits=0,still=0;
+  for(const mode of['dodge','still']){const{C,P,D}=duel2({P:{hp:1e4}});const ev=[];C.step({D:{list:[{t:'atk',m:id}]}});const s0=C.tick;
+    for(let i=0;i<200;i++){const cm={};if(mode==='dodge'&&C.tick+1===s0+dl-6)cm.P={list:[{t:'dodge',dx:1,dz:0}]};for(const e of C.step(cm))ev.push(e)}
+    const n=ev.filter(e=>e.t==='hit'&&e.d==='P').length;if(mode==='dodge')hits=n;else still=n}
+  ok(hits===0&&still>0,id+' (area): a dodge timed 6 ticks before the burst avoids it, standing still is hit ('+hits+' / '+still+')')}
+for(const id of dm.filter(i=>!isAoe(i))){let hold=id==='fall'?0:0,okAll=true;for(const h of(id==='fall'?[0,6,12]:[0])){const{C,P,D}=duel2({P:{hp:1e4}});const cues=[];let off=0,list=M.expand(id,h);
    const ev=[];C.step({D:{list:[{t:'atk',m:id,hold:h}]}});const s0=C.tick;let guarded=false;
    for(let i=0;i<200;i++){const cm={};if(C.tick+1===s0+18&&!guarded){cm.P={list:[{t:'guardDown'}]};guarded=true}for(const e of C.step(cm))ev.push(e)}
    if(ev.some(e=>e.t==='hit'))okAll=false}
