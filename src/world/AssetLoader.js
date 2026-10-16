@@ -32,6 +32,7 @@ function loadKartAssets(){
 function loadChar(){
   if(!charP)charP=(async()=>{
     if(!THREE.GLTFLoader)throw new Error('no GLTFLoader');
+    if(typeof FlightAnim!=='undefined')FlightAnim.load();   // flight clips (small json) ready before the first takeoff
     const gl=new THREE.GLTFLoader(),tl=new THREE.TextureLoader(),buf=async n=>(await fetch(AURL+n)).arrayBuffer();
     const parse=b=>new Promise((res,rej)=>gl.parse(b,AURL,res,rej));
     charBuf=await buf('char.glb');

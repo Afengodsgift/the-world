@@ -34,7 +34,7 @@ const FlightPose=(()=>{
   const mix3=(h,c,b,f,out)=>out.set(0,0,0).addScaledVector(h,f.wH).addScaledVector(c,f.wC).addScaledVector(b,f.wB).normalize();
 
   function state(q){
-    return q.fl||(q.fl={fw:0,on:false,sp:0,a:0,wH:1,wC:0,wB:0,th:{x:0,v:0},ro:{x:0,v:0},t:Math.random()*20,vy:0,py:null,name:'hover',pitch:0,roll:0});
+    return q.fl||(q.fl={fw:0,on:false,sp:0,a:0,wH:1,wC:0,wB:0,th:{x:0,v:0},ro:{x:0,v:0},t:Math.random()*20,vy:0,vyr:0,py:null,pr:null,name:'hover',pitch:0,roll:0});
   }
 
   // Returns true while the flight pose owns the skeleton.
@@ -48,17 +48,20 @@ const FlightPose=(()=>{
   function apply(g,q,dt,st,m){
     const f=state(q),fly=st==='fly';
     f.fw=lerpTo(f.fw,fly?1:0,dt,7,9);                                  // fade the pose in/out over ~0.15 s
-    if(f.fw<.004){if(f.on){f.on=false;q.model.rotation.y=0;f.th.x=f.th.v=f.ro.x=f.ro.v=0;f.py=null}f.wH=1;f.wC=f.wB=0;return false}
-    f.on=true;f.t+=dt;
+    if(f.fw<.004){if(f.on){f.on=false;q.model.rotation.y=0;f.th.x=f.th.v=f.ro.x=f.ro.v=0;f.py=f.pr=null;if(typeof FlightAnim!=='undefined')FlightAnim.off(q)}f.wH=1;f.wC=f.wB=0;return false}
+    const FAn=typeof FlightAnim!=='undefined'?FlightAnim:null,clip=!!(FAn&&FAn.ready(q)),started=!f.on;   // clip mode: baked flight clips (FlightAnim.js); else the procedural pose below
+    f.on=true;f.t+=dt;if(clip&&started)FAn.start(q);
     const spd=m.speed||0,B=q.bones;
 
     // ---- measured motion: vertical speed, acceleration ----
     if(f.py!==null&&dt>0)f.vy+=(((g.position.y-f.py)/dt/(typeof SpaceFlight!=='undefined'?SpaceFlight.moveMul(g.position.y,Math.hypot(g.position.x,g.position.z)):1))-f.vy)*Math.min(1,dt*5);f.py=g.position.y;
-    const acc=(spd-f.sp)/Math.max(dt,.001);f.a+=(acc-f.a)*Math.min(1,dt*8);f.sp=spd;
-    const elev=Math.atan2(f.vy,Math.max(spd,4));                       // climb (+) / dive (-) angle of the flight path
+    if(f.pr!=null&&dt>0)f.vyr+=(((g.position.y-f.pr)/dt)-f.vyr)*Math.min(1,dt*5);f.pr=g.position.y;   // raw vertical speed: straight up has ~0 HORIZONTAL speed but is the fastest flight there is
+    const spd3=Math.hypot(spd,f.vyr);
+    const acc=(spd3-f.sp)/Math.max(dt,.001);f.a+=(acc-f.a)*Math.min(1,dt*8);f.sp=spd3;
+    const elev=Math.atan2(f.vyr,Math.max(spd,clip?.5:4));                       // climb (+) / dive (-) angle of the flight path
 
     // ---- pose weights: rise quickly, decay slowly (braking from boost should feel heavy) ----
-    const ch=m.charge||0,tH=(1-sstep(2,13,spd))*(1-ch),tB=Math.max(sstep(46,62,spd),ch*.9),tC=Math.max(0,1-tH-tB);   // charging: the streamlined pose even though you are braking
+    const ch=m.charge||0,tH=(1-sstep(2,13,spd3))*(1-ch),tB=Math.max(sstep(46,62,spd3),ch*.9),tC=Math.max(0,1-tH-tB);   // charging: the streamlined pose even though you are braking
     f.wH=lerpTo(f.wH,tH,dt,6,3.2);f.wC=lerpTo(f.wC,tC,dt,6,3.6);f.wB=lerpTo(f.wB,tB,dt,5,2.4);
     const ws=f.wH+f.wC+f.wB||1;f.wH/=ws;f.wC/=ws;f.wB/=ws;
     f.name=f.wB>.5?'boost':f.wC>.5?'cruise':f.wH>.5?'hover':(f.a>1?'takeoff':'cruise');
@@ -69,8 +72,9 @@ const FlightPose=(()=>{
     th+=Math.min(.15,Math.max(0,f.a*.004));                             // leaning into acceleration
     th-=Math.min(.35,Math.max(0,-f.a*.012))*(1-f.wH)*(1-ch);            // braking: flare back (head up), but not while compressing for a charge
     th+=.14*ch;                                                         // lean into the charge
-    th=Math.max(0,Math.min(1.62,th));
-    spring(f.th,th,dt,6.5,.58);                                         // underdamped: ~10% overshoot = intentional-looking takeoff
+    if(clip)th=(f.wC+f.wB)*(Math.PI/2-elev)+f.wH*BASE_PITCH.h;           // body axis angle from vertical: 0 = straight up, pi/2 = level, pi = dive
+    th=Math.max(0,Math.min(clip?Math.PI:1.62,th));
+    spring(f.th,th,dt,6.5,clip?.78:.58);                                         // underdamped: ~10% overshoot = intentional-looking takeoff
     const yr=m.yawRate||0;
     spring(f.ro,Math.max(-.7,Math.min(.7,-yr*.16))*(1-f.wH*.6),dt,5.5,.75); // bank into turns (less when hovering)
 
@@ -81,6 +85,12 @@ const FlightPose=(()=>{
 
     // ---- body transform: pitch about the hips (not the feet), blended with whatever the clip/pan-lunge had ----
     const w=f.fw,mdl=q.model,lunge=mdl.rotation.x;
+    if(clip){   // tilt = wanted lean minus the lean the blended clips already carry (prone ~1.68, upright ~0.1), pivoting about the pelvis; roll is about the body's long axis (z in the prone frame)
+      const sh=FAn.shares(q,f),rx=pitch-FAn.lean(sh),hp=FAn.hips(sh);
+      mdl.rotation.x=lunge*(1-w)+rx*w;mdl.rotation.y=0;mdl.rotation.z=roll*w;
+      mdl.position.y=(q.oy||0)+w*hp*(1-Math.cos(rx));mdl.position.z=-w*hp*Math.sin(rx);
+      mdl.updateMatrixWorld(true);FAn.drive(q,f,dt);return true;
+    }
     mdl.rotation.x=lunge*(1-w)+pitch*w;mdl.rotation.y=roll*w;
     mdl.position.y=(q.oy||0)+w*(HIP*(1-Math.cos(pitch))+bob);
     mdl.position.z=-w*HIP*Math.sin(pitch);
