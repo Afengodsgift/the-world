@@ -14,7 +14,7 @@ const SwordHit=(()=>{
   function tickHits(a,facing,mv,seg,k,n,t,solids,ay,ty){
     if(Math.abs((ay||0)-(ty||0))>1.2)return false;                       // height band
     const dx=t.x-a.x,dz=t.z-a.z,dist=Math.hypot(dx,dz),rad=t.r||.45;
-    if(dist>mv.reach+rad)return false;
+    if(dist>mv.reach*(a.rm||1)+rad)return false;
     if(segBlocked(a.x,a.z,t.x,t.z,solids))return false;                  // pillars / walls stop the blade
     const bearing=Math.atan2(dx,dz),half=(mv.w||.12)+(dist>rad?Math.asin(Math.min(1,rad/dist)):Math.PI);
     for(let s=0;s<SUB;s++){const u=(k+(s+1)/SUB)/n,th=facing+seg.a0+(seg.a1-seg.a0)*u;if(angd(th,bearing)<=half)return true}

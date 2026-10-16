@@ -17,7 +17,7 @@ const DuelistAI=(()=>{
   function think(A,P,D,evs,tick){
     const out={face:Math.atan2(P.x-D.x,P.z-D.z),mx:0,mz:0,list:[]};A.t++;
     if(!A.on||D.act==='dead'||P.act==='dead')return out;
-    const dx=P.x-D.x,dz=P.z-D.z,dist=Math.hypot(dx,dz),ux=dx/(dist||1),uz=dz/(dist||1),st=A.foe,H=st==='hollow'||st==='beast',KN=st==='knight',DA=st==='dancer',SO=st==='soldier';
+    const dx=P.x-D.x,dz=P.z-D.z,rawD=Math.hypot(dx,dz),dist=rawD/(D.rm||1),ux=dx/(rawD||1),uz=dz/(rawD||1),st=A.foe,H=st==='hollow'||st==='beast',KN=st==='knight',DA=st==='dancer',SO=st==='soldier';
     // what the player visibly does now, and how long we have been seeing it (a human reaction delay)
     const k=key(P);if(k!==A.seenKey){A.seenKey=k;A.see=0}else A.see++;
     A.gP=P.guard&&P.act==='free'?A.gP+1:0;if(A.cool>0)A.cool--;if(A.gcool>0)A.gcool--;if(A.rip>1)A.rip--;if(A.breath>0)A.breath--;

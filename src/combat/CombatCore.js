@@ -8,7 +8,7 @@
 const CombatCore=(()=>{
   const SPEED=.05,SUBM=.1,GUARD_ARC=1.2,REARM=14,DEFL=7,BUF=6;
   function mkFighter(id,o){o=o||{};return{id,x:o.x||0,z:o.z||0,y:0,r:.45,face:o.face||0,hp:o.hp||100,hpMax:o.hp||100,st:100,stMax:100,po:0,poMax:100,
-    team:o.team||null,dm:o.dm||1,act:'free',pt:0,ph:null,pi:0,pk:0,mv:null,hold:0,done:{},sk:null,stun:0,kx:0,kz:0,kr:0,dir:null,guard:false,gpt:99,rel:99,sr:99,pr:99,c:0,rel2:false,buf:null,q:[],ex:0,ez:0,lc:0,lcT:-999,dEnd:-999}}
+    team:o.team||null,dm:o.dm||1,rm:o.rm||1,act:'free',pt:0,ph:null,pi:0,pk:0,mv:null,hold:0,done:{},sk:null,stun:0,kx:0,kz:0,kr:0,dir:null,guard:false,gpt:99,rel:99,sr:99,pr:99,c:0,rel2:false,buf:null,q:[],ex:0,ez:0,lc:0,lcT:-999,dEnd:-999}}
   function create(o){o=o||{};const C={tick:0,hs:0,ev:[],fx:[],fxN:0,F:{},solids:(o.solids||[]).slice(),arena:o.arena||{x:0,z:0,R:1e9},order:[]};
     C.add=(id,fo)=>{C.F[id]=mkFighter(id,fo);C.order.push(id);return C.F[id]};
     C.step=cmds=>step(C,cmds||{});return C}
@@ -32,7 +32,7 @@ const CombatCore=(()=>{
   // effects: spawned by startMove (on:'start') or when a `release` phase begins (on:'release'). The projectile/zone keeps the move's damage numbers unless the effect overrides them.
   function spawnFx(C,a,d){const t=nearestFoe(C,a),m=a.mv||{},id=++C.fxN;
     const mv={id:(m.id||'fx'),dmg:d.dmg!==undefined?d.dmg:m.dmg,pdmg:d.pdmg!==undefined?d.pdmg:m.pdmg,hs:d.hs!==undefined?d.hs:m.hs,stun:d.stun!==undefined?d.stun:m.stun,kb:d.kb!==undefined?d.kb:m.kb,reach:0,w:0};
-    const fx={id,o:a.id,team:a.team,k:d.k,x:a.x,z:a.z,dx:0,dz:0,spd:0,r:d.r||.5,life:d.life||60,delay:d.delay||0,dur:d.dur||3,live:false,done:{},mv};
+    const fx={id,o:a.id,team:a.team,k:d.k,x:a.x,z:a.z,dx:0,dz:0,spd:0,r:(d.r||.5)*(d.k==='aoe'?a.rm||1:1),life:d.life||60,delay:d.delay||0,dur:d.dur||3,live:false,done:{},mv};
     if(d.k==='proj'){let dx=Math.sin(a.face),dz=Math.cos(a.face);if(d.aim!=='face'&&t){const L=Math.hypot(t.x-a.x,t.z-a.z)||1;dx=(t.x-a.x)/L;dz=(t.z-a.z)/L}fx.dx=dx;fx.dz=dz;fx.x=a.x+dx*(d.off||.8);fx.z=a.z+dz*(d.off||.8);fx.spd=d.spd||.25}
     else{const at=d.at||'self';if(at==='target'&&t){fx.x=t.x;fx.z=t.z}else if(at==='ahead'){fx.x=a.x+Math.sin(a.face)*(d.d||3);fx.z=a.z+Math.cos(a.face)*(d.d||3)}}
     C.fx.push(fx);emit(C,'fx',a.id,null,{fid:id,k:fx.k,x:fx.x,z:fx.z,dx:fx.dx,dz:fx.dz,r:fx.r,delay:fx.delay,dur:fx.dur,spd:fx.spd,life:fx.life,move:mv.id});return fx}
@@ -63,7 +63,7 @@ const CombatCore=(()=>{
     // heavy: strike once released and min charge reached, or max charge
     for(const id of C.order){const f=C.F[id];if(f.act==='charge'&&((f.rel2&&f.c>=Moves.heavy.chargeMin)||f.c>=Moves.heavy.chargeMax)){{const ch=Math.max(0,Math.min(1,(f.c-Moves.heavy.chargeMin)/(Moves.heavy.chargeMax-Moves.heavy.chargeMin)));startMove(C,f,'heavy');f.chg=ch}}}
     // (2) snapshot
-    const snap={};for(const id of C.order){const f=C.F[id];snap[id]={x:f.x,z:f.z,r:f.r}}
+    const snap={};for(const id of C.order){const f=C.F[id];snap[id]={x:f.x,z:f.z,r:f.r,rm:f.rm}}
     // (3) root motion
     for(const id of C.order){const f=C.F[id];if(f.act==='dead')continue;
       if(f.act==='free'||f.act==='charge'){const k=(f.act==='charge'?.4:f.guard?.5:1)*(f.spd||1),L=Math.hypot(f.ex,f.ez),s=L>1?1/L:1;moveBy(C,f,f.ex*s*SPEED*k,f.ez*s*SPEED*k)}
@@ -104,7 +104,7 @@ const CombatCore=(()=>{
       if(o.k==='deflect'){if(!o.fx){addPo(C,a,mv.pdmg*1.6);if(a.act==='attack')stunF(a,16,'recoil')}addPo(C,t,mv.pdmg*.15);emit(C,'deflect',a.id,t.id,{seg:o.seg});hs=Math.max(hs,5)}
       else if(o.k==='block'){t.st=mv.gb?0:Math.max(0,t.st-mv.dmg*.8*sc);t.sr=0;addPo(C,t,mv.pdmg*.7*sc);emit(C,'block',a.id,t.id,{seg:o.seg});hs=Math.max(hs,3);
         if(t.st<=0&&t.act==='free'){stunF(t,45,'stagger');emit(C,'guardbreak',a.id,t.id)}}
-      else{const crit=stag0[t.id]?2.5:1,dm=mv.dmg*sc*crit*(a.dm||1);t.hp=Math.max(0,t.hp-dm);t.pr=0;emit(C,'hit',a.id,t.id,{seg:o.seg,dmg:dm,crit:crit>1,fx:o.fx});hs=Math.max(hs,mv.hs);
+      else{const crit=stag0[t.id]?2.5:1,dm=mv.dmg*sc*crit*(a.dm||1);t.hp=Math.max(0,t.hp-dm);t.pr=0;emit(C,'hit',a.id,t.id,{move:mv.id,seg:o.seg,dmg:dm,crit:crit>1,fx:o.fx});hs=Math.max(hs,mv.hs);
         if(t.hp<=0){t.act='dead';t.guard=false;t.ph=null;t.mv=null;emit(C,'dead',a.id,t.id)}
         else{const wasStag=t.act==='stun'&&t.sk==='stagger';if(!wasStag)stunF(t,mv.stun,'hit');addPo(C,t,mv.pdmg*sc);
           const bx=Math.sin(o.br+Math.PI),bz=Math.cos(o.br+Math.PI);t.kx=-bx;t.kz=-bz;t.kr=mv.kb*sc}}}
