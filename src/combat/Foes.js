@@ -6,16 +6,14 @@ const Foes=(()=>{
   const PACK_ATK=2;
   const TYPES={
     duelist:{name:'The Duelist',hp:220,r:.54,scale:1.1,rm:1.1,spd:1.5,ai:'duelist',role:'duelist',body:'avatar',dress:2,sword:{f:'sword_claymore.glb',len:1.45,l0:6.6},boss:true},
-    hollow:{name:'The Hollow Warden',hp:340,r:.85,scale:1.55,rm:1.45,spd:1.25,ai:'hollow',role:'hollow',body:'avatar',dress:2,tint:.07,boss:true,ph2:'The Hollow Warden rages.'},
+    hollow:{name:'The Hollow Warden',hp:360,r:.85,scale:1.55,rm:1.45,spd:1.25,ai:'hollow',role:'hollow',body:'avatar',dress:2,tint:.07,boss:true,ph2:'THE HOLLOW RAGES.'},
     soldier:{name:'Ashen Soldier',hp:60,r:.45,scale:1,spd:1.3,ai:'soldier',role:'soldier',body:'avatar',dress:0,tint:.5,sword:{f:'sword_falchion.glb',len:.95,l0:5.36},pack:true,aggro:13,dm:.55},
-    paladin:{name:'The Oathbound Knight',hp:300,r:.7,scale:1.3,rm:1.25,spd:1.3,ai:'knight',role:'paladin',body:'glb',file:'paladin',bright:2.6,boss:true,sword:{f:'sword_falchion.glb',len:1.1,l0:5.36},shield:true,ph2:'The knight casts his shield aside.'},
-    parasite:{name:'The Hollow Parasite',hp:420,r:1.2,scale:1.9,rm:1.7,spd:1.2,ai:'beast',role:'parasite',body:'glb',file:'parasite',bright:1.2,boss:true,ph2:'The Parasite shrieks.'},
-    arissa:{name:'Arissa, the Cinder Dancer',hp:260,r:.55,scale:1.12,rm:1.12,spd:1.5,ai:'dancer',role:'arissa',body:'glb',file:'arissa',bright:2.0,boss:true,ph2:'Arissa quickens.'}};
+    paladin:{name:'The Oathbound Knight',hp:320,r:.7,scale:1.3,rm:1.25,spd:1.3,ai:'knight',role:'paladin',body:'glb',file:'paladin',bright:2.6,boss:true,sword:{f:'sword_falchion.glb',len:1.1,l0:5.36},shield:true,ph2:'THE OATHBREAKER — shield cast aside.'},
+    parasite:{name:'The Hollow Parasite',hp:440,r:1.2,scale:1.9,rm:1.7,spd:1.2,ai:'beast',role:'parasite',body:'glb',file:'parasite',bright:1.2,boss:true,ph2:'THE SHRIEK — the Parasite rages.'},
+    arissa:{name:'Arissa, the Cinder Dancer',hp:280,r:.55,scale:1.12,rm:1.12,spd:1.5,ai:'dancer',role:'arissa',body:'glb',file:'arissa',bright:2.0,boss:true,ph2:'CINDER RAIN — Arissa quickens.'}};
   for(const k in TYPES){TYPES[k].id=k;if(TYPES[k].ph2===undefined)TYPES[k].ph2=TYPES[k].name+' quickens.'}
-  // fighter ids in the sim: 'P' is the player; foes are D, E, F, G... (the first foe is always 'D', as it was when there was only one)
   const IDS='DEFGHJKL';
   const ids=n=>IDS.slice(0,n).split('');
-  // which site (if any) contains the point (local coords); `slack` widens the ring
   function siteAt(sites,wx,wz,slack){let best=null,bd=1e9;for(const s of sites){const d=Math.hypot(wx-s.x,wz-s.z);if(d<s.R+(slack||0)&&d<bd){bd=d;best=s}}return best}
   return{TYPES,PACK_ATK,ids,siteAt}})();
 if(typeof module!=='undefined')module.exports=Foes;
