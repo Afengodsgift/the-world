@@ -1,0 +1,131 @@
+{
+"root": ".",
+"fps": 20,
+"dg": 3,
+"clips": [
+{
+"name": "idle",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield idle.fbx"
+},
+{
+"name": "walk",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield walk.fbx"
+},
+{
+"name": "run",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield run.fbx"
+},
+{
+"name": "back",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield walk (2).fbx"
+},
+{
+"name": "sl",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield strafe (2).fbx"
+},
+{
+"name": "sr",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield strafe.fbx"
+},
+{
+"name": "rsl",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield strafe (3).fbx"
+},
+{
+"name": "rsr",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield strafe (4).fbx"
+},
+{
+"name": "rback",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield run (2).fbx"
+},
+{
+"name": "guard",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield block idle.fbx"
+},
+{
+"name": "guardin",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield block.fbx"
+},
+{
+"name": "hit1",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield impact.fbx"
+},
+{
+"name": "hit2",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield impact (2).fbx"
+},
+{
+"name": "hit3",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield impact (3).fbx"
+},
+{
+"name": "death",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield death.fbx"
+},
+{
+"name": "turn",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield 180 turn.fbx"
+},
+{
+"name": "slash",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield slash.fbx"
+},
+{
+"name": "slash3",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield slash (3).fbx"
+},
+{
+"name": "slash4",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield slash (4).fbx"
+},
+{
+"name": "slash5",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield slash (5).fbx"
+},
+{
+"name": "atk",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield attack.fbx"
+},
+{
+"name": "atk2",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield attack (2).fbx"
+},
+{
+"name": "atk3",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield attack (3).fbx"
+},
+{
+"name": "atk4",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield attack (4).fbx"
+},
+{
+"name": "power",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield power up.fbx"
+},
+{
+"name": "jump",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield jump.fbx"
+},
+{
+"name": "slash2",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield slash (2).fbx"
+},
+{
+"name": "cast",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield casting.fbx"
+},
+{
+"name": "cast2",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield casting (2).fbx"
+},
+{
+"name": "bash",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield kick.fbx"
+},
+{
+"name": "kick",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield kick.fbx"
+}
+]
+}

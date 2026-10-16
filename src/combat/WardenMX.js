@@ -41,14 +41,50 @@ const WardenMX=(()=>{
         slam:{c:'jatk',t0:.8,h:[[1.25,1.7]],e:2.9},
         triple:{seq:[{c:'punch',t0:0,h:[.18,.4],e:.75},{c:'swipe',t0:.9,h:[1.12,1.42],e:1.7},{c:'punch',t0:0,h:[.18,.4],e:1.0}]},
         leap:{c:'jatk',t0:0,h:[[1.25,1.7]],e:2.8},
-        cut:{c:'punch',t0:0,h:[[.18,.4]],e:.9},thrust:{c:'punch',t0:0,h:[[.18,.4]],e:.9}}}};
-  const norm=s=>s.seq?s.seq:s.h.map((h,i)=>({c:s.c,h,t0:i===0?s.t0:undefined,e:i===s.h.length-1?s.e:undefined}));
+        cut:{c:'punch',t0:0,h:[[.18,.4]],e:.9},thrust:{c:'punch',t0:0,h:[[.18,.4]],e:.9}}},
+    soldier:{file:'assets/warden_mx_player.json',guard:'guard',                        // a foot soldier fights with the player's sword-and-shield clips (retargeted onto the game rig)
+      loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
+      moves:{cut:{c:'atk4',t0:0,h:[[.34,.52]],e:.9},thrust:{c:'atk2',t0:.1,h:[[.3,.74]],e:1.2}}},
+    // ---- natively rigged Mixamo characters (assets/warden/<char>.glb + clips baked by tools/bake_mixamo_native.mjs). `native`: they own their mixer, so weights are plain shares (no base layer to blend over). ----
+    paladin:{file:'assets/warden_mx_paladin.json',native:true,guard:'guard',death:'death',hit:'hit1',          // Oathbound Knight: Pro Sword and Shield
+      loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
+      moves:{
+        cut:{c:'atk4',t0:0,h:[[.34,.52]],e:.9},
+        thrust:{c:'atk2',t0:.1,h:[[.3,.74]],e:1.2},
+        fall:{c:'atk',t0:.55,h:[[.9,1.3]],e:2.1},
+        twin:{c:'slash5',t0:.05,h:[[.38,.67],[.92,1.23]],e:1.36},
+        bash:{c:'kick',t0:0,h:[[.36,.66]],e:1.1},
+        dash:{c:'atk3',t0:0,h:[[.53,.9]],e:1.5},
+        leap:{c:'slash4',t0:.4,h:[[1.15,1.5]],e:2.2},
+        quake:{c:'power',t0:.3,e:2.0}}},
+    parasite:{file:'assets/warden_mx_parasite.json',native:true,guard:null,death:'death',            // the Hollow Warden's real body: Mixamo "Creature" mutant
+      loco:{idle:'idle',walk:'walk',run:'run',back:'walk',sl:'walk',sr:'walk'},rev:{back:1},
+      moves:{
+        sweep:{c:'swipe',t0:.7,h:[[1.12,1.42]],e:2.3},
+        slam:{c:'jatk',t0:.8,h:[[1.25,1.7]],e:2.9},
+        triple:{seq:[{c:'punch',t0:0,h:[.18,.4],e:.75},{c:'swipe',t0:.9,h:[1.12,1.42],e:1.7},{c:'punch',t0:0,h:[.18,.4],e:1.0}]},
+        leap:{c:'jatk',t0:0,h:[[1.25,1.7]],e:2.8},
+        cut:{c:'punch',t0:0,h:[[.18,.4]],e:.9},thrust:{c:'punch',t0:0,h:[[.18,.4]],e:.9},
+        quake:{c:'roar',t0:.2,e:1.7}}},
+    arissa:{file:'assets/warden_mx_arissa.json',native:true,guard:null,death:'death',hit:'hit1',              // the Cinder Dancer: Locomotion + Capoeira + casting
+      loco:{idle:'idle',walk:'walk',run:'run',back:'walk',sl:'sl',sr:'sr'},rev:{back:1},
+      moves:{
+        cut:{c:'meia',t0:0,h:[[.7,.95]],e:1.6},
+        thrust:{c:'pontera',t0:.1,h:[[.7,.9]],e:1.3},
+        twin:{c:'martelo',t0:0,h:[[.22,.45],[.65,.95]],e:1.25},
+        fall:{c:'queshada',t0:.7,h:[[1.5,1.9]],e:2.4},
+        riposte:{c:'rast',t0:.5,h:[[.7,1.15]],e:1.8},
+        dash:{c:'armada',t0:0,h:[[.55,1.0]],e:1.6},
+        leap:{c:'au',t0:.8,h:[[2.0,2.5]],e:2.9},
+        orb:{c:'cast',t0:.85,e:2.5},bolt:{c:'cast2',t0:0,e:1.0},quake:{c:'power',t0:.2,e:1.9}}}};
+  const norm=s=>s.seq?s.seq:!s.h?[{c:s.c,t0:s.t0,e:s.e}]:s.h.map((h,i)=>({c:s.c,h,t0:i===0?s.t0:undefined,e:i===s.h.length-1?s.e:undefined}));
   // plan: phase list (CombatCore move.phases) + move spec -> per-phase {c,a,b} (clip, clip time at phase start, clip time at phase end). Pure; no THREE.
   function plan(phases,spec,dur){
     const seq=norm(spec),out=new Array(phases.length),D=c=>dur?dur(c):9;
     const t0=(s,i)=>s.t0!==undefined?s.t0:Math.max(0,s.h[0]-.4),en=(s,i)=>s.e!==undefined?s.e:Math.min(D(s.c),s.h[1]+.5);
     const act=[];phases.forEach((p,i)=>{if(p.k==='active')act.push(i)});
-    if(!act.length){phases.forEach((p,i)=>out[i]={c:seq[0].c,a:t0(seq[0]),b:en(seq[0])});return out}
+    if(!act.length){const s0=seq[0],a0=t0(s0),b0=en(s0);let tot=0;for(const p of phases)tot+=p.n||0;tot=tot||1;let acc=0;   // cast / stomp moves: the clip slice is spread over the sim phases in proportion
+      phases.forEach((p,i)=>{const n=p.n||0;out[i]={c:s0.c,a:a0+(b0-a0)*acc/tot,b:a0+(b0-a0)*(acc+n)/tot};acc+=n});return out}
     const sg=k=>seq[Math.min(k,seq.length-1)];
     act.forEach((pi,k)=>{const s=sg(k);out[pi]={c:s.c,a:s.h[0],b:s.h[1]}});
     const ticks=(i,j)=>{let t=0;for(let q=i;q<j;q++)t+=phases[q].n||0;return t};
@@ -64,15 +100,15 @@ const WardenMX=(()=>{
             if(mid<cut){const e=en(A),g0=f0/cut,g1=f1/cut;out[q]={c:A.c,a:A.h[1]+(e-A.h[1])*Math.min(1,g0)*.6,b:A.h[1]+(e-A.h[1])*Math.min(1,g1)*.6}}
             else{const a0=t0(B),g0=(f0-cut)/(1-cut),g1=(f1-cut)/(1-cut);out[q]={c:B.c,a:a0+(B.h[0]-a0)*Math.max(0,g0),b:a0+(B.h[0]-a0)*Math.min(1,g1)}}}}}}
     return out}
-  const BUILD='mx2';const SH={};      // role -> {st,clips,p}
+  const BUILD='mx3';const SH={};      // role -> {st,clips,p}
   function fetchRole(role){const s=SH[role]||(SH[role]={st:'none',clips:null,meta:null,p:null});
     if(!s.p)s.p=fetch(ROLES[role].file).then(r=>r.json()).then(j=>{s.clips={};s.meta={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=role+':'+c.name;ac.uuid=role+':'+c.name;s.clips[c.name]=ac;   // unique uuid per role: three.js caches actions by clip uuid, and the game's own clips are also called idle/walk/jump (sharing one action stole the game's base layer -> T-pose on hit)
       s.meta[c.name]={dur:c.duration,v:Math.hypot(c.trav?c.trav[0]:0,c.trav?c.trav[1]:0)/Math.max(.1,c.duration)}}s.st='ready';return s}).catch(e=>{s.st='failed';s.err=String(e&&e.message||e);s.p=null;throw e});return s.p}
   function make(q,role){
-    const R=ROLES[role],I={st:'none',role,A:{},ws:{},gT:0,sw:0,lastLight:-1e9,ready:()=>I.st==='ready',variant:'light_b',alt:{},plans:{},tmem:{}};
+    const R=ROLES[role],I={st:'none',role,A:{},ws:{},gT:0,sT:0,dT:0,sw:0,lastLight:-1e9,ready:()=>I.st==='ready',variant:'light_b',alt:{},plans:{},tmem:{}};
     I.pickAlt=()=>{};I.nextLight=()=>'light_b';
     let names=[];
-    fetchRole(role).then(s=>{const used=new Set(Object.values(R.loco));if(R.guard)used.add(R.guard);
+    fetchRole(role).then(s=>{const used=new Set(Object.values(R.loco));if(R.guard)used.add(R.guard);if(R.death)used.add(R.death);if(R.hit)used.add(R.hit);
       for(const m of Object.values(R.moves))for(const g of norm(m))used.add(g.c);
       names=[...used].filter(n=>s.clips[n]);I.names=names;I.S=s;
       for(const n of names){const a=q.mixer.clipAction(s.clips[n]);a.enabled=false;a.setEffectiveWeight(.0001);I.A[n]=a;I.ws[n]=0}I.st='ready'}).catch(e=>{I.st='failed';I.err=String(e&&e.message||e)});
@@ -81,7 +117,10 @@ const WardenMX=(()=>{
       if(I.st!=='ready')return false;const A=I.A,tgt={},tm={},tsc={};for(const n of names)tgt[n]=0;
       const fight=on&&f.act!=='dead'&&f.act!=='dodge'&&f.act!=='stun';
       const put=(c,t)=>{if(!A[c])return;tgt[c]=1;tm[c]=Math.max(0,Math.min(t,A[c].getClip().duration-.001))};
-      if(fight){
+      if(f.act==='stun')I.sT+=dt;else I.sT=0;if(f.act==='dead')I.dT+=dt;else I.dT=0;
+      if(R.native&&f.act==='dead'&&R.death&&A[R.death])put(R.death,I.dT);            // natively rigged foes have no game hit/death overlay: play the clip themselves
+      else if(R.native&&f.act==='stun'&&R.hit&&A[R.hit])put(R.hit,I.sT);
+      else if(fight){
         const mv=f.mv,spec=mv&&R.moves[mv.id];
         if(f.act==='charge'&&spec&&spec.ch){const s=norm(spec)[0];put(s.c,spec.ch[0]+(spec.ch[1]-spec.ch[0])*ease(f.c/16))}
         else if(f.act==='charge'){const m=R.moves.heavy;if(m&&m.ch)put(m.c,m.ch[0]+(m.ch[1]-m.ch[0])*ease(f.c/16))}
@@ -103,7 +142,7 @@ const WardenMX=(()=>{
       for(const n of names){const a=A[n],rr=I.ws[n];
         if(rr<=0){if(a.enabled){a.enabled=false;a.setEffectiveWeight(.0001)}continue}
         any=true;if(!a.enabled){a.enabled=true;a.play();a.paused=tm[n]!==undefined}
-        a.setEffectiveWeight(sum>0?W*rr/sum:.0001);
+        a.setEffectiveWeight(R.native?Math.max(.0001,rr):sum>0?W*rr/sum:.0001);
         if(tm[n]!==undefined){a.paused=true;a.time=tm[n]}else{a.paused=false;a.setEffectiveTimeScale(tsc[n]||1)}}
       if(any)q.mixer.update(0);
       return any};

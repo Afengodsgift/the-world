@@ -7,13 +7,27 @@ const WARDEN={
   gateAng:0,gateSkip:.15,           // direction (sin a, cos a) = +z; circles within gateSkip rad of it are omitted => ~10 m gap
   pillars:[{a:Math.PI/4,d:16,r:1.2},{a:3*Math.PI/4,d:16,r:1.2},{a:5*Math.PI/4,d:16,r:1.2},{a:7*Math.PI/4,d:16,r:1.2}],
   landing:{x:0,z:120,r:30},         // where "Travel" drops you (dry land south of the arena)
+  // SITES: every place you can fight. Local metres from the isle centre (+z = south, toward the landing beach). y = the flattened ground height; R = the fight circle.
+  //   fog:true  = a boss fog gate: walking in seals the ring until the foe is felled (you cannot walk out); fog:false = a camp: foes wake when you come near, and you may run (they reset).
+  //   foes: [{t: type id from Foes.js, dx, dz (offset from the site centre), face?}]. The court is the original walled arena (its own wall, no fog).
+  sites:[
+    {id:'court',n:'The Gate Court',x:0,z:0,R:35,y:3.4,fog:false,wall:true,foes:[{t:'duelist',dx:0,dz:-9}]},
+    {id:'watch',n:'The Ashen Watch',x:-30,z:80,R:16,y:2.3,fog:false,foes:[{t:'soldier',dx:-3,dz:-2},{t:'soldier',dx:3,dz:-3}]},
+    {id:'brokengate',n:'The Broken Gate',x:-75,z:-45,R:22,y:3.6,fog:true,foes:[{t:'paladin',dx:0,dz:-6}]},
+    {id:'hollowkeep',n:'The Hollow Keep',x:85,z:-25,R:24,y:6.9,fog:true,foes:[{t:'parasite',dx:0,dz:-7}]},
+    {id:'glade',n:"The Dancer's Glade",x:5,z:-120,R:24,y:2.0,fog:true,foes:[{t:'arissa',dx:0,dz:-7}]},
+    {id:'camp3',n:'The Drowned Camp',x:-100,z:15,R:16,y:2.5,fog:false,foes:[{t:'soldier',dx:-4,dz:-2},{t:'soldier',dx:4,dz:-2},{t:'soldier',dx:0,dz:-6}]},
+    {id:'camp4',n:'The Ember Camp',x:100,z:60,R:16,y:2.5,fog:false,foes:[{t:'soldier',dx:-4,dz:-2},{t:'soldier',dx:4,dz:-2},{t:'soldier',dx:0,dz:-6}]},
+    {id:'camp2',n:'The Ridge Post',x:55,z:-75,R:16,y:7.5,fog:false,foes:[{t:'soldier',dx:-3,dz:-2},{t:'soldier',dx:3,dz:-3}]}],
 };
 // terrain height of the isle (blended into H() by the WARDEN block in index.html)
 function WardenH(wx,wz){
   const d=Math.hypot(wx,wz),R=WRD.R,base=Math.max(-12,(1-(d/R)**2)*4-.6),t=1-sstep(40,58,d);
   let h=base+(Math.sin(wx*.07)*Math.cos(wz*.09)*.9+Math.sin(wx*.19+wz*.13)*.35)*(1-t);
   h+=13*Math.exp(-((wx-95)**2+(wz+70)**2)/1800)+9*Math.exp(-((wx+85)**2+(wz+95)**2)/1300);   // two dark crags behind the arena
-  return h*(1-t)+WARDEN.plateauY*t}
+  h=h*(1-t)+WARDEN.plateauY*t;
+  for(const q of WARDEN.sites){if(q.wall)continue;const dd=Math.hypot(wx-q.x,wz-q.z);if(dd<q.R+12){const k=1-sstep(q.R-2,q.R+12,dd);h=h*(1-k)+q.y*k}}   // every fight site is level ground
+  return h}
 // every solid circle the isle adds (world coordinates): wall ring + pillars. WardenIsles pushes exactly these into `solids`; tests compare.
 function WardenSolids(){
   const o=[],W=WARDEN,n=Math.round(2*Math.PI*W.wallR/W.wallStep);
@@ -26,7 +40,7 @@ function WardenSolids(){
 function WardenProps(){
   let a=0x5EED77;const r=()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
   const W=WARDEN,L=[],pick=l=>l[Math.floor(r()*l.length)],put=(p,wx,wz,s,o)=>{o=o||{};const y=WardenH(wx,wz)+(o.sink||0);L.push({p,x:WRD.x+wx,y,z:WRD.z+wz,ry:r()*Math.PI*2,s,tx:(r()-.5)*(o.tilt||0),tz:(r()-.5)*(o.tilt||0)})};
-  const ok=(wx,wz,min)=>{const d=Math.hypot(wx,wz);if(d<W.wallR+5||d>WRD.R-8)return false;if(WardenH(wx,wz)<min)return false;if(wz>0&&Math.abs(wx)<9&&d<150)return false;return true};   // land only, clear of the wall and of the road from the landing beach to the gate
+  const ok=(wx,wz,min)=>{const d=Math.hypot(wx,wz);if(d<W.wallR+5||d>WRD.R-8)return false;for(const q of W.sites)if(!q.wall&&Math.hypot(wx-q.x,wz-q.z)<q.R+8)return false;if(WardenH(wx,wz)<min)return false;if(wz>0&&Math.abs(wx)<9&&d<150)return false;return true};   // land only, clear of the wall and of the road from the landing beach to the gate
   const PIL=['Hilly_Prop_Ruins_Pillar_1','Hilly_Prop_Ruins_Pillar_2','Hilly_Prop_Ruins_Pillar_3'],
         BLD=['Shared_Prop_Boulder_1','Shared_Prop_Boulder_2','Shared_Prop_Boulder_3','Shared_Prop_Boulder_4','Shared_Prop_Boulder_5','Shared_Prop_Boulder_6','Hilly_Prop_Rock_1','Hilly_Prop_Rock_2','Hilly_Prop_Rock_3','Hilly_Prop_Rock_4','Cliff_Prop_Rock_1','Cliff_Prop_Rock_2'],
         TRE=['Hilly_Prop_Tree_Cedar_1','Hilly_Prop_Tree_Cedar_2','Hilly_Prop_Tree_Pine_1','Hilly_Prop_Tree_Pine_2','Hilly_Prop_Tree_Pine_3','Hilly_Prop_Tree_Oak_1'],

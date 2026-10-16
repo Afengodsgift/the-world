@@ -1,0 +1,99 @@
+{
+"root": ".",
+"fps": 20,
+"dg": 3,
+"clips": [
+{
+"name": "idle",
+"file": "Locomotion_Pack/idle.fbx"
+},
+{
+"name": "walk",
+"file": "Locomotion_Pack/walking.fbx"
+},
+{
+"name": "run",
+"file": "Locomotion_Pack/running.fbx"
+},
+{
+"name": "sl",
+"file": "Locomotion_Pack/left strafe walking.fbx"
+},
+{
+"name": "sr",
+"file": "Locomotion_Pack/right strafe walking.fbx"
+},
+{
+"name": "cast",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield casting.fbx"
+},
+{
+"name": "cast2",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield casting (2).fbx"
+},
+{
+"name": "power",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield power up.fbx"
+},
+{
+"name": "death",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield death.fbx"
+},
+{
+"name": "hit1",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield impact.fbx"
+},
+{
+"name": "hit2",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield impact (2).fbx"
+},
+{
+"name": "armada",
+"file": "Capoeira_Pack/armada.fbx"
+},
+{
+"name": "martelo",
+"file": "Capoeira_Pack/martelo 2.fbx"
+},
+{
+"name": "meia",
+"file": "Capoeira_Pack/meia lua de compasso.fbx"
+},
+{
+"name": "meiab",
+"file": "Capoeira_Pack/meia lua de compasso back.fbx"
+},
+{
+"name": "queshada",
+"file": "Capoeira_Pack/queshada 1.fbx"
+},
+{
+"name": "chapa",
+"file": "Capoeira_Pack/chapa giratoria 2.fbx"
+},
+{
+"name": "esq",
+"file": "Capoeira_Pack/esquiva 2.fbx"
+},
+{
+"name": "rast",
+"file": "Capoeira_Pack/rasteira 1.fbx"
+},
+{
+"name": "ginga",
+"file": "Capoeira_Pack/ginga forward.fbx"
+},
+{
+"name": "gingab",
+"file": "Capoeira_Pack/ginga backward.fbx"
+},
+{
+"name": "pontera",
+"file": "Capoeira_Pack/pontera.fbx"
+},
+{
+"name": "au",
+"file": "Capoeira_Pack/au.fbx"
+}
+]
+}
