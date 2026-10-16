@@ -48,10 +48,18 @@ const WardenIsles=(()=>{
       for(const k in cells){const c=cells[k],bg=new THREE.BufferGeometry();bg.setAttribute('position',new THREE.Float32BufferAttribute(c.pos,3));bg.setAttribute('normal',new THREE.Float32BufferAttribute(c.nor,3));bg.setAttribute('color',new THREE.Float32BufferAttribute(c.col,3));bg.computeBoundingSphere();
         const m=new THREE.Mesh(bg,mat);m.name='WardenProps';m.matrixAutoUpdate=false;m.castShadow=false;m.receiveShadow=false;G.add(m);propsMesh.push(m);propTris+=c.pos.length/9}
     },undefined,()=>{})}
+  // FOG GATES: an open translucent cylinder around every boss site. idle = faint (you can see where the bosses are from afar), sealed = bright (a fight is on), gone = felled.
+  const fogs={};
+  function fogBuild(){
+    const m=new THREE.MeshBasicMaterial({color:'#a9b8ff',transparent:true,opacity:.16,side:THREE.FrontSide,depthWrite:false,fog:false});
+    for(const s of WARDEN.sites){if(!s.fog)continue;const g=new THREE.Mesh(new THREE.CylinderGeometry(s.R,s.R,9,36,1,true),m.clone());g.position.set(WRD.x+s.x,s.y+4.5,WRD.z+s.z);g.frustumCulled=false;G.add(g);fogs[s.id]={m:g,st:'idle'}}}
+  function fog(id,st){const f=fogs[id];if(!f)return;f.st=st;f.m.visible=st!=='gone';f.m.material.opacity=st==='sealed'?.42:.16}
+  // camp markers: a brazier at the heart of each soldier camp so you can spot them
+  function campMarks(){for(const s of WARDEN.sites)if(!s.fog&&!s.wall)brazier(WRD.x+s.x,s.y+1.1,WRD.z+s.z)}
   function build(){
     if(!WRD.on||built)return;built=true;
     G=new THREE.Group();G.name='WardenIsles';scene.add(G);
-    terrainMesh();dress();
+    terrainMesh();dress();fogBuild();campMarks();
     const sol=WardenSolids();wall(sol.filter(s=>s.wall));pillars();
     for(const s of sol){solids.push(s);added.push(s)}
     T.arena={x:WRD.x,z:WRD.z,R:WARDEN.arenaR};
@@ -86,4 +94,4 @@ const WardenIsles=(()=>{
     inside=d<WARDEN.arenaR;fishVis(!inside);PlayerCombat.tick(dt,t);
     const k=.75+.25*Math.sin(t/110)+.1*Math.sin(t/37);for(let i=0;i<fire.length;i++)fire[i].scale.setScalar(.9+.18*Math.sin(t/130+i*1.7)*k);
   }
-  return{build,tick,inArena:()=>inside,hidden:()=>hiddenN,arena:()=>T.arena,props:()=>({meshes:propsMesh.length,tris:propTris}),_t:()=>({built,added,fire,G})}})();
+  return{build,tick,fog,inArena:()=>inside,hidden:()=>hiddenN,arena:()=>T.arena,props:()=>({meshes:propsMesh.length,tris:propTris}),_t:()=>({built,added,fire,G})}})();
