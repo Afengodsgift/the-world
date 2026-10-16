@@ -114,6 +114,8 @@ const Decks=(()=>{
       let bx=px,bz=pz;
       if(carried){bx=_a.x;bz=_a.z;S.rot+=wrap(q.h-S._dk.h)}
       const mvx=S.x-px,mvz=S.z-pz,tx=bx+mvx,tz=bz+mvz;
+      const lo=toLocal(d,bx,S.y,bz,{});
+      if(!o.flying){const fo=floor(d,lo.x,lo.z);if(fo>0&&fo>lo.y+STEP+1.5&&wallAt(d,lo.x,lo.z,lo.y,STEP)){toWorld(d,lo.x,fo,lo.z,_a);S.y=_a.y;S.vy=0}}   // somehow inside the hull (a fall through a gap, a hull sweeping over you): pop up onto the deck instead of being stuck in the planks
       const ol=toLocal(d,bx,S.y,bz,{}),nl=toLocal(d,tx,S.y,tz,{});          // feet height = the player's real height in the ship frame (ly)
       const ly=nl.y;let hopping=S._climb>0,step=hopping?HOP:STEP;
       // swept movement: in steps of at most 0.25 m so a fast swimmer / a slow frame can never jump through a thin rail

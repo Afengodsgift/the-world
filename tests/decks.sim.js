@@ -65,4 +65,7 @@ ok(D.floor(d,40,0)<0&&D.floor(d,0,60)<0,'outside the hull there is no floor');
  const A=player(SP[0],DECK,SP[1]);run(A,0,0,.3);ok(D.standingOn(A)==='me','two decks near each other do not confuse each other');
  // walking from one deck across the gap onto the other (the ships are 14 m apart, a 9 m gap between rails: jump across)
  D.remove('foe');D.clear();}
+// ---------- 7. stuck inside the hull: popped up onto the deck ----------
+{const d7=mk('me7','ship-medium',SC,0,0,0,2.1),sp=spawn(d7,MAIN),S=player(sp[0],DECK,sp[1]);const w=D.toWorld(d7,sp[0],1.6,sp[1],{});S.x=w.x;S.y=w.y;S.z=w.z;S.grounded=true;S.vy=0;run(S,0,0,.5);
+ const L=D.toLocal(d7,S.x,S.y,S.z,{});ok(L.y>D.floor(d7,L.x,L.z)-.4,'a player inside the planks is lifted onto the deck (local y '+L.y.toFixed(2)+' floor '+D.floor(d7,L.x,L.z).toFixed(2)+')');}
 console.log(bad?'FAILED '+bad:'all passed');process.exit(bad?1:0);
