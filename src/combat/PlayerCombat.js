@@ -1,41 +1,53 @@
-// WARDEN: the player's combat controller + every fight on the isle (flag-gated: nothing here runs unless the Warden Isles are on and you stand in a fight site).
-// Wiring: CombatCore (fixed 60 Hz sim) <- stepper <- inputs (keys / touch buttons / lock-on) + one DuelistAI per foe. The sim owns only FORCED motion for the player (dodge, lunge, knockback); free walking stays with
-// the game's own player controller (tickFrame) and is scaled by speedMul(). Foes are fully sim-driven (their AI walks them through the sim).
-// SITES (WARDEN.sites, data/warden.js): walk into a site's ring and its foes spawn (Foes.js roster). fog:true = a boss gate (the ring seals until the foe is felled), fog:false = a camp (foes wake when you come near, run away to reset).
-// Foe bodies: 'avatar' = the game's own rig + dress (Duelist, soldiers), 'glb' = a natively rigged Mixamo model (Paladin, Parasite, Arissa) with its own mixer. Both are animated by WardenMX (real clips scrubbed by the sim phase).
-// Sim ids: 'P' = the player, 'D','E','F',... = the foes of the current site. Teams: player 'p', foes 'e' (no friendly fire).
-// Globals used: THREE, S, me, H, WRD, WARDEN, WardenSolids, scene, WAudio, makeAvatar/dress/animate/emoStop/lerpAngle, loadEmotes (index.html), CombatCore, Moves, WardenAnim, WardenMX, DuelistAI, Foes, WardenFx.
+// WARDEN: player combat controller + fights on the isle.
+// Globals: THREE, S, me, H, WRD, WARDEN, WardenSolids, scene, WAudio, CombatCore, Moves, WardenAnim, WardenMX, DuelistAI, Foes, WardenFx, CombatSfx, CombatVfx.
+
+// Auto-load combat juice scripts if index.html does not include them yet
+(function(){function load(src){return new Promise(function(res,rej){var s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s)})}
+  var need=[];
+  if(typeof CombatSfx==='undefined')need.push(load('src/combat/CombatSfx.js'));
+  if(typeof CombatVfx==='undefined')need.push(load('src/combat/CombatVfx.js'));
+  window.__wardenJuiceReady=need.length?Promise.all(need):Promise.resolve();
+})();
+
 const PlayerCombat=(()=>{
-  const PC={_pose:null,ai:true,loop:false};   // _pose=[nameA,nameB,u]: test hook that pins the procedural pose layer; ai=false: foes stand still (tests / practice); loop=true: a felled site restarts after 5 s (old single-arena behaviour)
-  const SPD=5,GSPD=2.5,CSPD=2;                       // m/s: free walk, guarding, charging a heavy
+  const PC={_pose:null,ai:true,loop:false};
+  const SPD=5,GSPD=2.5,CSPD=2;
   let mxSaid='',on=false,C=null,ST=null,P=null,D=null,t0=0,lx=0,lz=0,lock=false,lockI=0,pendFace=null,pendT=0;
-  const down={guard:false,heavy:false};              // logical button state (what the sim was told)
-  const ptr={};                                       // touch: button -> pointerId
+  const down={guard:false,heavy:false};
+  const ptr={};
   let el=null,sword=null,swordTried=false,pAnim=null,site=null,foes=[],fightN=0,state='fight',stateT=0,lastEv=[],byId={},dFlashT=0,felled=0;
-  const RT={};                                        // site id -> {foes:[], cleared:bool}
+  const RT={};
   const pv={x:0,z:0,vf:0,vs:0,sp:0,init:false};
   const cur=WardenAnim.copy(WardenAnim.POSES.ready),tg=WardenAnim.copy(WardenAnim.POSES.ready);let stW=0,gT=0,msgT=0,lastTone=0;
   const GRIP={rx:0,ry:0,rz:0,len:.95,ox:0,oy:0,oz:0};
   const rt=s=>RT[s.id]||(RT[s.id]={foes:[],cleared:false});
   const SITES=()=>WARDEN.sites;
-  // ---------- audio (tiny WebAudio tones; silent if audio is unavailable) ----------
   function tone(f0,f1,dur,type,vol){try{const now=performance.now();if(now-lastTone<25)return;lastTone=now;const a=WAudio.get();if(!a)return;const o=a.createOscillator(),g=a.createGain();o.type=type||'triangle';
     o.frequency.setValueAtTime(f0,a.currentTime);o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),a.currentTime+dur);o.connect(g);g.connect(WAudio.out());
     g.gain.setValueAtTime(vol||.12,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+dur);o.start();o.stop(a.currentTime+dur+.02)}catch(e){}}
-  // ---------- targets ----------
+  function juicePos(e){
+    const A=byId[e.a],T=byId[e.d];
+    if(e.t==='start'||e.t==='dodge'){
+      if(e.a==='P')return{x:S.x,y:H(S.x,S.z)+1.2,z:S.z,face:S.rot};
+      if(A)return{x:A.f.x,y:H(A.f.x,A.f.z)+1.2,z:A.f.z,face:A.f.face};
+    }
+    if(T)return{x:T.f.x,y:H(T.f.x,T.f.z)+1.2,z:T.f.z,face:T.f.face};
+    if(e.d==='P')return{x:S.x,y:H(S.x,S.z)+1.2,z:S.z,face:S.rot};
+    if(A)return{x:A.f.x,y:H(A.f.x,A.f.z)+1.2,z:A.f.z,face:A.f.face};
+    return{x:S.x,y:H(S.x,S.z)+1.2,z:S.z,face:S.rot};
+  }
   const alive=()=>foes.filter(F=>F.f.act!=='dead');
   function nearest(){let b=null,bd=1e9;for(const F of foes){if(F.f.act==='dead')continue;const d=Math.hypot(F.f.x-S.x,F.f.z-S.z);if(d<bd){bd=d;b=F}}return b}
   function target(){const L=lock&&foes[lockI];if(L&&L.f.act!=='dead')return L;return nearest()||foes[0]}
   const now=()=>performance.now()-t0;
-  function heading(){const dx=D.x-S.x,dz=D.z-S.z;return Math.atan2(dx,dz)}
-  function stickDir(){   // world-space direction of the current stick/keys input, or null
+  function stickDir(){
     let ix=typeof stickV!=='undefined'?stickV.x:0,iy=typeof stickV!=='undefined'?stickV.y:0;
     if(keys.KeyA||keys.ArrowLeft)ix-=1;if(keys.KeyD||keys.ArrowRight)ix+=1;if(keys.KeyW||keys.ArrowUp)iy-=1;if(keys.KeyS||keys.ArrowDown)iy+=1;
     const l=Math.hypot(ix,iy);if(l<.2)return null;ix/=l;iy/=l;const sy=Math.sin(S.yaw),cy=Math.cos(S.yaw);return[cy*ix+sy*iy,-sy*ix+cy*iy]}
-  function assist(){   // snap the facing toward the nearest foe when he is close and roughly ahead
+  function assist(){
     const F=nearest();if(!F)return;const dx=F.f.x-S.x,dz=F.f.z-S.z,d=Math.hypot(dx,dz);if(d>4.5)return;const a=Math.atan2(dx,dz);
     if(lock||Math.abs(Math.atan2(Math.sin(a-S.rot),Math.cos(a-S.rot)))<1.0){pendFace=a;pendT=8;S.rot=a}}
-  function reject(){if(P.st>2||!el)return;const b=el.querySelector('.p .st');b.classList.add('bad');setTimeout(()=>b.classList.remove('bad'),260);tone(110,80,.08,'square',.05)}   // out of stamina: say so instead of silently dropping the tap
+  function reject(){if(P.st>2||!el)return;const b=el.querySelector('.p .st');b.classList.add('bad');setTimeout(()=>b.classList.remove('bad'),260);tone(110,80,.08,'square',.05)}
   function press(name,tms){
     if(!on||P.act==='dead')return false;const t=tms===undefined?now():tms;
     switch(name){
@@ -51,7 +63,6 @@ const PlayerCombat=(()=>{
     if(name==='heavy'&&down.heavy){down.heavy=false;ST.input('P',{t:'heavyUp'},t)}
     else if(name==='guard'&&down.guard){down.guard=false;ST.input('P',{t:'guardUp'},t)}}
   function releaseAll(){release('heavy');release('guard');for(const k in ptr)delete ptr[k];if(el)for(const b of el.querySelectorAll('button.dn'))b.classList.remove('dn')}
-  // lock: tap = lock the nearest foe; tap again = cycle to the next one (clockwise by distance); with only one foe left it unlocks
   function toggleLock(){
     const al=alive();if(!al.length){lock=false}
     else if(!lock){lock=true;lockI=nearest().i}
@@ -69,7 +80,6 @@ const PlayerCombat=(()=>{
     const up=e=>{if(ptr[name]!==e.pointerId)return;delete ptr[name];b.classList.remove('dn');if(holdy)release(name,e.timeStamp-t0);e.stopPropagation()};
     b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('lostpointercapture',up);
     b.addEventListener('contextmenu',e=>e.preventDefault())}
-  // ---------- DOM (built once) ----------
   function build(){
     el=document.createElement('div');el.id='wroot';
     el.innerHTML='<div id="wh"><div class="wb p"><i class="hp"><b></b></i><i class="st"><b></b></i></div><div class="wb d"><span>The Duelist</span><i class="hp"><b></b></i><i class="po"><b></b></i></div></div><div id="wmsg"></div><div id="whd" style="position:fixed;left:50%;top:46%;width:0;height:0;pointer-events:none;z-index:50;opacity:0;transition:opacity .5s"><div style="position:absolute;left:-26px;top:-150px;width:0;height:0;border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:54px solid #ff2a1a;filter:drop-shadow(0 0 8px #ff6a2a)"></div></div><div id="whn" style="position:fixed;left:0;right:0;top:34%;text-align:center;pointer-events:none;z-index:50;color:#ffb27a;font:700 15px sans-serif;letter-spacing:.14em;text-shadow:0 0 6px #000,0 0 3px #000;opacity:0;transition:opacity .5s"></div>'+
@@ -86,16 +96,14 @@ const PlayerCombat=(()=>{
     const F=target(),n=alive().length,nk=F?F.T.name+(n>1?' ×'+n:''):'';if(nk!==nameKey){nameKey=nk;el.querySelector('.wb.d span').textContent=nk}
     if(F){setBar('.d .hp',F.f.hp/F.f.hpMax);setBar('.d .po',F.f.po/F.f.poMax);const brk=F.f.act==='stun'&&F.f.sk==='stagger';if(bars.brk!==brk){bars.brk=brk;el.querySelector('.wb.d').classList.toggle('brk',brk)}}
     const c=P.act==='charge'?Math.min(1,P.c/Moves.heavy.chargeMax)*360:0,r=Math.round(c/6);if(bars.chg!==r){bars.chg=r;el.querySelector('#wHeavy').style.setProperty('--chg',r*6+'deg')}}
-  let hdT=0;
   const MV={light:'slash',heavy:'heavy blow',thrust:'thrust',bash:'shield bash',quake:'ground slam',orb:'fire orb',bolt:'lightning bolt',leap:'leaping strike',fall:'falling blow',dash:'charge',riposte:'riposte',twin:'twin slash',sweep:'sweep',slam:'slam',triple:'triple strike'};
-  function hitFrom(A,mv){   // which enemy / move hurt you and from where (screen arrow)
+  function hitFrom(A,mv){
     const d=el.querySelector('#whd'),n=el.querySelector('#whn');if(!A||!d)return;
     const dx=A.f.x-S.x,dz=A.f.z-S.z,y=S.yaw,fw=-Math.sin(y)*dx-Math.cos(y)*dz,rt=Math.cos(y)*dx-Math.sin(y)*dz;
     d.style.transition='none';d.style.transform='rotate('+(Math.atan2(rt,fw)*57.3)+'deg)';d.style.opacity=1;void d.offsetWidth;d.style.transition='opacity .7s';d.style.opacity=0;
     n.textContent=(A.T.name+' · '+(MV[mv]||mv||'')).toUpperCase();n.style.transition='none';n.style.opacity=1;void n.offsetWidth;n.style.transition='opacity 1.2s .5s';n.style.opacity=0}
   function msg(t,sec){const m=el.querySelector('#wmsg');m.textContent=t;m.classList.add('on');msgT=sec||1.4}
-  // ---------- bodies (avatars + models) and weapons ----------
-  const pool={};     // foe type id -> [body]  (reused between fights; hidden when free)
+  const pool={};
   function attachSword(av,file,len,slot,fixed){
     const u=av&&av.userData;if(!u||!u.bones||!u.bones.RightHand||!THREE.GLTFLoader)return null;const st={ready:false,grip:null,hand:u.bones.RightHand,len:slot.len,want:len,av,fixed};
     new THREE.GLTFLoader().load('assets/warden/'+file,g=>{const grip=new THREE.Group(),m=g.scene;m.traverse(o=>{if(o.isMesh){o.castShadow=false;o.frustumCulled=false}});grip.add(m);st.hand.add(grip);st.grip=grip;st.ready=true;setGrip(st);grip.visible=on},()=>{},()=>{slot.tried=false});
@@ -106,13 +114,13 @@ const PlayerCombat=(()=>{
     const kid=hand.children.find(c=>c!==st.grip&&c.position.lengthSq()>0);const v=kid?kid.position.clone().normalize():new THREE.Vector3(0,1,0);
     const q=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),v);q.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(g.rx,g.ry,g.rz)));st.grip.quaternion.copy(q);
     st.grip.position.set(g.ox,g.oy,g.oz).divideScalar(ws.x)}
-  function makeShield(){   // a plain kite shield (extruded outline, ~0.55 x 0.8 m) - the Knight drops it at half health
+  function makeShield(){
     const sh=new THREE.Shape();sh.moveTo(0,.4);sh.lineTo(.28,.32);sh.lineTo(.28,-.05);sh.quadraticCurveTo(.2,-.32,0,-.44);sh.quadraticCurveTo(-.2,-.32,-.28,-.05);sh.lineTo(-.28,.32);sh.closePath();
     const g=new THREE.Group(),m=new THREE.Mesh(new THREE.ExtrudeGeometry(sh,{depth:.05,bevelEnabled:true,bevelSize:.015,bevelThickness:.015,bevelSegments:1}),new THREE.MeshStandardMaterial({color:'#6a6f7d',metalness:.4,roughness:.55}));
     const bs=new THREE.Mesh(new THREE.SphereGeometry(.07,10,8),new THREE.MeshStandardMaterial({color:'#b8964a',metalness:.6,roughness:.4}));bs.position.set(0,.05,.09);g.add(m);g.add(bs);return g}
   function attachShield(b){const hand=b.u.bones&&b.u.bones.LeftForeArm;if(!hand)return;const sh=makeShield(),ws=new THREE.Vector3();b.g.updateMatrixWorld(true);hand.getWorldScale(ws);
     const w=new THREE.Group();w.add(sh);w.scale.setScalar(1/ws.x);w.position.set(0,12,-9);hand.add(w);b.shield=w}
-  function styleBody(b){   // once the model exists: colour it for its type; weapons
+  function styleBody(b){
     if(b.styled||!b.u.model)return;b.styled=true;const T=b.T;
     if(T.body==='avatar'&&T.tint!==undefined&&T.tint!==1)b.u.model.traverse(c=>{if(c.isSkinnedMesh&&c.material&&c.material.color){c.material.userData.c0=c.material.color.clone();c.material.color.copy(c.material.userData.c0).multiply(new THREE.Color(T.tint,T.tint*(T.tint<1?.7:1),T.tint*(T.tint<1?.75:1)))}});
     if(T.sword&&!b.sword)b.sword=attachSword(b.g,T.sword.f,T.sword.len,{len:T.sword.l0,set tried(v){}},T.grip);
@@ -129,7 +137,6 @@ const PlayerCombat=(()=>{
     else{const g=new THREE.Group();g.name=T.name;scene.add(g);b.g=g;b.u={mixer:null,bones:{}};glbLoad(b,T)}
     L.push(b);return b}
   function freeBody(b){b.used=false;b.g.visible=false;if(b.anims)for(const k in b.anims)b.anims[k].off();for(const k of['sword','shield'])if(b[k]){const o=b[k].grip||b[k];if(o)o.visible=false}}
-  // ---------- fight lifecycle ----------
   function spawnFoes(){
     for(const F of foes)freeBody(F.body);foes=[];byId={};
     const ids=Foes.ids(site.foes.length);
@@ -144,10 +151,9 @@ const PlayerCombat=(()=>{
   function startFight(){
     fightN++;const R=site.wall?site.R-.5:site.R+10,sol=WardenSolids().filter(s=>Math.hypot(s.x-WRD.x-site.x,s.z-WRD.z-site.z)<site.R+14);
     C=CombatCore.create({arena:{x:WRD.x+site.x,z:WRD.z+site.z,R},solids:sol});ST=CombatCore.stepper(C,6);t0=performance.now();
-    P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});spawnFoes();WardenFx.clear();
+    P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});spawnFoes();WardenFx.clear();if(typeof CombatVfx!=='undefined')CombatVfx.clear();
     state='fight';stateT=0;lock=site.fog||foes.some(F=>F.T.boss);lockI=0;lastEv=[];pv.init=false;down.guard=down.heavy=false;stW=0;gT=0;
     if(el)el.querySelector('#wLock').classList.toggle('on',lock);D=target().f}
-  // Inside a walled arena the screen is the cost on a low-end phone: render at 1.25x (not 2x) while you fight, restore on leaving. Skipped when ?dpr= was given.
   let resPrev=null;
   function arenaRes(inn){if(typeof Perf==='undefined'||!Perf.state||!Perf.state.r||Perf.state.fixed)return;const st=Perf.state;
     if(inn&&resPrev===null){resPrev={dpr:st.dpr,min:st.min,locked:st.locked};st.min=1;if(st.dpr>1.25){st.dpr=1.25;st.r.setPixelRatio(1.25)}st.locked=true}
@@ -157,27 +163,29 @@ const PlayerCombat=(()=>{
     if(!sword&&!swordTried&&me.userData.bones){swordTried=true;sword=attachSword(me,'sword_falchion.glb',.95,{len:5.36,set tried(v){swordTried=v}})}
     for(const F of foes){const b=F.body;if(!b.u.mixer)continue;styleBody(b);if(!b.anims[F.T.role])b.anims[F.T.role]=WardenMX.make(b.u,F.T.role);F.anim=b.anims[F.T.role]}}
   function engage(s){
-    try{if(typeof loadEmotes==='function')loadEmotes().catch(()=>{})}catch(e){}   // the 'playdead' fall clip lives in the emote library: without it corpses (and you) just stand there
-    if(on)return;if(!el)build();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenFx.build();WardenMX.fetch('player').catch(()=>{});
+    try{if(typeof loadEmotes==='function')loadEmotes().catch(()=>{})}catch(e){}
+    if(on)return;if(!el)build();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenFx.build();if(typeof CombatVfx!=='undefined')CombatVfx.build();WardenMX.fetch('player').catch(()=>{});
     site=s;fightN=0;startFight();for(const F of foes)WardenMX.fetch(F.T.role).catch(()=>{});
     lx=S.x;lz=S.z;on=true;document.body.classList.add('warden-fight');ensureAvatars();if(sword&&sword.grip)sword.grip.visible=true;
     for(const F of foes)for(const k of['sword','shield'])if(F.body[k]){const o=F.body[k].grip||F.body[k];if(o)o.visible=true}
     arenaRes(true);msg(s.n,2.2);try{if(s.fog)WardenIsles.fog(s.id,'sealed')}catch(e){}}
-  function leave(hold){   // hold: keep the corpses of a cleared site in the world
+  function leave(hold){
     if(!on)return;releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;pendFace=null;
-    if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0)}catch(e){}WardenFx.clear();
-    if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
-    try{if(site&&site.fog)WardenIsles.fog(site.id,rt(site).cleared?'gone':'idle')}catch(e){}}
-  // ---------- per frame ----------
+    if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0)}catch(e){}WardenFx.clear();if(typeof CombatVfx!=='undefined')CombatVfx.clear();
+    if(!hold){for(const F of foes)freeBody(F.body);foes=[];byId={}}else for(const F of foes)if(F.f.act!=='dead')freeBody(F.body);
+    if(hold&&site){rt(site).cleared=true;felled++;try{if(site.fog)WardenIsles.fog(site.id,'gone')}catch(e){}}
+    try{if(site&&site.fog&&!hold)WardenIsles.fog(site.id,'idle')}catch(e){}}
   function speedMul(sprint){
     if(!on||!P)return 1;const base=sprint?12:6;if(P.act==='dead')return 0;
-    if(state==='fight'&&!foes.some(F=>F.awake&&F.f.act!=='dead'))return 1;      // nobody is after you: explore at normal speed
+    if(state==='fight'&&!foes.some(F=>F.awake&&F.f.act!=='dead'))return 1;
     if(P.act==='free')return(P.guard?GSPD:SPD)/base;if(P.act==='charge')return CSPD/base;return 0}
   function events(evs){
     if(PC._log)for(const e of evs)if(e.t!=='hitstop')PC._log.push(e);
     for(const e of evs){
       const A=byId[e.a],T=byId[e.d];
       if(e.t==='fx'||e.t==='fxburst'||e.t==='fxend')WardenFx.event(e);
+      if(typeof CombatSfx!=='undefined')CombatSfx.event(e);
+      if(typeof CombatVfx!=='undefined'&&e.t!=='fx'&&e.t!=='fxburst'&&e.t!=='fxend'&&e.t!=='hitstop')CombatVfx.event(e,juicePos(e));
       if(e.t==='start'){if(e.a==='P'){if(e.move==='light'&&pAnim)pAnim.nextLight(performance.now()/1000);tone(e.move==='heavy'?220:380,e.move==='heavy'?90:150,e.move==='heavy'?.18:.1,'triangle',.1)}else{if(A&&A.anim&&A.anim.pickAlt)A.anim.pickAlt(e.move,Math.random());tone(160,70,.16,'sawtooth',.07)}}
       else if(e.t==='dodge'&&e.a==='P')tone(200,80,.14,'sine',.08);
       else if(e.t==='hit'){if(T){T.flash=1;T.awake=true;wake(T);tone(140,50,.14,'square',.14);if(e.crit)msg('CRITICAL');if(T.body.T.body==='avatar')T.body.u.hitReq=1}else{tone(110,40,.18,'square',.16);if(e.d==='P'&&P.hp>0){msg('',0);hitFrom(A,e.move)}}}
@@ -191,67 +199,48 @@ const PlayerCombat=(()=>{
         if(!alive().length){state='won';stateT=performance.now();lock=false;el.querySelector('#wLock').classList.remove('on')}}
       else if(e.t==='dead'&&e.d==='P'){msg('YOU DIED',3);tone(180,35,.6,'sawtooth',.16);state='lost';stateT=performance.now()}}}
   function wake(F){F.awake=true;if(F.T.pack)for(const o of foes)if(o.T.pack&&Math.hypot(o.f.x-F.f.x,o.f.z-F.f.z)<14)o.awake=true}
-  function locoOf(v,x,z,face,dt){   // smoothed world velocity -> speed + components along / to the left of the facing
-    if(!v.init||dt<=0){v.x=x;v.z=z;v.init=true;v.vf=v.vs=v.sp=0;return}
-    const k=Math.min(1,dt*10),vx=(x-v.x)/dt,vz=(z-v.z)/dt;v.x=x;v.z=z;const fx=Math.sin(face),fz=Math.cos(face),f=vx*fx+vz*fz,l=vx*fz-vz*fx;   // left = (cos, -sin)
-    v.vf+=(f-v.vf)*k;v.vs+=(l-v.vs)*k;v.sp=Math.hypot(v.vf,v.vs)}
-  // a cleared site keeps its corpses until you are well away, then it re-arms (fight it again whenever you like)
-  function rearm(wx,wz){for(const s of SITES()){const r=RT[s.id];if(!r||!r.cleared)continue;if(Math.hypot(wx-s.x,wz-s.z)>s.R+45){r.cleared=false;for(const F of r.foes)freeBody(F.body);r.foes=[];try{if(s.fog)WardenIsles.fog(s.id,'idle')}catch(e){}}}}
+  function locoOf(v,x,z,face,dt){
+    if(!v.init){v.x=x;v.z=z;v.init=true;return}
+    const dx=x-v.x,dz=z-v.z;v.x=x;v.z=z;const sp=Math.hypot(dx,dz)/Math.max(dt,.001);v.sp=sp;
+    const fx=Math.sin(face),fz=Math.cos(face);v.vf=dx*fx+dz*fz;v.vs=dx*fz-dz*fx}
   function tick(dt,t){
-    const wx=S.x-WRD.x,wz=S.z-WRD.z;
-    if(!on){rearm(wx,wz);
-      for(const k in RT)for(const F of RT[k].foes||[])if(F.f.act==='dead'&&Math.hypot(F.f.x-S.x,F.f.z-S.z)<70)foeTick(F,dt,0);   // corpses of cleared sites keep animating until they have finished falling
-      if(S.flying||S.state==='swim'||!S.grounded||!me||!me.userData.nact)return;
-      const s=SITES().find(q=>!rt(q).cleared&&Math.hypot(wx-q.x,wz-q.z)<q.R-(q.wall?1.5:1));if(s)engage(s);if(!on)return}
-    const d=Math.hypot(wx-site.x,wz-site.z);
-    if(S.flying||S.state==='swim'){leave(false);return}
-    if(site.fog){if(state!=='won'&&d>site.R-.8){const k=(site.R-.8)/d;S.x=WRD.x+site.x+(wx-site.x)*k;S.z=WRD.z+site.z+(wz-site.z)*k}}      // the fog gate holds you in until the foe is felled
-    else if(d>site.R+(site.wall?1.5:4)){leave(false);return}
+    if(!on){
+      if(!WRD.on)return;
+      const s=Foes.siteAt(SITES(),S.x-WRD.x,S.z-WRD.z,0);if(s&&!rt(s).cleared)engage(s);
+      return}
+    if(!site){leave(false);return}
+    const dx=S.x-WRD.x-site.x,dz=S.z-WRD.z-site.z,inR=Math.hypot(dx,dz)<(site.fog?site.R+.5:site.R+8);
+    if(!inR&&!site.fog){leave(false);return}
+    if(state==='won'&&performance.now()-stateT>1200){leave(true);return}
+    if(state==='lost'&&performance.now()-stateT>2800){leave(false);return}
+    if(PC.loop&&state==='won'&&performance.now()-stateT>5000)startFight();
     ensureAvatars();
-    // end-of-fight handling
-    if(state==='lost'&&performance.now()-stateT>3200){startFight();msg('Again.',1.4)}
-    else if(state==='won'&&performance.now()-stateT>(PC.loop?5000:4500)){
-      if(PC.loop){startFight();msg('Again.',1.4)}else{rt(site).cleared=true;felled++;msg(site.n+' · cleared ('+felled+' felled)',2.4);leave(true);return}}
-    // one-time status toast so a missing animation set is visible instead of silent
-    {const F0=foes[0],ka=(pAnim?pAnim.st:'none')+'/'+(F0&&F0.anim?F0.anim.st:'none');if(ka!==mxSaid&&pAnim&&F0&&F0.anim&&pAnim.st!=='none'&&F0.anim.st!=='none'){mxSaid=ka;msg(pAnim.st==='ready'&&F0.anim.st==='ready'?'Animations '+WardenMX.BUILD+' loaded':'Animation load FAILED ('+(pAnim.err||F0.anim.err||ka)+')',2.2)}}
-    const TF=target();D=TF.f;
-    // camera: pull back for a big foe, when he is far, and when there are several
-    try{let sc=1;for(const F of foes)if(F.f.act!=='dead'&&F.awake)sc=Math.max(sc,F.T.scale);const fd=Math.hypot(S.x-D.x,S.z-D.z);CameraRig.setBias(-2.4+(sc-1)*3.4+Math.min(3.5,Math.max(0,fd-5))*.45+(alive().length>1?1:0))}catch(e){}
-    for(const F of foes)if(F.ai.ph2&&!F.ph2&&state==='fight'){F.ph2=true;if(F.T.boss){msg(F.T.ph2,2);tone(120,60,.4,'sawtooth',.12)}if(F.body.shield)F.body.shield.visible=false}
-    // 1) hand the sim the player's current position, run the due ticks, apply the forced motion back to S
-    P.x=S.x;P.z=S.z;lx=S.x;lz=S.z;
-    const held=nt=>{const f=lock&&D.act!=='dead'?heading():pendT>0&&pendFace!==null?pendFace:S.rot;if(pendT>0)pendT--;
-      const h={P:{face:f,mx:0,mz:0}};let atk=0;for(const F of foes)if(F.f.act==='attack')atk++;
-      for(const F of foes){const q=F.f;
-        if(F.f.act==='dead'){h[F.id]={face:q.face,mx:0,mz:0};continue}
-        if(!F.awake&&Math.hypot(S.x-q.x,S.z-q.z)<F.T.aggro)wake(F);
-        if(F.awake&&PC.ai&&state==='fight'){F.ai.noAtk=!!F.T.pack&&atk>=Foes.PACK_ATK&&q.act!=='attack';const a=DuelistAI.think(F.ai,P,q,lastEv,nt);h[F.id]={face:a.face,mx:a.mx,mz:a.mz,list:a.list}}
-        else h[F.id]={face:F.awake?Math.atan2(S.x-q.x,S.z-q.z):q.face,mx:0,mz:0}}
-      return h};
-    const evs=ST.advance(now(),held,()=>{S.x+=P.x-lx;S.z+=P.z-lz;lx=P.x;lz=P.z;lastEv=C.ev});
+    if(pendT>0){pendT--;if(pendT<=0)pendFace=null}
+    D=target()?target().f:D;
+    for(const F of foes)if(F.ai.ph2&&!F.ph2&&state==='fight'){F.ph2=true;if(F.T.boss){msg(F.T.ph2,2);tone(120,60,.4,'sawtooth',.12)}if(F.body.shield){F.body.shield.visible=false}}
+    const held={};
+    held.P={mx:0,mz:0,face:pendFace!==null?pendFace:(lock&&D?Math.atan2(D.x-S.x,D.z-S.z):S.rot)};
+    if(lock&&D){const a=Math.atan2(D.x-S.x,D.z-S.z);S.rot=lerpAngle(S.rot,a,1-Math.exp(-10*dt));held.P.face=S.rot}
+    const atk=foes.filter(F=>F.awake&&F.f.act==='attack').length;
+    for(const F of foes){const q=F.f;
+      if(F.awake&&PC.ai&&state==='fight'){F.ai.noAtk=!!F.T.pack&&atk>=Foes.PACK_ATK&&q.act!=='attack';const a=DuelistAI.think(F.ai,P,q,lastEv,now());
+        if(a){if(a.face!==undefined)q.face=a.face;if(a.list)for(const c of a.list)ST.input(F.id,c,now());if(a.mx!==undefined)held[F.id]={mx:a.mx,mz:a.mz,face:q.face}}}}
+    const evs=ST.advance(now(),()=>held,()=>{S.x+=P.x-lx;S.z+=P.z-lz;lx=P.x;lz=P.z;lastEv=C.ev});
     events(evs);
-    // 2) facing: the sim owns it while attacking / dodging / stunned; lock-on owns it otherwise
-    if(P.act==='attack'||P.act==='dodge'||P.act==='stun')S.rot=P.face;
-    else if(lock&&D.act!=='dead'){const a=heading();S.rot=a;S.yaw+=Math.atan2(Math.sin(a+Math.PI-S.yaw),Math.cos(a+Math.PI-S.yaw))*Math.min(1,dt*7)}
-    me.position.x=S.x;me.position.z=S.z;me.rotation.y=S.rot;
-    // dodge visual = the existing roll clip, played once per dodge; getting hit = the game's own hit reaction
-    if(P.act==='dodge'&&!P._rolled){P._rolled=true;me.userData.emote='roll'}else if(P.act!=='dodge')P._rolled=false;
-    if(P.act==='stun'&&!P._hit){P._hit=true;me.userData.hitReq=1}else if(P.act!=='stun')P._hit=false;
-    if(P.act==='dead'&&!P._dead){P._dead=true;me.userData.emoteReq='playdead'}else if(P.act!=='dead'&&P._dead){P._dead=false;if(typeof emoStop==='function')emoStop(me.userData)}
-    // 3) animation: real sword clips scrubbed by the sim (player + every foe); procedural arm pose only while the clips are still downloading
+    P.x=S.x;P.z=S.z;lx=P.x;lz=P.z;
     const fr=C.hs>0?0:Math.max(0,Math.min(1,now()/16.6667-ST.skew-C.tick));
     locoOf(pv,S.x,S.z,S.rot,dt);const ploco={moving:pv.sp>.8&&P.act==='free',vf:pv.vf,vs:pv.vs};
     gT=P.guard?gT+1:0;const o=PC._pose?{a:WardenAnim.POSES[PC._pose[0]],b:WardenAnim.POSES[PC._pose[1]],u:PC._pose[2],w:1}:WardenAnim.target(P,gT);WardenAnim.mix(o.a,o.b,o.u,tg);stW+=((o.w)-stW)*Math.min(1,dt*10);
     {const k=Math.min(1,dt*40);for(const kk of['ru','rf','lu','lf'])cur[kk].lerp(tg[kk],k).normalize();cur.tw+=(tg.tw-cur.tw)*k;cur.ln+=(tg.ln-cur.ln)*k}
     const used=pAnim?pAnim.update(P,fr,ploco,dt,true):false;if(!used&&!PC._skip)WardenAnim.apply(me.userData,cur,stW);
     for(const F of foes)foeTick(F,dt,fr);
-    WardenFx.update(dt);
+    WardenFx.update(dt);if(typeof CombatVfx!=='undefined')CombatVfx.update(dt);
     hud();if(msgT>0){msgT-=dt;if(msgT<=0)el.querySelector('#wmsg').classList.remove('on')}}
   function foeTick(F,dt,fr){
     const b=F.body,f=F.f,g=b.g;g.position.set(f.x,H(f.x,f.z),f.z);
     if(f.act==='attack'||f.act==='stun'||f.act==='dead'){g.rotation.y=f.face}else g.rotation.y=lerpAngle(g.rotation.y,f.face,1-Math.exp(-12*dt));
     locoOf(F.loco,f.x,f.z,g.rotation.y,dt);const moving=F.loco.sp>.6&&f.act==='free',loco={moving,vf:F.loco.vf,vs:F.loco.vs};
-    if(b.T.body==='avatar'){if(f.act==='dead'){b.u.pp=null;b.u.v=0;if(!b.u.hold&&!b.u.emoteReq)b.u.emoteReq='playdead'}   // a corpse keeps its fall: no motion-based emote cancel, and re-ask until the emote library has loaded
+    if(b.T.body==='avatar'){if(f.act==='dead'){b.u.pp=null;b.u.v=0;if(!b.u.hold&&!b.u.emoteReq)b.u.emoteReq='playdead'}
       if(typeof animate==='function')animate(g,dt,moving?'walk':'idle')}
     if(F.anim)F.anim.update(f,fr,loco,dt,true);
     if(b.T.body==='glb'&&b.u.mixer)b.u.mixer.update(dt);
