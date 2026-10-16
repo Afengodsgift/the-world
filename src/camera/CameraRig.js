@@ -9,7 +9,7 @@
 // Other systems talk to it only through the API at the bottom (setShooter, kick, pitchRange, neutralPitch ...).
 // Globals used at runtime: S, camera, me, H, THREE, sstep.
 const CameraRig=(()=>{
-  const st={sInit:false,sy:0,sp:0,arm:1,dip:{x:0,v:0},view:'tps',shooter:false,fpsK:0,tpsK:0,ay:0,init:false,px:0,pz:0,vx:0,vz:0,spd:0,hd:0,turn:0,
+  const st={bias:0,biasT:0,sInit:false,sy:0,sp:0,arm:1,dip:{x:0,v:0},view:'tps',shooter:false,zoom:1,zk:1,scopeFps:false,fpsK:0,tpsK:0,ay:0,init:false,px:0,pz:0,vx:0,vz:0,spd:0,hd:0,turn:0,
             roll:{x:0,v:0},kp:{x:0,v:0},ky:{x:0,v:0},t:0,bob:0,eye:new THREE.Vector3(),eInit:false,prevFps:false,cruise:0,boost:0,fw:0,py:0,vyn:0};
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const _u=new THREE.Vector3(),_f=new THREE.Vector3(),_p=new THREE.Vector3(),_l=new THREE.Vector3(),_h=new THREE.Vector3(),_a=new THREE.Vector3(),_b=new THREE.Vector3();
@@ -70,13 +70,14 @@ const CameraRig=(()=>{
     st.cruise=fly?clamp(sp3/34,0,1):0;st.boost=fly?sstep(40,66,sp3):0;
 
     // ---- mode blends ----
-    const wantFps=st.shooter&&st.view==='fps',wantTps=st.shooter&&st.view==='tps';
+    const wantFps=st.shooter&&(st.view==='fps'||st.scopeFps),wantTps=st.shooter&&st.view==='tps'&&!st.scopeFps;
     if(wantFps&&!st.prevFps)S.pitch=.02;                                  // enter looking level, not down at the player
     if(wantTps&&!st.prevTps)S.pitch=.12;                                  // combat camera starts near level so the horizon/targets are in front of you
     if((!wantFps&&st.prevFps)||(!wantTps&&st.prevTps))S.pitch=.4;         // leave at the usual chase angle
     st.prevFps=wantFps;st.prevTps=wantTps;
     st.fpsK+=((wantFps?1:0)-st.fpsK)*(1-Math.exp(-10*dt));
     st.tpsK+=((wantTps?1:0)-st.tpsK)*(1-Math.exp(-8*dt));
+    st.bias+=(st.biasT-st.bias)*(1-Math.exp(-3*dt));                        // extra orbit distance (e.g. aboard a ship)
     spring(st.kp,0,dt,18,.5);spring(st.ky,0,dt,18,.5);                    // recoil kick recovers by itself
 
     // ---- view direction (what the player is looking along) ----
@@ -95,8 +96,9 @@ const CameraRig=(()=>{
     // in the frame with the space you're heading into above it (Cinemachine's 'vertical arm'). Trails slightly along the full 3D velocity.
     const fe=st.fw*(1-st.tpsK)*(1-st.fpsK),el=clamp(-pit,-1.2,1.2);       // el > 0 = looking up
     const dGround=9+2.4*st.boost-4.9*st.tpsK+5*dk;
-    const dFly=4.6+1.0*st.boost+1.0*dk-(el>0?1.2*el/1.2:.6*el/1.2);       // 3.4 m looking straight up .. 5.2 m looking down at the world (walking is 9 m)
-    const d=dGround+(dFly-dGround)*fe,sh=1.0*st.tpsK,shx=Math.cos(yaw)*sh,shz=-Math.sin(yaw)*sh;
+    const bvw=typeof Boost!=='undefined'?Boost.view:{charge:0,burst:0};                                   // charged boost: move in while charging, pull back on the burst
+    const dFly=Math.max(2.6,4.6+1.0*st.boost+1.0*dk-(el>0?1.2*el/1.2:.6*el/1.2)-1.1*bvw.charge+1.4*bvw.burst);       // 3.4 m looking straight up .. 5.2 m looking down at the world (walking is 9 m)
+    const d=dGround+(dFly-dGround)*fe+st.bias*(1-st.fpsK),sh=1.0*st.tpsK,shx=Math.cos(yaw)*sh,shz=-Math.sin(yaw)*sh;
     const lagG=Math.min(.7,st.spd*.045),lagF=Math.min(.6,sp3*.008),lag=lagG+(lagF-lagG)*fe;
     const lx=st.spd>.1?-st.vx/st.spd*lag*(1-fe):0,lz=st.spd>.1?-st.vz/st.spd*lag*(1-fe):0;   // ground: horizontal trail (unchanged)
     const ay=st.ay+1.6+.4*st.tpsK;
@@ -130,23 +132,28 @@ const CameraRig=(()=>{
 
     // ---- FOV: speed widens it, first-person trims a little ----
     const gf=clamp((st.spd-5.5)/7,0,1);                                   // ground sprint: a touch wider
-    const tf=(fly?66+10*st.cruise+13*st.boost*(1-.6*dk)+4*dk:(S.gboost>0?80:65+4.5*gf))-4*st.fpsK+3*st.tpsK;   // combat camera is a touch wider
-    if(Math.abs(camera.fov-tf)>.05){camera.fov+=(tf-camera.fov)*Math.min(1,dt*4.5);camera.updateProjectionMatrix()}
+    st.zk+=(st.zoom-st.zk)*(1-Math.exp(-11*dt));   // scope zoom eases in/out
+    let tf=(fly?Math.min(90,66+10*st.cruise+13*st.boost*(1-.6*dk)+4*dk+7*(typeof Boost!=='undefined'?Boost.view.burst:0)-4*(typeof Boost!=='undefined'?Boost.view.charge:0)):(S.gboost>0?80:65+4.5*gf))-4*st.fpsK+3*st.tpsK;   // combat camera is a touch wider
+    if(st.zk>1.002)tf=Scope.fov(tf,st.zk);
+    if(Math.abs(camera.fov-tf)>.05){camera.fov+=(tf-camera.fov)*Math.min(1,dt*((st.zk>1.002||st.zoom>1)?12:4.5));camera.updateProjectionMatrix()}
   }
 
   return {
     update,
     setShooter(b){st.shooter=!!b},                      // a weapon is out: use the shooter view (fps or tps)
+    setBias(m){st.biasT=m||0},                          // pull the orbit camera back by m metres (smoothly), e.g. when aboard a ship
+    setZoom(z,fps){st.zoom=Math.max(1,z||1);st.scopeFps=!!fps&&st.zoom>1},   // scope: zoom factor, and force first person for the sniper lens view
+    zoom:()=>st.zk,
     setView(v){st.view=v==='tps'?'tps':'fps'},
     toggleView(){st.view=st.view==='fps'?'tps':'fps';return st.view},
     view:()=>st.view,
     isFPS:()=>st.fpsK>.5,
     shooterActive:()=>st.shooter,
-    pitchRange:()=>st.fpsK>.5||(st.shooter&&st.view==='fps')?[-1.45,1.45]:st.shooter?[-.95,1.25]:(S.flying?[-1.35,1.5]:S.dv?[-.75,1.2]:[.05,1.2]),   // first person: straight up/down; flying in third person: look well above/below the horizon too (to climb straight up)
-    neutralPitch:()=>(st.fpsK>.5||(st.shooter&&st.view==='fps'))?0:.4,                  // the pitch that means "level" for flight climb/dive
+    pitchRange:()=>st.fpsK>.5||(st.shooter&&(st.view==='fps'||st.scopeFps))?[-1.45,1.45]:st.shooter?[-.95,1.25]:(S.flying?[-1.35,1.5]:S.dv?[-.75,1.2]:[.05,1.2]),   // first person: straight up/down; flying in third person: look well above/below the horizon too (to climb straight up)
+    neutralPitch:()=>(st.fpsK>.5||(st.shooter&&(st.view==='fps'||st.scopeFps)))?0:.4,                  // the pitch that means "level" for flight climb/dive
     kick(p,y){st.kp.v+=p*40;st.ky.v+=(y||0)*40},
     land(imp){st.dip.v-=Math.min(4,Math.max(0,(imp-4)*.22))},   // landing impact: a short downward dip of the view (imp = fall speed in m/s)        // recoil impulse in radians of peak rotation
-    speedFrac:()=>({cruise:st.cruise,boost:st.boost}),
+    speedFrac:()=>{const b=typeof Boost!=='undefined'?Boost.view:null;return {cruise:st.cruise,boost:b?Math.min(1.3,st.boost+b.burst*.6):st.boost,charge:b?b.charge:0}},
     speed:()=>st.spd
   };
 })();

@@ -15,9 +15,12 @@ VIEWS={ # name: (cam, target, fov)  (offsets are relative to the island centre; 
  'ground':((SKY[0]+10,SKY[1]+3,SKY[2]+60),(SKY[0]+46,SKY[1]+6,SKY[2]-15),70),
 }
 night=len(sys.argv)>3 and sys.argv[3]=='night'
+for a in sys.argv[3:]:
+    if a.startswith('custom:'): # custom:name:camx,camy,camz,tx,ty,tz,fov
+        _,nm,vals=a.split(':');v=[float(x) for x in vals.split(',')];VIEWS[nm]=((v[0],v[1],v[2]),(v[3],v[4],v[5]),v[6])
 names=[v for v in sys.argv[3:] if v in VIEWS] or list(VIEWS)
 for n in names:
     cam,tg,fov=VIEWS[n]; p=os.path.join(outdir,n+'.ppm')
-    args=['/tmp/raster',tris,p,str(W*2),str(H*2)]+[str(x) for x in cam+tg]+[str(fov),'0.5','0.62','0.32','1.0','0.81','0.89','0.95']
+    args=['/tmp/raster',tris,p,str(W*2),str(H*2)]+[str(x) for x in cam+tg]+[str(fov),*(['0.35','0.45','0.2','0.28','0.03','0.05','0.12'] if os.environ.get('NIGHT') else ['0.5','0.62','0.32','1.0','0.81','0.89','0.95'])]
     subprocess.run(args,check=True); im=Image.open(p).resize((W,H),Image.LANCZOS); im.save(os.path.join(outdir,n+'.png')); os.remove(p)
 print('rendered',names)

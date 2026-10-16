@@ -181,6 +181,7 @@ const OutlawArena=(()=>{
       case 'cb':applyBreak(brk[p.i]);break;
       case 'fr':setFronts(p.f,true);break;
       case 'rs':reset();break}}
-  return {build,tick,onMsg,hitCover,blast,reset,pickFronts,setFronts,front,trainQ,trainSync,
+  const perches=()=>{const C=X.C;return [[C.x-125+2,C.z+35+2],[C.x+105,C.z+15]].map(([x,z])=>({x,z,y:gy(x,z)}))}; // high ground for snipers (ridge top, mine mesa)
+  return {build,tick,onMsg,perches,hitCover,blast,reset,pickFronts,setFronts,front,trainQ,trainSync,
     _t:()=>({brk,T,fronts,pathAt,trainState,get G(){return G},damageBrk,applyBreak,timers})};
 })();

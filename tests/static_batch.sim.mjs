@@ -80,4 +80,14 @@ const bref=new T.Box3().setFromPoints(refPos);ok(bb.min.distanceTo(bref.min)<1e-
  {const {s,a,b,c}=mk();const clip=new T.AnimationClip('m',1,[new T.VectorKeyframeTrack('.position',[0,1],[0,0,3,0,10,3])]);const mix=new T.AnimationMixer(c);mix.clipAction(clip).play();StaticBatch.autoFreeze(s);mix.update(.5);s.updateMatrixWorld();ok(Math.abs(c.matrixWorld.elements[13]-7)<1e-6,'animation-mixer driven descendants animate through a frozen subtree')}
  {const {s,a,b,c}=mk();StaticBatch.autoFreeze(s);const x=new T.Group();s.add(x);x.position.set(8,8,8);s.updateMatrixWorld();ok(Math.abs(x.matrixWorld.elements[12]-8)<1e-9,'objects added to the scene root after the freeze are updated normally')}
 }
+
+// ---- unguard: once an object has thawed it has plain properties again (no accessor overhead), and it can be frozen again later ----
+{const s=new T.Scene(),a=new T.Mesh(box,mA);s.add(a);s.updateMatrixWorld(true);StaticBatch.autoFreeze(s);
+ ok(Object.getOwnPropertyDescriptor(a.position,'x').get!==undefined&&a.add!==T.Object3D.prototype.add,'a frozen object has the tripwire installed');
+ a.position.x=4;s.updateMatrixWorld();
+ const d=Object.getOwnPropertyDescriptor(a.position,'x'),ds=Object.getOwnPropertyDescriptor(a.scale,'y');
+ ok(d.get===undefined&&d.value===4&&ds.get===undefined&&a.add===T.Object3D.prototype.add,'after thawing, position/scale are plain data properties again and add() is the original');
+ a.position.y=2;a.rotation.y=.5;s.updateMatrixWorld();ok(Math.abs(a.matrixWorld.elements[13]-2)<1e-9&&a.matrixAutoUpdate,'a thawed object keeps working normally (position + rotation writes)');
+ a.rotation.x=.2;ok(Math.abs(a.quaternion.x)>0,'rotation->quaternion sync still works after unguard (original callbacks restored)');
+ StaticBatch.freezeGuarded(s);a.updateMatrix();ok(!a.matrixAutoUpdate,'a thawed object can be frozen again');a.position.x=9;s.updateMatrixWorld();ok(Math.abs(a.matrixWorld.elements[12]-9)<1e-9,'...and thaws again when moved')}
 console.log(bad?bad+' FAIL':'all static batch checks passed');process.exit(bad?1:0);

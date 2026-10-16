@@ -11,6 +11,10 @@ ISL.push({n:'Outlaw Isle',x:OUT.x,z:OUT.z,R:OUT.R,pk:0,c:'#e0a040',ded:true});
 // islands WITHOUT drawing from the shared random stream, so adding this island does not move a single shard, tree or hunt in existing worlds.
 const STAD={x:-2100,z:500,R:200};
 ISL.push({n:'Stadium Isle',x:STAD.x,z:STAD.z,R:STAD.R,pk:0,c:'#6fd18a',ded:true,bare:true});
+// WARDEN: The Warden Isles (combat island). Deliberately NOT in ISL: ISL drives world-gen scatter, shard/hunt placement and terrain() calls, and adding to it would shift the seeded rng stream.
+// Terrain is a blend appended to the end of H() (see index.html), gated by WRD.on (default false; ?warden=1 turns it on until the owner approves enabling it). reach = R + fall.
+const WRD={x:150,z:-2450,R:210,fall:24,reach:234,on:false};
+try{WRD.on=/[?&]warden=1(&|$)/.test(location.search)}catch(e){}
 const KT={x:760,z:1400,hw:95,hh:65,rc:34};
 // (The Floating Island's x/z below is a spot on its path, so Travel lands you on solid ground.)
 const LOCS=[{n:'Town Square',x:25,z:62,r:16},{n:'Whispering Forest',x:-110,z:40,r:45},{n:'Shell Beach',x:0,z:182,r:26},{n:'Sky Peak',x:0,z:-137,r:22,y:32},{n:'The Cave',x:18,z:-88,r:9}].concat(ISL.map(I=>({n:I.n,x:I.x,z:I.z,r:I.R*.7}))).concat([{n:'The Floating Island',x:SKY.x+50,z:SKY.z+6,r:SKY.R*.8,y:SKY.base+6}]);
@@ -25,6 +29,10 @@ const PITCH={x:STAD.x,z:STAD.z,y:3.3,hw:47,hh:31,clear:12};
 // rotation from their position instead of the stream (see `add` in buildWorld). Do not delete this without a world-version bump.
 const LEGACY_PITCH={x:-43,z:17,hw:31,hh:20,clear:12};
 LOCS.push({n:'Soccer Pitch',x:PITCH.x,z:PITCH.z,r:30});
+// Harbor: a pier running south from Shell Beach into water deep enough for a ship (found by scanning H(): the sea floor there is very
+// shallow, so the pier is long). The sloop is moored on the pier's east side, bow out to sea. top = pier/deck height above the sea (y).
+const DOCK={x:-30,z0:198,z1:238,top:.825,ship:{x:-25.6,z:230,h:0}};
+LOCS.push({n:'Harbor',x:DOCK.x,z:216,r:26});
 LOCS.push({n:'The Race Track',x:KT.x,z:KT.z,r:Math.max(KT.hw,KT.hh)});
 const WP=[[TOWN.x+40*Math.cos(.59),TOWN.z+40*Math.sin(.59)],[0,-137],[900,-300],[1400,750],[550,1000]];
 WP.push(WP[0]);

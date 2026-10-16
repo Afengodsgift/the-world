@@ -99,6 +99,25 @@ Outlaw Isle: stays specialized · Sky: wind currents, cloud platforms · Main: t
 - **Death state**: dead raiders stop fighting and moving, play the baked fall (no more plank-tilt + shrink), lie there ~5 s, sink into the ground and are removed at ~6.6 s; non-targetable the moment they die. If the clip hasn't loaded the old tilt is the fallback.
 - Not done yet: dedicated reload/shoot clips (the procedural `poseGun` still drives arms), crouch-in-cover use of `crouch`/`crouchwalk`, directional death variants.
 
+### Fixes after the first phone test of slices 3-4
+- **No more propeller legs**: the leg twist is for human players only (raiders keep the plain gait), the travel direction is low-pass filtered, needs real sustained speed, the twist rate is limited to ~5 rad/s, and the bones are restored to the animation's values before each mixer update (`CombatPose.untwist`) so it can never accumulate.
+- **Waves always end**: if the spawns are done and <= 3 raiders remain for 25 s they enter HUNT mode (brave, +30% speed, a banner says which way the nearest one is), and a raider that wants to move but has gone nowhere for ~6 s is re-placed at one of the island's fronts. Raiders also sprint harder when far from you (up to ~2x).
+- **Brute**: base HP 120 -> 90; a hit interrupts its swing (0.35 s) so close-range fire is visibly effective; bloom now builds slower (first ~3 s of automatic fire stay accurate). Point-blank head/chest hits were verified to register (head 23, chest 15 with the pistol).
+- **Coins**: one-time grant of 1,000,000 coins per device save (SAVE.v 4).
+
+## Combat Feel V2 - slice 5: raider AI v2 (`src/combat/EnemyAI.js`, `tests/enemyai.sim.js`)
+- **Waves sized for the players**: solo opening waves are 6 / 8 / 9 raiders (was 4 / 6); two players x1.75 (11 / 14 / 16), a shotgunner already in wave 1, 2 spawn fronts from wave 1, a higher live cap.
+- **Roles**: bandits are grunts, flankers (curl round to a side until ~14 m) or riflemen (hold ~28 m, use cover more); shotgunners rush (no cover dance); snipers walk to high ground (`OutlawArena.perches()`: ridge top, mine mesa) and shoot from there.
+- **Cover works both ways**: vision and enemy shots are height-aware. A raider sees your head/chest if its eye has a clear line over cover; shots at a chest behind a crate hit the crate (and damage it), a head over it can be hit. Raiders crouch behind cover (the baked crouch clip; the bone-based hit zones follow the pose, so a crouched raider's head is hidden behind a 1.3 m crate) and stand up to peek/shoot.
+- **Melee needs contact**: a brute cannot hit a player flying above it (vertical reach 2.6 m) and melee raiders prefer a target on the ground. Target choice already spreads raiders over both players.
+- **Walk/run cycles pack**: converted with assimp and baked with `tools/retarget_walk.js` (Mixamo map, yaw fix, in-place option; retarget error 3.3 deg mean). Not shipped: the 'segment' loops don't actually loop (hips/arms differ ~80 deg between first and last frame) and the treadmill takes are 16-24 s without clean cycle points. The tool is kept for when we cut proper loops.
+
+## Scopes (`src/combat/Scope.js`, `tests/scope.sim.js`)
+- Every gun has a zoom (Revolver/pistols 1.5-1.6x, SMGs 1.6x, shotguns 1.3-1.4x, Magnum 2.5x, AR-2/Bullpup 2.5x, Assault Rifle 3x, Rocket Launcher 2x, **Hunting Rifle 5x, Marksman 6x**). Tap the 🔭 button (or Z) to look down the sights; tap again, swap, reload, fly, go down or end the match to leave.
+- Zoom is a real zoom (FOV tangent / z, eased), look sensitivity drops with it (6x -> ~0.22, applied to both the look pad and the fire-thumb drag), aim is steadier (spread x0.3 at 4x+, x0.6 below).
+- Snipers (zoom >= 4) get the lens view: first person (your avatar and viewmodel hidden), black vignette lens, thin crosshair with a red dot, zoom label and a live range readout to whatever is under the crosshair; the normal reticle is hidden. Shots start at the eye there. Other guns just zoom without the lens.
+- Verified in the real game: 5x scope narrows the FOV 67 -> ~19 deg, a scoped headshot at 150 m kills a raider.
+
 ## Roadmap
 0 Net adapter ✔ · 1 WorldState + Journal ✔ · 2 Verbs v1 ✔ (cave interior still open) ·
 3 Link ✔ (twin plates, synced shrine; lockpick+lookout later) · 4 Event Director ✔ (meteor, visitor, golden rings; shark surge later) · 5 Zones (Storm Cay wind, Frost friction first) · 6 Home v1 (trophy shelf, aquarium) ·

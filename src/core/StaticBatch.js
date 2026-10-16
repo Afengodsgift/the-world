@@ -12,12 +12,18 @@ const StaticBatch=(()=>{
   // A frozen object also has matrixWorldAutoUpdate=false, so three skips its whole subtree during updateMatrixWorld (no walking at all).
   // To keep that safe, anything that thaws (or gets a new child) re-opens the path from the scene down to itself.
   function openPath(o){for(let p=o;p;p=p.parent)if(p.matrixWorldAutoUpdate===false)p.matrixWorldAutoUpdate=true}
-  function thaw(o){if(!o.matrixAutoUpdate){o.matrixAutoUpdate=true;o.matrixWorldNeedsUpdate=true}openPath(o)}
+  // once an object has moved it is no longer static: put back plain properties (the accessors would slow every later position write; fish/animals etc. write every frame)
+  function unguard(o){
+    if(!o.__guarded)return;o.__guarded=false;
+    for(const v of [o.position,o.scale]){const x=v.x,y=v.y,z=v.z;Object.defineProperty(v,'x',{value:x,writable:true,enumerable:true,configurable:true});Object.defineProperty(v,'y',{value:y,writable:true,enumerable:true,configurable:true});Object.defineProperty(v,'z',{value:z,writable:true,enumerable:true,configurable:true})}
+    o.rotation._onChange(o.__rcb);o.quaternion._onChange(o.__qcb);delete o.add;
+  }
+  function thaw(o){if(!o.matrixAutoUpdate){o.matrixAutoUpdate=true;o.matrixWorldNeedsUpdate=true}openPath(o);unguard(o)}
   function guardVec(o,v){for(const k of ['x','y','z']){let val=v[k];Object.defineProperty(v,k,{get(){return val},set(n){if(n!==val){val=n;thaw(o)}},configurable:true,enumerable:true})}}
   function guardOne(o){
     if(o.__guarded){o.updateMatrix();o.matrixWorldNeedsUpdate=false;o.matrixAutoUpdate=false;o.matrixWorldAutoUpdate=false;return}
     o.__guarded=true;guardVec(o,o.position);guardVec(o,o.scale);
-    const r=o.rotation._onChangeCallback,q=o.quaternion._onChangeCallback;
+    const r=o.rotation._onChangeCallback,q=o.quaternion._onChangeCallback;o.__rcb=r;o.__qcb=q;
     o.rotation._onChange(()=>{r();thaw(o)});o.quaternion._onChange(()=>{q();thaw(o)});
     const add=o.add;o.add=function(){openPath(this);return add.apply(this,arguments)};   // a child added later must be reachable by updateMatrixWorld
     o.updateMatrix();o.matrixWorldNeedsUpdate=false;o.matrixAutoUpdate=false;o.matrixWorldAutoUpdate=false;   // world matrices were just computed, so no pending update
