@@ -38,7 +38,9 @@ const DEPS={ // file -> files that must come first
   'world/events/visitor.js':['world/Events.js','world/Fx.js','core/WorldState.js','interaction/InteractionManager.js','interaction/Verbs.js','world/Vaults.js'],
   'world/events/rings.js':['world/Events.js','world/Fx.js','core/WorldState.js'],
   'ship/Sailing.js':['data/ship.js'],
-  'ship/Ship.js':['data/ship.js','data/islands.js','ship/Sailing.js','interaction/InteractionManager.js','core/Net.js','core/Systems.js','world/Fx.js'],
+  'ship/Decks.js':[],
+  'ship/Vessel.js':['data/ship.js','data/decks.js','ship/Decks.js','ship/Sailing.js'],
+  'ship/Ship.js':['data/ship.js','data/decks.js','data/islands.js','ship/Sailing.js','ship/Decks.js','ship/Vessel.js','interaction/InteractionManager.js','core/Net.js','core/Systems.js','world/Fx.js'],
   'games/Soccer.js':['data/soccer.js','data/islands.js','interaction/InteractionManager.js','core/Net.js','core/Systems.js','world/Fx.js'],
   'world/Vaults.js':['core/Net.js','core/WorldState.js','core/Systems.js','world/Fx.js','world/Sites.js','core/Seeded.js','interaction/Link.js','interaction/VerbAnims.js','data/puzzles.js','interaction/InteractionManager.js','utils/random.js'],
 };

@@ -23,7 +23,7 @@ const PITCH={x:-43,z:17,y:2.55,hw:31,hh:20,clear:12};
 LOCS.push({n:'Soccer Pitch',x:PITCH.x,z:PITCH.z,r:30});
 // Harbor: a pier running south from Shell Beach into water deep enough for a ship (found by scanning H(): the sea floor there is very
 // shallow, so the pier is long). The sloop is moored on the pier's east side, bow out to sea. top = pier/deck height above the sea (y).
-const DOCK={x:-30,z0:198,z1:238,top:.825,ship:{x:-25.6,z:230,h:0}};
+const DOCK={x:-30,z0:198,z1:238,top:.825,ship:{x:-23.8,z:230,h:0}};
 LOCS.push({n:'Harbor',x:DOCK.x,z:216,r:26});
 LOCS.push({n:'The Race Track',x:KT.x,z:KT.z,r:Math.max(KT.hw,KT.hh)});
 const WP=[[TOWN.x+40*Math.cos(.59),TOWN.z+40*Math.sin(.59)],[0,-137],[900,-300],[1400,750],[550,1000]];

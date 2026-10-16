@@ -215,7 +215,10 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/world/events/rings.js"></script>
 <script src="src/data/soccer.js"></script>
 <script src="src/data/ship.js"></script>
+<script src="src/data/decks.js"></script>
 <script src="src/ship/Sailing.js"></script>
+<script src="src/ship/Decks.js"></script>
+<script src="src/ship/Vessel.js"></script>
 <script src="src/ship/Ship.js"></script>
 <script src="src/games/Soccer.js"></script>
 <script>
@@ -1217,6 +1220,7 @@ function tickFrame(t){
   const hi=S.flying&&S.y>gY+14&&Math.hypot(S.x-SKY.x,S.z-SKY.z)>SKY.R+60;
   for(const c of solids){if(hi)break;const ax=S.x-c.x,az=S.z-c.z,dd=Math.hypot(ax,az),R=c.r+.4;
     if(dd<R){if(c.h&&S.y>=c.h-.15)gY=Math.max(gY,c.h);else if(!c.noSide&&dd>1e-4){S.x=c.x+ax/dd*R;S.z=c.z+az/dd*R}}}
+  if(typeof Decks!=='undefined'&&!hi){const dg=Decks.step(S,px,pz,{dt,grounded:S.grounded,moving:len>.05,flying:S.flying});if(dg>gY)gY=dg}   // ships: carry + walls + rails + stairs (src/ship/Decks.js)
   if(wat&&gY>-.5)wat=false; // standing on something (a bridge deck over the sea) is not swimming
   const wasG=S.grounded;
   S.coy=wasG?.12:Math.max(0,(S.coy||0)-dt);                                    // coyote time: a jump pressed just after walking off a ledge still jumps
