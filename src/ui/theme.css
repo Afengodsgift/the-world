@@ -218,7 +218,7 @@ html .pbar{position:fixed;z-index:6;left:var(--bar-l,50%);transform:var(--bar-tf
 #lobby #create{background:linear-gradient(180deg,#ffe29a,#ffc457);color:var(--w-accent-ink);box-shadow:0 8px 24px rgba(255,196,87,.35)}
 #lobby button.alt{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.26);color:#fff;font-weight:600}
 #lobby #skinRow{width:100%;margin:2px 0}
-html #skinRow button{flex:1;width:auto;padding:9px 4px;font:600 12px var(--w-ui);border-radius:12px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);color:#fff}
+html #skinRow button{flex:1 1 21%;width:auto;padding:9px 4px;font:600 12px var(--w-ui);border-radius:12px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);color:#fff}
 html #skinRow button.sel{background:var(--w-accent);color:var(--w-accent-ink);border-color:var(--w-accent)}
 #lobby #msg{min-height:1.2em;font:500 13px var(--w-ui);color:#ffd0d0;text-align:center}
 

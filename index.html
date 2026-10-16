@@ -38,7 +38,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 #panbtn{position:fixed;z-index:5;right:136px;bottom:calc(env(safe-area-inset-bottom,0px) + 144px);width:56px;height:56px;border-radius:50%;padding:0;display:none;background:#ffffffcc;font-size:26px;opacity:.6}
 #flash{position:fixed;z-index:8;inset:0;background:#ff0000;opacity:0;pointer-events:none;transition:opacity .08s}
 #use{position:fixed;z-index:5;right:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 156px);display:none;width:auto;padding:12px 22px;background:#ffffffdd;color:#1a1f3a}
-#skinRow button{flex:1;padding:8px 4px;font-size:12px;border-radius:10px;background:#ffffff14;border:1px solid #ffffff33;color:#fff}
+#skinRow button{flex:1 1 21%;padding:8px 4px;font-size:12px;border-radius:10px;background:#ffffff14;border:1px solid #ffffff33;color:#fff}
 #skinRow button.sel{background:#ffd27a;color:#1a1f3a;border-color:#ffd27a}
 #pmk{position:fixed;z-index:5;transform:translate(-50%,-50%);color:#7fd0ff;text-align:center;font-size:22px;line-height:1;text-shadow:0 0 8px #000,0 2px 6px #000;pointer-events:none;display:none}
 
@@ -117,7 +117,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
   <h1>The World</h1>
   <p>A world for two.</p>
   <input id="name" placeholder="Your name" maxlength="16" autocomplete="off">
-  <div id="skinRow" style="display:flex;gap:8px;justify-content:center;margin:10px 0"></div>
+  <div id="skinRow" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:10px 0"></div>
   <button id="create">Create a world</button>
   <input id="code" placeholder="Room code (KAMI-7X4P)" maxlength="9" autocomplete="off" style="text-transform:uppercase">
   <button id="join" class="alt">Join with code</button>
@@ -248,7 +248,7 @@ function warmUp(){
 }
 const COLORS=['#ff6b8b','#ffb454','#6bd6ff','#8dff9a','#c08bff','#ffe66b'];
 const myColor=COLORS[Math.random()*COLORS.length|0];
-const SKINLABELS=['Man','Woman','Warrior','Robot'];
+const SKINLABELS=['Man','Woman','Warrior','Robot','Crypto','Medea','Eve','Cool Guy']; // 0-3 stock, 4-7 re-skinned Mixamo characters (NEWCHARS in AssetLoader.js)
 let mySkin=1;
 {const row=$('skinRow');SKINLABELS.forEach((lab,i)=>{const b=document.createElement('button');b.textContent=lab;if(i===mySkin)b.className='sel';
   b.onclick=()=>{mySkin=i;[...row.children].forEach((c,k)=>c.className=k===i?'sel':'')};row.appendChild(b)})}
@@ -505,9 +505,9 @@ function animate(g,dt,st){
 
 const K=2.5;
 function dress(g,skin){
-  loadChar().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(charBuf.slice(0),AURL,res,rej))).then(r=>{
+  loadChar().then(()=>skinBuf(skin)).then(sb=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(sb.b.slice(0),AURL,r=>{r.own=sb.own;res(r)},rej))).then(r=>{
     const m=r.scene,bones={};m.scale.setScalar(.5);
-    m.traverse(o=>{if(o.isSkinnedMesh){o.skeleton.bones.forEach(b=>bones[b.name]=b);o.frustumCulled=false;o.material=new THREE.MeshStandardMaterial({map:skinT[skin%skinT.length],roughness:.85,metalness:0})}});
+    m.traverse(o=>{if(o.isSkinnedMesh){o.skeleton.bones.forEach(b=>bones[b.name]=b);o.frustumCulled=false;if(!r.own)o.material=new THREE.MeshStandardMaterial({map:skinT[skin%skinT.length],roughness:.85,metalness:0})}});
     const mx=new THREE.AnimationMixer(m),act={},nact={};for(const n in clips)act[n]=mx.clipAction(clips[n]);
     act.jump.setLoop(THREE.LoopOnce,1);act.jump.clampWhenFinished=true;
     for(const n in nclips)nact[n]=mx.clipAction(nclips[n]);
