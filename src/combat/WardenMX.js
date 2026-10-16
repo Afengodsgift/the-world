@@ -135,6 +135,7 @@ const WardenMX=(()=>{
             // never stand still while the share bookkeeping rounds to < 1: top up with the closest gait
             let t=0;for(const c in tgt)t+=tgt[c];if(t<.05)tgt[L.walk]=1}
           else if(A[L.idle])tgt[L.idle]=1}}
+      if(R.native&&!names.some(n=>tgt[n]>0)&&A[R.loco.idle])tgt[R.loco.idle]=1;   // stunned / dodging / no clip for this state: never fall back to the bind (T) pose
       // smooth the shares, then convert to three.js weights relative to the game's own base layer (see Blend.js); loops free-run, attacks are scrubbed
       const k=1-Math.exp(-dt*(f.act==='attack'?30:16));let sum=0;
       for(const n of names){I.ws[n]+=(tgt[n]-I.ws[n])*k;if(I.ws[n]<.01&&tgt[n]===0)I.ws[n]=0;sum+=I.ws[n]}

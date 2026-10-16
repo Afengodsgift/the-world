@@ -8,9 +8,12 @@ const WardenIsles=(()=>{
   function colour(h,x,z,sl,c){   // dark-fantasy palette: ash grass, wet stone, pale shore, cobbled courtyard
     const wx=x-WRD.x,wz=z-WRD.z,d=Math.hypot(wx,wz),n=(Math.sin(x*.21)*Math.cos(z*.17)+Math.sin(x*.07+z*.05))*.25+.5;
     if(d<WARDEN.wallR-2){const ring=Math.floor(d/4.2),cell=(Math.floor(Math.atan2(wx,wz)*d/3.2)+ring*7)&3;c.setRGB(.19+cell*.012+n*.05,.19+cell*.012+n*.05,.22+cell*.012+n*.05);return}
-    c.setRGB(.2+n*.08,.26+n*.08,.17+n*.05);                               // ash grass
-    if(sl>.45||h>7)c.setRGB(.27,.26,.27);                                  // crag rock
-    if(h<1.1)c.lerpColors(c.clone(),new THREE.Color(.5,.46,.38),Math.min(1,(1.1-h)/1.1));   // pale shore
+    const m2=Math.sin(x*.045+1.3)*Math.cos(z*.052)+Math.sin((x+z)*.11)*.4;
+    c.setRGB(.1+n*.07,.19+n*.1,.07+n*.04);                                // deep moss
+    if(m2>.35)c.lerp(new THREE.Color(.24,.15,.09),Math.min(1,(m2-.35)*2.2));   // bare red earth patches
+    else if(m2<-.55)c.lerp(new THREE.Color(.05,.11,.07),Math.min(1,(-.55-m2)*2));  // dark thicket floor
+    if(sl>.45||h>7)c.setRGB(.2,.19,.21);                                  // crag rock
+    if(h<1.1)c.lerpColors(c.clone(),new THREE.Color(.3,.27,.21),Math.min(1,(1.1-h)/1.1));   // pale shore
     if(h<-.6)c.lerp(new THREE.Color('#14587a'),Math.min(1,(-.6-h)/2.6));  // seabed fades to deep water
   }
   function terrainMesh(){
