@@ -87,5 +87,5 @@ const Tag=(()=>{
 
   Interaction.register('tag-start','Play Tag',()=>!A&&near(),begin);
   Interaction.register('tag-end','End Tag',()=>A&&near(),()=>{send({k:'end'});stop()});
-  return {build,tick,onMsg,pos:PAD};
+  return {build,tick,onMsg,pos:PAD,on:()=>!!A};
 })();

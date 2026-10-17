@@ -109,6 +109,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <link rel="stylesheet" href="src/ui/theme.css">
 <link rel="stylesheet" href="src/ui/warden.css">
 <link rel="stylesheet" href="src/ui/outlaw-hud.css">
+<link rel="stylesheet" href="src/ui/hud-modes.css">
 </head>
 <body>
 <div id="rotate"><div class="ic">📱</div><b>Rotate your phone</b><span>The World is played in landscape.</span></div>
@@ -199,6 +200,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/space/SpaceObjects.js"></script>
 <script src="src/ui/Journal.js"></script>
 <script src="src/ui/Theme.js"></script>
+<script src="src/ui/HudMode.js"></script>
 <script src="src/core/Systems.js"></script>
 <script src="src/data/interactables.js"></script>
 <script src="src/world/Fx.js"></script>
@@ -1239,6 +1241,7 @@ function tickFrame(t){
   if(typeof Ambience!=='undefined'){const es=Env.state,gs=Math.hypot(S.gvx||0,S.gvz||0);   // world sound: ocean/wind/birds/steps... (src/audio/Ambience.js); wind follows flight + fall speed
     Ambience.update(dt,{x:S.x,y:S.y,z:S.z,gy:gY,H,st:S.state,grounded:S.grounded,under:S.under||0,dayF:es.dayF,rain:es.wx.rain,storm:es.wx.storm,cloud:es.inCloud,
       spd:S.flying?Math.hypot(S.fvx||0,S.fvz||0,(S.vy||0)*1.5):S.grounded?gs:Math.max(gs,Math.abs(S.vy||0)*1.4)})}
+  if(typeof HudMode!=='undefined')HudMode.update();   // minimal HUD while flying / in an activity / on Outlaw Isle (src/ui/HudMode.js)
   const k=1-Math.exp(-20*dt),nowT=performance.now();
   for(const o of others.values()){
     RemoteSmooth.target(o,nowT,H);const p=o.group.position;p.x+=(o.tx-p.x)*k;p.y+=(o.ty-p.y)*k;p.z+=(o.tz-p.z)*k;

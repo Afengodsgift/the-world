@@ -16,7 +16,7 @@
  // 5) pressing the same button twice without releasing must not leave it stuck on
  pe(f2,'pointerdown',11);pe(f2,'pointerdown',12);pe(f2,'pointerup',11);await sleep(1500);let g=shots();await sleep(3500);out.noStuckFire=shots()===g;pe(f2,'pointerup',12);
  // 6) the menu button reveals the hidden HUD, then hides it again
- const mb=document.querySelector('.dk-owm');pe(mb,'pointerdown',20);await sleep(400);
+ const mb=document.querySelector('.dk-menu');pe(mb,'pointerdown',20);await sleep(400);
  out.reveal={cls:document.body.className,infoShown:getComputedStyle(document.getElementById('info')).display!=='none',mapShown:getComputedStyle(document.querySelector('.dk-map')).display!=='none',menuBtnHidden:getComputedStyle(mb).display==='none'};
  await sleep(8000);out.autoHide={cls:document.body.className,infoHidden:getComputedStyle(document.getElementById('info')).display==='none'};
  // 7) leaving the isle restores the full HUD and removes the left fire button

@@ -609,9 +609,6 @@ const Outlaw=(()=>{
     fireBtn=document.createElement('button');fireBtn.id='owfire';fireBtn.className='owb';fireBtn.textContent='🔥';document.body.appendChild(fireBtn);
     // second fire button for the LEFT thumb (shown on Outlaw Isle while armed): same hold-to-fire + drag-to-aim, so you can fire with either thumb
     fireBtn2=document.createElement('button');fireBtn2.id='owfire2';fireBtn2.className='owb';fireBtn2.textContent='🔥';document.body.appendChild(fireBtn2);
-    // tiny menu button: the minimal Outlaw HUD hides the map/journal/etc.; this shows them again for a few seconds
-    {const mb=document.createElement('button');mb.className='dk dk-owm';mb.textContent='☰';mb.title='Show menu';document.body.appendChild(mb);
-     mb.addEventListener('pointerdown',e=>{document.body.classList.add('ow-reveal');clearTimeout(revealT);revealT=setTimeout(()=>document.body.classList.remove('ow-reveal'),7000);e.preventDefault()})}
     reloadBtn=document.createElement('button');reloadBtn.id='owrl';reloadBtn.className='owb';reloadBtn.textContent='🔄';document.body.appendChild(reloadBtn);reloadBtn.addEventListener('pointerdown',e=>{reload();e.preventDefault()});
     const viewBtn=document.createElement('button');viewBtn.id='owview';viewBtn.className='owb';viewBtn.textContent='👁';document.body.appendChild(viewBtn);
     viewBtn.addEventListener('pointerdown',e=>{const v=CameraRig.toggleView();banner(v==='fps'?'First-person view':'Third-person view','CAMERA');e.preventDefault()});
@@ -668,11 +665,11 @@ const Outlaw=(()=>{
   }
 
   // Minimal combat HUD: body.ow-isle while you are on Outlaw Isle (hides the social/utility HUD), body.ow-scope while looking through a scope (hides even more). See src/ui/outlaw-hud.css.
-  let _isle=false,_scp=false,revealT=0;
+  let _isle=false,_scp=false;
   function hudMode(){
     if(typeof OUT==='undefined'||!document.body.classList)return;   // (headless simulations have no real DOM)
     const on=Math.hypot(S.x-OUT.x,S.z-OUT.z)<OUT.R+90,sc=scoped&&scopeLens(),b=document.body.classList;
-    if(on!==_isle){_isle=on;b.toggle('ow-isle',on);if(!on)b.remove('ow-reveal')}
+    if(on!==_isle){_isle=on;b.toggle('ow-isle',on)}
     if(sc!==_scp){_scp=sc;b.toggle('ow-scope',sc)}
   }
   function tick(dt,t){
