@@ -138,7 +138,7 @@ const PlayerCombat=(()=>{
       if(!C.order.includes(id))C.order.push(id);f.r=T.r;f.spd=T.spd||1.3;
       const b=body(T);b.g.scale.setScalar(T.scale);b.g.position.set(f.x,H(f.x,f.z),f.z);b.g.rotation.y=f.face;
       if(b.u.mixer&&typeof emoStop==='function'&&T.body==='avatar')emoStop(b.u);
-      const F={i,id,T,f,body:b,ai:DuelistAI.create(fightN*7919+i*131+1,{foe:T.ai,intro:T.pack?25:75}),loco:{x:0,z:0,vf:0,vs:0,sp:0,init:false},flash:0,awake:!T.aggro,ph2:false,home:{x:f.x,z:f.z}};
+      const F={i,id,T,f,body:b,ai:DuelistAI.create(fightN*7919+i*131+1,{foe:T.ai,intro:T.pack?25:75}),loco:{x:0,z:0,vf:0,vs:0,sp:0,init:false},flash:0,awake:!T.aggro,dorm:T.aggro?'sleep':null,dormSync:null,wakeT:0,ph2:false,home:{x:f.x,z:f.z}};
       foes.push(F);byId[id]=F});
     rt(site).foes=foes}
   function startFight(){
@@ -180,7 +180,7 @@ const PlayerCombat=(()=>{
       if(e.t==='fx'||e.t==='fxburst'||e.t==='fxend')WardenFx.event(e);
       if(e.t==='start'){if(e.a==='P'){if(e.move==='light'&&pAnim)pAnim.nextLight(performance.now()/1000);tone(e.move==='heavy'?220:380,e.move==='heavy'?90:150,e.move==='heavy'?.18:.1,'triangle',.1)}else{if(A&&A.anim&&A.anim.pickAlt)A.anim.pickAlt(e.move,Math.random());tone(160,70,.16,'sawtooth',.07)}}
       else if(e.t==='dodge'&&e.a==='P')tone(200,80,.14,'sine',.08);
-      else if(e.t==='hit'){if(T){T.flash=1;T.awake=true;wake(T);tone(140,50,.14,'square',.14);if(e.crit)msg('CRITICAL');if(T.body.T.body==='avatar')T.body.u.hitReq=1}else{tone(110,40,.18,'square',.16);if(e.d==='P'&&P.hp>0){msg('',0);hitFrom(A,e.move)}}}
+      else if(e.t==='hit'){if(T){T.flash=1;wake(T,true);tone(140,50,.14,'square',.14);if(e.crit)msg('CRITICAL');if(T.body.T.body==='avatar')T.body.u.hitReq=1}else{tone(110,40,.18,'square',.16);if(e.d==='P'&&P.hp>0){msg('',0);hitFrom(A,e.move)}}}
       else if(e.t==='block')tone(420,260,.1,'square',.1);
       else if(e.t==='deflect'){tone(1500,900,.18,'sine',.14);msg(T?'':'DEFLECTED',.5)}
       else if(e.t==='posturebreak'&&T){if(T.T.boss)msg('POSTURE BROKEN');tone(500,120,.3,'sawtooth',.12)}
@@ -190,7 +190,10 @@ const PlayerCombat=(()=>{
         if(lock&&lockI===T.i){const n=nearest();if(n&&n!==T)lockI=n.i;else{lock=false;el.querySelector('#wLock').classList.remove('on')}}
         if(!alive().length){state='won';stateT=performance.now();lock=false;el.querySelector('#wLock').classList.remove('on')}}
       else if(e.t==='dead'&&e.d==='P'){msg('YOU DIED',3);tone(180,35,.6,'sawtooth',.16);state='lost';stateT=performance.now()}}}
-  function wake(F){F.awake=true;if(F.T.pack)for(const o of foes)if(o.T.pack&&Math.hypot(o.f.x-F.f.x,o.f.z-F.f.z)<14)o.awake=true}
+  // dormant foes sit / stand sheathed until you come near: rouse() starts the draw / roar / power-up clip, rise() hands them to the AI once it ends; a hit skips the show
+  function rouse(F,skip){if(F.awake||F.dorm==='wake'&&!skip)return;if(skip||!F.anim){rise(F);return}F.dorm='wake';F.wakeT=0;if(F.T.boss){msg(F.T.name,2.4);tone(90,45,.6,'sawtooth',.14)}}
+  function rise(F){F.dorm=null;F.awake=true;F.dormSync=null;if(F.anim&&F.anim.setMode)F.anim.setMode(null)}
+  function wake(F,skip){rouse(F,skip);if(F.T.pack)for(const o of foes)if(o.T.pack&&!o.awake&&Math.hypot(o.f.x-F.f.x,o.f.z-F.f.z)<14)rouse(o,skip)}
   function locoOf(v,x,z,face,dt){   // smoothed world velocity -> speed + components along / to the left of the facing
     if(!v.init||dt<=0){v.x=x;v.z=z;v.init=true;v.vf=v.vs=v.sp=0;return}
     const k=Math.min(1,dt*10),vx=(x-v.x)/dt,vz=(z-v.z)/dt;v.x=x;v.z=z;const fx=Math.sin(face),fz=Math.cos(face),f=vx*fx+vz*fz,l=vx*fz-vz*fx;   // left = (cos, -sin)
@@ -224,9 +227,9 @@ const PlayerCombat=(()=>{
       const h={P:{face:f,mx:0,mz:0}};let atk=0;for(const F of foes)if(F.f.act==='attack')atk++;
       for(const F of foes){const q=F.f;
         if(F.f.act==='dead'){h[F.id]={face:q.face,mx:0,mz:0};continue}
-        if(!F.awake&&Math.hypot(S.x-q.x,S.z-q.z)<F.T.aggro)wake(F);
+        if(!F.awake&&F.dorm!=='wake'&&Math.hypot(S.x-q.x,S.z-q.z)<F.T.aggro)wake(F);
         if(F.awake&&PC.ai&&state==='fight'){F.ai.noAtk=!!F.T.pack&&atk>=Foes.PACK_ATK&&q.act!=='attack';const a=DuelistAI.think(F.ai,P,q,lastEv,nt);h[F.id]={face:a.face,mx:a.mx,mz:a.mz,list:a.list}}
-        else h[F.id]={face:F.awake?Math.atan2(S.x-q.x,S.z-q.z):q.face,mx:0,mz:0}}
+        else h[F.id]={face:F.awake||F.dorm==='wake'?Math.atan2(S.x-q.x,S.z-q.z):q.face,mx:0,mz:0}}
       return h};
     const evs=ST.advance(now(),held,()=>{S.x+=P.x-lx;S.z+=P.z-lz;lx=P.x;lz=P.z;lastEv=C.ev});
     events(evs);
@@ -250,6 +253,9 @@ const PlayerCombat=(()=>{
   function foeTick(F,dt,fr){
     const b=F.body,f=F.f,g=b.g;g.position.set(f.x,H(f.x,f.z),f.z);
     if(f.act==='attack'||f.act==='stun'||f.act==='dead'){g.rotation.y=f.face}else g.rotation.y=lerpAngle(g.rotation.y,f.face,1-Math.exp(-12*dt));
+    if(F.dorm){if(F.anim&&F.dormSync!==F.dorm){F.anim.setMode(F.dorm);F.dormSync=F.dorm}
+      if(F.dorm==='wake'){F.wakeT+=dt;if((F.anim&&F.anim.wakeDone)||F.wakeT>4)rise(F)}}
+    if(b.sword){const sv=!(F.dorm==='sleep'||(F.dorm==='wake'&&F.anim&&F.anim.wakeP<.4)),o=b.sword.grip||b.sword;if(o.visible!==sv&&state!=='won')o.visible=sv}
     locoOf(F.loco,f.x,f.z,g.rotation.y,dt);const moving=F.loco.sp>.6&&f.act==='free',loco={moving,vf:F.loco.vf,vs:F.loco.vs};
     if(b.T.body==='avatar'){if(f.act==='dead'){b.u.pp=null;b.u.v=0;if(!b.u.hold&&!b.u.emoteReq)b.u.emoteReq='playdead'}   // a corpse keeps its fall: no motion-based emote cancel, and re-ask until the emote library has loaded
       if(typeof animate==='function')animate(g,dt,moving?'walk':'idle')}

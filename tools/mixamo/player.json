@@ -110,6 +110,26 @@
 {
 "name": "jump",
 "file": "sword and shield jump.fbx"
+},
+{
+"name": "draw",
+"file": "draw sword 1.fbx"
+},
+{
+"name": "draw2",
+"file": "draw sword 2.fbx"
+},
+{
+"name": "sheath",
+"file": "sheath sword 1.fbx"
+},
+{
+"name": "crouch",
+"file": "sword and shield crouch idle.fbx"
+},
+{
+"name": "crouchblock",
+"file": "sword and shield crouch block idle.fbx"
 }
 ]
 }
