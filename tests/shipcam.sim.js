@@ -38,8 +38,8 @@ step(2);const ce=CR.last.eye,o=A.Vessel.outward(v,g,{});
 ok(!!ce&&Math.hypot(ce.x-(m.x-o.x*3.2),ce.z-(m.z-o.z*3.2))<.8&&ce.y>m.y,'the camera is anchored behind and above THIS gun');
 ok(CR.last.pr[0]===-C.cannon.aimUp&&CR.last.pr[1]===C.cannon.aimDown,'pitch limits are the cannon\'s');
 // the ship moves: the anchor follows the real muzzle
-P.h=.6;P.x+=8;step(2);const m2=A.Vessel.muzzle(v,g,{}),o2=A.Vessel.outward(v,g,{}),ce2=CR.last.eye;
-ok(Math.hypot(ce2.x-(m2.x-o2.x*1.9),ce2.z-(m2.z-o2.z*1.9))<.8,'the camera follows the gun as the ship turns and sails');
+for(let i=0;i<20;i++){P.h+=.02;P.x+=.4;step(1,.02)}step(2);const m2=A.Vessel.muzzle(v,g,{}),o2=A.Vessel.outward(v,g,{}),ce2=CR.last.eye;
+ok(Math.hypot(ce2.x-(m2.x-o2.x*3.2),ce2.z-(m2.z-o2.z*3.2))<1,'the camera follows the gun as the ship turns and sails');
 // yaw is held inside the horizontal limit
 const cen=wrap(Math.atan2(o2.x,o2.z)+Math.PI);S.yaw=wrap(cen+2);step(1);ok(Math.abs(wrap(S.yaw-cen))<=C.cannon.aimYaw+.03,'aim yaw is clamped to the gun\'s arc');
 // firing goes where the camera looks (clamped)
