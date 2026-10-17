@@ -19,7 +19,7 @@ const Ship=(()=>{
   const storm=()=>{try{return typeof Env!=='undefined'&&Env.state&&Env.state.wx?Env.state.wx.storm||0:0}catch(e){return 0}};
   const windNow=()=>Sailing.wind(Date.now()/1000,seed(),storm());
   const send=p=>Net.emit('shp',p);
-  const _m={},_o={};let hudLk=false,hudHc=false,btnX=null,btnC=null,ret=null;
+  const _m={},_o={};let sailM=null,sailHid=false,hudLk=false,hudHc=false,btnX=null,btnC=null,ret=null;
   // the camera yaw rides the ship's turns (ctr = the centre direction this frame) and is held within +-lim of it (lim >= 3: free look all the way round)
   function follow(ctr,lim){if(ctrPrev!==null)S.yaw=wrapA(S.yaw+wrapA(ctr-ctrPrev));ctrPrev=ctr;if(lim<3)S.yaw=wrapA(ctr+clamp(wrapA(S.yaw-ctr),-lim,lim))}
 
@@ -41,7 +41,7 @@ const Ship=(()=>{
   // camera modes: 'third' (the boom around the whole ship), 'captain' (an eye anchor above the wheel), 'cannon' (an anchor behind the gun you man; st.gun)
   function setCam(m){st.cam=m;ctrPrev=null;if(m==='third'){S.yaw=wrapA(pose.h+Math.PI);S.pitch=.42}else if(m==='captain'){S.yaw=wrapA(pose.h+Math.PI);S.pitch=.04}}
   function toggleCam(){if(st.role!=='helm')return st.cam;setCam(st.cam==='captain'?'third':'captain');return st.cam}
-  function aimGun(g){if(!g||st.gun||st.role||!st.aboard||ship.sunk>0)return false;st.gun=g;st.prevCam=st.cam;st.cam='cannon';ctrPrev=null;const o=Vessel.outward(v,g,{});S.yaw=wrapA(Math.atan2(o.x,o.z)+Math.PI);S.pitch=-.1;banner('Drag to aim · Fire! · Jump to leave the cannon','💣 CANNON');return true}
+  function aimGun(g){if(!g||st.gun||st.role||!st.aboard||ship.sunk>0)return false;st.gun=g;st.prevCam=st.cam;st.cam='cannon';ctrPrev=null;const o=Vessel.outward(v,g,{});S.yaw=wrapA(Math.atan2(o.x,o.z)+Math.PI);S.pitch=.02;banner('Drag to aim · Fire! · Jump to leave the cannon','💣 CANNON');return true}
   function leave(){if(st.gun){st.gun=null;st.cam=st.prevCam||'third';ctrPrev=null;if(st.cam==='third'&&st.role!=='helm'){}else if(st.cam==='captain'){S.pitch=.04}return true}release();return false}
   function aimDir(out){camera.getWorldDirection(out);return out}
   function release(){
@@ -153,12 +153,15 @@ const Ship=(()=>{
       if(gun&&(ship.sunk>.3||!st.aboard)){leave()}
       const GN=st.gun;
       if(GN){const m=Vessel.muzzle(v,GN,_m),o=Vessel.outward(v,GN,_o);follow(wrapA(Math.atan2(o.x,o.z)+Math.PI),C.cannon.aimYaw);
-        cfg={x:pose.x,y:pose.y+K.deckM+3,z:pose.z,d:16,pk:1,eye:{x:m.x-o.x*1.9,y:m.y+1.15,z:m.z-o.z*1.9},pr:[-C.cannon.aimUp,C.cannon.aimDown]}}
+        cfg={x:pose.x,y:pose.y+K.deckM+3,z:pose.z,d:16,pk:1,eye:{x:m.x-o.x*3.2,y:m.y+2.7,z:m.z-o.z*3.2},pr:[-C.cannon.aimUp,C.cannon.aimDown]}}
       else if(seated&&st.cam==='captain'){const h=helmLocal(),e=Decks.toWorld(v.deck,0,Decks.floor(v.deck,h.x,h.z)+C.stations.eyeUp,h.z+C.stations.eyeFwd,_m);follow(wrapA(pose.h+Math.PI),9);
         cfg={x:pose.x,y:pose.y+K.deckM+3,z:pose.z,d:10,pk:1,eye:{x:e.x,y:e.y,z:e.z},pr:[-.5,.55]}}
       else{if(seated)follow(wrapA(pose.h+Math.PI),9);else ctrPrev=null;
         cfg=ab?{x:pose.x,y:pose.y+K.deckM+3.4,z:pose.z,d:seated?12+v.hl*.85:14+v.hl*.55,pk:seated?1:.3}:null}
-      CameraRig.setShip(cfg)}catch(e){}
+      CameraRig.setShip(cfg);
+      // captain's view: only on YOUR screen the sails (two merged meshes) are hidden so the horizon is clear; everybody else still sees them
+      if(v.loaded&&!sailM){sailM=[];v.grp.traverse(c=>{if(c.isMesh&&c.material&&/^Sail/.test(c.material.name||''))sailM.push(c)})}
+      const hs=!!(cfg&&cfg.eye&&!GN&&typeof CameraRig.eyeK==='function'&&CameraRig.eyeK()>.55);if(sailM&&hs!==sailHid){sailHid=hs;for(const m of sailM)m.visible=!hs}}catch(e){}
     const lk=!!(st.role||st.gun);if(lk!==hudLk){hudLk=lk;if(btnX)btnX.style.display=lk?'flex':'none'}
     const hc=st.role==='helm';if(btnC&&hc!==hudHc){hudHc=hc;btnC.style.display=hc?'flex':'none'}
     if(btnX){const t=st.gun?'✖ Leave cannon':'✖ Leave helm';if(btnX._t!==t){btnX._t=t;btnX.textContent=t}}

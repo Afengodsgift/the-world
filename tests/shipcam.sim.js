@@ -35,7 +35,7 @@ const m=A.Vessel.muzzle(v,g,{});S.x=m.x-1;S.z=m.z;S.y=m.y-1.4;S._dk=null;A.Decks
 ok(A.Fleet.nearGun()===g,'standing by the gun');
 ok(Sh.aimGun(g)&&Sh.gunning()&&Sh.cam()==='cannon','"Man the cannon" starts the cannon camera');
 step(2);const ce=CR.last.eye,o=A.Vessel.outward(v,g,{});
-ok(!!ce&&Math.hypot(ce.x-(m.x-o.x*1.9),ce.z-(m.z-o.z*1.9))<.8&&ce.y>m.y,'the camera is anchored behind and above THIS gun');
+ok(!!ce&&Math.hypot(ce.x-(m.x-o.x*3.2),ce.z-(m.z-o.z*3.2))<.8&&ce.y>m.y,'the camera is anchored behind and above THIS gun');
 ok(CR.last.pr[0]===-C.cannon.aimUp&&CR.last.pr[1]===C.cannon.aimDown,'pitch limits are the cannon\'s');
 // the ship moves: the anchor follows the real muzzle
 P.h=.6;P.x+=8;step(2);const m2=A.Vessel.muzzle(v,g,{}),o2=A.Vessel.outward(v,g,{}),ce2=CR.last.eye;
