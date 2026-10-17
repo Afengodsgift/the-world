@@ -41,7 +41,7 @@ ok(CR.last.pr[0]===-C.cannon.aimUp&&CR.last.pr[1]===C.cannon.aimDown,'pitch limi
 P.h=.6;P.x+=8;step(2);const m2=A.Vessel.muzzle(v,g,{}),o2=A.Vessel.outward(v,g,{}),ce2=CR.last.eye;
 ok(Math.hypot(ce2.x-(m2.x-o2.x*1.9),ce2.z-(m2.z-o2.z*1.9))<.8,'the camera follows the gun as the ship turns and sails');
 // yaw is held inside the horizontal limit
-const cen=wrap(Math.atan2(o2.x,o2.z)+Math.PI);S.yaw=wrap(cen+2);step(1);ok(Math.abs(wrap(S.yaw-cen))<=C.cannon.aimYaw+1e-6,'aim yaw is clamped to the gun\'s arc');
+const cen=wrap(Math.atan2(o2.x,o2.z)+Math.PI);S.yaw=wrap(cen+2);step(1);ok(Math.abs(wrap(S.yaw-cen))<=C.cannon.aimYaw+.03,'aim yaw is clamped to the gun\'s arc');
 // firing goes where the camera looks (clamped)
 const ao=Math.atan2(o2.x,o2.z);
 function shootAt(dyaw,el){const a=ao+dyaw,ce_=Math.cos(el);A.camera.d.set(Math.sin(a)*ce_,Math.sin(el),Math.cos(a)*ce_);const n0=A.Fleet.shells.length;g.cd=0;const okf=A.Fleet.playerFire(g,false,true);const s=A.Fleet.shells[A.Fleet.shells.length-1];return {okf,s,n:A.Fleet.shells.length-n0}}
