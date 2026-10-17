@@ -1,4 +1,4 @@
-// HudMode: decides every frame whether the HUD should be minimal, and owns the ☰ "show everything for a few seconds" button.
+// HudMode: the HUD is hidden by default EVERYWHERE (walking, activities, Outlaw Isle); a ☰ button in the corner shows everything for a few seconds. Flying hides even the ☰.
 //   body.hud-fly   you are flying                       -> only joystick, Jump and Boost stay (no ☰: the screen is clear until you land)
 //   body.hud-act   an activity is running               -> the generic clutter hides; the activity keeps its OWN timer/score/buttons
 //   body.ow-isle   you are on Outlaw Isle (set by Outlaw.js hudMode(); Outlaw also sets body.ow-scope while scoped)
@@ -20,14 +20,14 @@ const HudMode=(()=>{
   }
   function build(){
     menu=document.createElement('button');menu.className='dk dk-menu';menu.textContent='☰';menu.title='Show menu';document.body.appendChild(menu);
-    menu.addEventListener('pointerdown',e=>{cls().add('hud-reveal');clearTimeout(revealT);revealT=setTimeout(()=>cls().remove('hud-reveal'),7000);e.preventDefault()});
+    menu.addEventListener('pointerdown',e=>{cls().add('hud-reveal');clearTimeout(revealT);revealT=setTimeout(()=>cls().remove('hud-reveal'),8000);e.preventDefault()});
   }
   function update(){
     const b=cls();if(!b)return;if(!menu)build();
     const f=!!S.flying,a=activity(),i=b.contains('ow-isle');
     if(f!==fly){fly=f;b.toggle('hud-fly',f)}
     if(a!==act){act=a;b.toggle('hud-act',a)}
-    const min=f||a||i;if(min!==isle){isle=min;b.toggle('hud-min',min);if(!min){b.remove('hud-reveal');clearTimeout(revealT)}}
+    if(!isle){isle=true;b.add('hud-min')}   // minimal is the default state now; hud-fly / hud-act / ow-isle only add mode-specific rules
     if(f&&b.contains('hud-reveal')){b.remove('hud-reveal');clearTimeout(revealT)}   // taking off cancels a reveal: flying is always clear
   }
   return {update,extra,_activity:activity};

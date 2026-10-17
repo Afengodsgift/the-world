@@ -1,5 +1,5 @@
 /* Minimal HUD modes (switched by src/ui/HudMode.js). Layout of touch controls stays in index.html; this file only shows/hides.
-     hud-min   = flying OR an activity is running OR on Outlaw Isle  -> hide the generic clutter (top bar, journal, map, emote, pan ...)
+     hud-min   = ALWAYS on in the game (walking, activities, Outlaw Isle, flying) -> hide the generic clutter (top bar, journal, map, emote, pan ...)
      hud-fly   = flying                                               -> also hide the combat/shop buttons and Use; no ☰ (the screen is clear until you land)
      hud-act   = an activity is running                               -> also hide the combat/shop buttons (the activity keeps its own HUD)
      hud-reveal = ☰ tapped                                            -> show everything again for a few seconds */
@@ -21,6 +21,9 @@ body.hud-min:not(.hud-reveal) .dk-map{display:none!important}
 
 /* the activities' own top messages move up into the space the top bar left empty */
 body.hud-min:not(.hud-reveal){--topmsg:calc(var(--st,0px) + 10px);--topmsg-tag:calc(var(--st,0px) + 14px)}
+
+/* walking around (not on Outlaw Isle): the always-present shop and gun buttons are part of 'everything' too (equip a gun via ☰; once armed, the fire/reload buttons stay) */
+body.hud-min:not(.ow-isle):not(.hud-reveal) #owshop, body.hud-min:not(.ow-isle):not(.hud-reveal) #owgun{display:none!important}
 
 /* flying and activities: the Outlaw shop/gun/etc. buttons are always present in the page (even in the air), so hide them here.
    (On Outlaw Isle itself they are handled by outlaw-hud.css.) */
