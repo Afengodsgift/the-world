@@ -21,7 +21,7 @@ const WardenMX=(()=>{
         evade:{c:'slash3',t0:.4,h:[[.66,.94]],e:1.5},
         rising:{c:'atk3',t0:.35,h:[[.52,.9]],e:1.6},
         heavy:{c:'atk',t0:.55,ch:[.5,.72],h:[[.9,1.3]],e:2.1}}},
-    duelist:{file:'assets/warden_mx_duelist.json',guard:'guard',
+    duelist:{file:'assets/warden_mx_duelist.json',guard:'guard',dorm:'idle',wake:{c:'power',t0:.35,t1:2.6,rate:1},
       loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
       moves:{
         cut:{c:'slash',t0:.05,h:[[.45,.8]],e:1.2},
@@ -42,11 +42,11 @@ const WardenMX=(()=>{
         triple:{seq:[{c:'punch',t0:0,h:[.18,.4],e:.75},{c:'swipe',t0:.9,h:[1.12,1.42],e:1.7},{c:'punch',t0:0,h:[.18,.4],e:1.0}]},
         leap:{c:'jatk',t0:0,h:[[1.25,1.7]],e:2.8},
         cut:{c:'punch',t0:0,h:[[.18,.4]],e:.9},thrust:{c:'punch',t0:0,h:[[.18,.4]],e:.9}}},
-    soldier:{file:'assets/warden_mx_player.json',guard:'guard',                        // a foot soldier fights with the player's sword-and-shield clips (retargeted onto the game rig)
+    soldier:{file:'assets/warden_mx_player.json',guard:'guard',dorm:'crouch',wake:{c:'draw',t0:0,t1:.5,rate:.55},                        // a foot soldier fights with the player's sword-and-shield clips (retargeted onto the game rig)
       loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
       moves:{cut:{c:'atk4',t0:0,h:[[.34,.52]],e:.9},thrust:{c:'atk2',t0:.1,h:[[.3,.74]],e:1.2}}},
     // ---- natively rigged Mixamo characters (assets/warden/<char>.glb + clips baked by tools/bake_mixamo_native.mjs). `native`: they own their mixer, so weights are plain shares (no base layer to blend over). ----
-    paladin:{file:'assets/warden_mx_paladin.json',native:true,guard:'guard',death:'death',hit:'hit1',          // Oathbound Knight: Pro Sword and Shield
+    paladin:{file:'assets/warden_mx_paladin.json',native:true,guard:'guard',dorm:'idle',wake:{c:'power',t0:.2,t1:2.2,rate:.95},death:'death',hit:'hit1',          // Oathbound Knight: Pro Sword and Shield
       loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
       moves:{
         cut:{c:'atk4',t0:0,h:[[.34,.52]],e:.9},
@@ -57,7 +57,7 @@ const WardenMX=(()=>{
         dash:{c:'atk3',t0:0,h:[[.53,.9]],e:1.5},
         leap:{c:'slash4',t0:.4,h:[[1.15,1.5]],e:2.2},
         quake:{c:'power',t0:.3,e:2.0}}},
-    parasite:{file:'assets/warden_mx_parasite.json',native:true,guard:null,death:'death',            // the Hollow Warden's real body: Mixamo "Creature" mutant
+    parasite:{file:'assets/warden_mx_parasite.json',native:true,guard:null,dorm:'breath',wake:{c:'roar',t0:0,t1:3.4,rate:1.1},death:'death',            // the Hollow Warden's real body: Mixamo "Creature" mutant
       loco:{idle:'idle',walk:'walk',run:'run',back:'walk',sl:'walk',sr:'walk'},rev:{back:1},
       moves:{
         sweep:{c:'swipe',t0:.7,h:[[1.12,1.42]],e:2.3},
@@ -66,7 +66,7 @@ const WardenMX=(()=>{
         leap:{c:'jatk',t0:0,h:[[1.25,1.7]],e:2.8},
         cut:{c:'punch',t0:0,h:[[.18,.4]],e:.9},thrust:{c:'punch',t0:0,h:[[.18,.4]],e:.9},
         quake:{c:'roar',t0:.2,e:1.7}}},
-    arissa:{file:'assets/warden_mx_arissa.json',native:true,guard:null,death:'death',hit:'hit1',              // the Cinder Dancer: Locomotion + Capoeira + casting
+    arissa:{file:'assets/warden_mx_arissa.json',native:true,guard:null,dorm:'idle',wake:{c:'power',t0:.2,t1:2.2,rate:1},death:'death',hit:'hit1',              // the Cinder Dancer: Locomotion + Capoeira + casting
       loco:{idle:'idle',walk:'walk',run:'run',back:'walk',sl:'sl',sr:'sr'},rev:{back:1},
       moves:{
         cut:{c:'meia',t0:0,h:[[.7,.95]],e:1.6},
@@ -106,9 +106,10 @@ const WardenMX=(()=>{
       s.meta[c.name]={dur:c.duration,v:Math.hypot(c.trav?c.trav[0]:0,c.trav?c.trav[1]:0)/Math.max(.1,c.duration)}}s.st='ready';return s}).catch(e=>{s.st='failed';s.err=String(e&&e.message||e);s.p=null;throw e});return s.p}
   function make(q,role){
     const R=ROLES[role],I={st:'none',role,A:{},ws:{},gT:0,sT:0,dT:0,sw:0,lastLight:-1e9,ready:()=>I.st==='ready',variant:'light_b',alt:{},plans:{},tmem:{}};
+    I.mode=null;I.mt=0;I.wakeP=0;I.wakeDone=false;I.setMode=m=>{I.mode=m;I.mt=0;I.wakeP=m==='wake'?0:1;I.wakeDone=false};
     I.pickAlt=()=>{};I.nextLight=()=>'light_b';
     let names=[];
-    fetchRole(role).then(s=>{const used=new Set(Object.values(R.loco));if(R.guard)used.add(R.guard);if(R.death)used.add(R.death);if(R.hit)used.add(R.hit);
+    fetchRole(role).then(s=>{const used=new Set(Object.values(R.loco));if(R.guard)used.add(R.guard);if(R.dorm)used.add(R.dorm);if(R.wake)used.add(R.wake.c);if(R.death)used.add(R.death);if(R.hit)used.add(R.hit);
       for(const m of Object.values(R.moves))for(const g of norm(m))used.add(g.c);
       names=[...used].filter(n=>s.clips[n]);I.names=names;I.S=s;
       for(const n of names){const a=q.mixer.clipAction(s.clips[n]);a.enabled=false;a.setEffectiveWeight(.0001);I.A[n]=a;I.ws[n]=0}I.st='ready'}).catch(e=>{I.st='failed';I.err=String(e&&e.message||e)});
@@ -117,8 +118,13 @@ const WardenMX=(()=>{
       if(I.st!=='ready')return false;const A=I.A,tgt={},tm={},tsc={};for(const n of names)tgt[n]=0;
       const fight=on&&f.act!=='dead'&&f.act!=='dodge'&&f.act!=='stun';
       const put=(c,t)=>{if(!A[c])return;tgt[c]=1;tm[c]=Math.max(0,Math.min(t,A[c].getClip().duration-.001))};
-      if(f.act==='stun')I.sT+=dt;else I.sT=0;if(f.act==='dead')I.dT+=dt;else I.dT=0;
-      if(R.native&&f.act==='dead'&&R.death&&A[R.death])put(R.death,I.dT);            // natively rigged foes have no game hit/death overlay: play the clip themselves
+      if(I.mode&&f.act!=='dead'){   // dormant: loop the sitting/standing pose; wake: play the draw / roar / power-up clip once, then hand over to combat
+        if(I.mode==='sleep'&&R.dorm&&A[R.dorm]){I.mt+=dt;put(R.dorm,I.mt%Math.max(.1,A[R.dorm].getClip().duration-.02))}
+        else if(I.mode==='wake'&&R.wake&&A[R.wake.c]){I.mt+=dt*R.wake.rate;const W=R.wake;I.wakeP=Math.min(1,(I.mt)/(W.t1-W.t0));put(W.c,W.t0+I.mt);if(W.t0+I.mt>=W.t1){I.mode=null;I.wakeDone=true}}
+        else I.mode=null}
+      else if(f.act==='stun')I.sT+=dt;else I.sT=0;if(f.act==='dead')I.dT+=dt;else I.dT=0;
+      if(I.mode&&f.act!=='dead'){}
+      else if(R.native&&f.act==='dead'&&R.death&&A[R.death])put(R.death,I.dT);            // natively rigged foes have no game hit/death overlay: play the clip themselves
       else if(R.native&&f.act==='stun'&&R.hit&&A[R.hit])put(R.hit,I.sT);
       else if(fight){
         const mv=f.mv,spec=mv&&R.moves[mv.id];
