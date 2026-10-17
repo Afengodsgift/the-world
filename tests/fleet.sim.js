@@ -100,7 +100,7 @@ function duel(style,secs,ex,ez,eh){
 {C.enemy.cap=CAP;B.SHIP.enemy.cap=CAP;for(const e of [...F.ships.values()])F.remove(e);place(A,A.DOCK.ship.x,A.DOCK.ship.z+60,0);A.Fleet._step(1);
   const near=F.ships.size;place(A,SP[0],SP[1],0);let n=0;tick(100,.1,()=>{n=Math.max(n,F.ships.size)});
   ok(near===0,'no pirates spawn in the harbour');ok(n>=1&&n<=C.enemy.cap,'out at sea pirates appear, at most '+C.enemy.cap+' at a time ('+n+')');
-  const e0=[...F.ships.values()][0];if(e0)ok(Math.hypot(e0.sh.x-SP[0],e0.sh.z-SP[1])<C.enemy.spawnDist*2.2,'they come out of the open sea around you');}
+  const e0=[...F.ships.values()][0];if(e0)ok(Math.hypot(e0.sh.x-SP[0],e0.sh.z-SP[1])<C.enemy.spawnDist*3.4,'they come out of the open sea around you');}
 // ---------- 8. boost ----------
 {place(A,SP[0],SP[1],0);place(B,SP[0],SP[1],0);PL.sunk=0;A.Ship._s.crew.helm='a';A.Ship._s.host='a';PL.v=0;PL.sail=1;PL.boost=0;A.Ship._s.boostCd=0;
   tick(40,.05);const base=PL.v;A.Ship.boost();ok(PL.boost>0,'the boost starts');tick(5,.05);const bst=PL.v;

@@ -124,7 +124,7 @@ const Decks=(()=>{
       for(let i=1;i<=ns;i++){
         const tx2=ol.x+mxv*i/ns,tz2=ol.z+mzv*i/ns;let r=slide(d,ex,ez,tx2,tz2,ly,step);
         // a ledge in the way: climb onto it when walking on the ground into it (the get-over-the-rail move); only when walking INTO it, not when sliding along it
-        if(r.hit&&!hopping&&o.grounded&&o.moving&&!o.flying&&r.hit-ly<=HOP){
+        if(r.hit&&!hopping&&o.grounded&&o.moving&&!o.flying&&!o.noClimb&&r.hit-ly<=HOP){
           const n=wallNormal(d,tx2,tz2,ly,STEP),mx=tx2-ex,mz=tz2-ez,m=Math.hypot(mx,mz);
           if(n&&m>1e-5&&(mx*n.x+mz*n.z)/m<-.45){S._climb=CLIMB;hopping=true;step=HOP;r=slide(d,ex,ez,tx2,tz2,ly,step)}}
         ex=r.x;ez=r.z}

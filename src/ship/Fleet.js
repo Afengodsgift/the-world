@@ -54,8 +54,9 @@ const Fleet=(()=>{
     const v=Vessel.create('f'+id,clsId,{x,z,h,tint:K.cap.col});if(!v)return null;
     const sh=Sailing.newShip(x,z,h,{vmax:K.v,turn:K.turn,hl:v.hl*.97,hb:v.hb*.97},hp===undefined?K.hp:hp);sh.sail=.9;sh.v=K.v*.5;
     const e={id,clsId,K,v,sh,hp:hp===undefined?K.hp:hp,side:R()<.5?-1:1,sunk:0,sinking:false,lash:null,lashT:0,seen:false,snap:null,hitT:0,tg:null};
-    makeTag(e);ships.set(id,e);return e}
+    makeTag(e);ships.set(id,e);if(isHost()&&typeof Crew!=='undefined')Crew.spawn(e);return e}
   function remove(e){
+    if(typeof Crew!=='undefined')Crew.clearShip(e.id);
     if(e.tag&&e.tag.sp){scene.remove(e.tag.sp)}
     Vessel.dispose(e.v);ships.delete(e.id)}
   const live=()=>[...ships.values()].filter(e=>!e.sinking);
@@ -145,7 +146,9 @@ const Fleet=(()=>{
     sparks(d.x,d.y,d.z,'#ffb347',12);sparks(d.x,d.y,d.z,'#8b5a2b',8);puff(d.x,d.y,d.z,'#ff9a2e',2.2,.35,.5);puff(d.x,d.y+.5,d.z,'#555',2.6,1.6,2);boomSfx(d.x,d.z,.8);
     if(d.t==='p'){Ship.damage(d.d)}else{const e=ships.get(d.t);if(e&&isHost())damageEnemy(e,d.d,d.k)}
     // people on the planks: only the enemy's balls hurt, and every client hurts only itself
+    if(!d.f&&d.k==='deck'&&typeof Crew!=='undefined'&&isHost())Crew.splash(d.t,d.x,d.y,d.z,CN.splash*.8,CN.pdmg*2.2);
     if(d.f&&d.k==='deck'){const dd=Math.hypot(S.x-d.x,(S.y-d.y)*.6,S.z-d.z);if(dd<CN.splash)hurtMe(CN.pdmg*(1-dd/CN.splash*.6),d.x,d.z)}}
+  function captainDown(e){if(e.sinking)return;banner(e.K.cap.n+' falls! The ship is yours!','☠ PIRATES');damageEnemy(e,e.hp+1,'crew')}
   function damageEnemy(e,n,kind){
     if(e.sinking)return;e.hp=Math.max(0,e.hp-n);e.hitT=.3;drawTag(e);
     if(e.hp<=0){e.sinking=true;e.lash=null;const c=Math.round(e.K.coin[0]+R()*(e.K.coin[1]-e.K.coin[0]));loot(c,e.K.name,e.K.boss);Net.emit('flt',{k:'l',c,n:e.K.name,b:e.K.boss?1:0})}}
@@ -237,7 +240,7 @@ const Fleet=(()=>{
   Interaction.register('cannon-fire','Fire cannon',()=>built&&me.down<=0&&!!nearGun(),()=>{const g=nearGun();if(g)playerFire(g)});
   Interaction.register('ship-broadside','Broadside!',()=>built&&me.down<=0&&Ship.seated(),broadside);
 
-  return {build,ships,shells,make,remove,trySpawn,elev,aim,fire,playerFire,broadside,nearGun,hurtMe,respawn,applyHit,damageEnemy,isHost,
+  return {build,ships,shells,make,remove,trySpawn,elev,aim,fire,playerFire,broadside,nearGun,hurtMe,respawn,applyHit,damageEnemy,captainDown,isHost,
     marks:()=>[...ships.values()].filter(e=>!e.sinking).map(e=>({n:e.K.cap.n,x:e.sh.x,z:e.sh.z,r:6,icon:e.K.boss?'☠':'🏴‍☠️',dyn:true})),
     _me:me,_step:step,_ai:ai,_net:onNet,_snapshot:snapshot};
 })();

@@ -241,15 +241,17 @@ const Outlaw=(()=>{
       let wall=rayCover(co,d,W.rng),wc=rcHit,tn=wall,hit=null,zone=null;
       for(const n of npcs.values()){if(n.dead||!n.group)continue;const h=zoneHit(co,d,tn,n);
         if(h&&h.t<tn){tn=h.t;hit=n;zone=h.zone}}   // the first body part the camera ray reaches before it reaches any cover
+      let pirate=null;if(typeof Crew!=='undefined')for(const c of Crew.targets()){const g=c.group.position;if(Math.hypot(g.x-co.x,g.z-co.z)>tn+2)continue;const h=HitZones.hit(co.x,co.y,co.z,d.x,d.y,d.z,tn,g.x,g.y,g.z,c.group.rotation.y,c.sc||1);if(h&&h.t<tn){tn=h.t;hit=null;pirate=c;zone=h.zone}}   // pirates on the enemy decks
       const E=new THREE.Vector3(co.x+d.x*tn,co.y+d.y*tn,co.z+d.z*tn),md=E.clone().sub(o),L=md.length();
       if(L>.05){md.divideScalar(L);const ob=rayCover(o,md,L-.08),oc=rcHit;   // can the gun actually see that point? cover between the muzzle and it blocks the bullet (and takes it)
-        if(oc&&ob<L-.08){E.copy(o).addScaledVector(md,ob);hit=null;zone=null;wc=oc;tn=wall=ob}}
+        if(oc&&ob<L-.08){E.copy(o).addScaledVector(md,ob);hit=null;pirate=null;zone=null;wc=oc;tn=wall=ob}}
       endp=[E.x,E.y,E.z];
       if(p===0)lastShot={M:[+M.x.toFixed(2),+M.y.toFixed(2),+M.z.toFixed(2)],P:[+E.x.toFixed(2),+E.y.toFixed(2),+E.z.toFixed(2)],tn:+tn.toFixed(2),wall:+wall.toFixed(1),zone,hit:!!hit,spr:+spr.toFixed(4)};
       if(!hit&&wc&&tn===wall&&!W.rocket&&wc.brk!==undefined){OutlawArena.hitCover(wc,dmgOf(wi));spark(endp[0],endp[1],endp[2],'#d8b45a');anyHit=true}
       if(W.rocket){aoe(endp,dmgOf(wi),W.rad||6);tracer(M.x,M.y,M.z,endp[0],endp[1],endp[2],'#ff9a2e');anyHit=true;continue}
       if(hit){const am=hit.type===1?EnemyAI.heavyArmor(hit.group.rotation.y,S.x-hit.x,S.z-hit.z,hit.st==='vent'):1,crit=zone==='head',kill=crit&&am>=1&&HitZones.headKills(W.snd,HS[hit.type]),dmg=kill?9999:Math.max(1,Math.round(dmgOf(wi)*HitZones.zoneMult(zone,W.snd,HS[hit.type],SAVE.crit)*am));if(am<.5)popText(endp[0],endp[1]+.9,endp[2],'ARMOR','#9fb0bd',.9);anyHit=true;if(crit)anyCrit=true;reportHit(hit.id,dmg,zone);spark(endp[0],endp[1],endp[2],crit?'#ffd24a':undefined);
         if(p<3)popText(endp[0],endp[1]+.7,endp[2],(kill?'💥 HEADSHOT':crit?'💥'+dmg:dmg),crit?'#ffd24a':zone==='torso'?'#fff':'#b8c4cc',crit?1.35:zone==='torso'?1:.85)}
+      if(pirate){const crit=zone==='head',dmg=Math.max(1,Math.round(dmgOf(wi)*HitZones.zoneMult(zone,W.snd,1,SAVE.crit)));anyHit=true;if(crit)anyCrit=true;Crew.hit(pirate.id,crit?Math.max(dmg,pirate.hp):dmg,zone);if(p<3)popText(endp[0],endp[1]+.7,endp[2],crit?'💥 HEADSHOT':dmg,crit?'#ffd24a':'#fff',crit?1.35:1)}
       if(p<3)tracer(M.x,M.y,M.z,endp[0],endp[1],endp[2]);
     }
     me.userData.recoil=1;Viewmodel.kick(RECOIL[wi]);CameraRig.kick(.016*RECOIL[wi],rnd(-.004,.004)*RECOIL[wi]);sfx(W.snd);if(anyHit){hitT=.18;if(anyCrit)critT=.24;sfx(anyCrit?'crit':'hit')}if(W.pel<=1)bloom=Math.min(1,bloom+.07+W.cd*.55);
@@ -704,5 +706,5 @@ const Outlaw=(()=>{
   function moveMul(){if(down)return 0;const im=OutlawItems.moveMul();if(wi<0||!C||S.flying||S.dv||S.state==='swim')return im;return (Math.hypot(S.x-C.x,S.z-C.z)<OUT.R?ARMED_SPEED:1)*im}
   Interaction.register('ow-start','Start Showdown',()=>C&&!active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>missionPanel());
   Interaction.register('ow-end','End Showdown',()=>C&&active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>{send({k:'end'});onMsg({k:'end'})});
-  return {earn,build,tick,onMsg,equip,fire,lockTarget,poseGun,loadGun,moveMul,ARMED_SPEED,_t:()=>({get lastShot(){return lastShot},dmgDir,get hp(){return hp},get huntOn(){return huntOn},WEAPONS,get wave(){return wave},get queueLen(){return queue.length},get nextWave(){return nextWave},damageNpc,cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
+  return {earn,build,tick,onMsg,equip,fire,setGun,lockTarget,poseGun,loadGun,moveMul,ARMED_SPEED,_t:()=>({get lastShot(){return lastShot},dmgDir,get hp(){return hp},get huntOn(){return huntOn},WEAPONS,get wave(){return wave},get queueLen(){return queue.length},get nextWave(){return nextWave},damageNpc,cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
 })();
