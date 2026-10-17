@@ -5,7 +5,7 @@ vm.runInContext(['data/warden','combat/Moves','combat/SwordHit','combat/Combos',
 const {M,CC,AI,F,W,X}=c;let bad=0;const ok=(v,m)=>{if(!v){console.log('FAIL',m);bad++}else console.log('ok',m)};
 // ---- roster / sites
 for(const k in F.TYPES){const T=F.TYPES[k];ok(T.hp>0&&T.r>0&&AI.create(1,{foe:T.ai})&&X.ROLES[T.role],k+': hp/radius/AI style/clip role are defined');
-  ok(T.body==='avatar'||fs.existsSync(R+'assets/warden/'+T.file+'.glb'),k+': body asset exists')}
+  ok(T.body==='avatar'||(T.files||[T.file]).every(f=>fs.existsSync(R+'assets/warden/'+f+'.glb')),k+': body asset exists')}
 for(const s of W.sites){ok(s.foes.length>0&&s.foes.every(f=>F.TYPES[f.t]),s.id+': foes are known types');ok(s.foes.every(f=>Math.hypot(f.dx,f.dz)<s.R-2),s.id+': foes start inside the ring')}
 {let bossOk=true;for(const s of W.sites)for(const o of W.sites)if(s!==o&&Math.hypot(s.x-o.x,s.z-o.z)<s.R+o.R+6)bossOk=false;ok(bossOk,'no two sites overlap')}
 ok(W.sites.every(s=>s.wall||[0,1,2,3,4,5,6,7].every(a=>Math.abs(c.WH(s.x+Math.sin(a)*s.R*.8,s.z+Math.cos(a)*s.R*.8)-s.y)<.35)),'every fight site is level ground (flattened to its y)');
