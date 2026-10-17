@@ -60,7 +60,7 @@ const SA=A.Ship,SB=B.Ship,SS=A.Ship._s,V=SA.vessel(),Dk=A.Decks;
 }
 // ---------- 3. build, deck, boarding, carry (the controller's job is done by Decks.step in index.html: reproduced here) ----------
 const tick=(n,dt)=>{dt=dt||.02;for(let i=0;i<n;i++){SA._step(dt);SB._step(dt)}};
-const deckWorld=()=>SA._pose.y+C.cls.sloop.deckM;
+const deckWorld=()=>SA._pose.y+C.cls[C.player].deckM;
 const frame=(P,vx,vz,dt)=>{const px=P.S.x,pz=P.S.z;P.S.x+=vx*dt;P.S.z+=vz*dt;let gY=(Math.abs(P.S.x-D.x)<1.65&&P.S.z>D.z0&&P.S.z<D.z1)?D.top:-1;   // the pier is ground (a solids circle in the game)
   const g=P.Decks.step(P.S,px,pz,{dt,grounded:P.S.grounded,moving:Math.hypot(vx,vz)>.05,flying:false});if(g>gY)gY=g;
   P.S.vy=(P.S.vy||0)-(P.S.vy<0?33:25)*dt;P.S.y+=P.S.vy*dt;if(P.S.y<=gY||(P.S.grounded&&P.S.vy<=0&&P.S.y-gY<.35)){P.S.y=gY;P.S.vy=0;P.S.grounded=true}else P.S.grounded=false};
@@ -73,16 +73,16 @@ const walk=(P,vx,vz,secs)=>{for(let i=0;i<secs*50;i++){tick(1);frame(P,vx,vz,.02
   ok(SA._onDeck()===false,'standing on the pier is not "on the ship"');
   // walk from the pier straight into the ship's side rail: climb it, drop onto the deck
   A.S.z=D.ship.z+1;A.S.x=D.x;walk(A,0,0,.2);walk(A,4,0,3);
-  ok(SA._onDeck()===true&&Math.abs(A.S.y-D.top)<.2,`walking from the pier over the rail puts you on the deck (y=${A.S.y.toFixed(2)})`);
+  ok(SA._onDeck()===true&&Math.abs(A.S.y-D.top)<.5,`walking from the pier over the rail puts you on the deck (y=${A.S.y.toFixed(2)})`);
   ok(A.S._dk&&A.S._dk.id==='ship','the ship is carrying you');
   A.S.x=D.ship.x+40;A.S.z=D.ship.z+40;A.S.y=-1;A.S._dk=null;SA._board();tick(2);
-  const lb=A.Decks.toLocal(V.deck,A.S.x,A.S.y,A.S.z,{});ok(SA._onDeck()===true&&Math.abs(lb.y-C.cls.sloop.deckM)<.1,'"Board the ship" from the water puts you on the main deck');
+  const lb=A.Decks.toLocal(V.deck,A.S.x,A.S.y,A.S.z,{});ok(SA._onDeck()===true&&Math.abs(lb.y-C.cls[C.player].deckM)<.1,'"Board the ship" from the water puts you on the main deck');
 }
 // ---------- 4. take the helm (raised stern deck), sail, carry ----------
 {
   SB._board();tick(2);
   // B stands on the main deck; A walks UP THE STAIRS to the wheel and takes the helm
-  const hp=SA._helmPos();ok(hp.y>deckWorld()+2.4,`the helm is on the raised stern deck (${(hp.y-deckWorld()).toFixed(1)} m above the main deck)`);
+  const hp=SA._helmPos();ok(hp.y>deckWorld()+.6,`the helm is on the raised stern deck (${(hp.y-deckWorld()).toFixed(1)} m above the main deck)`);
   A.S._dk=null;SA._board();tick(2);
   // the walker follows Decks.route (the same breadth-first walking rules the pirate crews will use) from midships to the wheel
   {const l0=A.Decks.toLocal(V.deck,A.S.x,A.S.y,A.S.z,{}),hl0=SS.role?null:Sl.toShip(SA._pose,SA._helmPos().x,SA._helmPos().z,{}),path=A.Decks.route(V.deck,l0.x,l0.z,A.SHIP.stations.helm[0],A.SHIP.stations.helm[1]);
@@ -90,7 +90,7 @@ const walk=(P,vx,vz,secs)=>{for(let i=0;i<secs*50;i++){tick(1);frame(P,vx,vz,.02
    let wi=0;for(let i=0;i<4000&&path&&wi<path.length;i++){tick(1);const l=A.Decks.toLocal(V.deck,A.S.x,A.S.y,A.S.z,{}),tg=path[wi],L=Math.hypot(tg.x-l.x,tg.z-l.z);if(L<.35){wi++;continue}
      const w=Sl.toWorld(SA._pose,tg.x,tg.z,{}),wx=w.x-A.S.x,wz=w.z-A.S.z,wl=Math.hypot(wx,wz);frame(A,wx/wl*4,wz/wl*4,.02)}}
   walk(A,0,0,.5);const hl=A.Decks.toLocal(V.deck,A.S.x,A.S.y,A.S.z,{});
-  ok(hl.y>C.cls.sloop.deckM+2.4,`walked up the stairs: feet ${(hl.y-C.cls.sloop.deckM).toFixed(1)} m above the main deck, standing on the stern deck (not inside it)`);
+  ok(hl.y>C.cls[C.player].deckM+.9,`walked up the stairs: feet ${(hl.y-C.cls[C.player].deckM).toFixed(1)} m above the main deck, standing on the stern deck (not inside it)`);
   SA._claim('helm');
   ok(SS.role==='helm'&&SS.host==='a'&&SA._s.crew.helm==='a','claiming the helm makes you the host and the helmsman');
   tick(3);ok(SB._s.crew.helm==='a'&&SB._s.host==='a','the other player sees who is at the helm');

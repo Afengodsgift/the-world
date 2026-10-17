@@ -108,6 +108,7 @@ const Decks=(()=>{
     const dt=o.dt||.016;let gy=-Infinity,chosen=null;
     if(S._climb>0)S._climb-=dt;
     for(const d of decks.values()){
+      if(d.off){if(S._dk&&S._dk.id===d.id)S._dk=null;continue}                       // a sinking hull: nothing to stand on
       const q=d.pose;let carried=S._dk&&S._dk.id===d.id&&!o.flying;
       if(carried){toWorld(d,S._dk.x,S._dk.y,S._dk.z,_a);if(Math.hypot(_a.x-px,_a.z-pz)>4){S._dk=null;carried=false}}     // teleported away (map travel, respawn, a portal): do not drag the player back
       if(!carried){const dx=S.x-q.x,dz=S.z-q.z;if(dx*dx+dz*dz>d.rad2)continue}
@@ -147,5 +148,6 @@ const Decks=(()=>{
   // pin a player to a ship-space spot (the helm): the next step() carries them from there
   function pin(S,d,x,z){const sup=floor(d,x,z);S._dk={id:d.id,x,y:Math.max(0,sup),z,h:d.pose.h};toWorld(d,x,Math.max(0,sup),z,_a);S.x=_a.x;S.z=_a.z;S.y=_a.y;S.vy=0;return _a.y}
   const standingOn=S=>S._dk?S._dk.id:null;
-  return {STEP,HOP,R,grid,create,add,remove,get,all,clear,setPose,toWorld,toLocal,floor,stamp,stampBox,wallAt,slide,freeSpot,route,step,pin,standingOn,decks};
+  const disable=(d,on)=>{if(d)d.off=!!on};
+  return {disable,STEP,HOP,R,grid,create,add,remove,get,all,clear,setPose,toWorld,toLocal,floor,stamp,stampBox,wallAt,slide,freeSpot,route,step,pin,standingOn,decks};
 })();

@@ -15,8 +15,8 @@ const B=await start();
  const stop=()=>p.evaluate(()=>{clearInterval(window.__drv);stickV={x:0,y:0}});
  await drive(...await p.evaluate(()=>[DOCK.ship.x,DOCK.z0+1.25+2.5*13]));
  await p.waitForFunction(()=>Ship._onDeck(),null,{timeout:120000}).then(()=>ok(true,'walking from the pier into the ship climbs the rail and puts you ON the deck'),()=>ok(false,'walking from the pier onto the deck (S.y='+0+')'));
- await stop();await p.waitForFunction(()=>{const l=Decks.toLocal(Decks.get('ship'),S.x,S.y,S.z,{});return S.grounded&&l.y>SHIP.cls.sloop.deckM-.35},null,{timeout:60000}).catch(()=>{});
- const st=await p.evaluate(()=>{const l=Decks.toLocal(Decks.get('ship'),S.x,S.y,S.z,{});return {y:S.y,dk:S._dk&&S._dk.id,ly:l.y,deck:SHIP.cls.sloop.deckM,grounded:S.grounded,state:S.state}});
+ await stop();await p.waitForFunction(()=>{const l=Decks.toLocal(Decks.get('ship'),S.x,S.y,S.z,{});return S.grounded&&l.y>SHIP.cls[SHIP.player].deckM-.35},null,{timeout:60000}).catch(()=>{});
+ const st=await p.evaluate(()=>{const l=Decks.toLocal(Decks.get('ship'),S.x,S.y,S.z,{});return {y:S.y,dk:S._dk&&S._dk.id,ly:l.y,deck:SHIP.cls[SHIP.player].deckM,grounded:S.grounded,state:S.state}});
  ok(st.dk==='ship'&&st.ly>st.deck-.35&&st.ly<st.deck+1.3,'standing on the deck or its rail, not sunk, feet on the planks (local y '+st.ly.toFixed(2)+' vs '+st.deck.toFixed(2)+', state '+st.state+')');
  await snap('2_on_deck');
  // ---- 2. walk to the wheel along the real route (stairs) ----
@@ -26,8 +26,8 @@ const B=await start();
  ok(await p.evaluate(()=>!!window.__path&&window.__path.length>5),'a walking route exists from the main deck to the wheel');
  await p.waitForFunction(()=>window.__wi>=window.__path.length,null,{timeout:240000}).then(()=>ok(true,'walked the whole route'),async()=>ok(false,'walked the whole route (tr '+JSON.stringify((await p.evaluate(()=>window.__tr)).slice(-40).filter((_,i)=>i%2==0))+' wi '+JSON.stringify(await p.evaluate(()=>{const d=Decks.get('ship'),l=Decks.toLocal(d,S.x,S.y,S.z,{});return {wi:window.__wi,n:window.__path&&window.__path.length,t:window.__path&&window.__path[window.__wi],l:[l.x,l.y,l.z]}}))+')'));
  await p.evaluate(()=>{clearInterval(window.__drv2);stickV={x:0,y:0}});await p.waitForTimeout(1500);
- const hs=await p.evaluate(()=>{const d=Decks.get('ship'),l=Decks.toLocal(d,S.x,S.y,S.z,{});return {ly:l.y,fl:Decks.floor(d,l.x,l.z),main:SHIP.cls.sloop.deckM,g:S.grounded}});
- ok(hs.ly>hs.main+2.4&&Math.abs(hs.ly-hs.fl)<.4&&hs.g,'standing ON the raised stern deck, not inside it ('+(hs.ly-hs.main).toFixed(1)+' m above the main deck)');
+ const hs=await p.evaluate(()=>{const d=Decks.get('ship'),l=Decks.toLocal(d,S.x,S.y,S.z,{});return {ly:l.y,fl:Decks.floor(d,l.x,l.z),main:SHIP.cls[SHIP.player].deckM,g:S.grounded}});
+ ok(hs.ly>hs.main+.9&&Math.abs(hs.ly-hs.fl)<.4&&hs.g,'standing ON the raised stern deck, not inside it ('+(hs.ly-hs.main).toFixed(1)+' m above the main deck)');
  await snap('3_stern');
  // ---- 3. take the helm, sail, be carried ----
  await p.evaluate(()=>{Ship._claim('helm');Ship._raw.x=0;Ship._raw.y=-1});

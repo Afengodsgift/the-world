@@ -5,7 +5,7 @@
 // deckM = height of the main deck above the keel (model units x scale); the hull is sunk so the main deck stands `fb` metres above the sea (1.125 = level with the harbour pier, DOCK.top).
 const SHIP={
   sea:-.3,fb:1.125,
-  sailing:{vmax:13,accel:.45,coast:.32,turn:.62,turnV:.1,shore:-1.0},     // vmax m/s; shore = sea floor must be below this. Hull probe points are generated from the hull size (Sailing.probes)
+  sailing:{vmax:13,accel:.45,coast:.32,turn:.62,turnV:.1,shore:-1.0,minWind:.8,boostMul:1.75,boostT:6,boostCd:14},     // vmax m/s; shore = sea floor must be below this. Hull probe points are generated from the hull size (Sailing.probes)
   wind:{strength:1,storm:.6},
   cannon:{v:62,g:-14,reload:3.2,dmg:24,splash:4.2,pdmg:16,spread:.022,range:130,bro:{reload:4,range:110}},       // ballistic ball: speed, gravity, per-gun reload, hull damage, deck splash radius / damage to people, aim scatter
   net:{ship:12,enemies:8,aim:10},                    // snapshots per second
@@ -15,6 +15,7 @@ const SHIP={
 // ---------- hull classes ----------
 // guns: cannons per side (placed along the main deck rails automatically); crew: pirates aboard {cut: cutlass, pis: pistol, mus: musket}
 SHIP.cls={
+  galleon:{name:'Your galleon',file:'assets/ships/galleon.glb',grid:'galleon',scale:1,mdeck:7.8,hp:420,guns:5,helm:[0,-13.5],mast:20,v:15,turn:.5},      // the player's own ship: the Sketchfab low-poly galleon (tools/prep_galleon.mjs): 32 m, main deck, raised stern deck with the wheel, bow deck
   sloop:{name:'Your ship',file:'assets/ships/ship-medium.glb',grid:'ship-medium',scale:2.2,mdeck:2.1,hp:240,guns:4,sails:/^sail/,flags:/^flag/,helm:[0,-3.35],mast:8},
   skiff:{name:'Reef Rat',file:'assets/ships/ship-pirate-small.glb',grid:'ship-pirate-small',scale:1.6,mdeck:2.1,hp:90,guns:2,sails:/^sail/,flags:/^flag/,
          v:9.5,turn:.8,reload:3.6,dmg:.8,crew:{cut:3,pis:1},style:'ram',coin:[60,100],
@@ -34,5 +35,6 @@ SHIP.cls={
 };
 // deck geometry derived from the class: half sizes in metres (before the baked grid refines them)
 for(const k in SHIP.cls){const c=SHIP.cls[k];c.id=k;c.deckM=c.mdeck*c.scale;c.draft=c.deckM-SHIP.fb}
-SHIP.scale=SHIP.cls.sloop.scale;SHIP.deckY=SHIP.cls.sloop.mdeck;SHIP.draft=SHIP.cls.sloop.draft;SHIP.hull=SHIP.cls.sloop.hp;
-SHIP.stations={helm:[0,SHIP.cls.sloop.helm[1]*SHIP.scale]};   // helm spot in ship space (metres): in front of the wheel on the raised stern deck
+SHIP.player='galleon';const PK=SHIP.cls[SHIP.player];
+SHIP.scale=PK.scale;SHIP.deckY=PK.mdeck;SHIP.draft=PK.draft;SHIP.hull=PK.hp;
+SHIP.stations={helm:[PK.helm[0]*SHIP.scale,PK.helm[1]*SHIP.scale]};   // helm spot in ship space (metres): in front of the wheel on the raised stern deck

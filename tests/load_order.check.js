@@ -40,6 +40,7 @@ const DEPS={ // file -> files that must come first
   'ship/Sailing.js':['data/ship.js'],
   'ship/Decks.js':[],
   'ship/Vessel.js':['data/ship.js','data/decks.js','ship/Decks.js','ship/Sailing.js'],
+  'ship/Fleet.js':['data/ship.js','ship/Sailing.js','ship/Decks.js','ship/Vessel.js','ship/Ship.js','interaction/InteractionManager.js','core/Net.js','core/Systems.js','world/Fx.js','core/Audio.js'],
   'ship/Ship.js':['data/ship.js','data/decks.js','data/islands.js','ship/Sailing.js','ship/Decks.js','ship/Vessel.js','interaction/InteractionManager.js','core/Net.js','core/Systems.js','world/Fx.js'],
   'games/Soccer.js':['data/soccer.js','data/islands.js','interaction/InteractionManager.js','core/Net.js','core/Systems.js','world/Fx.js'],
   'world/Vaults.js':['core/Net.js','core/WorldState.js','core/Systems.js','world/Fx.js','world/Sites.js','core/Seeded.js','interaction/Link.js','interaction/VerbAnims.js','data/puzzles.js','interaction/InteractionManager.js','utils/random.js'],

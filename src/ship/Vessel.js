@@ -69,7 +69,7 @@ const Vessel=(()=>{
   function outward(v,g,o){const a=Decks.toWorld(v.deck,g.x+g.side,g.ly,g.z,{}),b=Decks.toWorld(v.deck,g.x,g.ly,g.z,{});o=o||{};const dx=a.x-b.x,dz=a.z-b.z,l=Math.hypot(dx,dz)||1;o.x=dx/l;o.z=dz/l;return o}
   // does the point (world) lie inside this hull's solid parts? -> null | {kind:'hull'|'deck', l:{x,y,z}} (ship space)
   function hit(v,x,y,z){
-    if(!v.deck||v.sunk>=1)return null;const l=Decks.toLocal(v.deck,x,y,z,_w);if(l.y<-.5)return null;
+    if(!v.deck||v.sunk>=.6)return null;const l=Decks.toLocal(v.deck,x,y,z,_w);if(l.y<-.5)return null;
     const f=Decks.floor(v.deck,l.x,l.z);if(f<0||l.y>f)return null;
     return {kind:l.y>v.K.deckM-.6?'deck':'hull',l:{x:l.x,y:l.y,z:l.z}}}
   function dispose(v){v.disposed=true;Decks.remove(v.id);if(v.grp&&typeof scene!=='undefined'){scene.remove(v.grp);v.grp.traverse(o=>{if(o.geometry&&!o.userData.shared){}})}}

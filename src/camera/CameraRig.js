@@ -10,7 +10,7 @@
 // Globals used at runtime: S, camera, me, H, THREE, sstep.
 const CameraRig=(()=>{
   const st={bias:0,biasT:0,sInit:false,sy:0,sp:0,arm:1,dip:{x:0,v:0},view:'tps',shooter:false,zoom:1,zk:1,scopeFps:false,fpsK:0,tpsK:0,ay:0,init:false,px:0,pz:0,vx:0,vz:0,spd:0,hd:0,turn:0,
-            roll:{x:0,v:0},kp:{x:0,v:0},ky:{x:0,v:0},t:0,bob:0,eye:new THREE.Vector3(),eInit:false,prevFps:false,cruise:0,boost:0,fw:0,py:0,vyn:0,prevTps:false,camD:9,shk:1};
+            roll:{x:0,v:0},kp:{x:0,v:0},ky:{x:0,v:0},t:0,bob:0,eye:new THREE.Vector3(),eInit:false,prevFps:false,cruise:0,boost:0,fw:0,py:0,vyn:0,prevTps:false,camD:9,shk:1,ship:null,shipK:0};
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),TPS_P=[-.95,1.25];
   const _u=new THREE.Vector3(),_f=new THREE.Vector3(),_p=new THREE.Vector3(),_l=new THREE.Vector3(),_h=new THREE.Vector3(),_a=new THREE.Vector3(),_b=new THREE.Vector3();
   function spring(s,t,dt,w,z){const a=w*w*(t-s.x)-2*z*w*s.v;s.v+=a*dt;s.x+=s.v*dt}
@@ -114,6 +114,9 @@ const CameraRig=(()=>{
     const bvw=typeof Boost!=='undefined'?Boost.view:{charge:0,burst:0};                                   // charged boost: move in while charging, pull back on the burst
     const dFly=Math.max(2.6,4.6+1.0*st.boost+1.0*dk-(el>0?1.2*el/1.2:.6*el/1.2)-1.1*bvw.charge+1.4*bvw.burst);       // 3.4 m looking straight up .. 5.2 m looking down at the world (walking is 9 m)
     const d=dGround+(dFly-dGround)*fe+st.bias*(1-st.fpsK);
+    // ship camera (Ship.js feeds setShip): a long, high boom swung around the vessel instead of the avatar: aboard it widens the view a lot, at the helm it frames the whole ship + the sea ahead
+    st.shipK+=(((st.ship&&!st.shooter)?1:0)-st.shipK)*(1-Math.exp(-2.6*dt));const sk=st.shipK,sh0=st.ship||{x:S.x,y:S.y,z:S.z,d:d,pk:0};
+    const dd=d+(sh0.d-d)*sk,mix=sk*sh0.pk;
     if(st.tpsK>.01){const hy=st.ay+1.6,tk=sideFree(S.x,hy,S.z,Math.cos(yaw),-Math.sin(yaw));st.shk+=(tk-st.shk)*(tk<st.shk?1:1-Math.exp(-4*dt))}else st.shk=1;   // shoulder offset shrinks against walls (snaps in, eases out)
     const sh=1.0*st.tpsK*st.shk,shx=Math.cos(yaw)*sh,shz=-Math.sin(yaw)*sh;
     const lagG=Math.min(.7,st.spd*.045)*(1-.85*st.tpsK),lagF=Math.min(.6,sp3*.008),lag=lagG+(lagF-lagG)*fe;
@@ -121,6 +124,7 @@ const CameraRig=(()=>{
     const ay=st.ay+1.6+.4*st.tpsK;
     _p.set(S.x+lx-_f.x*d+shx,ay-_f.y*d,S.z+lz-_f.z*d+shz);
     _l.set(S.x+shx,st.ay+1.4+.2*st.tpsK+st.dip.x*.6,S.z+shz);
+    if(sk>.001){const qx=(sh0.x-S.x)*mix,qz=(sh0.z-S.z)*mix,qy=(sh0.y-st.ay)*mix;_l.x+=qx;_l.z+=qz;_l.y+=qy;_p.x+=qx-_f.x*(dd-d);_p.z+=qz-_f.z*(dd-d);_p.y+=qy-_f.y*(dd-d)+3*sk}   // pivot toward the ship, boom longer, a little higher
     if(fe>.001){
       if(sp3>.5){const kk=-lag*fe/sp3;_p.x+=st.vx*kk;_p.y+=st.vyn*kk;_p.z+=st.vz*kk}               // flight trail along the 3D velocity
       _u.set(0,1,0).addScaledVector(_f,-_f.y).normalize();                                          // camera 'up' (world up made perpendicular to the view)
@@ -129,7 +133,7 @@ const CameraRig=(()=>{
     _p.y+=st.dip.x;
     {const gm=ground(_p.x,_p.z,_l.y)+.8;if(_p.y<gm)_p.y+=(gm-_p.y)*(1-st.tpsK)}   // chase camera: lift it off the ground; shoulder view: do NOT bend the view direction, armFree() pulls the camera in along the line of sight instead
     // obstruction: pull the camera in so it never ends up inside a house/rock or under the ground; snaps in fast, eases back out slowly
-    const free=st.fpsK<.01?armFree(_l,_p):1;st.arm+=(free-st.arm)*(free<st.arm?1:1-Math.exp(-(2.4+2.2*st.tpsK)*dt));
+    let free=st.fpsK<.01?armFree(_l,_p):1;free+=(1-free)*Math.min(1,sk*1.6);st.arm+=(free-st.arm)*(free<st.arm?1:1-Math.exp(-(2.4+2.2*st.tpsK)*dt));
     if(st.arm<.999)_p.lerpVectors(_l,_p,st.arm);
 
     // ---- first-person: blend position to the eye, look straight along the view direction ----
@@ -138,6 +142,7 @@ const CameraRig=(()=>{
       _p.lerp(_h,st.fpsK);
       _l.lerp(_b.copy(_h).addScaledVector(_f,10),st.fpsK);
     }else st.eInit=false;
+    if(sk>.001&&_p.y<2.2)_p.y=2.2+(_p.y-2.2)*.0;   // never under the waves
     st.camD=st.arm*d;me.visible=st.fpsK<.55&&!(st.tpsK>.3&&st.camD<1.0);                                               // own body is hidden in first person
 
     // ---- flight feel: banking, buffet ----
@@ -150,7 +155,7 @@ const CameraRig=(()=>{
     // ---- FOV: speed widens it, first-person trims a little ----
     const gf=clamp((st.spd-5.5)/7,0,1);                                   // ground sprint: a touch wider
     st.zk+=(st.zoom-st.zk)*(1-Math.exp(-11*dt));   // scope zoom eases in/out
-    let tf=(fly?Math.min(90,66+10*st.cruise+13*st.boost*(1-.6*dk)+4*dk+7*(typeof Boost!=='undefined'?Boost.view.burst:0)-4*(typeof Boost!=='undefined'?Boost.view.charge:0)):(S.gboost>0?80:65+4.5*gf))-4*st.fpsK+3*st.tpsK;   // combat camera is a touch wider
+    let tf=(fly?Math.min(90,66+10*st.cruise+13*st.boost*(1-.6*dk)+4*dk+7*(typeof Boost!=='undefined'?Boost.view.burst:0)-4*(typeof Boost!=='undefined'?Boost.view.charge:0)):(S.gboost>0?80:65+4.5*gf))-4*st.fpsK+3*st.tpsK+5*st.shipK;   // combat camera is a touch wider; the ship camera wider still
     if(st.zk>1.002)tf=Scope.fov(tf,st.zk);
     if(Math.abs(camera.fov-tf)>.05){camera.fov+=(tf-camera.fov)*Math.min(1,dt*((st.zk>1.002||st.zoom>1)?12:4.5));camera.updateProjectionMatrix()}
   }
@@ -159,7 +164,9 @@ const CameraRig=(()=>{
     update,
     addBlocker(b){const k={x:b.x,z:b.z,hw:b.hw,hd:b.hd,y0:b.y0,top:b.top,c:Math.cos(b.ry||0),s:Math.sin(b.ry||0)};blockers.push(k);return k},clearBlockers(){blockers.length=0},blockerCount:()=>blockers.length,inBox,
     setShooter(b){st.shooter=!!b},                      // a weapon is out: use the shooter view (fps or tps)
-    setBias(m){st.biasT=m||0},                          // pull the orbit camera back by m metres (smoothly), e.g. when aboard a ship
+    setBias(m){st.biasT=m||0},
+    setShip(o){st.ship=o||null},                            // {x,y,z,d,pk}: swing the orbit camera around a ship (pivot blend pk 0..1, boom length d); null = back to the avatar
+    shipK:()=>st.shipK,                          // pull the orbit camera back by m metres (smoothly), e.g. when aboard a ship
     setZoom(z,fps){st.zoom=Math.max(1,z||1);st.scopeFps=!!fps&&st.zoom>1},   // scope: zoom factor, and force first person for the sniper lens view
     zoom:()=>st.zk,
     setView(v){st.view=v==='tps'?'tps':'fps'},

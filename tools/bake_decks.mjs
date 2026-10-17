@@ -6,11 +6,13 @@ const ROOT=path.resolve(path.dirname(new URL(import.meta.url).pathname),'..');
 // per model: file, grid cell (model units), the band of heights that counts as floor (above ymax = masts / sails; below ymin = hull bottom = water), and the level that pits shallower than `pit` are raised to
 const CFG={'ship-medium':{f:'assets/ships/ship-medium.glb',cs:.2,ymin:1.2,ymax:5.0,pit:2.0,fill:2.1},'ship-pirate-small':{f:'assets/ships/ship-pirate-small.glb',cs:.2,ymin:1.2,ymax:5.0,pit:2.0,fill:2.1},
   'ship-pirate-medium':{f:'assets/ships/ship-pirate-medium.glb',cs:.2,ymin:1.2,ymax:5.0,pit:2.0,fill:2.1},'ship-pirate-large':{f:'assets/ships/ship-pirate-large.glb',cs:.2,ymin:1.2,ymax:5.0,pit:2.0,fill:2.1},
-  'pp-ship':{f:'assets/pirates/ship.glb',cs:.25,ymin:2.0,ymax:7.0,pit:2.9,fill:3.0},'pp-ship-001':{f:'assets/pirates/ship_001.glb',cs:.25,ymin:2.0,ymax:7.5,pit:3.4,fill:3.5}};
+  'pp-ship':{f:'assets/pirates/ship.glb',cs:.25,ymin:2.0,ymax:7.0,pit:2.9,fill:3.0},'pp-ship-001':{f:'assets/pirates/ship_001.glb',cs:.25,ymin:2.0,ymax:7.5,pit:3.4,fill:3.5},
+  'galleon':{f:'assets/ships/galleon.glb',cs:.25,ymin:5.0,ymax:12.5,pit:7.5,fill:7.8,skip:/Rope|Flag|Sail|Window|Shadows|Gold_Light|Metal/}};
 const MODELS=Object.keys(CFG);
-function hullTris(f){
+function hullTris(f,skip){
   const b=fs.readFileSync(f),n=b.readUInt32LE(12),j=JSON.parse(b.slice(20,20+n).toString()),bin=b.slice(20+n+8),m=j.meshes[0],T=[];
   for(const p of m.primitives){
+    if(skip&&p.material!==undefined&&skip.test(j.materials[p.material].name||''))continue;
     const a=j.accessors[p.attributes.POSITION],bv=j.bufferViews[a.bufferView],P=new Float32Array(bin.buffer.slice(bin.byteOffset+(bv.byteOffset||0)+(a.byteOffset||0),bin.byteOffset+(bv.byteOffset||0)+(a.byteOffset||0)+a.count*12));
     let idx;if(p.indices!==undefined){const ia=j.accessors[p.indices],ib=j.bufferViews[ia.bufferView],o=bin.byteOffset+(ib.byteOffset||0)+(ia.byteOffset||0);
       idx=ia.componentType===5123?new Uint16Array(bin.buffer.slice(o,o+ia.count*2)):new Uint32Array(bin.buffer.slice(o,o+ia.count*4))}else{idx=[...Array(a.count).keys()]}
@@ -19,7 +21,7 @@ function hullTris(f){
 // 93 printable symbols (no quote / backslash): symbol 0 = no floor, symbol k = floor height (k-1)/10
 const SYM=[...Array(95).keys()].map(i=>String.fromCharCode(32+i)).filter(c=>c!=='"'&&c!=='\\');
 function bake(name){
-  const {cs:CS,ymin:YMIN,ymax:YMAX,pit,fill}=CFG[name],T=hullTris(path.join(ROOT,CFG[name].f));let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;
+  const {cs:CS,ymin:YMIN,ymax:YMAX,pit,fill}=CFG[name],T=hullTris(path.join(ROOT,CFG[name].f),CFG[name].skip);let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;
   for(const t of T)for(const v of t){x0=Math.min(x0,v[0]);x1=Math.max(x1,v[0]);z0=Math.min(z0,v[2]);z1=Math.max(z1,v[2])}
   x0=Math.floor((x0-.2)/CS)*CS;z0=Math.floor((z0-.2)/CS)*CS;const nx=Math.ceil((x1+.2-x0)/CS),nz=Math.ceil((z1+.2-z0)/CS),h=new Float32Array(nx*nz).fill(-1);
   for(const [A,B,C] of T){
