@@ -1,0 +1,110 @@
+{
+"root": ".",
+"fps": 20,
+"dg": 3,
+"clips": [
+{
+"name": "idle",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield idle.fbx"
+},
+{
+"name": "walk",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield walk.fbx"
+},
+{
+"name": "run",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield run.fbx"
+},
+{
+"name": "back",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield walk (2).fbx"
+},
+{
+"name": "sl",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield strafe (2).fbx"
+},
+{
+"name": "sr",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield strafe.fbx"
+},
+{
+"name": "guard",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield block idle.fbx"
+},
+{
+"name": "guardin",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield block.fbx"
+},
+{
+"name": "hit1",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield impact.fbx"
+},
+{
+"name": "hit2",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield impact (2).fbx"
+},
+{
+"name": "hit3",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield impact (3).fbx"
+},
+{
+"name": "death",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield death.fbx"
+},
+{
+"name": "slash",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield slash.fbx"
+},
+{
+"name": "slash3",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield slash (3).fbx"
+},
+{
+"name": "slash4",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield slash (4).fbx"
+},
+{
+"name": "atk",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield attack.fbx"
+},
+{
+"name": "atk2",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield attack (2).fbx"
+},
+{
+"name": "atk3",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield attack (3).fbx"
+},
+{
+"name": "atk4",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield attack (4).fbx"
+},
+{
+"name": "power",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield power up.fbx"
+},
+{
+"name": "bash",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield kick.fbx"
+},
+{
+"name": "draw",
+"file": "Pro_Sword_and_Shield_Pack/draw sword 1.fbx"
+},
+{
+"name": "draw2",
+"file": "Pro_Sword_and_Shield_Pack/draw sword 2.fbx"
+},
+{
+"name": "sheath",
+"file": "Pro_Sword_and_Shield_Pack/sheath sword 1.fbx"
+},
+{
+"name": "crouch",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield crouch idle.fbx"
+}
+],
+"glb": "assets/warden/guard2.glb",
+"retarget": true,
+"restFbx": "Pro_Sword_and_Shield_Pack/Ch03_nonPBR.fbx"
+}

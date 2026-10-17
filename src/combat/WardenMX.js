@@ -45,6 +45,9 @@ const WardenMX=(()=>{
     soldier:{file:'assets/warden_mx_player.json',guard:'guard',dorm:'crouch',wake:{c:'draw',t0:0,t1:.5,rate:.55},                        // a foot soldier fights with the player's sword-and-shield clips (retargeted onto the game rig)
       loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
       moves:{cut:{c:'atk4',t0:0,h:[[.34,.52]],e:.9},thrust:{c:'atk2',t0:.1,h:[[.3,.74]],e:1.2}}},
+    guard:{file:'assets/warden_mx_guard.json',native:true,guard:'guard',death:'death',hit:'hit1',dorm:'crouch',wake:{c:'draw',t0:0,t1:.5,rate:.55},        // Castle Guards (your character_1/3.fbx): the Ashen soldiers
+      loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
+      moves:{cut:{c:'atk4',t0:0,h:[[.34,.52]],e:.9},thrust:{c:'atk2',t0:.1,h:[[.3,.74]],e:1.2}}},
     // ---- natively rigged Mixamo characters (assets/warden/<char>.glb + clips baked by tools/bake_mixamo_native.mjs). `native`: they own their mixer, so weights are plain shares (no base layer to blend over). ----
     paladin:{file:'assets/warden_mx_paladin.json',native:true,guard:'guard',dorm:'idle',wake:{c:'power',t0:.2,t1:2.2,rate:.95},death:'death',hit:'hit1',          // Oathbound Knight: Pro Sword and Shield
       loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},

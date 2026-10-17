@@ -8,7 +8,8 @@ body.warden-fight #whint{display:block}
 #wh{position:fixed;z-index:6;left:0;right:0;top:calc(var(--st,env(safe-area-inset-top,0px)) + 8px + var(--T,40px) + 10px);pointer-events:none;font:600 11px/1.2 system-ui,sans-serif;color:#eee;text-shadow:0 1px 3px #000}
 #wh .wb{position:absolute;display:grid;gap:3px}
 #wh .wb.p{left:calc(var(--sl,0px) + 12px);width:min(150px,22vw)}
-#wh .wb.d{left:50%;transform:translateX(-50%);width:min(300px,36vw);text-align:center}
+#wh .wb.d{left:50%;transform:translateX(-50%);top:calc(-1*var(--T,40px) - 2px);width:min(260px,25vw);text-align:center;font-size:12px;gap:4px}   /* boss bar: top of the screen, between the HUD pills (the controls own the bottom) */
+#wh .wb.d i{height:9px}
 #wh .wb i{display:block;height:7px;border-radius:2px;background:#0008;box-shadow:0 0 0 1px #000a inset;position:relative;overflow:hidden}
 #wh .wb i b{position:absolute;left:0;top:0;bottom:0;width:100%;transform-origin:left;transition:none}
 #wh .st.bad b{background:#e8553a}

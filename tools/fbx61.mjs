@@ -37,7 +37,7 @@ export function parse61(ab,THREE){
     obj.quaternion.copy(q);obj.scale.set(S[0],S[1],S[2]);models[nm(m.p[0])]={m,obj,isBone,type:m.p[1]}}
   const root=new THREE.Group();root.name='Scene';
   const conns=Con.c.map(c=>({t:c.p[0],a:nm(c.p[1]),b:nm(c.p[2]),pr:c.p[3]}));
-  for(const c of conns){const ch=models[c.a];if(!ch||c.t!=='OO')continue;const par=models[c.b];(par?par.obj:root).add(ch.obj)}
+  for(const c of conns){const ch=models[c.a];if(!ch||c.t!=='OO')continue;const par=models[c.b];if(par)par.obj.add(ch.obj);else if(c.b==='Scene')root.add(ch.obj)}   // (bone->cluster links also have a model as child: those are not hierarchy)
   for(const k in models)if(!models[k].obj.parent)root.add(models[k].obj);
   const M4=a=>new THREE.Matrix4().fromArray(a);
   const meshes=Object.values(models).filter(x=>x.type==='Mesh');
