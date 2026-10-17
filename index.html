@@ -186,7 +186,6 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/combat/PlayerCombat.js"></script>
 <script src="src/games/WardenIsles.js"></script>
 <script src="src/world/Farm.js"></script>
-<script src="src/character/FlightAnim.js"></script>
 <script src="src/character/FlightPose.js"></script>
 <script src="src/fx/FlightFX.js"></script>
 <script src="src/fx/WaterFX.js"></script>
@@ -520,7 +519,6 @@ function dress(g,skin){
     if(nact.jump){nact.jump.setLoop(THREE.LoopOnce,1);nact.jump.clampWhenFinished=true}
     for(const n of ['smack','hit','hit2','land','interact','dig'])if(nact[n])nact[n].setLoop(THREE.LoopOnce,1); // one-shot overlays
     const u=g.userData;u.rig.visible=false;m.traverse(c=>{if(c.isMesh){c.castShadow=true}});g.add(m);Object.assign(u,{hipK,hipR:hipK&&bones.HipsCtrl?bones.HipsCtrl.position.clone():null,mixer:mx,act,nact:nact.idle?nact:null,model:m,bones,cur:null,ph:0,swing:0,spd:0,yr:0,fb:0,fd:0});
-    if(hipK&&bones.Hips){g.updateMatrixWorld(true);u.hipH=g.worldToLocal(bones.Hips.getWorldPosition(new THREE.Vector3())).y}   // standing pelvis height (game m): FlightAnim pivots about the real pelvis
     if(PAN_ENABLED&&bones.RightHand)loadPan().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(panBuf.slice(0),AURL,res,rej))).then(pr=>{
       const piv=new THREE.Group(),pn=pr.scene;pn.traverse(c=>{if(c.isMesh)c.castShadow=true});
       pn.position.set(.173,-19.68,31.046);piv.add(pn);piv.scale.setScalar((.36/5.915)/50);piv.position.set(0,.0016,0);piv.rotation.set(Math.PI,0,PAN_REST_Z);

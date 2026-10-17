@@ -38,27 +38,19 @@ const FlightPose=(()=>{
   }
 
   // Returns true while the flight pose owns the skeleton.
-  // ---- REAL flying poses: assets/flypose.json = body-space limb directions looped from the Mixamo "Superhero Flying" clip (tools/extract_flypose.js).
-  // Cruise and boost play these; hover stays procedural; pitch, bank, head and blending below are unchanged. Without the file the old hand-written tables are used.
-  let FP=null;const mkV=()=>Array.from({length:13},()=>new THREE.Vector3()),CV=mkV(),BV=mkV();
-  function setData(j){FP=j&&j.clips&&j.clips.cruise&&j.clips.boost?j:null}
-  function sampleClip(c,t,out){const f=((t*c.fps)%c.frames+c.frames)%c.frames,i=Math.floor(f),k=f-i,j=(i+1)%c.frames,d=c.data;
-    for(let s=0;s<13;s++){const a=i*39+s*3,b=j*39+s*3;out[s].set(d[a]+(d[b]-d[a])*k,d[a+1]+(d[b+1]-d[a+1])*k,d[a+2]+(d[b+2]-d[a+2])*k).normalize()}return out}
-  if(typeof window!=='undefined'&&typeof fetch==='function')fetch('assets/flypose.json').then(r=>r.ok?r.json():null).then(setData).catch(()=>{});
   function apply(g,q,dt,st,m){
     const f=state(q),fly=st==='fly';
     f.fw=lerpTo(f.fw,fly?1:0,dt,7,9);                                  // fade the pose in/out over ~0.15 s
-    if(f.fw<.004){if(f.on){f.on=false;q.model.rotation.y=0;f.th.x=f.th.v=f.ro.x=f.ro.v=0;f.py=f.pr=null;if(typeof FlightAnim!=='undefined')FlightAnim.off(q)}f.wH=1;f.wC=f.wB=0;return false}
-    const FAn=typeof FlightAnim!=='undefined'?FlightAnim:null,clip=!!(FAn&&FAn.ready(q)),started=!f.on;   // clip mode: baked flight clips (FlightAnim.js); else the procedural pose below
-    f.on=true;f.t+=dt;if(clip&&started)FAn.start(q);
+    if(f.fw<.004){if(f.on){f.on=false;q.model.rotation.y=0;f.th.x=f.th.v=f.ro.x=f.ro.v=0;f.py=f.pr=null}f.wH=1;f.wC=f.wB=0;return false}
+    f.on=true;f.t+=dt;
     const spd=m.speed||0,B=q.bones;
 
     // ---- measured motion: vertical speed, acceleration ----
     if(f.py!==null&&dt>0)f.vy+=(((g.position.y-f.py)/dt/(typeof SpaceFlight!=='undefined'?SpaceFlight.moveMul(g.position.y,Math.hypot(g.position.x,g.position.z)):1))-f.vy)*Math.min(1,dt*5);f.py=g.position.y;
-    if(f.pr!=null&&dt>0)f.vyr+=(((g.position.y-f.pr)/dt)-f.vyr)*Math.min(1,dt*5);f.pr=g.position.y;   // raw vertical speed: straight up has ~0 HORIZONTAL speed but is the fastest flight there is
-    const spd3=Math.hypot(spd,f.vyr);
+    if(f.pr!=null&&dt>0)f.vyr+=(((g.position.y-f.pr)/dt)-f.vyr)*Math.min(1,dt*5);f.pr=g.position.y;   // raw vertical speed: flying straight UP has ~0 horizontal speed but is the fastest flight there is
+    const spd3=Math.hypot(spd,f.vyr);                                   // pose weights + acceleration use the 3D speed (horizontal-only made a straight climb read as 'hover' = standing)
     const acc=(spd3-f.sp)/Math.max(dt,.001);f.a+=(acc-f.a)*Math.min(1,dt*8);f.sp=spd3;
-    const elev=Math.atan2(f.vyr,Math.max(spd,clip?.5:4));                       // climb (+) / dive (-) angle of the flight path
+    const elev=Math.atan2(f.vyr,Math.max(spd,4));                       // climb (+) / dive (-) angle of the flight path
 
     // ---- pose weights: rise quickly, decay slowly (braking from boost should feel heavy) ----
     const ch=m.charge||0,tH=(1-sstep(2,13,spd3))*(1-ch),tB=Math.max(sstep(46,62,spd3),ch*.9),tC=Math.max(0,1-tH-tB);   // charging: the streamlined pose even though you are braking
@@ -72,9 +64,8 @@ const FlightPose=(()=>{
     th+=Math.min(.15,Math.max(0,f.a*.004));                             // leaning into acceleration
     th-=Math.min(.35,Math.max(0,-f.a*.012))*(1-f.wH)*(1-ch);            // braking: flare back (head up), but not while compressing for a charge
     th+=.14*ch;                                                         // lean into the charge
-    if(clip)th=(f.wC+f.wB)*(Math.PI/2-elev)+f.wH*BASE_PITCH.h;           // body axis angle from vertical: 0 = straight up, pi/2 = level, pi = dive
-    th=Math.max(0,Math.min(clip?Math.PI:1.62,th));
-    spring(f.th,th,dt,6.5,clip?.78:.58);                                         // underdamped: ~10% overshoot = intentional-looking takeoff
+    th=Math.max(0,Math.min(1.62,th));
+    spring(f.th,th,dt,6.5,.58);                                         // underdamped: ~10% overshoot = intentional-looking takeoff
     const yr=m.yawRate||0;
     spring(f.ro,Math.max(-.7,Math.min(.7,-yr*.16))*(1-f.wH*.6),dt,5.5,.75); // bank into turns (less when hovering)
 
@@ -85,12 +76,6 @@ const FlightPose=(()=>{
 
     // ---- body transform: pitch about the hips (not the feet), blended with whatever the clip/pan-lunge had ----
     const w=f.fw,mdl=q.model,lunge=mdl.rotation.x;
-    if(clip){   // tilt = wanted lean minus the lean the blended clips already carry (prone ~1.68, upright ~0.1), pivoting about the pelvis; roll is about the body's long axis (z in the prone frame)
-      const sh=FAn.shares(q,f),rx=pitch-FAn.lean(sh),hp=FAn.hips(sh,q);
-      mdl.rotation.x=lunge*(1-w)+rx*w;mdl.rotation.y=0;mdl.rotation.z=roll*w;
-      mdl.position.y=(q.oy||0)+w*hp*(1-Math.cos(rx));mdl.position.z=-w*hp*Math.sin(rx);
-      mdl.updateMatrixWorld(true);FAn.drive(q,f,dt);return true;
-    }
     mdl.rotation.x=lunge*(1-w)+pitch*w;mdl.rotation.y=roll*w;
     mdl.position.y=(q.oy||0)+w*(HIP*(1-Math.cos(pitch))+bob);
     mdl.position.z=-w*HIP*Math.sin(pitch);
@@ -100,13 +85,12 @@ const FlightPose=(()=>{
     const sv=w<.999?BONES.map(n=>B[n]&&B[n].quaternion.clone()):null;
     const Db=(v,out)=>out.copy(v).applyQuaternion(_qb);
     const dir=(h,c,b,out)=>Db(mix3(h,c,b,f,_v),out);
-    const o1=new THREE.Vector3(),o2=new THREE.Vector3(),hasFP=!!FP;
-    if(hasFP){sampleClip(FP.clips.cruise,t,CV);sampleClip(FP.clips.boost,t,BV)}
+    const o1=new THREE.Vector3(),o2=new THREE.Vector3();
 
     // spine: gentle arch for cruise, straight for boost
-    A(B,'Spine','Chest',dir(SPINE.h[0],hasFP?CV[0]:SPINE.c[0],hasFP?BV[0]:SPINE.b[0],o1).addScaledVector(o2.set(0,0,Math.sin(t*2.4)*.03).applyQuaternion(_qb),f.wH)); // breathing: a small nudge, NOT a normalized vector
-    A(B,'Chest','UpperChest',dir(SPINE.h[1],hasFP?CV[1]:SPINE.c[1],hasFP?BV[1]:SPINE.b[1],o1));
-    A(B,'UpperChest','Neck',dir(SPINE.h[2],hasFP?CV[2]:SPINE.c[2],hasFP?BV[2]:SPINE.b[2],o1));
+    A(B,'Spine','Chest',dir(SPINE.h[0],SPINE.c[0],SPINE.b[0],o1).addScaledVector(o2.set(0,0,Math.sin(t*2.4)*.03).applyQuaternion(_qb),f.wH)); // breathing: a small nudge, NOT a normalized vector
+    A(B,'Chest','UpperChest',dir(SPINE.h[1],SPINE.c[1],SPINE.b[1],o1));
+    A(B,'UpperChest','Neck',dir(SPINE.h[2],SPINE.c[2],SPINE.b[2],o1));
     // arms (left leads in cruise, right folds)
     for(const s of [1,-1]){
       const n=s===1?'Left':'Right',ph=s===1?0:2.1,hv=HOVER.arm(s),bs=BST.arm(s);
@@ -115,19 +99,17 @@ const FlightPose=(()=>{
       const dU=hv[0].clone();dU.x+=Math.sin(t*1.1+ph)*.05*f.wH;dU.z+=Math.sin(t*.9+ph)*.04*f.wH;
       const dF=hv[1].clone();dF.z+=Math.sin(t*1.5+ph)*.05*f.wH;dF.y+=Math.sin(t*1.2+ph)*.03*f.wH;
       const cUp=cu[0].clone(),cFo=cu[1].clone();if(s===1){cUp.x+=Math.sin(t*1.6)*.02*f.wC}else{cFo.z+=Math.sin(t*2.1)*.04*f.wC}
-      if(hasFP){cUp.copy(CV[s===1?3:5]);cFo.copy(CV[s===1?4:6])}
-      A(B,n+'Arm',n+'ForeArm',dir(dU,cUp,hasFP?BV[s===1?3:5]:bs[0],o1));
-      A(B,n+'ForeArm',n+'Hand',dir(dF,cFo,hasFP?BV[s===1?4:6]:bs[1],o1));
+      A(B,n+'Arm',n+'ForeArm',dir(dU,cUp,bs[0],o1));
+      A(B,n+'ForeArm',n+'Hand',dir(dF,cFo,bs[1],o1));
     }
     // legs: dangle with knee variation when hovering, together and trailing when moving
     for(const s of [1,-1]){
       const n=s===1?'Left':'Right',ph=s===1?0:1.7,hl=HOVER.leg(s),bl=BST.leg(s),cl=s===1?CRU.legL:CRU.legR;
       const lU=hl[0].clone(),lL=hl[1].clone();lL.z-=(s===1?.10:.03)*(Math.sin(t*.7+ph)*.5+.5)*f.wH;lL.x+=Math.sin(t*1.2+ph)*.02*f.wH;
       const cL=cl[1].clone();cL.z+=Math.sin(t*2.4+ph)*.05*(f.wC+.4*f.wB);
-      const ci=s===1?7:10;
-      A(B,n+'UpLeg',n+'Leg',dir(lU,hasFP?CV[ci]:cl[0],hasFP?BV[ci]:bl[0],o1));
-      A(B,n+'Leg',n+'Foot',dir(lL,hasFP?CV[ci+1]:cL,hasFP?BV[ci+1]:bl[1],o1));
-      A(B,n+'Foot',n+'Toes',dir(HOVER.toe,hasFP?CV[ci+2]:CRU.toe,hasFP?BV[ci+2]:BST.toe,o1)); // toes pointed
+      A(B,n+'UpLeg',n+'Leg',dir(lU,cl[0],bl[0],o1));
+      A(B,n+'Leg',n+'Foot',dir(lL,cL,bl[1],o1));
+      A(B,n+'Foot',n+'Toes',dir(HOVER.toe,CRU.toe,BST.toe,o1)); // toes pointed
     }
     // neck + head: the face looks along the flight path (absolute: relative to the upright avatar, not the leaning body)
     const hp=f.wH*HEAD_PITCH.h+f.wC*HEAD_PITCH.c+f.wB*HEAD_PITCH.b;
@@ -140,5 +122,5 @@ const FlightPose=(()=>{
     return true;
   }
 
-  return {apply,state,HIP,CRUISE,BOOST,setData,sampleClip,data:()=>FP};
+  return {apply,state,HIP,CRUISE,BOOST};
 })();
