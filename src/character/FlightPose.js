@@ -86,7 +86,7 @@ const FlightPose=(()=>{
     // ---- body transform: pitch about the hips (not the feet), blended with whatever the clip/pan-lunge had ----
     const w=f.fw,mdl=q.model,lunge=mdl.rotation.x;
     if(clip){   // tilt = wanted lean minus the lean the blended clips already carry (prone ~1.68, upright ~0.1), pivoting about the pelvis; roll is about the body's long axis (z in the prone frame)
-      const sh=FAn.shares(q,f),rx=pitch-FAn.lean(sh),hp=FAn.hips(sh,q);
+      const sh=FAn.shares(q,f),rx=pitch-FAn.lean(sh),hp=FAn.hips(sh);
       mdl.rotation.x=lunge*(1-w)+rx*w;mdl.rotation.y=0;mdl.rotation.z=roll*w;
       mdl.position.y=(q.oy||0)+w*hp*(1-Math.cos(rx));mdl.position.z=-w*hp*Math.sin(rx);
       mdl.updateMatrixWorld(true);FAn.drive(q,f,dt);return true;

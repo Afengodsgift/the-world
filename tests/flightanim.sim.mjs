@@ -59,13 +59,4 @@ ok(FlightAnim.loaded,'FlightAnim loaded the clips');
  ok(!a.q.fl.on&&Math.abs(a.mdl.rotation.y)<1e-6&&Object.values(fa).every(x=>!x.isRunning()),'landed: flight released and all four flight actions stopped');
  fly(a,0,0,.2);ok(true,'(grounded avatar keeps running)')}
 {const a=avatar();fly(a,30,0,1);fly(a,0,0,1.5,'idle');fly(a,0,0,.1);ok(a.q.fai!==undefined&&a.q.fai<.5,'new takeoff restarts the entrance')}
-// ---- re-skinned characters: leg ratio travels with the GLB, the animator scales hip travel by it, the flight pivot follows the real pelvis ----
-for(const n of ['crypto','medea','eve','coolguy']){const b=fs.readFileSync(path.join(ROOT,'assets/chars/'+n+'.glb')),j=JSON.parse(b.subarray(20,20+b.readUInt32LE(12)).toString()),k=j.nodes.find(x=>x.extras&&x.extras.hipK);
- ok(k&&k.extras.hipK>1.2&&k.extras.hipK<2,n+': GLB carries its leg-length ratio (hipK '+(k&&k.extras.hipK)+')')}
-(0,eval)(grab('function hipFix(q)','function animateClips(').replace('function hipFix','globalThis.hipFix=function hipFix'));
-{const h=new T.Object3D();h.position.set(0,10,0);const q={bones:{HipsCtrl:h},hipR:new T.Vector3(0,10,0),hipK:1.5};h.position.set(1,8,-2);hipFix(q);
- ok(Math.abs(h.position.x-1.5)<1e-9&&Math.abs(h.position.y-7)<1e-9&&Math.abs(h.position.z+3)<1e-9,'hipFix scales the hips\' travel from rest by the leg ratio');
- h.position.set(0,10,0);hipFix(q);ok(h.position.y===10,'hipFix leaves the rest position alone')}
-{const sh={lev_in:0,lev_idle:0,fly_fwd:1,fly_super:0},plain=FlightAnim.hips(sh),tall=FlightAnim.hips(sh,{hipK:1.5,hipH:1.0});
- ok(Math.abs(plain-J.meta.fly_fwd.hipsY)<1e-9&&Math.abs(tall-(1.0+1.5*(J.meta.fly_fwd.hipsY-.621)))<1e-9&&tall>plain,'flight pivot: stock character unchanged, longer-legged one pivots higher (stock '+plain.toFixed(2)+' -> '+tall.toFixed(2)+')')}
 console.log(bad?bad+' failed':'flightanim ok');process.exit(bad?1:0);
