@@ -50,8 +50,8 @@ const Sailing=(()=>{
       if(bump>4)sh.hull=Math.max(0,sh.hull-(bump-3.5)*2);
     }
     sh.x=nx;sh.z=nz;
-    const rt=clamp(Math.sin(wrap(env.wind.dir-sh.h))*sh.sail*sh.v*.014-sh.rud*sh.v*.012,-.3,.3);   // heel with the wind and in turns
-    sh.roll+=(rt-sh.roll)*Math.min(1,dt*2);
+    const rt=clamp(Math.sin(wrap(env.wind.dir-sh.h))*sh.sail*sh.v*.005-sh.rud*sh.v*.004,-.07,.07);   // heel with the wind and in turns
+    sh.roll+=(rt-sh.roll)*Math.min(1,dt*1.2);
     return bump;
   }
   return {wind,eff,newShip,step,clear,probes,toWorld,toShip,wrap};

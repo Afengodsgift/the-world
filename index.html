@@ -1205,7 +1205,7 @@ function tickFrame(t){
   let ix=stickV.x,iy=stickV.y;
   if(keys.KeyA||keys.ArrowLeft)ix-=1;if(keys.KeyD||keys.ArrowRight)ix+=1;
   if(keys.KeyW||keys.ArrowUp)iy-=1;if(keys.KeyS||keys.ArrowDown)iy+=1;
-  if(typeof Ship!=='undefined'&&Ship.seated()){Ship.setInput(ix,iy);ix=0;iy=0}              // seated at the helm: the stick steers the ship
+  if(typeof Ship!=='undefined'&&Ship.locked()){Ship.setInput(ix,iy);ix=0;iy=0}              // seated at the helm: the stick steers the ship
   if(S.flying&&Boost.driving()&&Math.hypot(ix,iy)<.05)iy=-1;                // the burst drives you forward even if the stick is idle (steering still works)
   const len=Math.hypot(ix,iy);if(len>1){ix/=len;iy/=len}
   const sprint=keys.ShiftLeft||len>.9;
@@ -1231,6 +1231,7 @@ function tickFrame(t){
   if(wat&&gY>-.5)wat=false; // standing on something (a bridge deck over the sea) is not swimming
   const wasG=S.grounded;
   S.coy=wasG?.12:Math.max(0,(S.coy||0)-dt);                                    // coyote time: a jump pressed just after walking off a ledge still jumps
+  if(jumpQ&&typeof Ship!=='undefined'&&Ship.locked()){Ship.leave();jumpQ=false}      // Jump steps away from the helm / the cannon
   const diveKick=S.dv&&jumpQ;if(diveKick)jumpQ=false;                                  // while submerged, Jump = kick upward
   if(jumpQ){if((wasG||S.coy>0)&&!S.flying){S.vy=wat?6:9;S.coy=0;if(typeof Ambience!=='undefined')Ambience.jump()}else{S.flying=!S.flying;if(S.flying&&!S.tipped){S.tipped=1;banner('Drag up to climb · drag down to dive','FLYING')}}}jumpQ=false;
   const dvOn=Dive.step(S,dt,{wat,seabed,down:!!(S.diveHeld||keys.KeyC),kick:diveKick});   // vertical swimming (src/input/Dive.js); skips gravity/ground code while submerged

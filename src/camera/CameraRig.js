@@ -10,7 +10,7 @@
 // Globals used at runtime: S, camera, me, H, THREE, sstep.
 const CameraRig=(()=>{
   const st={bias:0,biasT:0,sInit:false,sy:0,sp:0,arm:1,dip:{x:0,v:0},view:'tps',shooter:false,zoom:1,zk:1,scopeFps:false,fpsK:0,tpsK:0,ay:0,init:false,px:0,pz:0,vx:0,vz:0,spd:0,hd:0,turn:0,
-            roll:{x:0,v:0},kp:{x:0,v:0},ky:{x:0,v:0},t:0,bob:0,eye:new THREE.Vector3(),eInit:false,prevFps:false,cruise:0,boost:0,fw:0,py:0,vyn:0,prevTps:false,camD:9,shk:1,ship:null,shipK:0};
+            roll:{x:0,v:0},kp:{x:0,v:0},ky:{x:0,v:0},t:0,bob:0,eye:new THREE.Vector3(),eInit:false,prevFps:false,cruise:0,boost:0,fw:0,py:0,vyn:0,prevTps:false,camD:9,shk:1,ship:null,shipK:0,eyeK:0,eyeV:new THREE.Vector3(),pr:null};
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),TPS_P=[-.95,1.25];
   const _u=new THREE.Vector3(),_f=new THREE.Vector3(),_p=new THREE.Vector3(),_l=new THREE.Vector3(),_h=new THREE.Vector3(),_a=new THREE.Vector3(),_b=new THREE.Vector3();
   function spring(s,t,dt,w,z){const a=w*w*(t-s.x)-2*z*w*s.v;s.v+=a*dt;s.x+=s.v*dt}
@@ -96,7 +96,7 @@ const CameraRig=(()=>{
 
     // ---- view direction (what the player is looking along) ----
     // third-person look is eased (removes touch-drag stepping); shooter views track the raw aim exactly so the crosshair stays true
-    {const pr=(st.fpsK>.5||(st.shooter&&st.view==='fps'))?[-1.45,1.45]:st.shooter&&!S.flying?TPS_P:(S.flying?[-1.35,1.5]:[.05,1.2]);   // shoulder view: the SAME range pitchRange() gives the drag (it used to be clamped to >= .05 here, so you could never aim above the horizon in third person)
+    {const pr=st.eyeK>.3&&st.pr?st.pr:(st.fpsK>.5||(st.shooter&&st.view==='fps'))?[-1.45,1.45]:st.shooter&&!S.flying?TPS_P:(S.flying?[-1.35,1.5]:[.05,1.2]);   // shoulder view: the SAME range pitchRange() gives the drag (it used to be clamped to >= .05 here, so you could never aim above the horizon in third person)
     S.pitch=Math.max(pr[0],Math.min(pr[1],S.pitch))}   // landing from a steep look-up: ease back into the chase range
     if(!st.sInit){st.sy=S.yaw;st.sp=S.pitch;st.sInit=true}
     const ks=1-Math.exp(-dt*(22+400*Math.max(st.fpsK,st.tpsK)));st.sy+=(S.yaw-st.sy)*ks;st.sp+=(S.pitch-st.sp)*ks;
@@ -142,8 +142,11 @@ const CameraRig=(()=>{
       _p.lerp(_h,st.fpsK);
       _l.lerp(_b.copy(_h).addScaledVector(_f,10),st.fpsK);
     }else st.eInit=false;
-    if(sk>.001&&_p.y<2.2)_p.y=2.2+(_p.y-2.2)*.0;   // never under the waves
-    st.camD=st.arm*d;me.visible=st.fpsK<.55&&!(st.tpsK>.3&&st.camD<1.0);                                               // own body is hidden in first person
+    {const ev=st.ship&&st.ship.eye;if(ev){st.eyeV.set(ev.x,ev.y,ev.z);st.pr=st.ship.pr||[-.9,.9]}
+     st.eyeK+=((ev&&!st.shooter?1:0)-st.eyeK)*(1-Math.exp(-5*dt));
+     if(st.eyeK>.002){_p.lerp(st.eyeV,st.eyeK);_b.copy(st.eyeV).addScaledVector(_f,12);_l.lerp(_b,st.eyeK)}}   // a ship's eye anchor (captain's view, a gunner's view): the camera sits ON the anchor and looks along the drag direction
+    if(sk>.001&&st.eyeK<.5&&_p.y<2.2)_p.y=2.2+(_p.y-2.2)*.0;   // never under the waves
+    st.camD=st.arm*d;me.visible=st.fpsK<.55&&st.eyeK<.5&&!(st.tpsK>.3&&st.camD<1.0);                                               // own body is hidden in first person
 
     // ---- flight feel: banking, buffet ----
     spring(st.roll,clamp(-st.turn*.045*(st.cruise*.6+st.boost),-.14,.14)*(1-.35*st.fpsK),dt,5,.8);
@@ -173,8 +176,9 @@ const CameraRig=(()=>{
     toggleView(){st.view=st.view==='fps'?'tps':'fps';return st.view},
     view:()=>st.view,
     isFPS:()=>st.fpsK>.5,
+    eyeK:()=>st.eyeK,
     shooterActive:()=>st.shooter,
-    pitchRange:()=>st.fpsK>.5||(st.shooter&&(st.view==='fps'||st.scopeFps))?[-1.45,1.45]:st.shooter?TPS_P:(S.flying?[-1.35,1.5]:S.dv?[-.75,1.2]:[.05,1.2]),   // first person: straight up/down; flying in third person: look well above/below the horizon too (to climb straight up)
+    pitchRange:()=>st.eyeK>.3&&st.pr?st.pr:st.fpsK>.5||(st.shooter&&(st.view==='fps'||st.scopeFps))?[-1.45,1.45]:st.shooter?TPS_P:(S.flying?[-1.35,1.5]:S.dv?[-.75,1.2]:[.05,1.2]),   // first person: straight up/down; flying in third person: look well above/below the horizon too (to climb straight up)
     neutralPitch:()=>(st.fpsK>.5||(st.shooter&&(st.view==='fps'||st.scopeFps)))?0:.4,                  // the pitch that means "level" for flight climb/dive
     kick(p,y){st.kp.v+=p*40;st.ky.v+=(y||0)*40},
     land(imp){st.dip.v-=Math.min(4,Math.max(0,(imp-4)*.22))},   // landing impact: a short downward dip of the view (imp = fall speed in m/s)        // recoil impulse in radians of peak rotation

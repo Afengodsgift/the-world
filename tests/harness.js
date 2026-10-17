@@ -27,8 +27,8 @@ function client(id,name,room){
    'const RING={x:64.3,z:89.5,R:12};let dash={start:null},srun={start:null};',
    rd('src/interaction/InteractionManager.js'),rd('src/core/Net.js'),rd('src/core/WorldState.js'),rd('src/core/Systems.js'),rd('src/world/Fx.js'),rd('src/world/Sites.js'),rd('src/core/Seeded.js'),rd('src/interaction/VerbAnims.js'),rd('src/data/interactables.js'),rd('src/data/puzzles.js'),rd('src/interaction/Link.js'),rd('src/interaction/Verbs.js'),rd('src/world/Vaults.js'),rd('src/data/events.js'),rd('src/world/Events.js'),rd('src/world/events/meteor.js'),rd('src/world/events/visitor.js'),rd('src/world/events/rings.js'),
    rd('src/data/soccer.js'),rd('src/games/Soccer.js'),
-   rd('src/data/ship.js'),rd('src/data/decks.js'),rd('src/ship/Sailing.js'),rd('src/ship/Decks.js'),rd('src/ship/Vessel.js'),rd('src/ship/Ship.js'),rd('src/ship/Fleet.js'),rd('src/ship/Crew.js'),
-   'this.scene=new THREE.Scene();this.__e={Crew,Fleet,Ship,Sailing,Decks,Vessel,SHIP,DOCK,Soccer,PITCH,SOCCER,Sites,Events,EVENTS,Fx,VerbAnims,Verbs,Vaults,Link,WS,Net,Interaction,H,ISL,CAMP,VERBS,VAULT,LOCS};'].join('\n');
+   rd('src/data/ship.js'),rd('src/data/decks.js'),'const CameraRig={last:null,setShip(o){CameraRig.last=o}};const camera={d:new THREE.Vector3(0,0,1),getWorldDirection(v){return v.copy(camera.d)}};',rd('src/ship/Sailing.js'),rd('src/ship/Decks.js'),rd('src/ship/Vessel.js'),rd('src/ship/Ship.js'),rd('src/ship/Fleet.js'),rd('src/ship/Crew.js'),
+   'this.scene=new THREE.Scene();this.__e={CameraRig,camera,Crew,Fleet,Ship,Sailing,Decks,Vessel,SHIP,DOCK,Soccer,PITCH,SOCCER,Sites,Events,EVENTS,Fx,VerbAnims,Verbs,Vaults,Link,WS,Net,Interaction,H,ISL,CAMP,VERBS,VAULT,LOCS};'].join('\n');
   vm.runInContext(src,ctx);
   ctx.__e.Net.attach(chan);
   return Object.assign(ctx.__e,{ctx,EMO:ctx.EMO,log,chan,els,others,store,S:ctx.S,solids:ctx.solids,scene:ctx.scene});

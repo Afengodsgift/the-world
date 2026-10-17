@@ -161,7 +161,7 @@ const Fleet=(()=>{
     if(me.down>0)return;me.hp=Math.max(0,me.hp-n);me.calm=5;S.hurt=Math.max(S.hurt||0,.35);
     if(fx!==undefined){const l=Math.hypot(S.x-fx,S.z-fz)||1;S.kx=(S.kx||0)+(S.x-fx)/l*5;S.kz=(S.kz||0)+(S.z-fz)/l*5}
     try{navigator.vibrate&&navigator.vibrate(40)}catch(e){}
-    if(me.hp<=0){me.down=6;banner('You are down! Back on your feet in a moment…','☠ PIRATES')}}
+    if(me.hp<=0){me.down=6;try{if(Ship.locked())Ship.leave()}catch(e){}banner('You are down! Back on your feet in a moment…','☠ PIRATES')}}
   function respawn(){
     me.hp=me.max;me.down=0;const v=plv();
     if(v&&pl().sunk===0){try{Ship._board()}catch(e){}}else{S.x=DOCK.x;S.z=DOCK.z0+3;S.y=DOCK.top;S.vy=0;S._dk=null}}
@@ -170,13 +170,16 @@ const Fleet=(()=>{
   function nearGun(){
     const v=plv();if(!v||!Ship._onDeck()||Ship.seated())return null;let best=null,bd=3.2;
     for(const g of v.guns){Decks.toWorld(v.deck,g.x,g.ly,g.z,_a);const d=Math.hypot(_a.x-S.x,_a.z-S.z);if(d<bd&&Math.abs(_a.y-S.y)<2.6){bd=d;best=g}}return best}
-  function playerFire(g,quiet){
+  const _d={};
+  function playerFire(g,quiet,manual){
     const v=plv();if(!v||pl().sunk>0)return false;
     if(g.cd>0){if(!quiet)banner('Reloading…','💣 CANNON');return false}
     const m=Vessel.muzzle(v,g,{}),o=Vessel.outward(v,g,{});let tg=null,bd=1e9;
     for(const e of ships.values()){if(e.sinking)continue;const dx=e.sh.x-m.x,dz=e.sh.z-m.z,D=Math.hypot(dx,dz);if(D>CN.range||D<3||(o.x*dx+o.z*dz)/D<.5)continue;if(D<bd){bd=D;tg=e}}
-    if(!tg&&quiet)return false;
-    const sp=pl(),vel=tg?aim(m,tg.sh.x,SEA+.7,tg.sh.z,Math.sin(tg.sh.h)*tg.sh.v,Math.cos(tg.sh.h)*tg.sh.v,CN.spread,{})
+    if(!tg&&quiet&&!manual)return false;
+    let dir=null;
+    if(manual){const dv=Ship.aimDir(new THREE.Vector3()),ao=Math.atan2(o.x,o.z),da=Math.max(-C.cannon.aimYaw,Math.min(C.cannon.aimYaw,wrap(Math.atan2(dv.x,dv.z)-ao))),el=Math.max(-C.cannon.aimDown,Math.min(C.cannon.aimUp,Math.asin(Math.max(-1,Math.min(1,dv.y))))),ce=Math.cos(el);dir={vx:Math.sin(ao+da)*ce*CN.v,vz:Math.cos(ao+da)*ce*CN.v,vy:Math.sin(el)*CN.v}}   // a gunner's shot goes exactly where his camera looks, inside the gun's limits
+    const sp=pl(),vel=dir?dir:tg?aim(m,tg.sh.x,SEA+.7,tg.sh.z,Math.sin(tg.sh.h)*tg.sh.v,Math.cos(tg.sh.h)*tg.sh.v,CN.spread,{})
       :{vx:o.x*CN.v*Math.cos(.14),vz:o.z*CN.v*Math.cos(.14),vy:CN.v*Math.sin(.14)};
     fire(v,g,m,vel,{owner:String(myId),res:true,f:0,src:'ship',dmg:CN.dmg,reload:CN.reload*(.95+R()*.1),emit:true,vx:Math.sin(sp.h)*sp.v,vz:Math.cos(sp.h)*sp.v});return true}
   function broadside(){
@@ -233,12 +236,13 @@ const Fleet=(()=>{
 
   function build(){
     if(built)return;built=true;
-    try{const css=document.createElement('style');css.textContent='#seahp{position:fixed;z-index:6;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 150px);padding:4px 12px;border-radius:12px;background:#000a;color:#fff;font:700 15px sans-serif;display:none;pointer-events:none}';(document.head||document.body).appendChild(css);
+    try{const css=document.createElement('style');css.textContent='#seahp{position:fixed;z-index:6;left:8px;top:calc(env(safe-area-inset-top,0px) + 92px);padding:2px 9px;border-radius:10px;background:#0008;color:#fff;font:700 12px sans-serif;display:none;pointer-events:none}@media (orientation:landscape) and (pointer:coarse){#seahp{top:calc(var(--st,0px) + 88px)}}';(document.head||document.body).appendChild(css);
       hpEl=document.createElement('div');hpEl.id='seahp';document.body.appendChild(hpEl)}catch(e){}
     Net.on('flt',onNet);Systems.add('fleet',step)}
 
-  Interaction.register('cannon-fire','Fire cannon',()=>built&&me.down<=0&&!!nearGun(),()=>{const g=nearGun();if(g)playerFire(g)});
-  Interaction.register('ship-broadside','Broadside!',()=>built&&me.down<=0&&Ship.seated(),broadside);
+  Interaction.register('cannon-shoot','🔥 Fire!',()=>built&&me.down<=0&&Ship.gunning(),()=>{const g=Ship.gun();if(g)playerFire(g,false,true)});
+  Interaction.register('cannon-fire','Man the cannon',()=>built&&me.down<=0&&!Ship.locked()&&!!nearGun(),()=>{const g=nearGun();if(g)Ship.aimGun(g)});
+  Interaction.register('ship-broadside','Broadside!',()=>built&&me.down<=0&&Ship.seated()&&!Ship.gunning(),broadside);
 
   return {build,ships,shells,make,remove,trySpawn,elev,aim,fire,playerFire,broadside,nearGun,hurtMe,respawn,applyHit,damageEnemy,captainDown,isHost,
     marks:()=>[...ships.values()].filter(e=>!e.sinking).map(e=>({n:e.K.cap.n,x:e.sh.x,z:e.sh.z,r:6,icon:e.K.boss?'☠':'🏴‍☠️',dyn:true})),

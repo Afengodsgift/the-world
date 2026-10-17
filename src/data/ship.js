@@ -7,7 +7,7 @@ const SHIP={
   sea:-.3,fb:1.125,
   sailing:{vmax:13,accel:.45,coast:.32,turn:.62,turnV:.1,shore:-1.0,minWind:.8,boostMul:1.75,boostT:6,boostCd:14},     // vmax m/s; shore = sea floor must be below this. Hull probe points are generated from the hull size (Sailing.probes)
   wind:{strength:1,storm:.6},
-  cannon:{v:62,g:-14,reload:3.2,dmg:24,splash:4.2,pdmg:16,spread:.022,range:130,bro:{reload:4,range:110}},       // ballistic ball: speed, gravity, per-gun reload, hull damage, deck splash radius / damage to people, aim scatter
+  cannon:{aimYaw:.62,aimUp:.5,aimDown:.08,v:62,g:-14,reload:3.2,dmg:24,splash:4.2,pdmg:16,spread:.022,range:130,bro:{reload:4,range:110}},       // ballistic ball: speed, gravity, per-gun reload, hull damage, deck splash radius / damage to people, aim scatter
   net:{ship:12,enemies:8,aim:10},                    // snapshots per second
   loot:{pick:8,life:150},
   enemy:{cap:2,spawnEvery:50,spawnDist:150,minDock:140,engage:75,keep:38,fireRange:85,turn:.55}
@@ -37,4 +37,4 @@ SHIP.cls={
 for(const k in SHIP.cls){const c=SHIP.cls[k];c.id=k;c.deckM=c.mdeck*c.scale;c.draft=c.deckM-SHIP.fb}
 SHIP.player='galleon';const PK=SHIP.cls[SHIP.player];
 SHIP.scale=PK.scale;SHIP.deckY=PK.mdeck;SHIP.draft=PK.draft;SHIP.hull=PK.hp;
-SHIP.stations={helm:[PK.helm[0]*SHIP.scale,PK.helm[1]*SHIP.scale]};   // helm spot in ship space (metres): in front of the wheel on the raised stern deck
+SHIP.stations={eyeUp:3.1,eyeFwd:-.4,helm:[PK.helm[0]*SHIP.scale,PK.helm[1]*SHIP.scale]};   // helm spot in ship space (metres): in front of the wheel on the raised stern deck

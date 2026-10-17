@@ -54,8 +54,8 @@ const Vessel=(()=>{
     q.x=st.x;q.z=st.z;q.h=st.h;
     const sk=v.sunk;
     q.y=C.sea-v.K.draft+Math.sin(v.t*1.3+v.ph)*.07*sw*k-sk*(v.K.deckM+4);
-    q.pitch=Math.sin(v.t*1.05+1+v.ph)*.025*sw/Math.max(.7,k)+(st.v||0)*.003+sk*.35;
-    q.roll=(st.roll||0)+Math.sin(v.t*.9+v.ph)*.03*sw/Math.max(.7,k)+sk*.25*(v.ph>3?1:-1);
+    q.pitch=Math.sin(v.t*1.05+1+v.ph)*.012*sw/Math.max(.7,k)+(st.v||0)*.0015+sk*.35;
+    q.roll=(st.roll||0)+Math.sin(v.t*.9+v.ph)*.012*sw/Math.max(.7,k)+sk*.25*(v.ph>3?1:-1);
     if(v.grp){v.grp.position.set(q.x,q.y,q.z);v.grp.rotation.set(q.pitch,q.h,q.roll)}
     if(v.deck)Decks.setPose(v.deck,q);
     for(const g of v.guns){if(g.cd>0)g.cd-=dt;g.recoil=Math.max(0,g.recoil-dt*3);if(g.obj){g.obj.position.set(g.x-g.side*g.recoil*.45,g.ly,g.z)}}
