@@ -17,7 +17,8 @@ const sharp=(await import(NM+'/sharp/dist/index.mjs')).default;
 await MeshoptSimplifier.ready;
 const [,,inF,outBase,tris='9000',texS='512']=process.argv;
 const buf=fs.readFileSync(inF);
-const g=new FBXLoader().parse(buf.buffer.slice(buf.byteOffset,buf.byteOffset+buf.byteLength),'');
+const {parse61}=await import('./fbx61.mjs');   // FBX 6.1 (old Mixamo/Maya exports) is not readable by FBXLoader
+const g=buf.readUInt32LE(23)===6100?parse61(buf,THREE):new FBXLoader().parse(buf.buffer.slice(buf.byteOffset,buf.byteOffset+buf.byteLength),'');
 await new Promise(r=>setTimeout(r,50));
 g.updateMatrixWorld(true);
 // FBX meshes are unindexed (every triangle owns 3 vertices): merge identical vertices so simplification + file size work on real topology
