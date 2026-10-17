@@ -7,7 +7,9 @@
 //  1. map Mixamo joints -> game joints (Spine1->Chest, Spine2->UpperChest, ToeBase->Toes; Middle/Ring/Pinky merge into the Index chain because the game rig only has index+thumb; eyes/end sites -> parent)
 //  2. keep the game rig's local rotations; set each deform joint's translation so its WORLD position is the Mixamo joint's (scaled). HipsCtrl (the bone every clip translates) keeps the rig's position,
 //     Hips sits where the character's own hips are, so standing feet are planted and clip hip bob transfers 1:1.
-//  3. IBM = inverse(bind world) of the new tree; mesh stays in the character's own bind pose (identity mesh node, world units)
+//  3. RE-POSE the mesh into the game rig's rest pose: the clips are authored against the stock character's rest pose (legs vertical with ~17 deg bent knees, arms slightly down...), so a mesh whose rest pose differs (legs splayed,
+//     straight knees) would add its own offsets to every clip (wide stance, wrong knee bend). Each deform bone is rotated (shortest arc, about its joint) so its direction equals the rig's, with the weights, then IBM = inverse(bind world) (identity mesh node, world units)
+//     userData.hipK (node extras) = this character's leg length / the rig's: the game scales every clip's HipsCtrl travel by it so longer legs still reach the ground
 //  4. weights remapped onto the game joints (merged, top 4, renormalised), geometry simplified with meshoptimizer (uv + weights aware), textures re-encoded to JPEG/PNG for phones
 // Needs @gltf-transform/core+extensions, gl-matrix, sharp, meshoptimizer (THREE_NM, default /home/claude/tools/node_modules).
 import fs from 'fs';
@@ -16,7 +18,7 @@ const NM = process.env.THREE_NM || '/home/claude/tools/node_modules';
 const req = createRequire(NM + '/x.js');
 const { NodeIO } = await import(req.resolve('@gltf-transform/core'));
 const { ALL_EXTENSIONS } = await import(req.resolve('@gltf-transform/extensions'));
-const { mat4, vec3 } = await import(req.resolve('gl-matrix'));
+const { mat4, vec3, quat } = await import(req.resolve('gl-matrix'));
 const sharp = (await import(req.resolve('sharp'))).default;
 const { MeshoptSimplifier } = await import(req.resolve('meshoptimizer'));
 await MeshoptSimplifier.ready;
@@ -66,9 +68,58 @@ const gH = tY1 - tY0;
 // ---------- source geometry: gather + measure ----------
 const prims = sMesh.listPrimitives();
 let sY0 = 1e9, sY1 = -1e9; for (const p of prims) { const a = p.getAttribute('POSITION'), lo = a.getMin([]), hi = a.getMax([]); sY0 = Math.min(sY0, lo[1]); sY1 = Math.max(sY1, hi[1]) }
-const sH = sY1 - sY0, S = (gH * (sH / REF)) / sH, YOFF = tY0 - sY0 * S;   // uniform scale, feet on the rig's ground
+const sH = sY1 - sY0, S = (gH * (sH / REF)) / sH;   // uniform scale (feet are put on the rig's ground after the re-pose)
 console.log(`${NAME}: source ${sH.toFixed(3)} m -> rig height ${gH.toFixed(3)} x ${(sH / REF).toFixed(3)}  scale ${S.toFixed(3)}`);
-const W = p => vec3.fromValues(p[0] * S, p[1] * S + YOFF, p[2] * S);
+
+// ---------- re-pose data: rig rest directions vs this character's ----------
+const CHILD = { Hips: 'Spine', Spine: 'Chest', Chest: 'UpperChest', UpperChest: 'Neck', Neck: 'Head' };
+const INHERIT = { Head: 'Neck' };     // bones without a direction of their own take their parent's rotation
+for (const Sd of ['Left', 'Right']) {
+  Object.assign(CHILD, { [Sd + 'Shoulder']: Sd + 'Arm', [Sd + 'Arm']: Sd + 'ForeArm', [Sd + 'ForeArm']: Sd + 'Hand', [Sd + 'UpLeg']: Sd + 'Leg', [Sd + 'Leg']: Sd + 'Foot', [Sd + 'Foot']: Sd + 'Toes' });
+  INHERIT[Sd + 'Toes'] = Sd + 'Foot'; INHERIT[Sd + 'Hand'] = Sd + 'ForeArm';
+  for (const k of [1, 2, 3]) INHERIT[`${Sd}HandIndex${k}`] = k === 1 ? Sd + 'Hand' : `${Sd}HandIndex${k - 1}`;
+  for (const k of [1, 2]) INHERIT[`${Sd}HandThumb${k}`] = k === 1 ? Sd + 'Hand' : `${Sd}HandThumb${k - 1}`;
+}
+const gNode = new Map(gRoot.listNodes().map(n => [n.getName(), n]));
+const uPos = {}, sP0 = {};                              // rig rest world position / this character's (scaled, feet not yet on the ground) per deform joint
+for (const g in POS) { uPos[g] = vec3.clone(gNode.get(g).getWorldTranslation()); const b = sBind[sIdx.get(POS[g])]; sP0[g] = vec3.fromValues(b[0] * S, b[1] * S, b[2] * S) }
+const depth = n => { let d = 0; for (let x = n.getParentNode(); x; x = x.getParentNode()) d++; return d };
+const names = Object.keys(POS).sort((a, b) => depth(gNode.get(a)) - depth(gNode.get(b)));
+const Q = {}, P1 = {}, Mrot = {};                       // world rotation delta per bone, re-posed joint position
+const parentPos = g => { const pn = gNode.get(g).getParentNode(); return pn && POS[pn.getName()] ? pn.getName() : null };
+for (const g of names) {
+  let q;
+  if (CHILD[g]) { const dm = vec3.normalize(vec3.create(), vec3.sub(vec3.create(), sP0[CHILD[g]], sP0[g])), du = vec3.normalize(vec3.create(), vec3.sub(vec3.create(), uPos[CHILD[g]], uPos[g])); q = quat.rotationTo(quat.create(), dm, du) }
+  else q = quat.clone(Q[INHERIT[g]] || quat.create());
+  Q[g] = q;
+  const par = parentPos(g);
+  if (!par) P1[g] = vec3.clone(sP0[g]); else { const o = vec3.sub(vec3.create(), sP0[g], sP0[par]); vec3.transformQuat(o, o, Q[par]); P1[g] = vec3.add(vec3.create(), P1[par], o) }
+}
+const repose = (v, wts) => { const out = [0, 0, 0], tmp = vec3.create(); for (const [g, w] of wts) { vec3.sub(tmp, v, sP0[g]); vec3.transformQuat(tmp, tmp, Q[g]); vec3.add(tmp, tmp, P1[g]); out[0] += w * tmp[0]; out[1] += w * tmp[1]; out[2] += w * tmp[2] } return out };
+const reposeN = (n, wts) => { const out = [0, 0, 0], tmp = vec3.create(); for (const [g, w] of wts) { vec3.transformQuat(tmp, n, Q[g]); out[0] += w * tmp[0]; out[1] += w * tmp[1]; out[2] += w * tmp[2] } return vec3.normalize(out, out) };
+const angs = names.filter(g => CHILD[g]).map(g => vec3.angle(vec3.sub(vec3.create(), sP0[CHILD[g]], sP0[g]), vec3.sub(vec3.create(), uPos[CHILD[g]], uPos[g])) * 180 / Math.PI);
+console.log(`  re-pose: bones rotated by ${Math.max(...angs).toFixed(1)} deg at most (mean ${(angs.reduce((a, b) => a + b, 0) / angs.length).toFixed(1)})`);
+
+// ---------- geometry pass 1: remap weights + re-pose vertices (feet get grounded once the lowest vertex is known) ----------
+const srcToGame = sJoints.map(j => gIdx.get(gameNameOf(j)));
+const PP = []; let yMin = 1e9, yMax = -1e9;
+for (const p of prims) {
+  const P = p.getAttribute('POSITION'), N = p.getAttribute('NORMAL'), UV = p.getAttribute('TEXCOORD_0'), J = p.getAttribute('JOINTS_0'), Wt = p.getAttribute('WEIGHTS_0'), I = p.getIndices();
+  const n = P.getCount(), pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2), jo = new Uint8Array(n * 4), we = new Float32Array(n * 4), t = [0, 0, 0, 0], w = [0, 0, 0, 0];
+  for (let i = 0; i < n; i++) {
+    const q = P.getElement(i, [0, 0, 0]), nn = N.getElement(i, [0, 0, 0]); uv.set(UV.getElement(i, [0, 0]), i * 2);
+    J.getElement(i, t); Wt.getElement(i, w); const m = new Map();
+    for (let k = 0; k < 4; k++) if (w[k] > 0) { const g = srcToGame[t[k]]; m.set(g, (m.get(g) || 0) + w[k]) }
+    const top = [...m].sort((a, b) => b[1] - a[1]).slice(0, 4), sum = top.reduce((s, a) => s + a[1], 0) || 1;
+    top.forEach(([g, ww], k) => { jo[i * 4 + k] = g; we[i * 4 + k] = ww / sum });
+    const wn = top.map(([g, ww]) => [gJoints[g].getName(), ww / sum]);
+    pos.set(repose([q[0] * S, q[1] * S, q[2] * S], wn), i * 3); nor.set(reposeN(nn, wn), i * 3);
+    yMin = Math.min(yMin, pos[i * 3 + 1]); yMax = Math.max(yMax, pos[i * 3 + 1]);
+  }
+  PP.push({ p, n, pos, nor, uv, jo, we, I });
+}
+const YOFF = tY0 - yMin;   // lowest vertex stands on the rig's ground
+console.log(`  height after re-pose ${(yMax - yMin).toFixed(3)} (rig ${gH.toFixed(3)} x ${(sH / REF).toFixed(3)} = ${(gH * sH / REF).toFixed(3)})`);
 
 // ---------- new bind pose: keep the rig's rotations, move deform joints ----------
 const order = []; (function walk(n, d) { order.push([n, d]); n.listChildren().forEach(c => walk(c, d + 1)) })(gRoot.listScenes()[0].listChildren()[0], 0);
@@ -76,8 +127,8 @@ order.sort((a, b) => a[1] - b[1]);
 let moved = 0;
 for (const [n] of order) {
   const gn = n.getName(), sn = POS[gn]; if (!sn) continue;
-  const si = sIdx.get(sn) ?? sIdx.get(sn); if (si === undefined) throw new Error('source joint missing: ' + sn);
-  const wp = W(sBind[si]), inv = mat4.invert(mat4.create(), n.getParentNode().getWorldMatrix());
+  if (!sIdx.has(sn)) throw new Error('source joint missing: ' + sn);
+  const wp = vec3.fromValues(P1[gn][0], P1[gn][1] + YOFF, P1[gn][2]), inv = mat4.invert(mat4.create(), n.getParentNode().getWorldMatrix());
   const lp = vec3.transformMat4(vec3.create(), wp, inv); n.setTranslation([lp[0], lp[1], lp[2]]); moved++;
 }
 { const a = gRoot.listNodes().find(n => n.getName() === 'LeftArm').getWorldTranslation(), s = sBind[sIdx.get('LeftArm')]; if (Math.sign(a[0]) !== Math.sign(s[0])) throw new Error('left/right flipped between source and rig') }
@@ -85,9 +136,8 @@ const ibm = new Float32Array(gJoints.length * 16);
 gJoints.forEach((j, i) => ibm.set(mat4.invert(mat4.create(), j.getWorldMatrix()), i * 16));
 gSkin.getInverseBindMatrices().setArray(ibm);
 
-// ---------- geometry: remap weights, simplify, compact ----------
-const total = prims.reduce((s, p) => s + p.getIndices().getCount() / 3, 0);
-const srcToGame = sJoints.map(j => gIdx.get(gameNameOf(j)));
+// ---------- geometry pass 2: simplify, compact, textures ----------
+const total = PP.reduce((s, x) => s + x.I.getCount() / 3, 0);
 const outPrims = [], matCache = new Map();
 async function texOf(tex, size, kind) {
   if (!tex) return null; const key = tex.getName() + size + kind; if (matCache.has(key)) return matCache.get(key);
@@ -97,16 +147,8 @@ async function texOf(tex, size, kind) {
   const buf = alpha ? await r.png({ palette: true, quality: 90, compressionLevel: 9, effort: 9 }).toBuffer() : await r.flatten({ background: '#808080' }).jpeg({ quality: kind === 'color' ? 84 : 88, mozjpeg: true }).toBuffer();
   const t = rig.createTexture(tex.getName() || kind).setImage(new Uint8Array(buf)).setMimeType(alpha ? 'image/png' : 'image/jpeg'); const o = { t, alpha }; matCache.set(key, o); return o;
 }
-for (const p of prims) {
-  const P = p.getAttribute('POSITION'), N = p.getAttribute('NORMAL'), UV = p.getAttribute('TEXCOORD_0'), J = p.getAttribute('JOINTS_0'), Wt = p.getAttribute('WEIGHTS_0'), I = p.getIndices();
-  const n = P.getCount(), pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2), jo = new Uint8Array(n * 4), we = new Float32Array(n * 4), t = [0, 0, 0, 0], w = [0, 0, 0, 0];
-  for (let i = 0; i < n; i++) {
-    const q = P.getElement(i, [0, 0, 0]); pos.set(W(q), i * 3); nor.set(N.getElement(i, [0, 0, 0]), i * 3); uv.set(UV.getElement(i, [0, 0]), i * 2);
-    J.getElement(i, t); Wt.getElement(i, w); const m = new Map();
-    for (let k = 0; k < 4; k++) if (w[k] > 0) { const g = srcToGame[t[k]]; m.set(g, (m.get(g) || 0) + w[k]) }
-    const top = [...m].sort((a, b) => b[1] - a[1]).slice(0, 4), sum = top.reduce((s, a) => s + a[1], 0) || 1;
-    top.forEach(([g, ww], k) => { jo[i * 4 + k] = g; we[i * 4 + k] = ww / sum });
-  }
+for (const { p, n, pos, nor, uv, jo, we, I } of PP) {
+  for (let i = 0; i < n; i++) pos[i * 3 + 1] += YOFF;
   let idx = Uint32Array.from(I.getArray());
   const want = Math.max(900, Math.round(TRIS * (idx.length / 3) / total)) * 3;
   if (want < idx.length) {
@@ -128,7 +170,9 @@ for (const p of prims) {
 }
 const parent = meshNodeOld.getParentNode();
 const mesh = rig.createMesh(NAME); outPrims.forEach(p => mesh.addPrimitive(p));
-const node = rig.createNode(NAME + 'Mesh').setMesh(mesh).setSkin(gSkin); parent.addChild(node);
+const hipK = +(((P1.LeftUpLeg[1] - P1.LeftFoot[1]) / (uPos.LeftUpLeg[1] - uPos.LeftFoot[1])).toFixed(3));   // leg length vs the rig's: every clip's hip travel was authored for the rig's shorter legs (index.html hipFix scales it by this)
+const node = rig.createNode(NAME + 'Mesh').setMesh(mesh).setSkin(gSkin).setExtras({ hipK }); parent.addChild(node);
+console.log('  hipK (leg ratio) ' + hipK);
 const oldMats = gRoot.listMaterials().filter(m => !outPrims.some(p => p.getMaterial() === m));
 meshNodeOld.dispose(); gOldMesh.dispose(); oldMats.forEach(m => m.dispose());
 for (const t of gRoot.listTextures()) if (!gRoot.listMaterials().some(m => [m.getBaseColorTexture(), m.getNormalTexture(), m.getEmissiveTexture()].includes(t))) t.dispose();

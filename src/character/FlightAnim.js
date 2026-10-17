@@ -34,7 +34,9 @@ const FlightAnim=(()=>{
   }
   const sum=(sh,key)=>{let s=0;for(const n of NAMES)s+=sh[n]*D.meta[n][key];return s};
   const lean=sh=>sum(sh,'lean');    // lean (rad from vertical) already baked into the blended clips
-  const hips=sh=>sum(sh,'hipsY');   // pelvis height (game m): the pivot for tilting the body
+  const STOCK_HIPS=.621;            // the stock character's standing pelvis height in game m (assets/char.glb: 1.242 x the .5 model scale)
+  // pelvis height (game m): the pivot for tilting the body. The clips' hip travel is scaled by the character's leg ratio (index.html hipFix), so a longer-legged character's pelvis sits higher
+  const hips=(sh,q)=>{const h=sum(sh,'hipsY');return q&&q.hipK&&q.hipH?q.hipH+q.hipK*(h-STOCK_HIPS):h};
   // set the action weights for the next mixer.update(): the flight layer's share is f.fw (it fades in/out with the flight state), the base clip takes the rest
   function drive(q,f,dt){
     const fa=bank(q),sh=shares(q,f);q.fai+=dt;

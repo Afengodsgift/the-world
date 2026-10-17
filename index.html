@@ -416,6 +416,8 @@ function emoStart(q,id){
   if(d.intro){const ia=emoAct(q,id+'_in');if(ia){unrel(q,ia);acts.push(ia);setup(ia,THREE.LoopOnce,true);ia.play();q.hold={id,acts,age:0,main,mode,clampEnd,introAt:performance.now()/1000+ia.getClip().duration-.12,ia};return}}
   setup(main,mode,clampEnd);main.play();q.hold={id,acts,age:0}}
 
+// characters re-skinned from taller/longer-legged models (assets/chars): clips were authored for the stock rig's short legs, so scale the hips' travel from their rest position by the leg-length ratio (else running hovers)
+function hipFix(q){const h=q.bones.HipsCtrl,r=q.hipR,k=q.hipK;if(h)h.position.set(r.x+(h.position.x-r.x)*k,r.y+(h.position.y-r.y)*k,r.z+(h.position.z-r.z)*k)}
 function animateClips(g,dt,st){
   const q=g.userData,A=q.nact,p=g.position;
   const mdx=q.pp?p.x-q.pp.x:0,mdz=q.pp?p.z-q.pp.z:0,rawU=q.pp&&dt>0?Math.hypot(p.x-q.pp.x,p.z-q.pp.z)/dt:0,raw=Math.min(16,rawU);q.pp={x:p.x,z:p.z};
@@ -465,7 +467,7 @@ function animateClips(g,dt,st){
    q.lz=(q.lz||0)+((gnd?-clamp(q.yr*.035,-.14,.14)*clamp(v/5,0,1):0)-(q.lz||0))*lk}
   q.model.rotation.set(q.lunge+(q.lx||0),0,q.lz||0);q.model.position.set(0,q.oy,0);        // base transform; FlightPose overrides it while flying
   q.model.scale.set(.5*(1+q.land*.3),.5*(1-q.land*.6),.5*(1+q.land*.3));
-  if(q.cpSaved)CombatPose.untwist(q);q.mixer.update(dt);
+  if(q.cpSaved)CombatPose.untwist(q);q.mixer.update(dt);if(q.hipK&&q.hipR)hipFix(q);
   if(armed&&Math.abs(q.cpT||0)>.01)CombatPose.twist(q);   // legs twisted toward travel, torso back on the aim
   // procedural layers on top of the baked clips: flight (src/character/FlightPose.js) or a held weapon (Outlaw.poseGun)
   if(!FlightPose.apply(g,q,dt,st,{speed:q.fs,yawRate:q.yr,charge:q.bc||0})&&q.gunI>=0&&!q.gdn&&typeof Outlaw!=='undefined')Outlaw.poseGun(g,q,st,dt);
@@ -508,13 +510,15 @@ const K=2.5;
 function dress(g,skin){
   loadChar().then(()=>skinBuf(skin)).then(sb=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(sb.b.slice(0),AURL,r=>{r.own=sb.own;res(r)},rej))).then(r=>{
     const m=r.scene,bones={};m.scale.setScalar(.5);
-    m.traverse(o=>{if(o.isSkinnedMesh){o.skeleton.bones.forEach(b=>bones[b.name]=b);o.frustumCulled=false;if(!r.own)o.material=new THREE.MeshStandardMaterial({map:skinT[skin%skinT.length],roughness:.85,metalness:0})}});
+    let hipK=0;m.traverse(o=>{if(o.userData&&o.userData.hipK)hipK=o.userData.hipK;   // (on the mesh node: a Group when the model has 2 materials)
+      if(o.isSkinnedMesh){o.skeleton.bones.forEach(b=>bones[b.name]=b);o.frustumCulled=false;if(!r.own)o.material=new THREE.MeshStandardMaterial({map:skinT[skin%skinT.length],roughness:.85,metalness:0})}});
     const mx=new THREE.AnimationMixer(m),act={},nact={};for(const n in clips)act[n]=mx.clipAction(clips[n]);
     act.jump.setLoop(THREE.LoopOnce,1);act.jump.clampWhenFinished=true;
     for(const n in nclips)nact[n]=mx.clipAction(nclips[n]);
     if(nact.jump){nact.jump.setLoop(THREE.LoopOnce,1);nact.jump.clampWhenFinished=true}
     for(const n of ['smack','hit','hit2','land','interact','dig'])if(nact[n])nact[n].setLoop(THREE.LoopOnce,1); // one-shot overlays
-    const u=g.userData;u.rig.visible=false;m.traverse(c=>{if(c.isMesh){c.castShadow=true}});g.add(m);Object.assign(u,{mixer:mx,act,nact:nact.idle?nact:null,model:m,bones,cur:null,ph:0,swing:0,spd:0,yr:0,fb:0,fd:0});
+    const u=g.userData;u.rig.visible=false;m.traverse(c=>{if(c.isMesh){c.castShadow=true}});g.add(m);Object.assign(u,{hipK,hipR:hipK&&bones.HipsCtrl?bones.HipsCtrl.position.clone():null,mixer:mx,act,nact:nact.idle?nact:null,model:m,bones,cur:null,ph:0,swing:0,spd:0,yr:0,fb:0,fd:0});
+    if(hipK&&bones.Hips){g.updateMatrixWorld(true);u.hipH=g.worldToLocal(bones.Hips.getWorldPosition(new THREE.Vector3())).y}   // standing pelvis height (game m): FlightAnim pivots about the real pelvis
     if(PAN_ENABLED&&bones.RightHand)loadPan().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(panBuf.slice(0),AURL,res,rej))).then(pr=>{
       const piv=new THREE.Group(),pn=pr.scene;pn.traverse(c=>{if(c.isMesh)c.castShadow=true});
       pn.position.set(.173,-19.68,31.046);piv.add(pn);piv.scale.setScalar((.36/5.915)/50);piv.position.set(0,.0016,0);piv.rotation.set(Math.PI,0,PAN_REST_Z);
