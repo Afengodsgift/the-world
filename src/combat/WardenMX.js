@@ -120,6 +120,9 @@ const WardenMX=(()=>{
       dash:{c:'slash5',t0:0,h:[[.5,.82]],e:1.3},
       riposte:{c:'kick',t0:.1,h:[[.5,.85]],e:1.4},
       quake:{c:'power',t0:.3,e:2.0}}};
+  ROLES.archer={file:'assets/warden_mx_archer.json',native:true,guard:null,dorm:'idle',wake:{c:'power',t0:.3,t1:2.4,rate:1},death:'death',hit:'hit1',     // Erika, the Ashen Huntress: Longbow locomotion + a quick cast clip for the shot + a kick when you get close
+    loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
+    moves:{bolt:{c:'spell',t0:0,e:1.1},orb:{c:'spell',t0:0,e:1.1},cut:{c:'kick',t0:.1,h:[[.5,.85]],e:1.4},thrust:{c:'kick',t0:.1,h:[[.5,.85]],e:1.4},quake:{c:'power',t0:.3,e:2.0}}};
   const BUILD='mx3';const SH={};      // role -> {st,clips,p}
   function fetchRole(role){const s=SH[role]||(SH[role]={st:'none',clips:null,meta:null,p:null});
     if(!s.p)s.p=fetch(ROLES[role].file).then(r=>r.json()).then(j=>{s.clips={};s.meta={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=role+':'+c.name;ac.uuid=role+':'+c.name;s.clips[c.name]=ac;   // unique uuid per role: three.js caches actions by clip uuid, and the game's own clips are also called idle/walk/jump (sharing one action stole the game's base layer -> T-pose on hit)

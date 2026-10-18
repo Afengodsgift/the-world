@@ -17,7 +17,7 @@ const DuelistAI=(()=>{
   function think(A,P,D,evs,tick){
     const out={face:Math.atan2(P.x-D.x,P.z-D.z),mx:0,mz:0,list:[]};A.t++;
     if(!A.on||D.act==='dead'||P.act==='dead')return out;
-    const dx=P.x-D.x,dz=P.z-D.z,rawD=Math.hypot(dx,dz),dist=rawD/(D.rm||1),ux=dx/(rawD||1),uz=dz/(rawD||1),st=A.foe,H=st==='hollow'||st==='beast',KN=st==='knight',DA=st==='dancer',SO=st==='soldier';
+    const dx=P.x-D.x,dz=P.z-D.z,rawD=Math.hypot(dx,dz),dist=rawD/(D.rm||1),ux=dx/(rawD||1),uz=dz/(rawD||1),st=A.foe,H=st==='hollow'||st==='beast',KN=st==='knight',DA=st==='dancer',SO=st==='soldier',AR=st==='archer';
     // what the player visibly does now, and how long we have been seeing it (a human reaction delay)
     const k=key(P);if(k!==A.seenKey){A.seenKey=k;A.see=0}else A.see++;
     A.gP=P.guard&&P.act==='free'?A.gP+1:0;if(A.cool>0)A.cool--;if(A.gcool>0)A.gcool--;if(A.rip>1)A.rip--;if(A.breath>0)A.breath--;
@@ -35,7 +35,7 @@ const DuelistAI=(()=>{
       else{if(KN){out.mx=dist>1.9?ux*.9:-uz*A.strafe*.4;out.mz=dist>1.9?uz*.9:ux*A.strafe*.4}else{out.mx=0;out.mz=0}return out}}
     if(--A.strafeT<=0){A.strafe=A.r()<.5?-1:1;A.strafeT=70+Math.floor(A.r()*90)}
     // ---- movement: breathing = back off; otherwise close to the fighting distance (full speed when far), then circle ----
-    const want=H?2.3:DA?4.2:SO?1.9:KN?(A.ph2?1.8:2.1):A.mood==='aggro'?1.6:A.mood==='evasive'?3.0:2.1;let mx=0,mz=0;
+    const want=AR?(A.ph2?9:10.5):H?2.3:DA?4.2:SO?1.9:KN?(A.ph2?1.8:2.1):A.mood==='aggro'?1.6:A.mood==='evasive'?3.0:2.1;let mx=0,mz=0;
     if(A.breath>0&&A.t>A.intro){if(dist<4){mx=-ux*.8;mz=-uz*.8}else{mx=-uz*A.strafe*.4;mz=ux*A.strafe*.4}}
     else if(dist>want+.5){const f=dist>7?1:.85;mx=ux*f;mz=uz*f}else if(dist<want-.6){mx=-ux*.7;mz=-uz*.7}else{mx=-uz*A.strafe*.55;mz=ux*A.strafe*.55}
     out.mx=mx;out.mz=mz;
@@ -51,6 +51,7 @@ const DuelistAI=(()=>{
     if(A.noAtk)return out;                            // someone else holds the attack token: keep circling
     if(SO)return soldier(A,P,D,out,tick,dist,k);
     if(DA)return dancer(A,P,D,out,tick,dist,k);
+    if(AR)return archer(A,P,D,out,tick,dist,k);
     // ---- gap closer: from range, sometimes lunge in instead of just running (never twice in a row) ----
     const gc=H?'leap':'dash',lo=H?3.6:3.4,hi=H?8:7;   // (soldiers and dancers returned above)
     if(dist>=lo&&dist<=hi&&A.last[A.last.length-1]!==gc){A.closeP+=A.ph2?.05:.03;if(A.r()<A.closeP){A.closeP=0;return start(A,out,gc,0,tick)}}
@@ -105,6 +106,12 @@ const DuelistAI=(()=>{
     let tot=0;for(const m in w)tot+=w[m];if(tot<=0)return out;let r=A.r()*tot,pick=Object.keys(w)[0];for(const m in w){r-=w[m];if(r<=0){pick=m;break}}
     if(dist>REACH[pick]+.1)return out;
     return start(A,out,pick,0,tick)}
+  // The Ashen Huntress (Erika): holds a long range and shoots slow, readable arrows (sidestep or block them); inside two metres she kicks you away; the player's answer is to close the gap in a dodge.
+  function archer(A,P,D,out,tick,dist,k){
+    if(dist<2.4){A.closeP=0;return start(A,out,'cut',0,tick)}
+    if(dist<4.5)return out;                            // too close to shoot, too far to kick: she is backing off (movement above)
+    const w={bolt:dist>6?4:1.5};if(A.ph2&&dist>6)w.orb=2;   // phase 2: a slower, heavier shot joins
+    return choose(A,out,w,dist,tick,REACH)}
   function choose(A,out,w,dist,tick,R){
     for(const m of Object.keys(w)){const L=A.last,n=L.length;if(n>=2&&L[n-1]===m&&L[n-2]===m)w[m]=0;else if(n&&L[n-1]===m)w[m]*=.4}
     let tot=0;for(const m in w)tot+=w[m];if(tot<=0)return out;

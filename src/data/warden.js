@@ -19,6 +19,7 @@ const WARDEN={
     {id:'cathedral',n:'The Hollow Cathedral',x:-50,z:-105,R:24,y:3.0,fog:true,foes:[{t:'ganfaul',dx:0,dz:-7}]},
     {id:'maw',n:'The Maw',x:75,z:-140,R:24,y:2.5,fog:true,foes:[{t:'maw',dx:0,dz:-7}]},
     {id:'den',n:"The Bear's Den",x:-115,z:60,R:20,y:2.5,fog:true,foes:[{t:'bear',dx:0,dz:-6}]},
+    {id:'ridgeshot',n:'The Huntress Ridge',x:-20,z:-175,R:26,y:2.0,fog:true,foes:[{t:'archer',dx:0,dz:-9}]},
     {id:'camp3',n:'The Drowned Camp',x:-100,z:15,R:16,y:2.5,fog:false,foes:[{t:'soldier',dx:-4,dz:-2},{t:'soldier',dx:4,dz:-2},{t:'soldier',dx:0,dz:-6}]},
     {id:'camp4',n:'The Ember Camp',x:100,z:60,R:16,y:2.5,fog:false,foes:[{t:'soldier',dx:-4,dz:-2},{t:'soldier',dx:4,dz:-2},{t:'soldier',dx:0,dz:-6}]},
     {id:'camp2',n:'The Ridge Post',x:55,z:-75,R:16,y:7.5,fog:false,foes:[{t:'soldier',dx:-3,dz:-2},{t:'soldier',dx:3,dz:-3}]}],
