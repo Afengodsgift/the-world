@@ -19,7 +19,7 @@ const Ship=(()=>{
   const storm=()=>{try{return typeof Env!=='undefined'&&Env.state&&Env.state.wx?Env.state.wx.storm||0:0}catch(e){return 0}};
   const windNow=()=>Sailing.wind(Date.now()/1000,seed(),storm());
   const send=p=>Net.emit('shp',p);
-  const _m={},_o={};let holdFire=false,sailM=null,sailHid=false,hudLk=false,hudHc=false,btnX=null,btnC=null,ret=null;
+  const _m={},_o={};let holdFire=false,sailM=null,sailHid=false,hudLk=false,hudHc=false,btnX=null,btnC=null,btnB=null,ret=null;
   // the camera yaw rides the ship's turns (ctr = the centre direction this frame) and is held within +-lim of it (lim >= 3: free look all the way round)
   function follow(ctr,lim){if(ctrPrev!==null)S.yaw+=wrapA(ctr-ctrPrev);ctrPrev=ctr;if(lim<3){const o=wrapA(S.yaw-ctr);S.yaw+=clamp(o,-lim,lim)-o}}
 
@@ -111,10 +111,11 @@ const Ship=(()=>{
     const css=document.createElement('style');css.textContent='#shhud{position:fixed;z-index:6;left:8px;transform:none;top:calc(env(safe-area-inset-top,0px) + 62px);padding:3px 9px;border-radius:10px;background:#0008;color:#fff;font:600 11px sans-serif;text-align:left;display:none;pointer-events:none;white-space:nowrap;opacity:.88}@media (orientation:landscape) and (pointer:coarse){#shhud{top:calc(var(--st,0px) + 58px)}}';
     (document.head||document.body).appendChild(css);
     hud=document.createElement('div');hud.id='shhud';document.body.appendChild(hud);
-    try{const c2=document.createElement('style');c2.textContent='.shbtn{position:fixed;z-index:7;right:calc(env(safe-area-inset-right,0px) + 96px);display:none;align-items:center;justify-content:center;min-width:48px;height:48px;padding:0 14px;border-radius:24px;background:#0d2a40cc;color:#fff;border:2px solid #fff8;font:700 14px sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}#shcam{top:calc(var(--st,0px) + 120px)}#shexit{top:calc(var(--st,0px) + 176px)}#shret{position:fixed;z-index:6;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;border:2px solid #ffffffcc;border-radius:50%;box-shadow:0 0 0 1px #0008;display:none;pointer-events:none}#shret:after{content:"";position:absolute;left:11px;top:11px;width:4px;height:4px;border-radius:50%;background:#ff5a4a}';(document.head||document.body).appendChild(c2);
+    try{const c2=document.createElement('style');c2.textContent='.shbtn{position:fixed;z-index:7;right:calc(env(safe-area-inset-right,0px) + 96px);display:none;align-items:center;justify-content:center;min-width:48px;height:48px;padding:0 14px;border-radius:24px;background:#0d2a40cc;color:#fff;border:2px solid #fff8;font:700 14px sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}#shcam{top:calc(var(--st,0px) + 120px)}#shexit{top:calc(var(--st,0px) + 176px)}#shbroad{top:calc(var(--st,0px) + 232px)}#shret{position:fixed;z-index:6;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;border:2px solid #ffffffcc;border-radius:50%;box-shadow:0 0 0 1px #0008;display:none;pointer-events:none}#shret:after{content:"";position:absolute;left:11px;top:11px;width:4px;height:4px;border-radius:50%;background:#ff5a4a}';(document.head||document.body).appendChild(c2);
       btnC=document.createElement('div');btnC.id='shcam';btnC.className='shbtn';btnC.textContent='📷';document.body.appendChild(btnC);btnC.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();toggleCam()});
       btnX=document.createElement('div');btnX.id='shexit';btnX.className='shbtn';btnX.textContent='✖ Leave helm';document.body.appendChild(btnX);btnX.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();leave()});
       const ub=document.getElementById('use');if(ub){ub.addEventListener('pointerdown',()=>{holdFire=!!st.gun});addEventListener('pointerup',()=>{holdFire=false});addEventListener('pointercancel',()=>{holdFire=false})}   // hold Fire! for rapid fire
+      btnB=document.createElement('div');btnB.id='shbroad';btnB.className='shbtn';btnB.textContent='💥 All guns';document.body.appendChild(btnB);btnB.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(st.gun)Fleet.sideSalvo(st.gun.side)});
       ret=document.createElement('div');ret.id='shret';document.body.appendChild(ret);
       if(typeof HudMode!=='undefined')HudMode.extra.push(()=>!!(st.role||st.gun))}catch(e){}
     Net.on('shp',onNet);Systems.add('ship',step);
@@ -174,6 +175,7 @@ const Ship=(()=>{
     const lk=!!(st.role||st.gun);if(lk!==hudLk){hudLk=lk;if(btnX)btnX.style.display=lk?'flex':'none'}
     const hc=st.role==='helm';if(btnC&&hc!==hudHc){hudHc=hc;btnC.style.display=hc?'flex':'none'}
     if(btnX){const t=st.gun?'✖ Leave cannon':'✖ Leave helm';if(btnX._t!==t){btnX._t=t;btnX.textContent=t}}
+    if(btnB){const bs=!!st.gun;if(bs!==btnB._v){btnB._v=bs;btnB.style.display=bs?'flex':'none'}}
     if(ret){const sw=!!st.gun;if(sw!==ret._v){ret._v=sw;ret.style.display=sw?'block':'none'}}
   }
 

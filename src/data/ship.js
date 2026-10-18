@@ -15,7 +15,7 @@ const SHIP={
 // ---------- hull classes ----------
 // guns: cannons per side (placed along the main deck rails automatically); crew: pirates aboard {cut: cutlass, pis: pistol, mus: musket}
 SHIP.cls={
-  galleon:{name:'Your galleon',file:'assets/ships/galleon.glb',grid:'galleon',scale:1,mdeck:7.8,hp:420,guns:5,helm:[0,-8.95],dais:{x:0,z:-8.6,r:1.3,h:10.2},mast:20,v:15,turn:.5},      // the player's own ship: the Sketchfab low-poly galleon (tools/prep_galleon.mjs): 32 m, main deck, raised stern deck with the wheel, bow deck
+  galleon:{name:'Your galleon',file:'assets/ships/galleon.glb',grid:'galleon',scale:1,mdeck:7.8,hp:420,guns:5,helm:[0,-8.95],dais:{x:0,z:-8.6,r:1.3,h:10.2},gangway:{side:-1,z0:-1.6,z1:1.6,h:1.2},mast:20,v:15,turn:.5},      // the player's own ship: the Sketchfab low-poly galleon (tools/prep_galleon.mjs): 32 m, main deck, raised stern deck with the wheel, bow deck
   sloop:{name:'Your ship',file:'assets/ships/ship-medium.glb',grid:'ship-medium',scale:2.2,mdeck:2.1,hp:240,guns:4,sails:/^sail/,flags:/^flag/,helm:[0,-3.35],mast:8},
   skiff:{name:'Reef Rat',file:'assets/ships/ship-pirate-small.glb',grid:'ship-pirate-small',scale:2.7,mdeck:2.1,hp:90,guns:2,sails:/^sail/,flags:/^flag/,
          v:9.5,turn:.8,reload:3.6,dmg:.8,crew:{cut:3,pis:1},style:'ram',coin:[60,100],

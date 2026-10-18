@@ -62,6 +62,20 @@ const Decks=(()=>{
     for(let iz=iz0;iz<=iz1;iz++)for(let ix=ix0;ix<=ix1;ix++){if(ix<0||iz<0||ix>=d.nx||iz>=d.nz)continue;
       const cx=(d.x0+(ix+.5)*d.cs)*d.sc-x,cz=(d.z0+(iz+.5)*d.cs)*d.sc-z,lx=c*cx-s*cz,lz=s*cx+c*cz;if(Math.abs(lx)>hw||Math.abs(lz)>hd)continue;
       const i=iz*d.nx+ix;if(d.h[i]>=0)d.h[i]=Math.max(d.h[i],hm/d.sc)}}
+  // The baked grid has no rails: past the edge of a deck there is just void, so walking off the side dropped you in the sea. seal() raises a two-cell wall (wall metres tall,
+  // taller than the mantle hop) in every void / far-below cell that touches a deck cell between lo and hi. Leaving the ship is then a choice (Ship.overboard), never an accident.
+  function seal(d,lo,hi,wall,rings,gap){
+    const N=d.nx,sc=d.sc;let cur=[];
+    for(let iz=0;iz<d.nz;iz++)for(let ix=0;ix<N;ix++){const v=d.h[iz*N+ix];if(v<0)continue;const h=v*sc;if(h>=lo&&h<=hi)cur.push([ix,iz,h])}
+    for(let r=0;r<(rings||2);r++){const next=[];
+      for(const [ix,iz,h] of cur){
+        const lim=h<=lo+.45?h-.45:lo-1.0;   // main-deck level: even a low ledge of hull beside it is walled; the raised stern / bow decks only wall true voids and big drops (their stairs and the main deck beside them stay open)
+        for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){if(!a&&!b)continue;const x=ix+a,z=iz+b;if(x<0||z<0||x>=N||z>=d.nz)continue;const i=z*N+x,v=d.h[i];
+          if(v<0||v*sc<lim){d.h[i]=(h+wall)/sc;next.push([x,z,h])}}}
+      cur=next}
+    // a gangway: a stretch of the side that is only a climbable rail (gap = {side,z0,z1,h}: side -1/+1, ship-space z range, rail height in metres)
+    if(gap)for(let iz=0;iz<d.nz;iz++)for(let ix=0;ix<N;ix++){const x=(d.x0+(ix+.5)*d.cs)*sc,z=(d.z0+(iz+.5)*d.cs)*sc,i=iz*N+ix;
+      if(x*gap.side>0&&z>=gap.z0&&z<=gap.z1&&d.h[i]*sc>=lo+gap.h+.4&&d.h[i]*sc<=lo+wall+.6)d.h[i]=(lo+.25+gap.h)/sc}}
   const RING=[[R,0],[-R,0],[0,R],[0,-R]];
   // is a body of radius R standing at (x,z) with its feet at ship-space height ly stopped by anything higher than ly+step?  returns the tallest blocking height (or 0)
   function wallAt(d,x,z,ly,step){
@@ -149,5 +163,5 @@ const Decks=(()=>{
   function pin(S,d,x,z){const sup=floor(d,x,z);S._dk={id:d.id,x,y:Math.max(0,sup),z,h:d.pose.h};toWorld(d,x,Math.max(0,sup),z,_a);S.x=_a.x;S.z=_a.z;S.y=_a.y;S.vy=0;return _a.y}
   const standingOn=S=>S._dk?S._dk.id:null;
   const disable=(d,on)=>{if(d)d.off=!!on};
-  return {disable,STEP,HOP,R,grid,create,add,remove,get,all,clear,setPose,toWorld,toLocal,floor,stamp,stampBox,wallAt,slide,freeSpot,route,step,pin,standingOn,decks};
+  return {seal,wallNormal,disable,STEP,HOP,R,grid,create,add,remove,get,all,clear,setPose,toWorld,toLocal,floor,stamp,stampBox,wallAt,slide,freeSpot,route,step,pin,standingOn,decks};
 })();

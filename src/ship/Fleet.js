@@ -193,6 +193,10 @@ const Fleet=(()=>{
     const sp=pl(),vel=dir?dir:tg?aim(m,tg.sh.x,SEA+.7,tg.sh.z,Math.sin(tg.sh.h)*tg.sh.v,Math.cos(tg.sh.h)*tg.sh.v,CN.spread,{})
       :{vx:o.x*CN.v*Math.cos(.14),vz:o.z*CN.v*Math.cos(.14),vy:CN.v*Math.sin(.14)};
     fire(v,g,m,vel,{owner:String(myId),res:true,f:0,src:'ship',dmg:CN.dmg,reload:(CN.pReload||CN.reload)*(.95+R()*.1),emit:true,vx:Math.sin(sp.h)*sp.v,vz:Math.cos(sp.h)*sp.v});return true}
+  // every gun on one side at once, all along your camera: a gunner's broadside (each gun clamps the aim to its own arc)
+  function sideSalvo(side){
+    const v=plv();if(!v)return 0;let n=0;
+    v.guns.filter(g=>g.side===side).forEach((g,i)=>setTimeout(()=>{if(playerFire(g,true,true))n++},i*80+R()*60));return 1}
   function broadside(){
     const v=plv();if(!v)return;let n=0;
     v.guns.forEach((g,i)=>setTimeout(()=>{if(playerFire(g,true))n++},i*70+R()*120));
@@ -255,7 +259,18 @@ const Fleet=(()=>{
   Interaction.register('cannon-fire','Man the cannon',()=>built&&me.down<=0&&!Ship.locked()&&!!nearGun(),()=>{const g=nearGun();if(g)Ship.aimGun(g)});
   Interaction.register('ship-broadside','Broadside!',()=>built&&me.down<=0&&Ship.seated()&&!Ship.gunning(),broadside);
 
-  return {build,ships,shells,make,remove,trySpawn,elev,aim,fire,playerFire,broadside,nearGun,hurtMe,respawn,applyHit,damageEnemy,captainDown,boardable,boardEnemy,isHost,
+  // leave a deck over the side (a wall now keeps you from falling off by accident): pops you 2 m out and up
+  function overboardDir(){
+    if(!S._dk||S.flying||me.down>0)return null;const d=Decks.get(S._dk.id);if(!d||d.off)return null;const l=Decks.toLocal(d,S.x,S.y,S.z,{});
+    const n=Decks.wallNormal(d,l.x,l.z,l.y,Decks.STEP);if(!n)return null;
+    const wx=-n.x,wz=-n.z,L=Math.hypot(wx,wz)||1,ux=wx/L,uz=wz/L;
+    if(Decks.floor(d,l.x+ux*3.4,l.z+uz*3.4)>=l.y-2.5)return null;           // only the ship's side (nothing solid to stand on beyond it), not a cabin wall or a cannon
+    return {d,x:ux,z:uz,l}}
+  function overboard(){
+    const o=overboardDir();if(!o)return;const w=Decks.toWorld(o.d,o.l.x+o.x*2.6,o.l.y,o.l.z+o.z*2.6,{});
+    S._dk=null;S.x=w.x;S.z=w.z;S.y=w.y+.6;S.vy=5;S.grounded=false}
+  Interaction.register('ship-overboard','Jump overboard 🌊',()=>built&&!Ship.locked()&&!!overboardDir(),overboard);
+  return {overboard,build,ships,shells,make,remove,trySpawn,elev,aim,fire,playerFire,broadside,nearGun,hurtMe,respawn,applyHit,damageEnemy,captainDown,boardable,boardEnemy,sideSalvo,isHost,
     marks:()=>[...ships.values()].filter(e=>!e.sinking).map(e=>({n:e.K.cap.n,x:e.sh.x,z:e.sh.z,r:6,icon:e.K.boss?'☠':'🏴‍☠️',dyn:true})),
     _me:me,_step:step,_ai:ai,_net:onNet,_snapshot:snapshot};
 })();
