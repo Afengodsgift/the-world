@@ -59,7 +59,7 @@ function duel(style,secs,ex,ez,eh){
   ok(pv.guns.length>=6,'your ship has '+pv.guns.length+' cannons along the rails');
   const e=F.make(900,'barnacle',SP[0]+pv.hb+45,SP[1]+2,Math.PI/2);e.sh.v=0;e.sh.sail=0;
   const g=pv.guns.filter(q=>q.side===1)[0];const aimed=F.playerFire(g,true);
-  ok(aimed&&g.cd>2,'a cannon with a pirate in its arc fires and then reloads ('+g.cd.toFixed(1)+' s)');
+  ok(aimed&&g.cd>1.1,'a cannon with a pirate in its arc fires and then reloads ('+g.cd.toFixed(1)+' s)');
   ok(F.playerFire(g,true)===false,'a reloading gun does not fire again');
   // fire everything over a minute, keep the pirate where it is
   const hp0=e.hp;let n=0;tick(25,.05,i=>{e.sh.v=0;e.sh.sail=0;if(i%20===0)for(const q of pv.guns)if(q.side===1&&q.cd<=0)F.playerFire(q,true);return true});

@@ -166,6 +166,17 @@ const Fleet=(()=>{
     me.hp=me.max;me.down=0;const v=plv();
     if(v&&pl().sunk===0){try{Ship._board()}catch(e){}}else{S.x=DOCK.x;S.z=DOCK.z0+3;S.y=DOCK.top;S.vy=0;S._dk=null}}
 
+  // jump across to a pirate ship that is close: you land on the nearest free spot of its main deck (the rails and the gap are too awkward to cross on a rolling sea)
+  function boardable(){
+    if(me.down>0||(typeof Ship!=='undefined'&&Ship.locked()))return null;let best=null,bd=1e9;
+    for(const e of ships.values()){if(e.sinking||e.sunk>0||!e.v.deck)continue;if(S._dk&&S._dk.id===e.v.deck.id)continue;
+      const l=Decks.toLocal(e.v.deck,S.x,S.y,S.z,{}),d=Math.hypot(Math.max(0,Math.abs(l.x)-e.v.hb),Math.max(0,Math.abs(l.z)-e.v.hl));
+      if(d<13&&Math.abs(l.y-e.K.deckM)<9&&d<bd){bd=d;best=e}}
+    return best}
+  function boardEnemy(){
+    const e=boardable();if(!e)return false;const d=e.v.deck,l=Decks.toLocal(d,S.x,S.y,S.z,{}),M=e.K.deckM;let best=null,bd=1e9;
+    for(let z=-e.v.hl*.8;z<=e.v.hl*.8;z+=.6)for(let x=-e.v.hb+.8;x<=e.v.hb-.8;x+=.6){const f=Decks.floor(d,x,z);if(Math.abs(f-M)>.1||Decks.wallAt(d,x,z,M,.3))continue;const dd=Math.hypot(x-l.x,z-l.z);if(dd<bd){bd=dd;best=[x,z]}}
+    if(!best)return false;Decks.pin(S,d,best[0],best[1]);S.vy=0;S.grounded=true;S.kx=S.kz=0;S.flying=false;banner('Aboard '+e.K.cap.n+'\'s ship! Draw steel!','⚔ BOARDING');return true}
   // gun nearest to you (on your own ship, you standing on the deck)
   function nearGun(){
     const v=plv();if(!v||!Ship._onDeck()||Ship.seated())return null;let best=null,bd=3.2;
@@ -181,7 +192,7 @@ const Fleet=(()=>{
     if(manual){const dv=Ship.aimDir(new THREE.Vector3()),ao=Math.atan2(o.x,o.z),da=Math.max(-C.cannon.aimYaw,Math.min(C.cannon.aimYaw,wrap(Math.atan2(dv.x,dv.z)-ao))),el=Math.max(-C.cannon.aimDown,Math.min(C.cannon.aimUp,Math.asin(Math.max(-1,Math.min(1,dv.y))))),ce=Math.cos(el);dir={vx:Math.sin(ao+da)*ce*CN.v,vz:Math.cos(ao+da)*ce*CN.v,vy:Math.sin(el)*CN.v}}   // a gunner's shot goes exactly where his camera looks, inside the gun's limits
     const sp=pl(),vel=dir?dir:tg?aim(m,tg.sh.x,SEA+.7,tg.sh.z,Math.sin(tg.sh.h)*tg.sh.v,Math.cos(tg.sh.h)*tg.sh.v,CN.spread,{})
       :{vx:o.x*CN.v*Math.cos(.14),vz:o.z*CN.v*Math.cos(.14),vy:CN.v*Math.sin(.14)};
-    fire(v,g,m,vel,{owner:String(myId),res:true,f:0,src:'ship',dmg:CN.dmg,reload:CN.reload*(.95+R()*.1),emit:true,vx:Math.sin(sp.h)*sp.v,vz:Math.cos(sp.h)*sp.v});return true}
+    fire(v,g,m,vel,{owner:String(myId),res:true,f:0,src:'ship',dmg:CN.dmg,reload:(CN.pReload||CN.reload)*(.95+R()*.1),emit:true,vx:Math.sin(sp.h)*sp.v,vz:Math.cos(sp.h)*sp.v});return true}
   function broadside(){
     const v=plv();if(!v)return;let n=0;
     v.guns.forEach((g,i)=>setTimeout(()=>{if(playerFire(g,true))n++},i*70+R()*120));
@@ -244,7 +255,7 @@ const Fleet=(()=>{
   Interaction.register('cannon-fire','Man the cannon',()=>built&&me.down<=0&&!Ship.locked()&&!!nearGun(),()=>{const g=nearGun();if(g)Ship.aimGun(g)});
   Interaction.register('ship-broadside','Broadside!',()=>built&&me.down<=0&&Ship.seated()&&!Ship.gunning(),broadside);
 
-  return {build,ships,shells,make,remove,trySpawn,elev,aim,fire,playerFire,broadside,nearGun,hurtMe,respawn,applyHit,damageEnemy,captainDown,isHost,
+  return {build,ships,shells,make,remove,trySpawn,elev,aim,fire,playerFire,broadside,nearGun,hurtMe,respawn,applyHit,damageEnemy,captainDown,boardable,boardEnemy,isHost,
     marks:()=>[...ships.values()].filter(e=>!e.sinking).map(e=>({n:e.K.cap.n,x:e.sh.x,z:e.sh.z,r:6,icon:e.K.boss?'☠':'🏴‍☠️',dyn:true})),
     _me:me,_step:step,_ai:ai,_net:onNet,_snapshot:snapshot};
 })();

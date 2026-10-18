@@ -99,7 +99,7 @@ const CameraRig=(()=>{
     {const pr=st.eyeK>.3&&st.pr?st.pr:(st.fpsK>.5||(st.shooter&&st.view==='fps'))?[-1.45,1.45]:st.shooter&&!S.flying?TPS_P:(S.flying?[-1.35,1.5]:[.05,1.2]);   // shoulder view: the SAME range pitchRange() gives the drag (it used to be clamped to >= .05 here, so you could never aim above the horizon in third person)
     S.pitch=Math.max(pr[0],Math.min(pr[1],S.pitch))}   // landing from a steep look-up: ease back into the chase range
     if(!st.sInit){st.sy=S.yaw;st.sp=S.pitch;st.sInit=true}
-    const ks=1-Math.exp(-dt*(22+400*Math.max(st.fpsK,st.tpsK)));st.sy+=(S.yaw-st.sy)*ks;st.sp+=(S.pitch-st.sp)*ks;
+    const ks=1-Math.exp(-dt*(22+400*Math.max(st.fpsK,st.tpsK)));st.sy+=Math.atan2(Math.sin(S.yaw-st.sy),Math.cos(S.yaw-st.sy))*ks;st.sp+=(S.pitch-st.sp)*ks;
     spring(st.dip,0,dt,14,.45);                                           // landing dip recovers by itself
     const yaw=st.sy+st.ky.x,pit=st.sp-st.kp.x;                            // positive S.pitch looks DOWN; kick lifts the muzzle
     const sY=Math.sin(yaw),cY=Math.cos(yaw),sP=Math.sin(pit),cP=Math.cos(pit);

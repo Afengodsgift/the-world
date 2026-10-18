@@ -477,6 +477,7 @@ function animateClips(g,dt,st){
   if(!FlightPose.apply(g,q,dt,st,{speed:q.fs,yawRate:q.yr,charge:q.bc||0})&&q.gunI>=0&&!q.gdn&&typeof Outlaw!=='undefined')Outlaw.poseGun(g,q,st,dt);
   FlightFX.avatar(g,q,dt);
   if(q.gun)q.gun.visible=!!q.gun.userData.ok&&st!=='fly'&&st!=='swim'&&!q.gdn;
+  if(q.steer)q.steer(g,q,dt);   // at the ship's helm: hands on the wheel (src/ship/Ship.js)
   if(q.rod)Fishing.poseRod(g,q,dt);   // fishing rod (src/world/Fishing.js)
 }
 function animate(g,dt,st){

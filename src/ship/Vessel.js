@@ -42,6 +42,7 @@ const Vessel=(()=>{
         ob.traverse(c=>{if(c.isMesh){c.castShadow=true;c.receiveShadow=true}if(K.sails&&K.sails.test(c.name))v.sails.push({n:c,r:c.rotation.y});if(K.flags&&K.flags.test(c.name)){v.flags.push({n:c,r:c.rotation.y});
           if(v.tint&&c.material){c.material=c.material.clone();c.material.color&&c.material.color.set(v.tint)}}});v.grp.add(ob);v.loaded=true}));
     }
+    if(v.deck&&K.dais){Decks.stamp(v.deck,K.dais.x,K.dais.z,K.dais.r+.6,K.dais.h-.5);Decks.stamp(v.deck,K.dais.x,K.dais.z,K.dais.r,K.dais.h)}   // the wheel's dais: two walkable steps up (the model's steps are decoration)
     if(v.deck&&!o.noGuns){v.guns=placeGuns(v);for(const g of v.guns){Decks.stampBox(v.deck,g.x,g.z,.55,1.0,0,1.7);
       if(v.grp)track(put('assets/pirates/cannon_001.glb',g.x,g.ly,g.z,1.25,g.ry,v.grp).then(c=>{g.obj=c}))}}
     if(v.deck)Decks.setPose(v.deck,v.pose);

@@ -19,9 +19,9 @@ const Ship=(()=>{
   const storm=()=>{try{return typeof Env!=='undefined'&&Env.state&&Env.state.wx?Env.state.wx.storm||0:0}catch(e){return 0}};
   const windNow=()=>Sailing.wind(Date.now()/1000,seed(),storm());
   const send=p=>Net.emit('shp',p);
-  const _m={},_o={};let sailM=null,sailHid=false,hudLk=false,hudHc=false,btnX=null,btnC=null,ret=null;
+  const _m={},_o={};let holdFire=false,sailM=null,sailHid=false,hudLk=false,hudHc=false,btnX=null,btnC=null,ret=null;
   // the camera yaw rides the ship's turns (ctr = the centre direction this frame) and is held within +-lim of it (lim >= 3: free look all the way round)
-  function follow(ctr,lim){if(ctrPrev!==null)S.yaw=wrapA(S.yaw+wrapA(ctr-ctrPrev));ctrPrev=ctr;if(lim<3)S.yaw=wrapA(ctr+clamp(wrapA(S.yaw-ctr),-lim,lim))}
+  function follow(ctr,lim){if(ctrPrev!==null)S.yaw+=wrapA(ctr-ctrPrev);ctrPrev=ctr;if(lim<3){const o=wrapA(S.yaw-ctr);S.yaw+=clamp(o,-lim,lim)-o}}
 
   // ---------- where things are ----------
   const onDeck=()=>!!(S._dk&&S._dk.id==='ship'&&!S.flying);
@@ -43,6 +43,12 @@ const Ship=(()=>{
   function toggleCam(){if(st.role!=='helm')return st.cam;setCam(st.cam==='captain'?'third':'captain');return st.cam}
   function aimGun(g){if(!g||st.gun||st.role||!st.aboard||ship.sunk>0)return false;st.gun=g;st.prevCam=st.cam;st.cam='cannon';ctrPrev=null;const o=Vessel.outward(v,g,{});S.yaw=wrapA(Math.atan2(o.x,o.z)+Math.PI);S.pitch=.02;banner('Drag to aim · Fire! · Jump to leave the cannon','💣 CANNON');return true}
   function leave(){if(st.gun){st.gun=null;st.cam=st.prevCam||'third';ctrPrev=null;if(st.cam==='third'&&st.role!=='helm'){}else if(st.cam==='captain'){S.pitch=.04}return true}release();return false}
+  // hands on the wheel: both arms reach for the grips (called from animate() for your own avatar while you are at the helm)
+  const _g={},_sh=new THREE.Vector3(),_dr=new THREE.Vector3();
+  function poseHelm(g,q){
+    const B=q.bones;if(!B||!B.LeftArm||!B.RightArm||!B.LeftForeArm||!B.RightForeArm||!B.LeftHand||!B.RightHand)return;const W=C.stations.wheel;
+    for(const s of [1,-1]){const n=s===1?'Left':'Right',w=Decks.toWorld(v.deck,s*W.dx,W.y,W.z,_g);B[n+'Arm'].updateWorldMatrix(true,false);B[n+'Arm'].getWorldPosition(_sh);
+      _dr.set(w.x-_sh.x,w.y-_sh.y,w.z-_sh.z).normalize();aim(B[n+'Arm'],B[n+'ForeArm'],_dr);aim(B[n+'ForeArm'],B[n+'Hand'],_dr)}}
   function aimDir(out){camera.getWorldDirection(out);return out}
   function release(){
     if(!st.role)return;st.cam='third';ctrPrev=null;const r=st.role;st.role=null;
@@ -108,6 +114,7 @@ const Ship=(()=>{
     try{const c2=document.createElement('style');c2.textContent='.shbtn{position:fixed;z-index:7;right:calc(env(safe-area-inset-right,0px) + 96px);display:none;align-items:center;justify-content:center;min-width:48px;height:48px;padding:0 14px;border-radius:24px;background:#0d2a40cc;color:#fff;border:2px solid #fff8;font:700 14px sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}#shcam{top:calc(var(--st,0px) + 120px)}#shexit{top:calc(var(--st,0px) + 176px)}#shret{position:fixed;z-index:6;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;border:2px solid #ffffffcc;border-radius:50%;box-shadow:0 0 0 1px #0008;display:none;pointer-events:none}#shret:after{content:"";position:absolute;left:11px;top:11px;width:4px;height:4px;border-radius:50%;background:#ff5a4a}';(document.head||document.body).appendChild(c2);
       btnC=document.createElement('div');btnC.id='shcam';btnC.className='shbtn';btnC.textContent='📷';document.body.appendChild(btnC);btnC.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();toggleCam()});
       btnX=document.createElement('div');btnX.id='shexit';btnX.className='shbtn';btnX.textContent='✖ Leave helm';document.body.appendChild(btnX);btnX.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();leave()});
+      const ub=document.getElementById('use');if(ub){ub.addEventListener('pointerdown',()=>{holdFire=!!st.gun});addEventListener('pointerup',()=>{holdFire=false});addEventListener('pointercancel',()=>{holdFire=false})}   // hold Fire! for rapid fire
       ret=document.createElement('div');ret.id='shret';document.body.appendChild(ret);
       if(typeof HudMode!=='undefined')HudMode.extra.push(()=>!!(st.role||st.gun))}catch(e){}
     Net.on('shp',onNet);Systems.add('ship',step);
@@ -162,6 +169,8 @@ const Ship=(()=>{
       // captain's view: only on YOUR screen the sails (two merged meshes) are hidden so the horizon is clear; everybody else still sees them
       if(v.loaded&&!sailM){sailM=[];v.grp.traverse(c=>{if(c.isMesh&&c.material&&/^Sail/.test(c.material.name||''))sailM.push(c)})}
       const hs=!!(cfg&&cfg.eye&&!GN&&typeof CameraRig.eyeK==='function'&&CameraRig.eyeK()>.55);if(sailM&&hs!==sailHid){sailHid=hs;for(const m of sailM)m.visible=!hs}}catch(e){}
+    try{me.userData.steer=st.role==='helm'?poseHelm:null}catch(e){}
+    if(holdFire&&st.gun&&typeof Fleet!=='undefined')Fleet.playerFire(st.gun,true,true);
     const lk=!!(st.role||st.gun);if(lk!==hudLk){hudLk=lk;if(btnX)btnX.style.display=lk?'flex':'none'}
     const hc=st.role==='helm';if(btnC&&hc!==hudHc){hudHc=hc;btnC.style.display=hc?'flex':'none'}
     if(btnX){const t=st.gun?'✖ Leave cannon':'✖ Leave helm';if(btnX._t!==t){btnX._t=t;btnX.textContent=t}}
