@@ -43,7 +43,7 @@ function duel(style,secs,ex,ez,eh){
    ok(A.Fleet.boardEnemy()&&S._dk&&S._dk.id===e.v.id,'Board! puts you ON the pirate ship (on '+(S._dk?S._dk.id:'nothing')+')');
    const l2=A.Decks.toLocal(e.v.deck,S.x,S.y,S.z,{});ok(Math.abs(l2.y-e.K.deckM)<.2,'…standing on its main deck');}
   // sail off: the lines are cut
-  PL.v=12;PL.sail=1;tick(.3,.05);ok(!e.lash,'sailing off cuts the lines');A.Fleet.remove(e);PL.v=0}
+  PL.sail=1;tick(3,.05,()=>{PL.v=14});ok(!e.lash,'sailing off cuts the lines');A.Fleet.remove(e);PL.v=0}
 {place(A,SP[0],SP[1],0);place(B,SP[0],SP[1],0);const r=duel('ram',60,SP[0]+80,SP[1]+60,Math.PI);
   const pv=A.Ship.vessel();ok(r.minD>4,'a ramming ship cannot sail through your hull (closest centres '+r.minD.toFixed(1)+' m)');A.Fleet.remove(r.e)}
 // ---------- 4. your cannons ----------
