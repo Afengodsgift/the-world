@@ -1246,7 +1246,7 @@ function tickFrame(t){
   if(S.state==='swim'&&_pst!=='swim'&&!S.dv)WaterFX.splash(S.x,S.z,imp/9);else if(_pst==='swim'&&S.state!=='swim')WaterFX.splash(S.x,S.z,.35);_pst=S.state;   // entry / exit rings + spray
   me.position.set(S.x,S.y,S.z);me.rotation.y=S.rot;animate(me,dt,S.state);explore(dt,t);
   if(typeof Ambience!=='undefined'){const es=Env.state,gs=Math.hypot(S.gvx||0,S.gvz||0);   // world sound: ocean/wind/birds/steps... (src/audio/Ambience.js); wind follows flight + fall speed
-    Ambience.update(dt,{x:S.x,y:S.y,z:S.z,gy:gY,H,st:S.state,grounded:S.grounded,under:S.under||0,dayF:es.dayF,rain:es.wx.rain,storm:es.wx.storm,cloud:es.inCloud,
+    Ambience.update(dt,{x:S.x,y:S.y,z:S.z,gy:gY,H,st:S.state,grounded:S.grounded,under:S.under||0,dayF:es.dayF,rain:es.wx.rain,storm:es.wx.storm,cloud:es.inCloud,sea:Ocean.state.sea,aboard:Ship.onDeck(),shipV:Ship.speed(),
       spd:S.flying?Math.hypot(S.fvx||0,S.fvz||0,(S.vy||0)*1.5):S.grounded?gs:Math.max(gs,Math.abs(S.vy||0)*1.4)})}
   if(typeof HudMode!=='undefined')HudMode.update();   // minimal HUD while flying / in an activity / on Outlaw Isle (src/ui/HudMode.js)
   const k=1-Math.exp(-20*dt),nowT=performance.now();

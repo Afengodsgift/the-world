@@ -10,7 +10,7 @@ const Ambience=(()=>{
   const sm=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t)},cl=(v,a,b)=>v<a?a:v>b?b:v;
   const WF={x:SKY.x+Math.cos(2.35)*113,z:SKY.z+Math.sin(2.35)*113},CAVE={x:18,z:-88};   // sky-island waterfall (SkyIsland.js) and the cave mouth (index.html)
   const MASTER=3.2,SFX=2.6;   // measured with an analyser: raw layer levels peaked at ~0.03-0.14 (too quiet for phone speakers); MASTER lifts everything, SFX lifts the one-shot noise bursts (footsteps were peaking at 0.018)
-  let A=null,bus=null,dripIn=null,nbuf=null,on=true,L={},lt=0,zt=0,Z={ocean:0,beach:0,forest:0,alt:0,town:0,cave:0},stepAcc=0,foot=0,nextBird=3,nextDrip=2,strokeT=0,lx=null,lz=null,prevSwim=false,lastLand=0;
+  let seaS=0,aboardNow=false,nextCreak=4,A=null,bus=null,dripIn=null,nbuf=null,on=true,L={},lt=0,zt=0,Z={ocean:0,beach:0,forest:0,alt:0,town:0,cave:0},stepAcc=0,foot=0,nextBird=3,nextDrip=2,strokeT=0,lx=null,lz=null,prevSwim=false,lastLand=0;
   try{on=localStorage.getItem('w4amb')!=='0'}catch(e){}
 
   // ---------- graph helpers ----------
@@ -27,8 +27,11 @@ const Ambience=(()=>{
     const n=a.sampleRate*4|0;nbuf=a.createBuffer(1,n,a.sampleRate);const d=nbuf.getChannelData(0);let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
     for(let i=0;i<n;i++){const w=Math.random()*2-1;b0=.99886*b0+w*.0555179;b1=.99332*b1+w*.0750759;b2=.969*b2+w*.153852;b3=.8665*b3+w*.3104856;b4=.55*b4+w*.5329522;b5=-.7616*b5-w*.016898;d[i]=(b0+b1+b2+b3+b4+b5+b6+w*.5362)*.11;b6=w*.115926}
     // ocean swell: low rumble breathing in and out, plus shoreline surf hiss
-    {const s=noise(),f=filt('lowpass',650,.6),sw=gain(.55),lv=gain(0);s.connect(f);f.connect(sw);sw.connect(lv);lv.connect(bus);lfo(.09,.4,sw.gain);lfo(.14,.15,sw.gain);L.ocean=lv}
+    {const s=noise(),f=filt('lowpass',650,.6),sw=gain(.55),lv=gain(0);s.connect(f);f.connect(sw);sw.connect(lv);lv.connect(bus);lfo(.09,.4,sw.gain);lfo(.14,.15,sw.gain);L.ocean=lv;L.oceanF=f}
     {const s=noise(),f=filt('bandpass',1500,.7),sw=gain(.35),lv=gain(0);s.connect(f);f.connect(sw);sw.connect(lv);lv.connect(bus);lfo(.16,.3,sw.gain);lfo(.11,.1,sw.gain);L.surf=lv}
+    // living ocean layers: wave slap / breaking crests (grows with the sea state), water rushing along a hull (grows with ship speed)
+    {const s=noise(),f=filt('bandpass',780,.8),sw=gain(.5),lv=gain(0);s.connect(f);f.connect(sw);sw.connect(lv);lv.connect(bus);lfo(.23,.35,sw.gain);lfo(.37,.2,sw.gain);L.slap=lv;L.slapF=f}
+    {const s=noise(),f=filt('lowpass',320,.5),sw=gain(.6),lv=gain(0);s.connect(f);f.connect(sw);sw.connect(lv);lv.connect(bus);lfo(.31,.25,sw.gain);L.hull=lv;L.hullF=f}
     // wind: band-passed noise with slow gusts; its centre frequency and level rise with speed
     {const s=noise(),f=filt('bandpass',420,.55),wg=gain(.6),lv=gain(0);s.connect(f);f.connect(wg);wg.connect(lv);lv.connect(bus);lfo(.07,.25,wg.gain);lfo(.19,.1,wg.gain);L.wind=lv;L.windF=f}
     // underwater bed
@@ -64,8 +67,13 @@ const Ambience=(()=>{
     const under=c.under||0,rain=c.rain||0,storm=c.storm||0,night=1-(c.dayF===undefined?1:c.dayF),cloud=c.cloud||0,alt=Z.altM||0;
     const sp=c.spd||0,sp01=cl(sp/70,0,1);
     const air=1/(1+alt/60);
-    to(L.ocean.gain,(1-under)*Z.ocean*.30*air);
     to(L.surf.gain,(1-under)*Z.beach*.16);
+    // sea state (shared Ocean.state.sea, 0..1): the swell grows louder and brighter, waves slap and break; sailing adds the rush of water along the hull + creaking timber
+    const sea=c.sea||0,onSea=Math.max(Z.ocean,c.aboard?1:0)*(1-under)*air,sv=cl((c.shipV||0)/14,0,1);
+    to(L.ocean.gain,(1-under)*Math.max(Z.ocean,c.aboard?1:0)*(.16+.30*sea)*air);to(L.oceanF.frequency,420+1100*sea,1);
+    to(L.slap.gain,onSea*sea*sea*.16,.8);to(L.slapF.frequency,600+700*sea,1);
+    to(L.hull.gain,c.aboard?(1-under)*sv*(.05+.07*sea):0,.6);to(L.hullF.frequency,220+420*sv,.8);
+    seaS=sea;aboardNow=!!c.aboard;
     to(L.wind.gain,(1-under)*(1-(typeof Space!=='undefined'?Space.f.quiet:0))*(1-cloud*.5)*(.05+.12*Z.alt+.10*storm+.06*rain+sp01*.5+(typeof Boost!=='undefined'?Boost.view.burst*.25:0)));
     if(L.pad&&typeof Space!=='undefined')to(L.pad.gain,Space.f.space*Space.f.space*.07,1.8);
     if(L.chg&&typeof Boost!=='undefined'){const bv=Boost.view;to(L.chg.gain,bv.charge*bv.charge*.11,.06);to(L.chgF.frequency,450+bv.charge*2600,.06)}
@@ -100,6 +108,10 @@ const Ambience=(()=>{
     for(let i=0;i<n;i++){const t=t0+i*gap,o=A.createOscillator(),g=gain(0);o.type='sine';o.frequency.setValueAtTime(f0*(1+i*.04),t);o.frequency.exponentialRampToValueAtTime(f0*(1.15+Math.random()*.3),t+.06);
       g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+.075);o.connect(g);if(p){g.connect(p);p.connect(bus)}else g.connect(bus);o.start(t);o.stop(t+.09)}
   }
+  // timber groaning as the hull works in the swell (aboard only): a short low sweep through a band-pass, rarer in calm water
+  function creak(){const t=A.currentTime,o=A.createOscillator(),f=filt('bandpass',230+Math.random()*160,5),g=gain(0),pn=pan(Math.random()*.8-.4);o.type='sawtooth';
+    const f0=70+Math.random()*60;o.frequency.setValueAtTime(f0,t);o.frequency.linearRampToValueAtTime(f0*(.82+Math.random()*.4),t+.5);o.connect(f);f.connect(g);
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.035+.03*seaS,t+.12);g.gain.linearRampToValueAtTime(0,t+.55);if(pn){g.connect(pn);pn.connect(bus)}else g.connect(bus);o.start(t);o.stop(t+.6)}
   function drip(){const t=A.currentTime,o=A.createOscillator(),g=gain(0);o.frequency.setValueAtTime(1500+Math.random()*900,t);o.frequency.exponentialRampToValueAtTime(700,t+.07);o.connect(g);g.connect(dripIn);
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.05,t+.004);g.gain.exponentialRampToValueAtTime(.0001,t+.09);o.start(t);o.stop(t+.1)}
 
@@ -112,6 +124,7 @@ const Ambience=(()=>{
     const dist=lx===null?0:Math.hypot(c.x-lx,c.z-lz);lx=c.x;lz=c.z;
     zt-=dt;if(zt<=0){zt=.2;zones(c)}
     lt-=dt;if(lt<=0){lt=.1;applyLevels(c)}
+    if(aboardNow&&!(c.under>.2)){nextCreak-=dt;if(nextCreak<=0){nextCreak=(3+Math.random()*5)/(.4+1.6*seaS);creak()}}
     // footsteps follow the distance actually travelled (so they match the legs at any speed)
     if((c.st==='walk'||c.st==='run')&&c.grounded){stepAcc+=dist;const stride=c.st==='run'?1.75:1.2;if(stepAcc>=stride){stepAcc-=stride;foot^=1;step(c.st==='run',surface(c),foot)}}else if(c.st!=='walk'&&c.st!=='run')stepAcc=0;
     // swimming: a stroke splash every ~0.9 s while moving; a bigger splash when entering the water

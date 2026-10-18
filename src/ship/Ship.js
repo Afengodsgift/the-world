@@ -186,7 +186,7 @@ const Ship=(()=>{
   Interaction.register('ship-boost','Boost! 🚀',()=>built&&st.role==='helm'&&ship.sunk===0,boost);
   Interaction.register('ship-leave','Leave the helm',()=>built&&!!st.role,release);
 
-  return {build,damage,boost,whenReady:()=>Vessel.whenReady(),seated:()=>!!st.role,role:()=>st.role,vessel:()=>v,
+  return {build,damage,boost,whenReady:()=>Vessel.whenReady(),seated:()=>!!st.role,role:()=>st.role,vessel:()=>v,onDeck:()=>!!st.aboard,speed:()=>Math.abs(ship.v||0),
     setInput(ix,iy){if(st.role==='helm'){raw.x=ix;raw.y=iy}},locked:()=>!!(st.role||st.gun),gunning:()=>!!st.gun,gun:()=>st.gun,aimGun,aimDir,leave,toggleCam,setCam,cam:()=>st.cam,                           // called by the controller while seated: the stick drives the ship
     marks:()=>built?[{n:'Your ship',x:pose.x,z:pose.z,r:6,icon:'⛵',dyn:true}]:[],
     _s:st,_ship:ship,_pose:pose,_step:step,_net:onNet,_claim:claim,_release:release,_board:board,_wind:windNow,_onDeck:onDeck,_helmPos:helmPos,_raw:raw,_deck:()=>v.deck};
