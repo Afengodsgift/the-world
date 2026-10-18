@@ -25,7 +25,7 @@ const SpaceEnv=(()=>{
     pos.needsUpdate=true;geo.computeVertexNormals()}
   function build(){
     if(typeof seaMesh==='undefined'||!seaMesh)return;
-    const old=seaMesh.geometry,g=new THREE.RingGeometry(.01,SEA_R,96,48);bend(g);seaMesh.geometry=g;old.dispose();baseOpacity=seaMesh.material.opacity;
+    const old=seaMesh.geometry,g=(typeof Ocean!=='undefined'&&Ocean.makeGeometry)?Ocean.makeGeometry(SEA_R,.01):new THREE.RingGeometry(.01,SEA_R,96,48);bend(g);seaMesh.geometry=g;old.dispose();baseOpacity=seaMesh.material.opacity;
     // atmosphere glow along the rim (additive, brightness in vertex colours)
     const rg=new THREE.RingGeometry(4600,9600,160,26);bend(rg,d=>Math.exp(-Math.pow((d-6050)/380,2))*.55+Math.exp(-Math.pow((d-6050)/1500,2))*.1);
     rim=new THREE.Mesh(rg,new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,depthTest:false,fog:false,side:THREE.DoubleSide,toneMapped:false,opacity:0}));   // no depth test: it hugs the sea surface within the depth buffer's resolution and would z-fight

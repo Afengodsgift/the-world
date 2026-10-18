@@ -50,14 +50,22 @@ const Vessel=(()=>{
     return v}
   // ---------- per frame ----------
   // st: {x,z,h,roll,v}; drives the pose, the model and the walkable deck. dt seconds.
+  const _op={y:0,pitch:0,roll:0};
   function update(v,dt,st){
     v.t+=dt;const q=v.pose,sw=1+.5*storm(),k=v.K.scale/2.2;
     q.px=q.x;q.pz=q.z;q.ph=q.h;q.py=q.y;
     q.x=st.x;q.z=st.z;q.h=st.h;
     const sk=v.sunk;
-    q.y=C.sea-v.K.draft+Math.sin(v.t*1.3+v.ph)*.07*sw*k-sk*(v.K.deckM+4);
-    q.pitch=Math.sin(v.t*1.05+1+v.ph)*.012*sw/Math.max(.7,k)+(st.v||0)*.0015+sk*.35;
-    q.roll=(st.roll||0)+Math.sin(v.t*.9+v.ph)*.012*sw/Math.max(.7,k)+sk*.25*(v.ph>3?1:-1);
+    // the hull rides the shared ocean (Ocean.pose: centre/bow/stern/port/starboard samples of the same wave function the water shader draws).
+    // Low-passed so short chop never jitters the deck; bounded inside Ocean.pose; the old gentle bob remains as a fallback when there is no Ocean.
+    let wy=Math.sin(v.t*1.3+v.ph)*.07*sw*k,wp=Math.sin(v.t*1.05+1+v.ph)*.012*sw/Math.max(.7,k),wr=Math.sin(v.t*.9+v.ph)*.012*sw/Math.max(.7,k);
+    if(typeof Ocean!=='undefined'){
+      const o=Ocean.pose(q.x,q.z,q.h,v.hl||11,v.hb||5,Date.now()/1000,undefined,_op,1),f=Math.min(1,dt*3.5);
+      if(v.wv===undefined){v.wv=o.y;v.wpi=o.pitch;v.wro=o.roll}else{v.wv+=(o.y-v.wv)*f;v.wpi+=(o.pitch-v.wpi)*f;v.wro+=(o.roll-v.wro)*f}
+      wy=v.wv;wp=v.wpi;wr=v.wro}
+    q.y=C.sea-v.K.draft+wy-sk*(v.K.deckM+4);
+    q.pitch=wp+(st.v||0)*.0015+sk*.35;
+    q.roll=(st.roll||0)+wr+sk*.25*(v.ph>3?1:-1);
     if(v.grp){v.grp.position.set(q.x,q.y,q.z);v.grp.rotation.set(q.pitch,q.h,q.roll)}
     if(v.deck)Decks.setPose(v.deck,q);
     for(const g of v.guns){if(g.cd>0)g.cd-=dt;g.recoil=Math.max(0,g.recoil-dt*3);if(g.obj){g.obj.position.set(g.x-g.side*g.recoil*.45,g.ly,g.z)}}

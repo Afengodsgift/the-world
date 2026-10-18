@@ -153,6 +153,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/core/RemoteSmooth.js"></script>
 <script src="src/core/StaticBatch.js"></script>
 <script src="src/world/SeaLife.js"></script>
+<script src="src/world/Ocean.js"></script>
 <script src="src/world/Environment.js"></script>
 <script src="src/audio/Ambience.js"></script>
 <script src="src/space/SpaceFlight.js"></script>
@@ -640,7 +641,7 @@ function buildWorld(code){
   {const cv=document.createElement('canvas');cv.width=cv.height=256;const cx2=cv.getContext('2d'),im2=cx2.createImageData?cx2.createImageData(256,256):null;
    if(im2){for(let y=0;y<256;y++)for(let x=0;x<256;x++){const a=x/256*6.2832,b=y/256*6.2832,v=128+40*Math.sin(a*3+Math.sin(b*2))+30*Math.sin(b*5+a)+20*Math.sin(a*8-b*6);const i=(y*256+x)*4;im2.data[i]=im2.data[i+1]=im2.data[i+2]=v;im2.data[i+3]=255}cx2.putImageData(im2,0,0)}
    seaTex=new THREE.CanvasTexture(cv);seaTex.wrapS=seaTex.wrapT=THREE.RepeatWrapping;seaTex.repeat.set(500,500);sea.material.bumpMap=seaTex;sea.material.bumpScale=.35}
-  sea.rotation.x=-Math.PI/2;sea.position.y=-.3;scene.add(sea);seaMesh=sea;Env.build();SpaceEnv.build();SpaceObjects.build();WaterFX.build();
+  sea.rotation.x=-Math.PI/2;sea.position.y=-.3;scene.add(sea);seaMesh=sea;Env.build();SpaceEnv.build();Ocean.build(seaMesh,6000);SpaceObjects.build();WaterFX.build();
   rng=mulberry(hashSeed(code));
   if(AM.plant_bushLarge)AM.plant_bushLarge.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.material.side=THREE.DoubleSide;o.material.emissive=new THREE.Color('#2a6a30')}});
   const dist=(x,z)=>Math.hypot(x-TOWN.x,z-TOWN.z),P={};
@@ -1256,7 +1257,7 @@ function tickFrame(t){
   vegCull();CameraRig.update(dt);if(typeof CineCam!=='undefined')CineCam.apply(dt);
   {const uT=clamp((-.25-camera.position.y)/.5,0,1);S.under=(S.under||0)+(uT-(S.under||0))*Math.min(1,dt*10)}   // 0 above water .. 1 camera fully submerged (drives fog, sound muffle, bubbles)                                                         // orbit / first-person / shoulder + flight FOV, roll, shake (src/camera/CameraRig.js)
   Boost.update(S,dt);me.userData.bc=Boost.view.charge;boostUI(Boost.view);
-  Space.update(dt,t);Env.tick(dt,t);SpaceEnv.update(dt,t);skyTick(t);Fishing.tick(dt,t);
+  Space.update(dt,t);Env.tick(dt,t);SpaceEnv.update(dt,t);Ocean.tick(dt,Env.state.wx);Ocean.updateUniforms(camera.position.x,camera.position.z,Space.f.above);skyTick(t);Fishing.tick(dt,t);
   WaterFX.update(dt,{x:S.x,y:S.y,z:S.z,heading:S.rot,speed:Math.hypot(S.gvx||0,S.gvz||0),swim:S.state==='swim',dv:!!S.dv,under:S.under||0,camX:camera.position.x,camY:camera.position.y,camZ:camera.position.z,dayF:Env.state.dayF,rain:S.y<300?Env.state.wx.rain:0,over:overSea,hAt:H});
   if(sun){Perf.snapSun(sun,S.x,S.y,S.z);sky.position.copy(camera.position);if(seaTex){seaTex.offset.x+=dt*.0006;seaTex.offset.y+=dt*.0004}
     if(sun.castShadow&&Perf.shadowTooSlow()){sun.castShadow=false;scene.traverse(o=>{if(o.material)o.material.needsUpdate=true})}}
