@@ -92,7 +92,7 @@ const PlayerCombat=(()=>{
     const d=el.querySelector('#whd'),n=el.querySelector('#whn');if(!A||!d)return;
     const dx=A.f.x-S.x,dz=A.f.z-S.z,y=S.yaw,fw=-Math.sin(y)*dx-Math.cos(y)*dz,rt=Math.cos(y)*dx-Math.sin(y)*dz;
     d.style.transition='none';d.style.transform='rotate('+(Math.atan2(rt,fw)*57.3)+'deg)';d.style.opacity=1;void d.offsetWidth;d.style.transition='opacity .7s';d.style.opacity=0;
-    n.textContent=(A.T.name+' · '+(MV[mv]||mv||'')).toUpperCase();n.style.transition='none';n.style.opacity=1;void n.offsetWidth;n.style.transition='opacity 1.2s .5s';n.style.opacity=0}
+    n.textContent=(A.T.name+' · '+(A.T.ai==='archer'&&(mv==='bolt'||mv==='orb')?(mv==='orb'?'heavy arrow':'arrow'):(MV[mv]||mv||''))).toUpperCase();n.style.transition='none';n.style.opacity=1;void n.offsetWidth;n.style.transition='opacity 1.2s .5s';n.style.opacity=0}
   function msg(t,sec){const m=el.querySelector('#wmsg');m.textContent=t;m.classList.add('on');msgT=sec||1.4}
   // ---------- bodies (avatars + models) and weapons ----------
   const pool={};     // foe type id -> [body]  (reused between fights; hidden when free)
