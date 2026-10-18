@@ -38,6 +38,10 @@ const Moves={
   rain:{id:'rain',who:'D',dmg:22,pdmg:20,hs:5,stun:22,kb:.8,reach:14,w:0,fx:[{on:'start',k:'aoe',at:'target',r:3,delay:52,dur:3}],phases:[ph('windup',50),ph('release',2),ph('recovery',30)]},       // a strike called down on where you stood when the cast began
   // ---- the Oathbound Knight: a shield-bash that cracks a raised guard (gb: a blocked hit empties the stamina bar at once) ----
   bash:{id:'bash',who:'D',dmg:10,pdmg:24,hs:5,stun:24,kb:2.0,reach:2.3,w:.15,gb:true,phases:[ph('startup',22),ph('active',5,{seg:0,a0:.5,a1:-.5}),ph('recovery',34)]},
+  // ---- Arissa's capoeira: spinning storm (armada), heavy axe-kick (martelo), low sweep (rasteira) ----
+  spin:{id:'spin',who:'D',dmg:18,pdmg:16,hs:5,stun:20,kb:.8,reach:2.8,w:.14,phases:[ph('startup',24),ph('active',8,{seg:0,a0:3,a1:-3}),ph('recovery',36)]},
+  hammer:{id:'hammer',who:'D',dmg:28,pdmg:26,hs:7,stun:26,kb:1.2,reach:2.6,w:.14,phases:[ph('startup',28),ph('active',5,{seg:0,a0:.3,a1:-.3}),ph('recovery',46)]},
+  lowsweep:{id:'lowsweep',who:'D',dmg:16,pdmg:14,hs:4,stun:22,kb:.6,reach:3.0,w:.14,phases:[ph('startup',24),ph('active',6,{seg:0,a0:1.2,a1:-1.2}),ph('recovery',38)]},
   riposte:{id:'riposte',who:'D',dmg:16,pdmg:14,hs:5,stun:20,kb:.6,reach:2.4,w:.12,phases:[ph('startup',20),ph('active',4,{seg:0,a0:.5,a1:-.5}),ph('recovery',24)]},
 };
 // expand a move into concrete phases (hold ticks decided at start, clamped to HOLD_MAX)

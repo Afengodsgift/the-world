@@ -80,7 +80,7 @@ const WardenMX=(()=>{
         riposte:{c:'rast',t0:.5,h:[[.7,1.15]],e:1.8},
         dash:{c:'armada',t0:0,h:[[.55,1.0]],e:1.6},
         leap:{c:'au',t0:.8,h:[[2.0,2.5]],e:2.9},
-        orb:{c:'cast',t0:.85,e:2.5},bolt:{c:'cast2',t0:0,e:1.0},quake:{c:'power',t0:.2,e:1.9}}}};
+        spin:{c:'armada',t0:0,h:[[.6,1.05]],e:1.6},hammer:{c:'martelo',t0:0,h:[[.28,.55]],e:1.3},lowsweep:{c:'rast',t0:0,h:[[.25,.5]],e:1.8},orb:{c:'cast',t0:.85,e:2.5},bolt:{c:'cast2',t0:0,e:1.0},quake:{c:'power',t0:.2,e:1.9}}}};
   const norm=s=>s.seq?s.seq:!s.h?[{c:s.c,t0:s.t0,e:s.e}]:s.h.map((h,i)=>({c:s.c,h,t0:i===0?s.t0:undefined,e:i===s.h.length-1?s.e:undefined}));
   // plan: phase list (CombatCore move.phases) + move spec -> per-phase {c,a,b} (clip, clip time at phase start, clip time at phase end). Pure; no THREE.
   function plan(phases,spec,dur){
