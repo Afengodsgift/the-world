@@ -36,6 +36,40 @@ const PlayerCombat=(()=>{
     const F=nearest();if(!F)return;const dx=F.f.x-S.x,dz=F.f.z-S.z,d=Math.hypot(dx,dz);if(d>4.5)return;const a=Math.atan2(dx,dz);
     if(lock||Math.abs(Math.atan2(Math.sin(a-S.rot),Math.cos(a-S.rot)))<1.0){pendFace=a;pendT=8;S.rot=a}}
   function reject(){if(P.st>2||!el)return;const b=el.querySelector('.p .st');b.classList.add('bad');setTimeout(()=>b.classList.remove('bad'),260);tone(110,80,.08,'square',.05)}   // out of stamina: say so instead of silently dropping the tap
+  // ---------- co-op (see WardenNet.js): host runs the foes, each player is authoritative for themselves, the partner is a puppet fighter 'Q' in the local sim ----------
+  const NET=WardenNet.S;let Q=null,spectate=false,netSendT=0,helloAt=0,netStarts=[];
+  const netOn=()=>NET.mode!=='solo'&&!!Q;
+  function netAddQ(){if(!C||Q&&C.F.Q===Q)return;Q=C.add('Q',{x:S.x+1,z:S.z,face:S.rot,hp:100,team:'p'})}
+  function netDropQ(){if(C&&C.F.Q){delete C.F.Q;C.order=C.order.filter(i=>i!=='Q')}Q=null}
+  function netHost(){helloAt=0;NET.mode='host';NET.site=site.id;NET.t0=Date.now();NET.left=false}
+  function netJoin(){NET.mode='guest';NET.site=site.id;NET.left=false;netAddQ();WardenNet.send({k:'j',s:site.id});NET.gotSnap=performance.now()}
+  function netLeave(){if(NET.mode!=='solo')WardenNet.send({k:'l',s:NET.site});WardenNet.reset();netDropQ();spectate=false}
+  function netMsg(p){
+    if(!on||!site)return;
+    if(p.k==='j'&&NET.mode==='host'&&p.s===site.id){netAddQ();msg('Your partner joins the fight',1.6)}
+    else if(p.k==='l'&&p.s===NET.site){if(NET.mode==='host'){netDropQ();NET.joined=false;msg('Your partner left the fight',1.6)}else if(NET.mode==='guest'){netDropQ();netHost();msg('The host left: you lead the fight',1.8)}}
+    else if(p.k==='h'&&NET.mode==='host'&&p.s===site.id&&(p.t0<NET.t0||p.t0===NET.t0&&p.from<(typeof myId!=='undefined'?myId:''))){netJoin()}}   // two hosts at once: the earlier fight wins, the other becomes its guest
+  const aiTarget=q=>{if(!Q||Q.act==='dead')return P;if(P.act==='dead')return Q;const dp=Math.hypot(P.x-q.x,P.z-q.z),dq=Math.hypot(Q.x-q.x,Q.z-q.z),cur=q._tg==='Q'?Q:P;const o=cur===P?Q:P,dc=cur===P?dp:dq,dO=cur===P?dq:dp;const pick=dO<dc-2?o:cur;q._tg=pick.id;return pick};
+  function netApply(){   // consume the newest partner message (once)
+    if(NET.mode==='host'&&NET.rep&&Q){const r=NET.rep;NET.rep=null;WardenNet.apply(Q,r.p,Moves,1)}
+    else if(NET.mode==='guest'&&NET.snap){const sn=NET.snap;NET.snap=null;NET.gotSnap=performance.now();
+      for(const st of sn.st||[]){const F=byId[st.id];if(F&&F.f.act!=='dead')C.start(st.id,st.m,st.h)}
+      for(const o of sn.f||[]){const F=byId[o.id];if(!F)continue;const f=F.f;
+        if(o.act==='dead'){if(f.act!=='dead'){f.hp=0;f.act='dead';f.ph=null;f.mv=null;events([{t:'dead',a:'P',d:o.id}])}continue}
+        const keep=F.lh&&performance.now()-F.lh<500&&o.hp>f.hp?f.hp:o.hp;WardenNet.apply(f,o,Moves,.5);f.hp=keep;F.nin={mx:o.mx||0,mz:o.mz||0};
+        if(o.aw&&!F.awake)rouse(F,F.dorm!=='wake');F.ai.ph2=!!o.p2}
+      if(Q&&sn.p)WardenNet.apply(Q,sn.p,Moves,1)}}
+  function netSend(dt){
+    if(NET.mode==='solo'||!on)return;const nw=performance.now();
+    if(NET.mode==='host'&&nw-helloAt>=1000){helloAt=nw;WardenNet.send({k:'h',s:site.id,t0:NET.t0})}
+    if(nw-netSendT<66)return;netSendT=nw;
+    if(NET.mode==='host'&&Q){const f=foes.map(F=>Object.assign(WardenNet.pack(F.f),{id:F.id,mx:F.nin?F.nin.mx:0,mz:F.nin?F.nin.mz:0,aw:F.awake?1:0,p2:F.ai.ph2?1:0}));WardenNet.send({k:'s',f,p:WardenNet.pack(P),st:netStarts});netStarts=[]}
+    else if(NET.mode==='guest')WardenNet.send({k:'g',p:WardenNet.pack(P)});
+    if(NET.mode==='guest'&&performance.now()-NET.gotSnap>3500){netDropQ();netHost();msg('Lost the host: you lead the fight',1.8)}}
+  // the partner's avatar (the world's normal remote avatar) plays a roll / block / swing while the puppet does
+  let qAct='';
+  function netVis(){if(!Q||!NET.partner||typeof others==='undefined')return;const o=others.get(NET.partner);if(!o)return;const k=Q.act==='attack'?'atk':Q.act;if(k===qAct)return;qAct=k;
+    const e=k==='dodge'?'roll':k==='atk'?(Q.mv&&Q.mv.id==='heavy'?'cross':'jab'):Q.guard?'block':null;if(e&&typeof loadEmotes==='function')loadEmotes().then(()=>{o.group.userData.emoteReq=e}).catch(()=>{})}
   // ---------- Flow: the meter fills from dodges / deflects / hits / posture breaks. Not full: the Flow button is a stamina skill (Cinder Arc; with the stick held it is the Ginga Step: a sidestep with i-frames into an evasive slash).
   // Full: it starts Flow (the meter drains for ~9 s) and the button becomes a finisher (Armada, then Meia Lua), each paid for out of the meter.
   let flow=0,flowOn=false,flowN=0,fq=null,skillCD=0;
@@ -98,7 +132,7 @@ const PlayerCombat=(()=>{
     b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('lostpointercapture',up);
     b.addEventListener('contextmenu',e=>e.preventDefault())}
   // ---------- DOM (built once) ----------
-  function build(){
+  function build(){WardenNet.setHandler(netMsg);
     el=document.createElement('div');el.id='wroot';
     el.innerHTML='<div id="wh"><div class="wb p"><i class="hp"><b></b></i><i class="st"><b></b></i><i class="fl"><b></b></i></div><div class="wb d"><span>The Duelist</span><i class="hp"><b></b></i><i class="po"><b></b></i></div></div><div id="wmsg"></div><div id="whd" style="position:fixed;left:50%;top:46%;width:0;height:0;pointer-events:none;z-index:50;opacity:0;transition:opacity .5s"><div style="position:absolute;left:-26px;top:-150px;width:0;height:0;border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:54px solid #ff2a1a;filter:drop-shadow(0 0 8px #ff6a2a)"></div></div><div id="whn" style="position:fixed;left:0;right:0;top:34%;text-align:center;pointer-events:none;z-index:50;color:#ffb27a;font:700 15px sans-serif;letter-spacing:.14em;text-shadow:0 0 6px #000,0 0 3px #000;opacity:0;transition:opacity .5s"></div>'+
       '<div id="wc"><button id="wLight">Light</button><button id="wHeavy">Heavy</button><button id="wGuard">Guard</button><button id="wDodge">Dodge</button><button id="wFlow">Flow</button><button id="wLock">Lock</button></div>'+
@@ -172,7 +206,7 @@ const PlayerCombat=(()=>{
   function startFight(){
     fightN++;hurt=false;fightVo=false;try{WardenSfx.load()}catch(e){}const R=site.wall?site.R-.5:site.R+10,sol=WardenSolids().filter(s=>Math.hypot(s.x-WRD.x-site.x,s.z-WRD.z-site.z)<site.R+14);
     C=CombatCore.create({arena:{x:WRD.x+site.x,z:WRD.z+site.z,R},solids:sol});ST=CombatCore.stepper(C,6);t0=performance.now();
-    P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});spawnFoes();WardenFx.clear();WardenVfx.clear();
+    P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});spawnFoes();WardenFx.clear();WardenVfx.clear();Q=null;spectate=false;netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
     flow=0;flowOn=false;flowN=0;fq=null;skillCD=0;bars.fl=-1;state='fight';stateT=0;lock=site.fog||foes.some(F=>F.T.boss);lockI=0;lastEv=[];pv.init=false;down.guard=down.heavy=false;stW=0;gT=0;
     if(el)el.querySelector('#wLock').classList.toggle('on',lock);D=target().f}
   // Inside a walled arena the screen is the cost on a low-end phone: render at 1.25x (not 2x) while you fight, restore on leaving. Skipped when ?dpr= was given.
@@ -187,12 +221,12 @@ const PlayerCombat=(()=>{
   function engage(s){
     try{if(typeof loadEmotes==='function')loadEmotes().catch(()=>{})}catch(e){}   // the 'playdead' fall clip lives in the emote library: without it corpses (and you) just stand there
     if(on)return;if(!el)build();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenFx.build();WardenVfx.build();WardenMX.fetch('player').catch(()=>{});
-    site=s;fightN=0;startFight();for(const F of foes)WardenMX.fetch(F.T.role).catch(()=>{});
+    site=s;fightN=0;const hh=WardenNet.hostFor(s.id);NET.joined=false;startFight();if(hh)netJoin();else netHost();for(const F of foes)WardenMX.fetch(F.T.role).catch(()=>{});
     lx=S.x;lz=S.z;on=true;document.body.classList.add('warden-fight');ensureAvatars();if(sword&&sword.grip)sword.grip.visible=true;
     for(const F of foes)for(const k of['sword','shield'])if(F.body[k]){const o=F.body[k].grip||F.body[k];if(o)o.visible=true}
     arenaRes(true);msg(s.n,2.2);try{if(s.fog)WardenIsles.fog(s.id,'sealed')}catch(e){}}
   function leave(hold){   // hold: keep the corpses of a cleared site in the world
-    if(!on)return;releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;pendFace=null;
+    if(!on)return;netLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;pendFace=null;
     if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0)}catch(e){}WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
     try{if(site&&site.fog)WardenIsles.fog(site.id,rt(site).cleared?'gone':'idle')}catch(e){}}
@@ -211,7 +245,7 @@ const PlayerCombat=(()=>{
       {const fp=e.t==='hit'||e.t==='block'||e.t==='deflect'||e.t==='posturebreak'||e.t==='guardbreak'?(T?T.f:(e.d==='P'?P:null)):null;if(fp)vfxAt(e,fp)}
       if(e.t==='start'){if(e.a==='P'||A&&e.move&&A.f){const q=e.a==='P'?P:A.f;if(q&&(e.a==='P'||/atk|cut|slam|sweep|swipe|heavy|light/.test(e.move)))WardenVfx.slash(q.x,H(q.x,q.z)+1.2,q.z,q.face,/heavy|slam/.test(e.move),e.a==='P'?0:1)}if(e.a==='P'){if(e.move==='light'&&pAnim)pAnim.nextLight(performance.now()/1000);sfx('whoosh',.4,e.move==='heavy'?.75:1.1,()=>tone(e.move==='heavy'?220:380,e.move==='heavy'?90:150,e.move==='heavy'?.18:.1,'triangle',.1))}else{if(A&&A.anim&&A.anim.pickAlt)A.anim.pickAlt(e.move,Math.random());sfx('whoosh',.35,.8,()=>tone(160,70,.16,'sawtooth',.07))}}
       else if(e.t==='dodge'&&e.a==='P')tone(200,80,.14,'sine',.08);
-      else if(e.t==='hit'){if(T){T.flash=1;wake(T,true);sfx(e.dmg>=20||e.crit?'heavy':'strike',.8,e.crit?.85:1,()=>tone(140,50,.14,'square',.14));if(e.crit)msg('CRITICAL');if(T.body.T.body==='avatar')T.body.u.hitReq=1}else{sfx(e.dmg>=20?'heavy':'strike',.9,.9,()=>tone(110,40,.18,'square',.16));if(e.d==='P'&&P.hp>0){hurt=true;msg('',0);hitFrom(A,e.move)}}}
+      else if(e.t==='hit'){if(T){T.flash=1;T.lh=performance.now();wake(T,true);sfx(e.dmg>=20||e.crit?'heavy':'strike',.8,e.crit?.85:1,()=>tone(140,50,.14,'square',.14));if(e.crit)msg('CRITICAL');if(T.body.T.body==='avatar')T.body.u.hitReq=1}else{sfx(e.dmg>=20?'heavy':'strike',.9,.9,()=>tone(110,40,.18,'square',.16));if(e.d==='P'&&P.hp>0){hurt=true;msg('',0);hitFrom(A,e.move)}}}
       else if(e.t==='block')sfx('clash',.6,.9,()=>tone(420,260,.1,'square',.1));
       else if(e.t==='deflect'){sfx('clash',.85,1.4,()=>tone(1500,900,.18,'sine',.14));msg(T?'':'DEFLECTED',.5)}
       else if(e.t==='posturebreak'&&T){if(T.T.boss)msg('POSTURE BROKEN');sfx('heavy',.8,1.1,()=>tone(500,120,.3,'sawtooth',.12))}
@@ -220,6 +254,7 @@ const PlayerCombat=(()=>{
       else if(e.t==='dead'&&T){sfx('heavy',.7,.7,()=>tone(200,40,.5,'sawtooth',.14));if(T.body.T.body==='avatar')T.body.u.emoteReq='playdead';if(T.T.boss){CineCam.play('death',{x:T.f.x,z:T.f.z,h:1.2*T.T.scale,sc:Math.max(1,T.T.scale*.9)},{id:T.T.id});msg(T.T.name.toUpperCase()+' IS FELLED',3);setTimeout(()=>WardenSfx.play(hurt?'vo_winner':'vo_flawless_victory',.8,1,{nojit:1}),700)}
         if(lock&&lockI===T.i){const n=nearest();if(n&&n!==T)lockI=n.i;else{lock=false;el.querySelector('#wLock').classList.remove('on')}}
         if(!alive().length){state='won';stateT=performance.now();lock=false;el.querySelector('#wLock').classList.remove('on')}}
+      else if(e.t==='dead'&&e.d==='P'&&NET.mode==='host'&&Q&&Q.act!=='dead'){msg('YOU DIED · your partner fights on',3);sfx('heavy',.8,.6,()=>tone(180,35,.6,'sawtooth',.16));spectate=true}
       else if(e.t==='dead'&&e.d==='P'){msg('YOU DIED',3);sfx('heavy',.8,.6,()=>tone(180,35,.6,'sawtooth',.16));setTimeout(()=>WardenSfx.play('vo_game_over',.8,1,{nojit:1}),600);state='lost';stateT=performance.now()}}}
   // dormant foes sit / stand sheathed until you come near: rouse() starts the draw / roar / power-up clip, rise() hands them to the AI once it ends; a hit skips the show
   function rouse(F,skip){if(F.awake||F.dorm==='wake'&&!skip)return;if(skip||!F.anim){rise(F);return}F.dorm='wake';F.wakeT=0;if(F.T.boss){CineCam.play('intro',{x:()=>F.f.x,z:()=>F.f.z,h:1.75*F.T.scale,sc:Math.max(1,F.T.scale*.9)},{id:F.T.id});msg(F.T.name,2.4);sfx('heavy',.6,.55,()=>tone(90,45,.6,'sawtooth',.14));WardenSfx.play('vo_prepare_yourself',.8,1,{nojit:1})}else if(!fightVo){fightVo=true;WardenSfx.play('vo_fight',.8,1,{nojit:1})}}
@@ -243,6 +278,7 @@ const PlayerCombat=(()=>{
     else if(d>site.R+(site.wall?1.5:4)){leave(false);return}
     ensureAvatars();
     // end-of-fight handling
+    if(spectate&&(!Q||Q.act==='dead')){spectate=false;state='lost';stateT=performance.now()}
     if(state==='lost'&&performance.now()-stateT>3200){startFight();msg('Again.',1.4)}
     else if(state==='won'&&performance.now()-stateT>(PC.loop?5000:4500)){
       if(PC.loop){startFight();msg('Again.',1.4)}else{rt(site).cleared=true;felled++;msg(site.n+' · cleared ('+felled+' felled)',2.4);leave(true);return}}
@@ -253,17 +289,19 @@ const PlayerCombat=(()=>{
     try{let sc=1;for(const F of foes)if(F.f.act!=='dead'&&F.awake)sc=Math.max(sc,F.T.scale);const fd=Math.hypot(S.x-D.x,S.z-D.z);CameraRig.setBias(-2.4+(sc-1)*3.4+Math.min(3.5,Math.max(0,fd-5))*.45+(alive().length>1?1:0))}catch(e){}
     for(const F of foes)if(F.ai.ph2&&!F.ph2&&state==='fight'){F.ph2=true;if(F.T.boss){msg(F.T.ph2,2);sfx('heavy',.7,.6,()=>tone(120,60,.4,'sawtooth',.12));WardenSfx.play('vo_sudden_death',.8,1,{nojit:1})}if(F.body.shield)F.body.shield.visible=false}
     // 1) hand the sim the player's current position, run the due ticks, apply the forced motion back to S
-    P.x=S.x;P.z=S.z;lx=S.x;lz=S.z;
+    P.x=S.x;P.z=S.z;lx=S.x;lz=S.z;netApply();
     const held=nt=>{const f=lock&&D.act!=='dead'?heading():pendT>0&&pendFace!==null?pendFace:S.rot;if(pendT>0)pendT--;
-      const h={P:{face:f,mx:0,mz:0}};let atk=0;for(const F of foes)if(F.f.act==='attack')atk++;
+      const h={P:{face:f,mx:0,mz:0}};if(Q)h.Q={face:Q.face,mx:0,mz:0};let atk=0;for(const F of foes)if(F.f.act==='attack')atk++;
       for(const F of foes){const q=F.f;
         if(F.f.act==='dead'){h[F.id]={face:q.face,mx:0,mz:0};continue}
         if(!F.awake&&F.dorm!=='wake'&&Math.hypot(S.x-q.x,S.z-q.z)<F.T.aggro)wake(F);
-        if(F.awake&&PC.ai&&state==='fight'){F.ai.noAtk=!!F.T.pack&&atk>=Foes.PACK_ATK&&q.act!=='attack';const a=DuelistAI.think(F.ai,P,q,lastEv,nt);h[F.id]={face:a.face,mx:a.mx,mz:a.mz,list:a.list}}
+        if(NET.mode==='guest'){const n=F.nin||{mx:0,mz:0};h[F.id]={face:q.face,mx:n.mx,mz:n.mz,list:[]};continue}
+        if(F.awake&&PC.ai&&state==='fight'){F.ai.noAtk=!!F.T.pack&&atk>=Foes.PACK_ATK&&q.act!=='attack';const a=DuelistAI.think(F.ai,aiTarget(q),q,lastEv,nt);F.nin={mx:a.mx,mz:a.mz};h[F.id]={face:a.face,mx:a.mx,mz:a.mz,list:a.list}}
         else h[F.id]={face:F.awake||F.dorm==='wake'?Math.atan2(S.x-q.x,S.z-q.z):q.face,mx:0,mz:0}}
       return h};
     const evs=CineCam.frozen()?[]:ST.advance(now(),held,()=>{S.x+=P.x-lx;S.z+=P.z-lz;lx=P.x;lz=P.z;lastEv=C.ev});
-    events(evs);flowTick(dt);
+    for(const e of evs)if(e.t==='start'&&NET.mode==='host'&&byId[e.a]){const F=byId[e.a];netStarts.push({id:e.a,m:e.move,h:F.f.hold|0})}
+    events(evs);flowTick(dt);netSend(dt);netVis();
     // 2) facing: the sim owns it while attacking / dodging / stunned; lock-on owns it otherwise
     if(P.act==='attack'||P.act==='dodge'||P.act==='stun')S.rot=P.face;
     else if(lock&&D.act!=='dead'){const a=heading();S.rot=a;S.yaw+=Math.atan2(Math.sin(a+Math.PI-S.yaw),Math.cos(a+Math.PI-S.yaw))*Math.min(1,dt*7)}
