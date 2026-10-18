@@ -2,7 +2,7 @@
 import fs from 'fs';import path from 'path';import {fileURLToPath} from 'url';
 const ROOT=path.join(path.dirname(fileURLToPath(import.meta.url)),'..');
 const nm=(process.env.NODE_PATH||'').split(path.delimiter).find(d=>d&&fs.existsSync(path.join(d,'three')));if(!nm)throw new Error('three@0.147.0 not found: set NODE_PATH');
-const T=await import(path.join('file://',nm,'three/build/three.module.js'));
+const T=await import(path.join('file://',nm,'three/build/three.module.js'));globalThis.THREE=T;
 let bad=0;const ok=(c,m)=>{console.log((c?'ok ':'FAIL ')+m);if(!c)bad++};
 const R=f=>fs.readFileSync(path.join(ROOT,f),'utf8'),HTML=R('index.html'),grab=(a,b)=>HTML.slice(HTML.indexOf(a),HTML.indexOf(b));
 const rigBones=new Set((()=>{const b=fs.readFileSync(path.join(ROOT,'assets/char.glb'));return JSON.parse(b.subarray(20,20+b.readUInt32LE(12)).toString()).nodes.map(n=>n.name)})());
