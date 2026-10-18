@@ -10,7 +10,8 @@ no refactor of `tick()`, data lives in `src/data/`, and every system gets a simu
 |---|---|---|
 | 1 | Repository + asset audit | **done** (this file) |
 | 2a | Vehicle physics core (ground, air, ramp launch, boost, flight, transformation, packet) | **done**: `src/race/CarPhysics.js`, `src/data/rally.js`, `tests/rally_car.sim.js` (55 checks) |
-| 2b | Vehicle body + chase camera + input takeover + touch controls | blocked on a car model (section 3) |
+| 2a' | Vehicle models baked for mobile | **done**: `assets/rally/car_aero.glb` (24k tris, 1.5 MB), `car_retro.glb` (17k tris, 0.47 MB), `tools/build_rally_cars.mjs`, `tests/rally_assets.check.js` |
+| 2b | Vehicle body wiring + chase camera + input takeover + touch controls | next (models available) |
 | 3 | Track system (kit-grid authoring, analytic surface, checkpoints, boosts, hazards) | next; does not need a car model |
 | 4–8 | Flight transition in the world, multiplayer race, AI, polish, expansion | planned (section 7) |
 
@@ -77,17 +78,28 @@ Either the wrong zip was attached or the cars are a separate pack. I have not in
 | **Cars, flying car, transformation clip, engine/tyre sound, wheels, paint** | **nothing** | **everything** |
 | Aerial course (rings, gates, clouds, wind) | nothing | built from procedural gates / existing ring + cloud code |
 
-## 4. Blocker and options for vehicles
+## 4. Vehicles (resolved)
 
-I can build and test all handling without a model (done), and the track system next. Driving it on screen needs a car body. Options, best first:
+The first upload (track kit) had no cars. The second upload supplied what was needed:
 
-1. **Send the actual car pack** (ideally with a flying car or at least separable wheels). Kenney's CC0 *Car Kit* style models (separate wheel
-   nodes, flat colour atlas) fit this game's art direction and this kit's flat materials.
-2. **No flying model exists?** Then the transformation is built from the car itself, exactly as the brief allows: wheels tuck up into the body,
-   a pair of wing/fin meshes extend (simple generated geometry in the car's colour), a thruster glow lights up, with a ring burst and a FOV punch. It
-   needs a car model whose wheels are separate nodes. It will not be claimed as an authored animation.
-3. **Temporary body** (only if you want to see driving before the pack arrives): a clearly-labelled low-poly placeholder, swapped out the moment a real
-   model is dropped in. I will not ship it as the final art.
+| Upload | Contents | Use |
+|---|---|---|
+| `flying_car__futuristic_vehicle.glb` | 500k tris, 31 MB, 3 textures (1024 px), 8 overlapping primitives, nose +Z | **Ace / Comet** body ("aero"): baked to 24k tris, 1.5 MB |
+| `flying-retro_car.glb` | 393k tris, 13 MB, 10 flat materials, nose +X | **Bruiser** body ("retro"): baked to 17k tris, 0.47 MB, rotated nose to +Z |
+| `Scifi_Flying_Cars_Packs.zip` | 200 **2D side-view PNG sprites** + wheel/thruster sprites | not usable as race vehicles (no 3D). Thruster/flame sprites may be reused as flame textures later |
+| `model_car.rar` | 3 FBX + 3 PNG, **all 0 bytes** (empty/corrupt upload) | unusable; re-send if wanted |
+
+Baking (`tools/build_rally_cars.mjs`): weld, decimate with meshoptimizer, normalise the pose (+Z forward, Y up, belly on y=0, real length 4.4 m / 5.0 m),
+WebP textures. Lessons recorded in the tool: plain simplify stalls at 20 % on the atlas-textured car (UV seams); the permissive flag alone smears the
+texture; **the fix is to merge the 8 overlapping primitives into one mesh first, then use the attribute-aware simplifier** (UV + normal weights), which
+removed the shard artifacts. Checked by rendering from four angles before accepting.
+
+* Both models are **hover vehicles**, so the ground-to-air change is a mode change of the same craft. The aero car's four pods are fused into one
+  mesh by the merge, so the transformation uses model-agnostic effects (pod/thruster glow from the supplied flame sprite idea, ring burst, FOV punch,
+  body pitch-up, trail) rather than a pod animation. Splitting the pods back out by region is a possible later upgrade; no authored transformation
+  clip exists in either file and none is claimed.
+* Comet reuses the aero body with a paint tint (no third model).
+* Licence: both GLBs look like Sketchfab downloads; please confirm you have the right to ship them in the game.
 
 ## 5. Decisions
 

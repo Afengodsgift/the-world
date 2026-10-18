@@ -24,11 +24,12 @@ const RALLY={
     hardLand:9,landLoss:.02,      // landing impact (m/s) above which speed is lost, per extra m/s (capped at 30%)
     offroad:{grip:.7,drag:3.2,vmax:.62}, // surface multipliers when env.surf says 'rough' (grass, sand)
   },
-  // ---- three launch classes. The pack gives us no cars, so these are stat blocks the visuals plug into later ----
+  // ---- three launch classes. Bodies are the two supplied flying cars (baked by tools/build_rally_cars.mjs): 'aero' (futuristic, 4 hover pods) and 'retro' (50s fin car).
+  // Comet has no third model: it re-uses the aero body with a paint tint (a stat/handling variant, honestly labelled). Models face +Z, Y up, belly on y=0. ----
   cls:{
-    ace:    {n:'Ace',    vmax:46,accel:22,turn:1.95,grip:7.0,boostMul:1.42,boostT:2.2,charges:3,mass:1.0},
-    comet:  {n:'Comet',  vmax:52,accel:24,turn:1.65,grip:5.4,boostMul:1.50,boostT:2.0,charges:3,mass:.85},
-    bruiser:{n:'Bruiser',vmax:42,accel:18,turn:1.75,grip:9.0,boostMul:1.38,boostT:2.6,charges:4,mass:1.4},
+    ace:    {n:'Ace',    model:'assets/rally/car_aero.glb',                vmax:46,accel:22,turn:1.95,grip:7.0,boostMul:1.42,boostT:2.2,charges:3,mass:1.0},
+    comet:  {n:'Comet',  model:'assets/rally/car_aero.glb',tint:'#ff5a2a',vmax:52,accel:24,turn:1.65,grip:5.4,boostMul:1.50,boostT:2.0,charges:3,mass:.85},
+    bruiser:{n:'Bruiser',model:'assets/rally/car_retro.glb',               vmax:42,accel:18,turn:1.75,grip:9.0,boostMul:1.38,boostT:2.6,charges:4,mass:1.4},
   },
   // ---- flight mode (arcade plane). Gaps between islands are ~1000-2000 m, so a crossing is ~20-35 s at cruise ----
   fly:{
