@@ -11,7 +11,7 @@ const CombatCore=(()=>{
     team:o.team||null,dm:o.dm||1,rm:o.rm||1,act:'free',pt:0,ph:null,pi:0,pk:0,mv:null,hold:0,done:{},sk:null,stun:0,kx:0,kz:0,kr:0,dir:null,guard:false,gpt:99,rel:99,sr:99,pr:99,c:0,rel2:false,buf:null,q:[],ex:0,ez:0,lc:0,lcT:-999,dEnd:-999}}
   function create(o){o=o||{};const C={tick:0,hs:0,ev:[],fx:[],fxN:0,F:{},solids:(o.solids||[]).slice(),arena:o.arena||{x:0,z:0,R:1e9},order:[]};
     C.add=(id,fo)=>{C.F[id]=mkFighter(id,fo);C.order.push(id);return C.F[id]};
-    C.step=cmds=>step(C,cmds||{});return C}
+    C.step=cmds=>step(C,cmds||{});C.start=(id,m,hold)=>{const f=C.F[id];if(f&&Moves[m])startMove(C,f,m,hold|0)};return C}
   const emit=(C,t,a,d,x)=>{const e=Object.assign({tk:C.tick,t,a,d},x||{});C.ev.push(e);return e};
   const faceV=f=>[Math.sin(f.face),Math.cos(f.face)];
   function moveBy(C,f,dx,dz){
