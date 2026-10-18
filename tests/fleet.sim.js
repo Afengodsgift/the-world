@@ -37,19 +37,11 @@ function duel(style,secs,ex,ez,eh){
   ok(r.lashed,'a boarding ship comes alongside and lashes on (after '+r.t0.toFixed(0)+' s, closest '+r.minD.toFixed(1)+' m)');
   const e=r.e,pv=A.Ship.vessel();tick(6,.05);const lp=A.Sailing.toShip(PL,e.sh.x,e.sh.z,{}),gap=Math.abs(lp.x);
   ok(gap<pv.hb+e.v.hb+1&&Math.abs(lp.z)<3,'lashed right alongside (side gap '+gap.toFixed(1)+' m for hulls '+(pv.hb+e.v.hb).toFixed(1)+', '+lp.z.toFixed(1)+' m along)');
-  // walking from your deck over both rails onto theirs, with the real deck controller (Decks.step) and plain gravity
-  {const dp=pv.deck,de=e.v.deck,M=A.SHIP.cls[A.SHIP.player].deckM,sd=Math.sign(lp.x)*-1,Pl={x:0,y:0,z:0,vy:0,rot:0,grounded:true,_dk:null,flying:false};
-   // start on your main deck, a few metres in from the rail on the side facing the pirate, abeam of the middle
-   let sp=null;for(let x=pv.hb-2;x>1&&!sp;x-=.25){const f=A.Decks.floor(dp,-sd*x,lp.z*-1+0);for(const zz of [0,1,-1,2,-2,3]){const f2=A.Decks.floor(dp,-sd*x,zz);if(Math.abs(f2-M)<.05&&!A.Decks.wallAt(dp,-sd*x,zz,M,.3)){sp=[-sd*x,zz];break}}}
-   const w=A.Decks.toWorld(dp,sp[0],M,sp[1],{});Pl.x=w.x;Pl.y=w.y;Pl.z=w.z;Pl.rot=0;
-   // walk toward the pirate's centre in world space
-   const gx=e.sh.x,gz=e.sh.z;let reached=false;
-   for(let k=0;k<400&&!reached;k++){tick(.02,.02);const dx=gx-Pl.x,dz=gz-Pl.z,L=Math.hypot(dx,dz)||1,px=Pl.x,pz=Pl.z,vx=dx/L*4,vz=dz/L*4;Pl.x+=vx*.02;Pl.z+=vz*.02;
-     let gY=-1;const g=A.Decks.step(Pl,px,pz,{dt:.02,grounded:Pl.grounded,moving:true,flying:false});if(g>gY)gY=g;
-     Pl.vy-=(Pl.vy<0?33:25)*.02;Pl.y+=Pl.vy*.02;if(Pl.y<=gY||(Pl.grounded&&Pl.vy<=0&&Pl.y-gY<.35)){Pl.y=gY;Pl.vy=0;Pl.grounded=true}else Pl.grounded=false;
-     if(Pl._dk&&Pl._dk.id===e.v.id&&Pl.grounded)reached=true;
-     if(Pl.grounded&&Pl.y<gY+.05&&Math.hypot(gx-Pl.x,gz-Pl.z)<2)break}
-   ok(reached,'walking from your deck across both rails puts you ON the pirate ship (on '+(Pl._dk?Pl._dk.id:'nothing')+')');}
+  // the rails are walled now: you cross with the Board! action, which puts you on their main deck
+  {const dp=pv.deck,M=A.SHIP.cls[A.SHIP.player].deckM,S=A.S;A.Decks.pin(S,dp,0,0);S.grounded=true;
+   ok(A.Fleet.boardable()===e,'a lashed pirate ship is boardable from your deck');
+   ok(A.Fleet.boardEnemy()&&S._dk&&S._dk.id===e.v.id,'Board! puts you ON the pirate ship (on '+(S._dk?S._dk.id:'nothing')+')');
+   const l2=A.Decks.toLocal(e.v.deck,S.x,S.y,S.z,{});ok(Math.abs(l2.y-e.K.deckM)<.2,'…standing on its main deck');}
   // sail off: the lines are cut
   PL.v=9;PL.sail=1;tick(3,.05);ok(!e.lash,'sailing off cuts the lines');A.Fleet.remove(e);PL.v=0}
 {place(A,SP[0],SP[1],0);place(B,SP[0],SP[1],0);const r=duel('ram',60,SP[0]+80,SP[1]+60,Math.PI);
