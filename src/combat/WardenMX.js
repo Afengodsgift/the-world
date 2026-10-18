@@ -103,6 +103,23 @@ const WardenMX=(()=>{
             if(mid<cut){const e=en(A),g0=f0/cut,g1=f1/cut;out[q]={c:A.c,a:A.h[1]+(e-A.h[1])*Math.min(1,g0)*.6,b:A.h[1]+(e-A.h[1])*Math.min(1,g1)*.6}}
             else{const a0=t0(B),g0=(f0-cut)/(1-cut),g1=(f1-cut)/(1-cut);out[q]={c:B.c,a:a0+(B.h[0]-a0)*Math.max(0,g0),b:a0+(B.h[0]-a0)*Math.min(1,g1)}}}}}}
     return out}
+  // ---- second wave of bosses: Ganfaul (Great Sword pack), Maw and Bear (Creature pack, same clip names as the parasite) ----
+  ROLES.maw=Object.assign({},ROLES.parasite,{file:'assets/warden_mx_maw.json'});
+  ROLES.bear=Object.assign({},ROLES.parasite,{file:'assets/warden_mx_bear.json',wake:{c:'flex',t0:0,t1:2.6,rate:1}});
+  ROLES.ganfaul={file:'assets/warden_mx_ganfaul.json',native:true,guard:'guard',dorm:'crouch',wake:{c:'power',t0:.3,t1:2.6,rate:.95},death:'death',hit:'hit1',
+    loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
+    moves:{
+      cut:{c:'slash',t0:.1,h:[[.45,.75]],e:1.2},
+      thrust:{c:'slash5',t0:.15,h:[[.5,.82]],e:1.3},
+      twin:{c:'slash3',t0:.2,h:[[.55,.85],[1.1,1.4]],e:1.7},
+      fall:{c:'atk',t0:.1,ch:[.4,.6],h:[[.55,.9]],e:1.2},
+      sweep:{c:'spin',t0:.1,h:[[.5,1.3]],e:1.8},
+      slam:{c:'slash3',t0:0,h:[[.55,1.0]],e:1.8},
+      bash:{c:'kick',t0:.1,h:[[.5,.85]],e:1.4},
+      leap:{c:'slash4',t0:.3,h:[[.9,1.3]],e:1.7},
+      dash:{c:'slash5',t0:0,h:[[.5,.82]],e:1.3},
+      riposte:{c:'kick',t0:.1,h:[[.5,.85]],e:1.4},
+      quake:{c:'power',t0:.3,e:2.0}}};
   const BUILD='mx3';const SH={};      // role -> {st,clips,p}
   function fetchRole(role){const s=SH[role]||(SH[role]={st:'none',clips:null,meta:null,p:null});
     if(!s.p)s.p=fetch(ROLES[role].file).then(r=>r.json()).then(j=>{s.clips={};s.meta={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=role+':'+c.name;ac.uuid=role+':'+c.name;s.clips[c.name]=ac;   // unique uuid per role: three.js caches actions by clip uuid, and the game's own clips are also called idle/walk/jump (sharing one action stole the game's base layer -> T-pose on hit)

@@ -10,6 +10,9 @@ const Foes=(()=>{
     soldier:{name:'Ashen Soldier',hp:60,r:.45,scale:1,spd:1.3,ai:'soldier',role:'guard',body:'glb',files:['guard2','guard3'],bright:1.3,sword:{f:'sword_falchion.glb',len:1.0,l0:5.36},shield:true,pack:true,aggro:13,dm:.55},
     paladin:{name:'The Oathbound Knight',hp:300,r:.7,scale:1.3,rm:1.25,spd:1.3,ai:'knight',role:'paladin',body:'glb',file:'paladin',bright:2.6,boss:true,sword:{f:'sword_falchion.glb',len:1.1,l0:5.36},shield:true,aggro:11,ph2:'The knight casts his shield aside.'},
     parasite:{name:'The Hollow Parasite',hp:420,r:1.2,scale:1.9,rm:1.7,spd:1.2,ai:'beast',role:'parasite',body:'glb',file:'parasite',bright:1.2,boss:true,aggro:12,ph2:'The Parasite shrieks.'},
+    ganfaul:{name:'Ganfaul, the Hollow Knight',hp:380,r:.8,scale:1.45,rm:1.45,spd:1.2,ai:'knight',role:'ganfaul',body:'glb',file:'ganfaul',bright:2.4,boss:true,sword:{f:'sword_claymore.glb',len:1.5,l0:6.6},aggro:11,ph2:'Ganfaul raises his blade and the ground answers.'},
+    maw:{name:'The Maw',hp:460,r:1.15,scale:1.8,rm:1.7,spd:1.25,ai:'beast',role:'maw',body:'glb',file:'maw',bright:1.4,boss:true,aggro:12,ph2:'The Maw bellows.'},
+    bear:{name:'The Ashfur Bear',hp:300,r:1.0,scale:1.6,rm:1.5,spd:1.45,ai:'beast',role:'bear',body:'glb',file:'bear',bright:1.4,boss:true,aggro:12,ph2:'The Bear goes berserk.'},
     arissa:{name:'Arissa, the Cinder Dancer',hp:260,r:.55,scale:1.12,rm:1.12,spd:1.5,ai:'dancer',role:'arissa',body:'glb',file:'arissa',bright:2.0,boss:true,aggro:10,ph2:'Arissa quickens.'}};
   for(const k in TYPES){TYPES[k].id=k;if(TYPES[k].ph2===undefined)TYPES[k].ph2=TYPES[k].name+' quickens.'}
   // fighter ids in the sim: 'P' is the player; foes are D, E, F, G... (the first foe is always 'D', as it was when there was only one)
