@@ -68,6 +68,7 @@ const Vessel=(()=>{
     q.roll=(st.roll||0)+wr+sk*.25*(v.ph>3?1:-1);
     if(v.grp){v.grp.position.set(q.x,q.y,q.z);v.grp.rotation.set(q.pitch,q.h,q.roll)}
     if(v.deck)Decks.setPose(v.deck,q);
+    if(typeof WaterFX!=='undefined'&&WaterFX.vessel)WaterFX.vessel(v,dt,st.v);
     for(const g of v.guns){if(g.cd>0)g.cd-=dt;g.recoil=Math.max(0,g.recoil-dt*3);if(g.obj){g.obj.position.set(g.x-g.side*g.recoil*.45,g.ly,g.z)}}
     // sails: swing toward the wind side; flags flutter
     if(v.sails.length&&st.rel!==undefined)for(const s of v.sails)s.n.rotation.y=s.r+clamp(st.rel,-1,1)*.35*(st.sail===undefined?1:st.sail);

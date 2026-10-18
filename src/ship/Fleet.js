@@ -37,7 +37,7 @@ const Fleet=(()=>{
     if(typeof THREE==='undefined'||typeof scene==='undefined')return;
     const m=new THREE.Mesh(new THREE.SphereGeometry(1,8,6),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.7,depthWrite:false}));m.position.set(x,y,z);m.scale.setScalar(r*.4);scene.add(m);puffs.push({m,t:0,life,r,rise:rise||1.2})}
   function sparks(x,y,z,col,n){try{Fx.burst(x,y,z,col,n)}catch(e){}}
-  function splashFx(x,z){puff(x,SEA+.3,z,'#e8f8ff',2.4,.9,3);sparks(x,SEA,z,'#dff6ff',10)}
+  function splashFx(x,z){try{WaterFX.splash(x,z,1.1)}catch(e){}puff(x,SEA+.3,z,'#e8f8ff',2.4,.9,3);sparks(x,SEA,z,'#dff6ff',10)}
   function muzzleFx(m,o){puff(m.x+o.x*.8,m.y,m.z+o.z*.8,'#ffcf6b',1.1,.18,.2);puff(m.x+o.x*1.4,m.y+.2,m.z+o.z*1.4,'#777',1.8,1.4,1.5);sparks(m.x+o.x,m.y-.6,m.z+o.z,'#ffb347',6)}
 
   // ---------- name tag over a ship ----------
@@ -143,6 +143,7 @@ const Fleet=(()=>{
   // a ball hit something (everybody runs this once per hit: the shooter directly, the rest from the 'h' message)
   function applyHit(d){
     const j=shells.findIndex(s=>s.n===d.n);if(j>=0){const s=shells[j];if(s.mesh)scene.remove(s.mesh);shells.splice(j,1)}
+    if(d.y<SEA+3.5)try{WaterFX.hullHit(d.x,d.y,d.z,12)}catch(e){}
     sparks(d.x,d.y,d.z,'#ffb347',12);sparks(d.x,d.y,d.z,'#8b5a2b',8);puff(d.x,d.y,d.z,'#ff9a2e',2.2,.35,.5);puff(d.x,d.y+.5,d.z,'#555',2.6,1.6,2);boomSfx(d.x,d.z,.8);
     if(d.t==='p'){Ship.damage(d.d)}else{const e=ships.get(d.t);if(e&&isHost())damageEnemy(e,d.d,d.k)}
     // people on the planks: only the enemy's balls hurt, and every client hurts only itself
