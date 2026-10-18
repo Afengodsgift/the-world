@@ -12,7 +12,8 @@ no refactor of `tick()`, data lives in `src/data/`, and every system gets a simu
 | 2a | Vehicle physics core (ground, air, ramp launch, boost, flight, transformation, packet) | **done**: `src/race/CarPhysics.js`, `src/data/rally.js`, `tests/rally_car.sim.js` (55 checks) |
 | 2a' | Vehicle models baked for mobile | **done**: `assets/rally/car_aero.glb` (24k tris, 1.5 MB), `car_retro.glb` (17k tris, 0.47 MB), `tools/build_rally_cars.mjs`, `tests/rally_assets.check.js` |
 | 2b | Vehicle body wiring + chase camera + input takeover + touch controls | next (models available) |
-| 3 | Track system (kit-grid authoring, analytic surface, checkpoints, boosts, hazards) | next; does not need a car model |
+| 3a | Track system: roads, analytic surface, gates, pads, hammers, grid, recovery, host plausibility, AI Pilot | **done**: `src/race/Track.js`, `src/race/Pilot.js`, `src/data/tracks.js` (route `palm-storm`), `tests/rally_track.sim.js` (60+ checks incl. a full automated race) |
+| 3b | Track visuals (road ribbon + kit props), scatter exclusion, world wiring | next |
 | 4–8 | Flight transition in the world, multiplayer race, AI, polish, expansion | planned (section 7) |
 
 Nothing in `index.html` has been changed yet. The new files are not loaded by the game, so existing islands, multiplayer, controls and
@@ -105,10 +106,11 @@ removed the shard artifacts. Checked by rendering from four angles before accept
 
 1. **Physics is a pure module** (`CarPhysics`), like `Sailing`: deterministic, no THREE/DOM, driven by an `env.ground(x,z,y)` callback. The same
    code runs the player, remote dead-reckoning and AI.
-2. **Tracks are data, not meshes.** A route is an ordered list of kit pieces on a grid (type, cell, rotation, rise) plus checkpoints, boosts,
-   hazards and landing zones. The visual is built from the pack pieces; **the drivable surface is analytic per piece type** (flat, linear incline,
-   ramp, bridge deck), composed with `H()` and queried through a spatial hash. No per-frame mesh raycasting (mobile). The pack's Collider meshes
-   inform the profile, they are not used at runtime.
+2. **Tracks are data, not meshes, authored on smooth centrelines (changed from the first plan).** The first plan was grid kit pieces. On the real
+   islands that cannot make sweeping bends, hairpins or bridges, so each road is a centripetal Catmull-Rom centreline with width and height-above-terrain
+   per control point (monotone-cubic over arclength: ramps stay ramps, plateaus never dip, a lip keeps its climb rate). **The drivable surface is analytic**
+   (lateral distance to the road strip, shoulder blend to terrain, strict road ends so a lip is exactly where the deck stops), queried through a spatial
+   hash: no per-frame mesh raycasting. The kit pieces (ramp, boost pad, hammer, banners, trees) are visual props placed on this data.
 3. **Launch comes from geometry.** The car leaves the ground only where the surface falls away faster than it can follow (`stickSlope`), carrying
    the surface's climb rate, so ordinary hills never launch you and a ramp always does. Verified against ballistic maths (apex within 12 %).
 4. **Flight is its own mode, not the avatar's flight.** Bank to turn, pitch with auto-level (no unrecoverable dive), throttle = speed, climbing
@@ -147,3 +149,20 @@ baker `tools/build_rally_kit.js`.
 1. Which car pack should the vehicles come from (the zip attached was the track kit)? Does it include a flying car or separable wheels?
 2. Confirm the first route: Palm Atoll → Storm Cay → Frost Isle?
 3. Public leaderboards later, or friends only? (decides whether a server-side referee is worth building)
+
+## 9. Leg 1 route (built and driven): Palm Atoll -> Storm Cay
+
+* **Ground (666 m + 158 m run-up/ramp):** east-side grid (12 slots, two abreast) -> two swinging hammers on the 157 m east straight -> sweep -> slalom
+  (80 m wavelength) -> crest (+4 m) -> west hairpin (R 20) -> 6 m bridge -> east hairpin (R 18) -> 24 m kicker jump (a real gap) -> corner -> the massive
+  launch ramp (47 m long, 20 m high at the lip, 0.55 slope) aimed exactly at the Storm Cay strip. Four boost pads.
+* **Sky (665 m):** five rings on a rising-then-gliding arc (42, 52, 44, 32, 20 m), perfect passes give a boost; **Landing:** an 80 m radius landing zone
+  over a 40 m wide strip that narrows to the finish.
+* **Measured on the real terrain formula:** road edge >= 9 m from the beach, >= 21 m from the existing foot-race loop, min bend radius 12 m, no stretch of
+  road within 20 m of another.
+* **Driven end to end by the Pilot** (three skill levels, three car classes, eight hammer phases): ~37-43 s grid to finish, all 16 gates in order, launch
+  climb rate 22-28 m/s, about 8.6 s of flight, touchdown inside the zone, no recoveries, no wall bumps.
+* **Things the driving tests found and fixed:** the surface query used distance to a point further along the road (read as "on the road" at the wrong
+  height, and rounded the ramp lip 10 m past its end); height interpolation by smoothstep gave the kicker lip zero climb rate (it would not have launched
+  anyone); slalom amplitude too violent for the car's turn rate; hammers placed 13 m after a bend (no run-in); respawn after the lip used ground speed.
+* **For the wiring step:** Palm Atoll scatters palms, bushes and rocks across the whole island (`index.html` ~line 648-662); they need an exclusion
+  corridor along these roads (`Sites.js` already does this for `KT`). The road ribbon and props are not drawn yet; the world has not been touched.
