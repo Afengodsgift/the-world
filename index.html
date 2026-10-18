@@ -184,6 +184,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/combat/Foes.js"></script>
 <script src="src/combat/WardenFx.js"></script>
 <script src="src/combat/WardenVfx.js"></script>
+<script src="src/combat/CineCam.js"></script>
 <script src="src/combat/WardenSfx.js"></script>
 <script src="src/combat/PlayerCombat.js"></script>
 <script src="src/games/WardenIsles.js"></script>
@@ -1252,7 +1253,7 @@ function tickFrame(t){
     RemoteSmooth.target(o,nowT,H);const p=o.group.position;p.x+=(o.tx-p.x)*k;p.y+=(o.ty-p.y)*k;p.z+=(o.tz-p.z)*k;
     o.group.rotation.y=lerpAngle(o.group.rotation.y,o.tr,k);animate(o.group,dt,o.st);
   }
-  vegCull();CameraRig.update(dt);
+  vegCull();CameraRig.update(dt);if(typeof CineCam!=='undefined')CineCam.apply(dt);
   {const uT=clamp((-.25-camera.position.y)/.5,0,1);S.under=(S.under||0)+(uT-(S.under||0))*Math.min(1,dt*10)}   // 0 above water .. 1 camera fully submerged (drives fog, sound muffle, bubbles)                                                         // orbit / first-person / shoulder + flight FOV, roll, shake (src/camera/CameraRig.js)
   Boost.update(S,dt);me.userData.bc=Boost.view.charge;boostUI(Boost.view);
   Space.update(dt,t);Env.tick(dt,t);SpaceEnv.update(dt,t);skyTick(t);Fishing.tick(dt,t);

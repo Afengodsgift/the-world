@@ -64,7 +64,7 @@ const PlayerCombat=(()=>{
       const b=el.querySelector('#wFlow');b.style.setProperty('--fl',(flow/100*360)+'deg');b.classList.toggle('full',full);b.classList.toggle('on',flowOn);b.textContent=flowOn?(flowN%2?'Meia':'Armada'):'Flow';
       setBar('.p .fl',flow/100);const fb=el.querySelector('.p .fl');fb.classList.toggle('full',full);fb.classList.toggle('on',flowOn)}}
   function press(name,tms){
-    if(!on||P.act==='dead')return false;const t=tms===undefined?now():tms;
+    if(!on||P.act==='dead'||CineCam.busy()&&CineCam.isActive())return false;const t=tms===undefined?now():tms;
     switch(name){
       case'light':{assist();reject();const c={t:'light',e:C.tick},d=stickDir(),fa=pendFace!==null?pendFace:S.rot;if(d&&d[0]*Math.sin(fa)+d[1]*Math.cos(fa)>.6)c.adv=true;ST.input('P',c,t);break}
       case'heavy':if(down.heavy)return true;assist();reject();down.heavy=true;ST.input('P',{t:'heavyDown',e:C.tick},t);break;
@@ -217,12 +217,12 @@ const PlayerCombat=(()=>{
       else if(e.t==='posturebreak'&&T){if(T.T.boss)msg('POSTURE BROKEN');sfx('heavy',.8,1.1,()=>tone(500,120,.3,'sawtooth',.12))}
       else if(e.t==='posturebreak'&&e.d==='P'){msg('POSTURE BROKEN',.8);sfx('heavy',.9,.8,()=>tone(300,90,.3,'sawtooth',.12))}
       else if(e.t==='guardbreak'){sfx('heavy',.9,.85,()=>tone(250,70,.3,'sawtooth',.14));if(e.d==='P')msg('GUARD BROKEN',.8)}
-      else if(e.t==='dead'&&T){sfx('heavy',.7,.7,()=>tone(200,40,.5,'sawtooth',.14));if(T.body.T.body==='avatar')T.body.u.emoteReq='playdead';if(T.T.boss){msg(T.T.name.toUpperCase()+' IS FELLED',3);setTimeout(()=>WardenSfx.play(hurt?'vo_winner':'vo_flawless_victory',.8,1,{nojit:1}),700)}
+      else if(e.t==='dead'&&T){sfx('heavy',.7,.7,()=>tone(200,40,.5,'sawtooth',.14));if(T.body.T.body==='avatar')T.body.u.emoteReq='playdead';if(T.T.boss){CineCam.play('death',{x:T.f.x,z:T.f.z,h:1.2*T.T.scale,sc:Math.max(1,T.T.scale*.9)},{id:T.T.id});msg(T.T.name.toUpperCase()+' IS FELLED',3);setTimeout(()=>WardenSfx.play(hurt?'vo_winner':'vo_flawless_victory',.8,1,{nojit:1}),700)}
         if(lock&&lockI===T.i){const n=nearest();if(n&&n!==T)lockI=n.i;else{lock=false;el.querySelector('#wLock').classList.remove('on')}}
         if(!alive().length){state='won';stateT=performance.now();lock=false;el.querySelector('#wLock').classList.remove('on')}}
       else if(e.t==='dead'&&e.d==='P'){msg('YOU DIED',3);sfx('heavy',.8,.6,()=>tone(180,35,.6,'sawtooth',.16));setTimeout(()=>WardenSfx.play('vo_game_over',.8,1,{nojit:1}),600);state='lost';stateT=performance.now()}}}
   // dormant foes sit / stand sheathed until you come near: rouse() starts the draw / roar / power-up clip, rise() hands them to the AI once it ends; a hit skips the show
-  function rouse(F,skip){if(F.awake||F.dorm==='wake'&&!skip)return;if(skip||!F.anim){rise(F);return}F.dorm='wake';F.wakeT=0;if(F.T.boss){msg(F.T.name,2.4);sfx('heavy',.6,.55,()=>tone(90,45,.6,'sawtooth',.14));WardenSfx.play('vo_prepare_yourself',.8,1,{nojit:1})}else if(!fightVo){fightVo=true;WardenSfx.play('vo_fight',.8,1,{nojit:1})}}
+  function rouse(F,skip){if(F.awake||F.dorm==='wake'&&!skip)return;if(skip||!F.anim){rise(F);return}F.dorm='wake';F.wakeT=0;if(F.T.boss){CineCam.play('intro',{x:()=>F.f.x,z:()=>F.f.z,h:1.75*F.T.scale,sc:Math.max(1,F.T.scale*.9)},{id:F.T.id});msg(F.T.name,2.4);sfx('heavy',.6,.55,()=>tone(90,45,.6,'sawtooth',.14));WardenSfx.play('vo_prepare_yourself',.8,1,{nojit:1})}else if(!fightVo){fightVo=true;WardenSfx.play('vo_fight',.8,1,{nojit:1})}}
   function rise(F){F.dorm=null;F.awake=true;F.dormSync=null;if(F.anim&&F.anim.setMode)F.anim.setMode(null)}
   function wake(F,skip){rouse(F,skip);if(F.T.pack)for(const o of foes)if(o.T.pack&&!o.awake&&Math.hypot(o.f.x-F.f.x,o.f.z-F.f.z)<14)rouse(o,skip)}
   function locoOf(v,x,z,face,dt){   // smoothed world velocity -> speed + components along / to the left of the facing
@@ -262,7 +262,7 @@ const PlayerCombat=(()=>{
         if(F.awake&&PC.ai&&state==='fight'){F.ai.noAtk=!!F.T.pack&&atk>=Foes.PACK_ATK&&q.act!=='attack';const a=DuelistAI.think(F.ai,P,q,lastEv,nt);h[F.id]={face:a.face,mx:a.mx,mz:a.mz,list:a.list}}
         else h[F.id]={face:F.awake||F.dorm==='wake'?Math.atan2(S.x-q.x,S.z-q.z):q.face,mx:0,mz:0}}
       return h};
-    const evs=ST.advance(now(),held,()=>{S.x+=P.x-lx;S.z+=P.z-lz;lx=P.x;lz=P.z;lastEv=C.ev});
+    const evs=CineCam.frozen()?[]:ST.advance(now(),held,()=>{S.x+=P.x-lx;S.z+=P.z-lz;lx=P.x;lz=P.z;lastEv=C.ev});
     events(evs);flowTick(dt);
     // 2) facing: the sim owns it while attacking / dodging / stunned; lock-on owns it otherwise
     if(P.act==='attack'||P.act==='dodge'||P.act==='stun')S.rot=P.face;
