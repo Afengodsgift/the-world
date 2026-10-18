@@ -1,0 +1,82 @@
+{
+"root": ".",
+"fps": 20,
+"dg": 3,
+"clips": [
+{
+"name": "idle",
+"file": "Great_Sword_Pack/great sword idle.fbx"
+},
+{
+"name": "walk",
+"file": "Great_Sword_Pack/great sword walk.fbx"
+},
+{
+"name": "run",
+"file": "Great_Sword_Pack/great sword run.fbx"
+},
+{
+"name": "back",
+"file": "Great_Sword_Pack/great sword walk (2).fbx"
+},
+{
+"name": "sl",
+"file": "Great_Sword_Pack/great sword strafe (2).fbx"
+},
+{
+"name": "sr",
+"file": "Great_Sword_Pack/great sword strafe.fbx"
+},
+{
+"name": "guard",
+"file": "Great_Sword_Pack/great sword blocking.fbx"
+},
+{
+"name": "hit1",
+"file": "Great_Sword_Pack/great sword impact.fbx"
+},
+{
+"name": "death",
+"file": "Pro_Sword_and_Shield_Pack/sword and shield death.fbx"
+},
+{
+"name": "slash",
+"file": "Great_Sword_Pack/great sword slash.fbx"
+},
+{
+"name": "slash3",
+"file": "Great_Sword_Pack/great sword slash (3).fbx"
+},
+{
+"name": "slash4",
+"file": "Great_Sword_Pack/great sword slash (4).fbx"
+},
+{
+"name": "slash5",
+"file": "Great_Sword_Pack/great sword slash (5).fbx"
+},
+{
+"name": "atk",
+"file": "Great_Sword_Pack/great sword attack.fbx"
+},
+{
+"name": "spin",
+"file": "Great_Sword_Pack/great sword high spin attack.fbx"
+},
+{
+"name": "kick",
+"file": "Great_Sword_Pack/great sword kick.fbx"
+},
+{
+"name": "power",
+"file": "Great_Sword_Pack/great sword power up.fbx"
+},
+{
+"name": "crouch",
+"file": "Great_Sword_Pack/great sword crouching.fbx"
+}
+],
+"glb": "assets/warden/ganfaul.glb",
+"retarget": true,
+"restFbx": "Great_Sword_Pack/Ch03_nonPBR.fbx"
+}

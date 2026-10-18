@@ -1,0 +1,70 @@
+{
+"root": ".",
+"fps": 20,
+"dg": 3,
+"clips": [
+{
+"name": "idle",
+"file": "Creature_Pack/mutant breathing idle.fbx"
+},
+{
+"name": "walk",
+"file": "Creature_Pack/mutant walking.fbx"
+},
+{
+"name": "run",
+"file": "Creature_Pack/mutant run.fbx"
+},
+{
+"name": "swipe",
+"file": "Creature_Pack/mutant swiping.fbx"
+},
+{
+"name": "punch",
+"file": "Creature_Pack/mutant punch.fbx"
+},
+{
+"name": "jatk",
+"file": "Creature_Pack/mutant jump attack.fbx"
+},
+{
+"name": "jump",
+"file": "Creature_Pack/mutant jumping (2).fbx"
+},
+{
+"name": "roar",
+"file": "Creature_Pack/mutant roaring.fbx"
+},
+{
+"name": "flex",
+"file": "Creature_Pack/mutant flexing muscles.fbx"
+},
+{
+"name": "death",
+"file": "Creature_Pack/mutant dying.fbx"
+},
+{
+"name": "turnl",
+"file": "Creature_Pack/mutant left turn 45.fbx"
+},
+{
+"name": "turnr",
+"file": "Creature_Pack/mutant right turn 45.fbx"
+},
+{
+"name": "jatk2",
+"file": "Creature_Pack/jump attack.fbx"
+},
+{
+"name": "breath",
+"file": "Creature_Pack/mutant idle (2).fbx"
+},
+{
+"name": "turn90",
+"file": "Creature_Pack/mutant right turn 90.fbx"
+}
+],
+"glb": "assets/warden/maw.glb",
+"retarget": true,
+"restFbx": "Creature_Pack/Ch03_nonPBR.fbx"
+}
