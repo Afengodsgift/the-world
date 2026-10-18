@@ -14,6 +14,10 @@ const Moves={
   evade:{id:'evade',who:'P',chain:1,stam:12,dmg:16,pdmg:14,hs:4,stun:18,kb:.5,reach:2.4,w:.12,phases:[ph('startup',6),ph('active',4,{seg:0,a0:.8,a1:-.8}),ph('recovery',18)],cancel:{light:8,dodge:8}},
   rising:{id:'rising',who:'P',chain:0,stam:22,dmg:28,pdmg:38,hs:6,stun:26,kb:1.0,reach:2.6,w:.13,phases:[ph('startup',14,{move:.6}),ph('active',5,{seg:0,a0:.5,a1:-.5}),ph('recovery',28)],cancel:{dodge:14}},
   heavy:{id:'heavy',who:'P',stam:25,dmg:34,pdmg:30,hs:7,stun:28,kb:1.2,reach:2.6,w:.12,chargeMin:18,chargeMax:45,phases:[ph('startup',14,{move:.8}),ph('active',5,{seg:0,a0:.6,a1:-.6}),ph('recovery',30)]},
+  // ---- Flow skills (Flow button): outside Flow a stamina skill (Cinder Arc), inside Flow a finisher paid for with the Flow meter (Armada, Meia Lua) ----
+  cinder:{id:'cinder',who:'P',stam:22,dmg:22,pdmg:36,hs:6,stun:24,kb:.9,reach:3.1,w:.14,phases:[ph('startup',14),ph('active',6,{seg:0,a0:1.5,a1:-1.5}),ph('recovery',24)],cancel:{dodge:12}},
+  armada:{id:'armada',who:'P',stam:0,dmg:26,pdmg:34,hs:7,stun:26,kb:1.3,reach:3.3,w:.16,phases:[ph('startup',18),ph('active',9,{seg:0,a0:3,a1:-3}),ph('recovery',26)],cancel:{dodge:14}},
+  meia:{id:'meia',who:'P',stam:0,dmg:32,pdmg:46,hs:8,stun:28,kb:1.4,reach:3.6,w:.16,phases:[ph('startup',20),ph('active',6,{seg:0,a0:1.9,a1:-1.9}),ph('recovery',30)],cancel:{dodge:14}},
   dodge:{id:'dodge',who:'*',stam:18,total:22,iStart:3,iEnd:11,dist:3.2,rootT0:1,rootT1:14},   // invulnerable pt 3..11 inclusive (9 ticks); vulnerable 12..21; can act at 22
   // ---- Duelist ----
   cut:{id:'cut',who:'D',dmg:14,pdmg:12,hs:4,stun:18,kb:.5,reach:2.3,w:.12,phases:[ph('startup',20),ph('active',4,{seg:0,a0:.7,a1:-.7}),ph('recovery',20)]},

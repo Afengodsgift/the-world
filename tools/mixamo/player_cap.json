@@ -1,0 +1,39 @@
+{
+"root": "Capoeira_Pack",
+"fps": 20,
+"dg": 3,
+"clips": [
+{
+"name": "armada",
+"file": "armada.fbx"
+},
+{
+"name": "meia",
+"file": "meia lua de compasso.fbx"
+},
+{
+"name": "martelo",
+"file": "martelo 2.fbx"
+},
+{
+"name": "rast",
+"file": "rasteira 1.fbx"
+},
+{
+"name": "esq",
+"file": "esquiva 2.fbx"
+},
+{
+"name": "gingas",
+"file": "ginga sideways 1.fbx"
+},
+{
+"name": "au",
+"file": "au.fbx"
+},
+{
+"name": "chapa",
+"file": "chapa 2.fbx"
+}
+]
+}
