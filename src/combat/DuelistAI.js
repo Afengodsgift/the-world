@@ -6,7 +6,7 @@
 // they enter a second phase (faster, shorter rests, more gap closers). Moods (Duelist) vary the pacing; a turtling guard is punished; a visibly recovering player is punished.
 // Adaptive difficulty (learning your habits) is a separate layer, off by default, and is NOT in this file.
 const DuelistAI=(()=>{
-  const REACH={cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4,dash:2.4,leap:3.0,bash:2.3,orb:12,bolt:16},REACT=14,INTRO=90;
+  const REACH={cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4,dash:2.4,leap:3.0,bash:2.3,orb:12,bolt:16,spin:2.9,hammer:2.7,lowsweep:3.1},REACT=14,INTRO=90;
   const HR={sweep:3.0,slam:3.0,triple:2.8,quake:4.2};
   function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
   function create(seed,o){o=o||{};const r=mulberry(seed|0);return{foe:o.foe||'duelist',noAtk:false,gcool:0,r,t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,mood:'patient',moodT:90,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null,
@@ -101,7 +101,7 @@ const DuelistAI=(()=>{
     if(dist<3.4)A.closeP=0;
     const w={};
     if(dist>3.6){w.orb=dist>6?3:1.2;w.bolt=3;if(A.ph2){w.orb+=1.5;w.bolt+=1}}
-    else{w.cut=3;w.twin=2.4;w.thrust=dist>2.5?2.5:.6;w.riposte=1;if((k==='arecovery'||k==='stun')&&A.see>=REACT){w.twin+=3;w.fall=2}}
+    else{w.cut=3;w.twin=2.4;w.thrust=dist>2.5?2.5:.6;w.riposte=1;w.spin=1.6;w.hammer=dist<2.8?1.8:0;w.lowsweep=1.6;if(A.ph2){w.spin+=1;w.lowsweep+=1}if((k==='arecovery'||k==='stun')&&A.see>=REACT){w.twin+=3;w.fall=2}}
     for(const m of Object.keys(w)){const n=A.last.length;if(n>=2&&A.last[n-1]===m&&A.last[n-2]===m)w[m]=0;else if(n&&A.last[n-1]===m)w[m]*=.4}
     let tot=0;for(const m in w)tot+=w[m];if(tot<=0)return out;let r=A.r()*tot,pick=Object.keys(w)[0];for(const m in w){r-=w[m];if(r<=0){pick=m;break}}
     if(dist>REACH[pick]+.1)return out;
