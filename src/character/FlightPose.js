@@ -19,8 +19,6 @@ const FlightPose=(()=>{
   // ---- pose tables, in BODY space: +Y = toward the head, +Z = chest side, +X = the avatar's left ----
   // [upper, lower] direction pairs. Left = +1, right = -1 via s.
   const HOVER={ arm:s=>[N(s*.30,-1,.10),N(s*.18,-.80,.58)], leg:s=>[N(s*.07,-1,.03),N(s*.05,-1,-.14)], toe:N(0,-.80,.60) };
-  // realistic characters (q.real, assets/chars): the chibi's hover arms (upper arm out ~17 deg, forearm folded ~36 forward) read as C-shaped arms on a real body, so they hang nearly straight
-  const HOVER_R={ arm:s=>[N(s*.10,-1,.03),N(s*.07,-.97,.14)] };
   const CRU={ lead:[N(.14,1,.06),N(.10,1,.02)], rear:[N(-.28,-.78,.10),N(-.12,.45,.70)],
               legL:[N(.03,-1,-.12),N(.02,-.96,-.30)], legR:[N(-.03,-1,-.12),N(-.02,-.80,-.55)], toe:N(0,-1,-.15) };
   const BST={ arm:s=>[N(s*.05,1,.04),N(s*.02,1,.03)], leg:s=>[N(s*.015,-1,-.06),N(s*.01,-1,-.10)], toe:N(0,-1,-.05) };
@@ -28,7 +26,7 @@ const FlightPose=(()=>{
   const SPINE={ h:[N(0,1,.04),N(0,1,.03),N(0,1,.02)], c:[N(0,1,.02),N(0,1,-.10),N(0,1,-.16)], b:[N(0,1,.04),N(0,1,0),N(0,1,-.04)] };
   const HEAD_PITCH={h:0,c:.32,b:.50};              // head axis tilt from vertical (rad); the face looks along the flight path
   const BASE_PITCH={h:.05,c:1.40,b:1.52};          // body lean from vertical (rad)
-  const BONES=['Hips','Spine','Chest','UpperChest','Neck','Head','LeftArm','LeftForeArm','RightArm','RightForeArm','LeftUpLeg','LeftLeg','LeftFoot','RightUpLeg','RightLeg','RightFoot'];
+  const BONES=['Spine','Chest','UpperChest','Neck','Head','LeftArm','LeftForeArm','RightArm','RightForeArm','LeftUpLeg','LeftLeg','LeftFoot','RightUpLeg','RightLeg','RightFoot'];
 
   function spring(s,target,dt,w,z){const a=w*w*(target-s.x)-2*z*w*s.v;s.v+=a*dt;s.x+=s.v*dt}
   const lerpTo=(cur,tgt,dt,up,down)=>cur+(tgt-cur)*Math.min(1,dt*(tgt>cur?up:down));
@@ -89,15 +87,13 @@ const FlightPose=(()=>{
     const dir=(h,c,b,out)=>Db(mix3(h,c,b,f,_v),out);
     const o1=new THREE.Vector3(),o2=new THREE.Vector3();
 
-    // realistic characters: square the pelvis first (the fall clip it blends from tilts it ~9 deg = arched back); legs and spine are aimed absolutely below
-    if(q.real)A(B,'Hips','Spine',dir(N(0,1,.03),N(0,1,-.06),N(0,1,0),o1));
     // spine: gentle arch for cruise, straight for boost
     A(B,'Spine','Chest',dir(SPINE.h[0],SPINE.c[0],SPINE.b[0],o1).addScaledVector(o2.set(0,0,Math.sin(t*2.4)*.03).applyQuaternion(_qb),f.wH)); // breathing: a small nudge, NOT a normalized vector
     A(B,'Chest','UpperChest',dir(SPINE.h[1],SPINE.c[1],SPINE.b[1],o1));
     A(B,'UpperChest','Neck',dir(SPINE.h[2],SPINE.c[2],SPINE.b[2],o1));
     // arms (left leads in cruise, right folds)
     for(const s of [1,-1]){
-      const n=s===1?'Left':'Right',ph=s===1?0:2.1,hv=(q.real?HOVER_R:HOVER).arm(s),bs=BST.arm(s);
+      const n=s===1?'Left':'Right',ph=s===1?0:2.1,hv=HOVER.arm(s),bs=BST.arm(s);
       const cu=s===1?CRU.lead:CRU.rear;
       // hover drift keeps the hands alive
       const dU=hv[0].clone();dU.x+=Math.sin(t*1.1+ph)*.05*f.wH;dU.z+=Math.sin(t*.9+ph)*.04*f.wH;

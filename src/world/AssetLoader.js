@@ -4,8 +4,6 @@
 const SKINS=['skaterMaleA','skaterFemaleA','criminalMaleA','cyborgFemaleA'];
 const AURL='assets/',AM={},AM_KART={};
 const ALIST=['tree_pineDefaultA','tree_pineRoundA','tree_oak','tree_fat','tree_palmTall','plant_bushLarge','stone_largeA','rock_tallB','wall-wood','wall-wood-door','wall-wood-window-small','roof-gable','roof-gable-end','fountain-round','lantern','stall-red','stall-green','cart'];
-// Skins 4..7 are Mixamo characters re-skinned onto the game rig (tools/transplant_char.mjs -> assets/chars/<n>.glb): same bones + same clips, own mesh/textures. Fetched only when somebody picks them.
-const NEWCHARS=['crypto','medea','eve','coolguy'],charBufs={};
 let assetsP,charP,charBuf,clips={},nclips={},skinT=[],panP,panBuf; // clips = legacy 3 clips (fallback); nclips = baked UAL set from assets/anims.json
 function loadAssets(){
   if(!assetsP&&!THREE.GLTFLoader)assetsP=Promise.resolve();
@@ -44,10 +42,4 @@ function loadChar(){
 function loadPan(){
   if(!panP)panP=(async()=>{if(!THREE.GLTFLoader)throw new Error('no GLTFLoader');panBuf=await (await fetch(AURL+'pan.glb')).arrayBuffer()})();
   return panP;
-}
-// -> {b: ArrayBuffer, own: true when it is the character's own model (keeps its own materials)}; any failure falls back to the stock model + stock skin texture
-function skinBuf(skin){
-  const k=skin-SKINS.length;if(k<0||k>=NEWCHARS.length)return Promise.resolve({b:charBuf,own:false});
-  const n=NEWCHARS[k];
-  return (charBufs[n]||(charBufs[n]=fetch(AURL+'chars/'+n+'.glb').then(r=>{if(!r.ok)throw new Error(n);return r.arrayBuffer()}))).then(b=>({b,own:true}),()=>{delete charBufs[n];return {b:charBuf,own:false}});
 }
