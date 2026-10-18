@@ -14,6 +14,7 @@ const WardenMX=(()=>{
     player:{file:'assets/warden_mx_player.json',guard:'guard',
       loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
       moves:{
+        cinder:{c:'slash3',t0:.3,h:[[.66,.94]],e:1.5},armada:{c:'armada',t0:0,h:[[.6,1.05]],e:1.6},meia:{c:'meia',t0:0,h:[[.6,1.05]],e:1.7},
         light:{c:'slash',t0:.2,h:[[.46,.68]],e:1.15},
         light2:{c:'atk4',t0:0,h:[[.34,.52]],e:.9},
         light3:{c:'slash5',t0:.1,h:[[.36,.68]],e:1.2},
