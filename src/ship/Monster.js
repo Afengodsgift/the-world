@@ -140,7 +140,7 @@ const Monster=(()=>{
     if(isHost()){
       if(!m){spawnT-=dt*(1+2*(typeof Env!=='undefined'&&Env.state&&Env.state.wx?Env.state.wx.storm||0:0));
         if(spawnT<=0){const ok=Ship.vessel()&&Ship.vessel().pose&&Math.hypot(Ship.vessel().pose.x-DOCK.ship.x,Ship.vessel().pose.z-DOCK.ship.z)>140&&(typeof Fleet.ships==='undefined'||Fleet.ships.size<2);
-          spawnT=ok&&spawn()?(240+R()*200):12}}
+          const Lv=typeof Leviathan!=='undefined'?Leviathan:null;spawnT=ok&&!(Lv&&Lv.get())&&((Lv&&R()<.5?Lv.spawn():spawn()))?(240+R()*200):12}}
       else{if(!think(m,dt)){drop();spawnT=200+R()*200}
         snapT-=dt;if(m&&snapT<=0){snapT=.125;Net.emit('flt',{k:'mo',a:snapshot()})}}}
     else if(m&&m.snap){const k=1-Math.exp(-10*dt),s=m.snap;m.x+=(s[0]-m.x)*k;m.z+=(s[1]-m.z)*k;m.rise+=(s[2]-m.rise)*k;m.t+=dt;m.hitT=Math.max(0,m.hitT-dt);
