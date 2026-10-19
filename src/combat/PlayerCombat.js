@@ -69,7 +69,8 @@ const PlayerCombat=(()=>{
   const flaskCap=k=>Math.min(9,FL[k].max+PG.stats().belt);
   let wst=WardenGear.stats();
   function applyStats(){const st=PG.stats();wst=WardenGear.stats();const hp=Math.round(st.hp*wst.hp);P.hpMax=hp;P.hp=hp;P.stMax=st.st;P.st=st.st;baseDm=st.dm*wst.dm;P.dm=baseDm;P.rm=wst.rm;P.sm=wst.sm;P.pm=wst.pm;P.dfl=wst.dfl}
-  function swapModel(){if(sword){sword.dead=true;try{if(sword.grip&&sword.hand)sword.hand.remove(sword.grip)}catch(e){}}sword=null;swordTried=false}
+  const pRole=()=>WardenGear.TYPES[WardenGear.equipped().ty].role||'player';
+  function swapModel(){if(pAnim){try{pAnim.off()}catch(e){}pAnim=null}if(sword){sword.dead=true;try{if(sword.grip&&sword.hand)sword.hand.remove(sword.grip)}catch(e){}}sword=null;swordTried=false}
   function toast(t,sec){if(!toastEl){toastEl=document.createElement('div');toastEl.id='wtoast';document.body.appendChild(toastEl)}toastEl.textContent=t;toastEl.classList.add('on');toastT=sec||2.4}
   function say(t,sec){if(on&&el)msg(t,sec);else toast(t,sec)}
   function payFoes(){for(const F of foes){if(F.f.act!=='dead'||F.paid)continue;F.paid=true;const n=Math.round(PG.reward(F.T,site&&site.id)*wst.gild);PG.add(n);say('+'+n+' Embers',1.6);gearDrop(F.T)}}
@@ -307,12 +308,12 @@ const PlayerCombat=(()=>{
     if(inn&&resPrev===null){resPrev={dpr:st.dpr,min:st.min,locked:st.locked};st.min=1;if(st.dpr>1.25){st.dpr=1.25;st.r.setPixelRatio(1.25)}st.locked=true}
     else if(!inn&&resPrev){st.min=resPrev.min;st.locked=resPrev.locked;if(st.dpr!==resPrev.dpr){st.dpr=resPrev.dpr;st.r.setPixelRatio(resPrev.dpr)}resPrev=null}}
   function ensureAvatars(){
-    if(!pAnim&&me.userData.mixer)pAnim=WardenMX.make(me.userData,'player');
+    if(!pAnim&&me.userData.mixer)pAnim=WardenMX.make(me.userData,pRole());
     if(!sword&&!swordTried&&me.userData.bones){swordTried=true;{const WT=WardenGear.TYPES[WardenGear.equipped().ty];sword=attachSword(me,WT.file,WT.want,{len:WT.l0,set tried(v){swordTried=v}})}}
     for(const F of foes){const b=F.body;if(!b.u.mixer)continue;styleBody(b);if(!b.anims[F.T.role])b.anims[F.T.role]=WardenMX.make(b.u,F.T.role);F.anim=b.anims[F.T.role]}}
   function engage(s){
     try{if(typeof loadEmotes==='function')loadEmotes().catch(()=>{})}catch(e){}   // the 'playdead' fall clip lives in the emote library: without it corpses (and you) just stand there
-    if(on)return;if(!el)build();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenFx.build();WardenVfx.build();WardenMX.fetch('player').catch(()=>{});
+    if(on)return;if(!el)build();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenFx.build();WardenVfx.build();WardenMX.fetch(pRole()).catch(()=>{});
     site=s;fightN=0;const hh=WardenNet.hostFor(s.id);NET.joined=false;startFight();if(hh)netJoin();else netHost();for(const F of foes)WardenMX.fetch(F.T.role).catch(()=>{});
     lx=S.x;lz=S.z;on=true;document.body.classList.add('warden-fight');ensureAvatars();if(sword&&sword.grip)sword.grip.visible=true;
     for(const F of foes)for(const k of['sword','shield'])if(F.body[k]){const o=F.body[k].grip||F.body[k];if(o)o.visible=true}

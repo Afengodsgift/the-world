@@ -125,6 +125,17 @@ const WardenMX=(()=>{
   ROLES.archer={file:'assets/warden_mx_archer.json',native:true,guard:null,dorm:'idle',wake:{c:'power',t0:.3,t1:2.4,rate:1},death:'death',hit:'hit1',     // Erika, the Ashen Huntress: Longbow locomotion + a quick cast clip for the shot + a kick when you get close
     loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
     moves:{bolt:{c:'spell',t0:0,e:1.1},orb:{c:'spell',t0:0,e:1.1},cut:{c:'kick',t0:.1,h:[[.5,.85]],e:1.4},thrust:{c:'kick',t0:.1,h:[[.5,.85]],e:1.4},quake:{c:'power',t0:.3,e:2.0}}};
+  // ---- the player's heavier weapons: the Great Sword pack (already baked onto the game rig for the Duelist) drives the Claymore and the Hand Axe ----
+  ROLES.player_gs={file:'assets/warden_mx_duelist.json',guard:'guard',loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
+    moves:{
+      light:{c:'slash',t0:.05,h:[[.45,.8]],e:1.2},light2:{c:'slash5',t0:.15,h:[[.5,.82]],e:1.3},light3:{c:'slash3',t0:.3,h:[[.6,1.0]],e:1.6},
+      advance:{c:'slash4',t0:.3,h:[[.6,.85]],e:1.6},evade:{c:'slash',t0:.1,h:[[.45,.8]],e:1.2},rising:{c:'slash2',t0:.35,h:[[.62,.92]],e:1.5},
+      heavy:{c:'slash3',t0:0,ch:[.35,.55],h:[[.6,1.18]],e:1.8},
+      cinder:{c:'slash4',t0:.3,h:[[.6,.85]],e:1.6},armada:{c:'spin',t0:0,h:[[.5,1.25]],e:1.85},meia:{c:'slash2',t0:1.2,h:[[1.5,1.95]],e:2.3},
+      martelo:{c:'atk',t0:0,h:[[.37,.52]],e:1.1},rasteira:{c:'slash4',t0:.9,h:[[1.17,1.5]],e:1.8},
+      shove:{c:'kick',t0:.5,h:[[.88,1.28]],e:1.5},lunge:{c:'slash4',t0:.3,h:[[.6,.85]],e:1.6},whirl:{c:'spin',t0:0,h:[[.5,1.25]],e:1.85}}};
+  ROLES.player_axe=Object.assign({},ROLES.player_gs,{moves:Object.assign({},ROLES.player_gs.moves,{
+    light:{c:'atk',t0:0,h:[[.37,.52]],e:1.0},light2:{c:'slash',t0:.05,h:[[.45,.8]],e:1.2},rising:{c:'slash3',t0:.2,h:[[.6,1.0]],e:1.6}})});
   const BUILD='mx3';const SH={};      // role -> {st,clips,p}
   function fetchRole(role){const s=SH[role]||(SH[role]={st:'none',clips:null,meta:null,p:null});
     if(!s.p)s.p=fetch(ROLES[role].file).then(r=>r.json()).then(j=>{s.clips={};s.meta={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=role+':'+c.name;ac.uuid=role+':'+c.name;s.clips[c.name]=ac;   // unique uuid per role: three.js caches actions by clip uuid, and the game's own clips are also called idle/walk/jump (sharing one action stole the game's base layer -> T-pose on hit)
