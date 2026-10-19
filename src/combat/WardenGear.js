@@ -5,11 +5,11 @@ const WardenGear=(()=>{
   const KEY='wgear',CAP=24;
   // file: model (relative to assets/); l0 = the model's own blade length, want = metres in the player's hand
   const TYPES={
-    falchion:{n:'Falchion',file:'warden/sword_falchion.glb',l0:5.36,want:.95,dm:1,rm:1,sm:1,pm:1,d:'Balanced'},
-    cutlass:{n:'Cutlass',file:'pirates/sword_002.glb',l0:1.85,want:.95,dm:.9,rm:1,sm:.75,pm:.9,flow:1.3,d:'Light and cheap: swing more, Flow builds faster'},
-    longsword:{n:'Longsword',file:'pirates/sword_001.glb',l0:1.94,want:1.15,dm:1,rm:1.12,sm:1,pm:1,d:'Longer reach'},
-    claymore:{n:'Claymore',file:'warden/sword_claymore.glb',l0:6.6,want:1.55,dm:1.3,rm:1.08,sm:1.25,pm:1.1,d:'Heavy hits, hungry for stamina'},
-    axe:{n:'Hand Axe',file:'pirates/axe.glb',l0:.95,want:.8,dm:1.2,rm:.94,sm:1.3,pm:1.5,d:'Shatters posture'}};
+    falchion:{n:'Falchion',role:'player',file:'warden/sword_falchion.glb',l0:5.36,want:.95,dm:1,rm:1,sm:1,pm:1,d:'Balanced'},
+    cutlass:{n:'Cutlass',role:'player',file:'pirates/sword_002.glb',l0:1.85,want:.95,dm:.9,rm:1,sm:.75,pm:.9,flow:1.3,d:'Light and cheap: swing more, Flow builds faster'},
+    longsword:{n:'Longsword',role:'player',file:'pirates/sword_001.glb',l0:1.94,want:1.15,dm:1,rm:1.12,sm:1,pm:1,d:'Longer reach'},
+    claymore:{n:'Claymore',role:'player_gs',file:'warden/sword_claymore.glb',l0:6.6,want:1.55,dm:1.3,rm:1.08,sm:1.25,pm:1.1,d:'Heavy hits, hungry for stamina'},
+    axe:{n:'Hand Axe',role:'player_axe',file:'pirates/axe.glb',l0:.95,want:.8,dm:1.2,rm:.94,sm:1.3,pm:1.5,d:'Shatters posture'}};
   // [adjective, label(value), per-tier values]
   const AFFIX={
     dmg:{adj:'Keen',lbl:v=>'+'+v+'% damage',v:[6,10,15]},
