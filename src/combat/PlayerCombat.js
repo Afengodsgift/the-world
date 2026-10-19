@@ -67,10 +67,14 @@ const PlayerCombat=(()=>{
   const PG=WardenProg;PG.setBosses(WARDEN.sites.filter(s=>s.fog).map(s=>s.id));
   let baseDm=1,shrineEl=null,chipEl=null,chipKey='',mark=null,markT=0,toastEl=null,toastT=0;
   const flaskCap=k=>Math.min(9,FL[k].max+PG.stats().belt);
-  function applyStats(){const st=PG.stats();P.hpMax=st.hp;P.hp=st.hp;P.stMax=st.st;P.st=st.st;baseDm=st.dm;P.dm=st.dm}
+  let wst=WardenGear.stats();
+  function applyStats(){const st=PG.stats();wst=WardenGear.stats();const hp=Math.round(st.hp*wst.hp);P.hpMax=hp;P.hp=hp;P.stMax=st.st;P.st=st.st;baseDm=st.dm*wst.dm;P.dm=baseDm;P.rm=wst.rm;P.sm=wst.sm;P.pm=wst.pm;P.dfl=wst.dfl}
+  function swapModel(){if(sword){sword.dead=true;try{if(sword.grip&&sword.hand)sword.hand.remove(sword.grip)}catch(e){}}sword=null;swordTried=false}
   function toast(t,sec){if(!toastEl){toastEl=document.createElement('div');toastEl.id='wtoast';document.body.appendChild(toastEl)}toastEl.textContent=t;toastEl.classList.add('on');toastT=sec||2.4}
   function say(t,sec){if(on&&el)msg(t,sec);else toast(t,sec)}
-  function payFoes(){for(const F of foes){if(F.f.act!=='dead'||F.paid)continue;F.paid=true;const n=PG.reward(F.T,site&&site.id);PG.add(n);say('+'+n+' Embers',1.6)}}
+  function payFoes(){for(const F of foes){if(F.f.act!=='dead'||F.paid)continue;F.paid=true;const n=Math.round(PG.reward(F.T,site&&site.id)*wst.gild);PG.add(n);say('+'+n+' Embers',1.6);gearDrop(F.T)}}
+  function gearDrop(T){const it=WardenGear.drop(Math.random,!!T.boss,PG.S.cycle);if(!it)return;if(WardenGear.full()){const v=WardenGear.sellValue(it);PG.earn(v);setTimeout(()=>say('Pack full: sold '+WardenGear.name(it)+' for '+v,2.2),1200);return}
+    WardenGear.add(it);setTimeout(()=>say('Found: '+WardenGear.name(it)+' ('+WardenGear.RAR[it.rar]+')',2.6),1200)}
   function lostMark(t,dt){   // the pile of embers you left where you fell
     const L=PG.S.lost;if(!L){if(mark)mark.visible=false;return}
     if(!mark){const g=new THREE.Group(),m=new THREE.MeshBasicMaterial({color:0xff9a3a,transparent:true,opacity:.9,blending:THREE.AdditiveBlending,depthWrite:false});
@@ -80,14 +84,37 @@ const PlayerCombat=(()=>{
     mark.position.set(L.x,H(L.x,L.z)+1.2+Math.sin(t*2.2)*.12,L.z);mark.rotation.y+=dt*1.5;
     if(on&&P&&P.act!=='dead'&&site&&site.id===L.sid&&state==='fight'&&Math.hypot(L.x-S.x,L.z-S.z)<1.9){const n=PG.claim();say('Embers recovered: +'+n,2);sfx('clash',.5,1.5,()=>tone(600,1200,.2,'sine',.1))}}
   const ups=[['vig','+10 max health'],['end','+6 max stamina'],['mig','+4% damage'],['belt','+1 flask capacity']];
-  function shrineHtml(){const S0=PG.S,p=PG.progress(),cm=PG.cycleMul(),tw=PG.twist(S0.cycle);let h='<div class="sh"><b>Ember Shrine</b><button id="wshx">&times;</button></div>'+
+  const GR=WardenGear,FLP={hp:['Health Flask',40],st:['Stamina Tonic',35],mt:['Might Tonic',70]};
+  let shTab='up';
+  const stockSeed=()=>PG.S.cycle*1000+PG.progress().n;
+  const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  function itemHtml(it,btns){const T=GR.TYPES[it.ty],c=GR.RCOL[it.rar];let h='<div class="su"><div><b style="color:'+c+'">'+esc(GR.name(it))+'</b> <i>'+GR.RAR[it.rar]+'</i><small>'+esc(T.d)+'</small>';
+    for(const [k,t] of it.af)h+='<small class="af">'+esc(GR.AFFIX[k].lbl(GR.AFFIX[k].v[t]))+'</small>';return h+'</div><div class="bt">'+btns+'</div></div>'}
+  function shrineHtml(){const S0=PG.S,p=PG.progress(),tw=PG.twist(S0.cycle);let h='<div class="sh"><b>Ember Shrine</b><button id="wshx">&times;</button></div>'+
       '<div class="sc">Cycle '+S0.cycle+(tw?' · '+tw:'')+' <span>'+p.n+'/'+p.of+' bosses felled</span></div>'+
-      '<div class="se">🔥 <b>'+S0.embers+'</b> Embers'+(S0.lost?' <span>('+S0.lost.n+' lie where you fell)</span>':'')+'</div>';
-    for(const [k,d] of ups){const lv=S0.ups[k],c=PG.cost(k),mx=lv>=PG.MAXL[k];h+='<div class="su"><div><b>'+PG.NAMES[k]+'</b> <i>Lv '+lv+'/'+PG.MAXL[k]+'</i><small>'+d+'</small></div><button data-k="'+k+'"'+(mx||S0.embers<c?' disabled':'')+'>'+(mx?'MAX':c)+'</button></div>'}
-    h+='<div class="sf">Resting here refills your flasks. Felling every boss ends the cycle: the isles grow stronger (foes ×'+(PG.cycleMul(S0.cycle+1).hp).toFixed(2)+' health) and every kill pays more Embers.</div>';return h}
+      '<div class="se">🔥 <b>'+S0.embers+'</b> Embers'+(S0.lost?' <span>('+S0.lost.n+' lie where you fell)</span>':'')+'</div>'+
+      '<div class="stb">'+[['up','Upgrades'],['arm','Armory'],['shop','Merchant']].map(([k,n])=>'<button data-a="tab" data-k="'+k+'"'+(shTab===k?' class="on"':'')+'>'+n+'</button>').join('')+'</div>';
+    if(shTab==='up'){for(const [k,d] of ups){const lv=S0.ups[k],c=PG.cost(k),mx=lv>=PG.MAXL[k];h+='<div class="su"><div><b>'+PG.NAMES[k]+'</b> <i>Lv '+lv+'/'+PG.MAXL[k]+'</i><small>'+d+'</small></div><button data-a="up" data-k="'+k+'"'+(mx||S0.embers<c?' disabled':'')+'>'+(mx?'MAX':c)+'</button></div>'}
+      h+='<div class="sf">Resting here refills your flasks. Felling every boss ends the cycle: the isles grow stronger (foes ×'+(PG.cycleMul(S0.cycle+1).hp).toFixed(2)+' health) and every kill pays more Embers.</div>'}
+    else if(shTab==='arm'){h+='<div class="sf" style="margin:0 0 4px">Pack '+GR.S.inv.length+'/'+GR.CAP+'. Bosses always drop a weapon; foes sometimes do.</div>';
+      for(const it of GR.all()){const eq=GR.S.eq===it.id;h+=itemHtml(it,'<button data-a="eq" data-k="'+it.id+'"'+(eq?' disabled':'')+'>'+(eq?'Equipped':'Equip')+'</button>'+(it.id==='start'?'':'<button data-a="sell" data-k="'+it.id+'">Sell '+GR.sellValue(it)+'</button>'))}}
+    else{h+='<div class="sf" style="margin:0 0 4px">The Wandering Merchant. Stock changes whenever a boss falls.</div>';
+      for(const k in FLP){const cap=flaskCap(k),full=flasks[k]>=cap;h+='<div class="su"><div><b>'+FLP[k][0]+'</b> <i>'+flasks[k]+'/'+cap+'</i></div><button data-a="buyf" data-k="'+k+'"'+(full||S0.embers<FLP[k][1]?' disabled':'')+'>'+FLP[k][1]+'</button></div>'}
+      const st=GR.stock(stockSeed());if(!st.length)h+='<div class="sf">Sold out. Fell a boss and he will have more.</div>';
+      for(const it of st)h+=itemHtml(it,'<button data-a="buyw" data-k="'+it.id+'"'+(S0.embers<GR.price(it)||GR.full()?' disabled':'')+'>'+GR.price(it)+'</button>')}
+    return h}
+  function shrineAct(a,k){
+    if(a==='tab'){shTab=k;return true}
+    if(a==='up')return PG.buy(k);
+    if(a==='eq'){if(GR.equip(k)){swapModel();return true}return false}
+    if(a==='sell'){const v=GR.sell(k);if(v){PG.earn(v);swapModel();return true}return false}
+    if(a==='buyf'){const c=FLP[k]&&FLP[k][1];if(!c||flasks[k]>=flaskCap(k)||!PG.spend(c))return false;flasks[k]++;saveFl();flaskUi();return true}
+    if(a==='buyw'){const it=GR.stock(stockSeed()).find(x=>x.id===k);if(!it||PG.S.embers<GR.price(it))return false;const p=GR.buy(it,PG.S.embers);if(!p)return false;PG.spend(p);return true}
+    return false}
   function shrineShow(){
     if(!shrineEl){shrineEl=document.createElement('div');shrineEl.id='wshrine';document.body.appendChild(shrineEl);
-      shrineEl.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='wshx'){shrineEl.classList.remove('on');return}if(b.dataset.k&&PG.buy(b.dataset.k)){sfx('clash',.5,1.3,()=>tone(500,1000,.2,'sine',.1));shrineEl.innerHTML=shrineHtml();chipKey=''}});
+      shrineEl.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='wshx'){shrineEl.classList.remove('on');return}
+        if(b.dataset.a&&shrineAct(b.dataset.a,b.dataset.k)){if(b.dataset.a!=='tab')sfx('clash',.5,1.3,()=>tone(500,1000,.2,'sine',.1));const y=shrineEl.scrollTop;shrineEl.innerHTML=shrineHtml();shrineEl.scrollTop=y;chipKey=''}});
       shrineEl.addEventListener('pointerdown',e=>e.stopPropagation())}
     for(const k in FL)flasks[k]=Math.max(flasks[k],[3,2,1][['hp','st','mt'].indexOf(k)]+PG.stats().belt);saveFl();flaskUi();
     shrineEl.innerHTML=shrineHtml();shrineEl.classList.add('on')}
@@ -137,7 +164,7 @@ const PlayerCombat=(()=>{
   // Full: it starts Flow (the meter drains for ~9 s) and the button becomes a finisher (Armada, then Meia Lua), each paid for out of the meter.
   let flow=0,flowOn=false,flowN=0,fq=null,skillCD=0;
   const FLOW_COST=32,FIN=['armada','martelo','meia','rasteira'];
-  function flowAdd(n){if(!on)return;const was=flow;flow=Math.min(100,flow+n);if(flow>=100&&was<100&&!flowOn){msg('FLOW READY',1.2);tone(660,990,.18,'sine',.1)}}
+  function flowAdd(n){if(!on)return;const was=flow;flow=Math.min(100,flow+n*wst.flow);if(flow>=100&&was<100&&!flowOn){msg('FLOW READY',1.2);tone(660,990,.18,'sine',.1)}}
   function flowPress(t){
     if(flowOn){fq={m:FIN[flowN%FIN.length],t:now()};return}
     if(flow>=100){flowOn=true;flowN=0;msg('FLOW',1.2);sfx('heavy',.5,1.5,()=>tone(300,800,.3,'sine',.12));return}
@@ -225,7 +252,7 @@ const PlayerCombat=(()=>{
   const pool={};     // foe type id -> [body]  (reused between fights; hidden when free)
   function attachSword(av,file,len,slot,fixed){
     const u=av&&av.userData;if(!u||!u.bones||!u.bones.RightHand||!THREE.GLTFLoader)return null;const st={ready:false,grip:null,hand:u.bones.RightHand,len:slot.len,want:len,av,fixed};
-    new THREE.GLTFLoader().load('assets/warden/'+file,g=>{const grip=new THREE.Group(),m=g.scene;m.traverse(o=>{if(o.isMesh){o.castShadow=false;o.frustumCulled=false}});grip.add(m);st.hand.add(grip);st.grip=grip;st.ready=true;setGrip(st);grip.visible=on},()=>{},()=>{slot.tried=false});
+    new THREE.GLTFLoader().load('assets/'+(file.indexOf('/')>=0?file:'warden/'+file),g=>{if(st.dead)return;const grip=new THREE.Group(),m=g.scene;m.traverse(o=>{if(o.isMesh){o.castShadow=false;o.frustumCulled=false}});grip.add(m);st.hand.add(grip);st.grip=grip;st.ready=true;setGrip(st);grip.visible=on},()=>{},()=>{slot.tried=false});
     return st}
   function setGrip(st,g){
     if(!st||!st.grip)return;g=g||GRIP;const hand=st.hand,ws=new THREE.Vector3();st.av.updateMatrixWorld(true);hand.getWorldScale(ws);st.grip.scale.setScalar(st.want/(st.len*ws.x));
@@ -281,7 +308,7 @@ const PlayerCombat=(()=>{
     else if(!inn&&resPrev){st.min=resPrev.min;st.locked=resPrev.locked;if(st.dpr!==resPrev.dpr){st.dpr=resPrev.dpr;st.r.setPixelRatio(resPrev.dpr)}resPrev=null}}
   function ensureAvatars(){
     if(!pAnim&&me.userData.mixer)pAnim=WardenMX.make(me.userData,'player');
-    if(!sword&&!swordTried&&me.userData.bones){swordTried=true;sword=attachSword(me,'sword_falchion.glb',.95,{len:5.36,set tried(v){swordTried=v}})}
+    if(!sword&&!swordTried&&me.userData.bones){swordTried=true;{const WT=WardenGear.TYPES[WardenGear.equipped().ty];sword=attachSword(me,WT.file,WT.want,{len:WT.l0,set tried(v){swordTried=v}})}}
     for(const F of foes){const b=F.body;if(!b.u.mixer)continue;styleBody(b);if(!b.anims[F.T.role])b.anims[F.T.role]=WardenMX.make(b.u,F.T.role);F.anim=b.anims[F.T.role]}}
   function engage(s){
     try{if(typeof loadEmotes==='function')loadEmotes().catch(()=>{})}catch(e){}   // the 'playdead' fall clip lives in the emote library: without it corpses (and you) just stand there
@@ -310,7 +337,7 @@ const PlayerCombat=(()=>{
       {const fp=e.t==='hit'||e.t==='block'||e.t==='deflect'||e.t==='posturebreak'||e.t==='guardbreak'?(T?T.f:(e.d==='P'?P:null)):null;if(fp)vfxAt(e,fp)}
       if(e.t==='start'){if(e.a==='P'||A&&e.move&&A.f){const q=e.a==='P'?P:A.f;if(q&&(e.a==='P'||/atk|cut|slam|sweep|swipe|heavy|light/.test(e.move)))WardenVfx.slash(q.x,H(q.x,q.z)+1.2,q.z,q.face,/heavy|slam/.test(e.move),e.a==='P'?0:1)}if(e.a==='P'){if(e.move==='light'&&pAnim)pAnim.nextLight(performance.now()/1000);sfx('whoosh',.4,e.move==='heavy'?.75:1.1,()=>tone(e.move==='heavy'?220:380,e.move==='heavy'?90:150,e.move==='heavy'?.18:.1,'triangle',.1))}else{if(A&&A.anim&&A.anim.pickAlt)A.anim.pickAlt(e.move,Math.random());sfx('whoosh',.35,.8,()=>tone(160,70,.16,'sawtooth',.07))}}
       else if(e.t==='dodge'&&e.a==='P')tone(200,80,.14,'sine',.08);
-      else if(e.t==='hit'){if(T){T.flash=1;T.lh=performance.now();wake(T,true);sfx(e.dmg>=20||e.crit?'heavy':'strike',.8,e.crit?.85:1,()=>tone(140,50,.14,'square',.14));if(e.crit)msg('CRITICAL');if(T.body.T.body==='avatar')T.body.u.hitReq=1}else{sfx(e.dmg>=20?'heavy':'strike',.9,.9,()=>tone(110,40,.18,'square',.16));if(e.d==='P'&&P.hp>0){hurt=true;msg('',0);hitFrom(A,e.move)}}}
+      else if(e.t==='hit'){if(T&&e.a==='P'){if(wst.bleed&&T.f.act!=='dead')T.bleed={t:4,dps:wst.bleed};if(wst.vamp&&P.hp>0)P.hp=Math.min(P.hpMax,P.hp+e.dmg*wst.vamp)}if(T){T.flash=1;T.lh=performance.now();wake(T,true);sfx(e.dmg>=20||e.crit?'heavy':'strike',.8,e.crit?.85:1,()=>tone(140,50,.14,'square',.14));if(e.crit)msg('CRITICAL');if(T.body.T.body==='avatar')T.body.u.hitReq=1}else{sfx(e.dmg>=20?'heavy':'strike',.9,.9,()=>tone(110,40,.18,'square',.16));if(e.d==='P'&&P.hp>0){hurt=true;msg('',0);hitFrom(A,e.move)}}}
       else if(e.t==='block')sfx('clash',.6,.9,()=>tone(420,260,.1,'square',.1));
       else if(e.t==='deflect'){sfx('clash',.85,1.4,()=>tone(1500,900,.18,'sine',.14));msg(T?'':'DEFLECTED',.5)}
       else if(e.t==='posturebreak'&&T){if(T.T.boss)msg('POSTURE BROKEN');sfx('heavy',.8,1.1,()=>tone(500,120,.3,'sawtooth',.12))}
@@ -382,7 +409,7 @@ const PlayerCombat=(()=>{
     gT=P.guard?gT+1:0;const o=PC._pose?{a:WardenAnim.POSES[PC._pose[0]],b:WardenAnim.POSES[PC._pose[1]],u:PC._pose[2],w:1}:WardenAnim.target(P,gT);WardenAnim.mix(o.a,o.b,o.u,tg);stW+=((o.w)-stW)*Math.min(1,dt*10);
     {const k=Math.min(1,dt*40);for(const kk of['ru','rf','lu','lf'])cur[kk].lerp(tg[kk],k).normalize();cur.tw+=(tg.tw-cur.tw)*k;cur.ln+=(tg.ln-cur.ln)*k}
     const used=pAnim?pAnim.update(P,fr,ploco,dt,true):false;if(!used&&!PC._skip)WardenAnim.apply(me.userData,cur,stW);
-    for(const F of foes)foeTick(F,dt,fr);payFoes();
+    for(const F of foes){if(F.bleed&&F.bleed.t>0&&F.f.act!=='dead'&&NET.mode!=='guest'){F.bleed.t-=dt;F.f.hp=Math.max(1,F.f.hp-F.bleed.dps*dt);F.flash=Math.max(F.flash,.25)}foeTick(F,dt,fr)}payFoes();
     WardenFx.update(dt);WardenVfx.update(dt);
     hud();if(msgT>0){msgT-=dt;if(msgT<=0)el.querySelector('#wmsg').classList.remove('on')}}
   function foeTick(F,dt,fr){

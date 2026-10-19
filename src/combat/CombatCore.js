@@ -8,7 +8,7 @@
 const CombatCore=(()=>{
   const SPEED=.05,SUBM=.1,GUARD_ARC=1.2,REARM=14,DEFL=7,BUF=6;
   function mkFighter(id,o){o=o||{};return{id,x:o.x||0,z:o.z||0,y:0,r:.45,face:o.face||0,hp:o.hp||100,hpMax:o.hp||100,st:100,stMax:100,po:0,poMax:100,
-    team:o.team||null,sa:o.sa||0,dm:o.dm||1,rm:o.rm||1,act:'free',pt:0,ph:null,pi:0,pk:0,mv:null,hold:0,done:{},sk:null,stun:0,kx:0,kz:0,kr:0,dir:null,guard:false,gpt:99,rel:99,sr:99,pr:99,c:0,rel2:false,buf:null,q:[],ex:0,ez:0,lc:0,lcT:-999,dEnd:-999}}
+    team:o.team||null,sa:o.sa||0,sm:1,pm:1,dfl:0,dm:o.dm||1,rm:o.rm||1,act:'free',pt:0,ph:null,pi:0,pk:0,mv:null,hold:0,done:{},sk:null,stun:0,kx:0,kz:0,kr:0,dir:null,guard:false,gpt:99,rel:99,sr:99,pr:99,c:0,rel2:false,buf:null,q:[],ex:0,ez:0,lc:0,lcT:-999,dEnd:-999}}
   function create(o){o=o||{};const C={tick:0,hs:0,ev:[],fx:[],fxN:0,F:{},solids:(o.solids||[]).slice(),arena:o.arena||{x:0,z:0,R:1e9},order:[]};
     C.add=(id,fo)=>{C.F[id]=mkFighter(id,fo);C.order.push(id);return C.F[id]};
     C.step=cmds=>step(C,cmds||{});C.start=(id,m,hold)=>{const f=C.F[id];if(f&&Moves[m])startMove(C,f,m,hold|0)};return C}
@@ -21,7 +21,7 @@ const CombatCore=(()=>{
         for(const id of C.order){const o=C.F[id];if(o===f||o.act==='dead')continue;const ex=f.x-o.x,ez=f.z-o.z,d=Math.hypot(ex,ez),m=f.r+o.r;if(d<m){if(d<1e-6){f.x+=m;continue}f.x=o.x+ex/d*m;f.z=o.z+ez/d*m}}
         for(const s of C.solids){if(s.nb&&!s.wall)continue;const ex=f.x-s.x,ez=f.z-s.z,d=Math.hypot(ex,ez),m=s.r+f.r;if(d<m){if(d<1e-6){f.x+=m;continue}f.x=s.x+ex/d*m;f.z=s.z+ez/d*m}}
         const A=C.arena,ax=f.x-A.x,az=f.z-A.z,ad=Math.hypot(ax,az),lim=A.R-f.r;if(ad>lim){f.x=A.x+ax/ad*lim;f.z=A.z+az/ad*lim}}}}
-  function spend(f,v){f.st=Math.max(0,f.st-v);f.sr=0}
+  function spend(f,v){f.st=Math.max(0,f.st-v*(f.sm||1));f.sr=0}
   function addPo(C,f,v){if(f.act==='dead')return;f.po=Math.min(f.poMax,f.po+v);f.pr=0;
     if(f.po>=f.poMax&&!(f.act==='stun'&&f.sk==='stagger')){f.po=0;stunF(f,60,'stagger');emit(C,'posturebreak',null,f.id)}}
   function stunF(f,n,kind){f.act='stun';f.sk=kind;f.stun=n;f.guard=false;f.ph=null;f.mv=null;f.buf=null;f.rel2=false;f.c=0}
@@ -80,7 +80,7 @@ const CombatCore=(()=>{
         for(const s of C.solids){if(s.nb&&!s.wall)continue;if(Math.hypot(fx.x-s.x,fx.z-s.z)<s.r){emit(C,'fxend',fx.o,null,{fid:fx.id,why:'wall',x:fx.x,z:fx.z});return false}}
         for(const t of foes){if(fx.done[t.id]||Math.hypot(t.x-fx.x,t.z-fx.z)>=fx.r+t.r)continue;fx.done[t.id]=true;
           if(iframe(t)){out.push({k:'dodged',a:own,t,fx:fx.id});continue}
-          const br=Math.atan2(-fx.dx,-fx.dz);out.push({k:t.guard&&t.act==='free'&&SwordHit.angd(t.face,br)<=GUARD_ARC?(t.gpt<=DEFL?'deflect':'block'):'hit',a:own,t,mv:fx.mv,br,fx:fx.id});
+          const br=Math.atan2(-fx.dx,-fx.dz);out.push({k:t.guard&&t.act==='free'&&SwordHit.angd(t.face,br)<=GUARD_ARC?(t.gpt<=DEFL+(t.dfl||0)?'deflect':'block'):'hit',a:own,t,mv:fx.mv,br,fx:fx.id});
           emit(C,'fxend',fx.o,t.id,{fid:fx.id,why:'hit',x:fx.x,z:fx.z});return false}
         if(fx.life<=0){emit(C,'fxend',fx.o,null,{fid:fx.id,why:'expire',x:fx.x,z:fx.z});return false}return true}
       if(fx.delay>0){fx.delay--;return true}
@@ -95,7 +95,7 @@ const CombatCore=(()=>{
         const hit=SwordHit.tickHits(snap[aid],a.face,a.mv,p,a.pk,p.n,snap[tid],C.solids,a.y,t.y);if(!hit)continue;
         if(t.act==='dodge'&&t.pt>=Moves.dodge.iStart&&t.pt<=Moves.dodge.iEnd){out.push({k:'dodged',a,t,seg:p.seg});continue}
         const br=Math.atan2(snap[aid].x-snap[tid].x,snap[aid].z-snap[tid].z);
-        if(t.guard&&t.act==='free'&&SwordHit.angd(t.face,br)<=GUARD_ARC)out.push({k:t.gpt<=DEFL?'deflect':'block',a,t,seg:p.seg,mv:a.mv,br});
+        if(t.guard&&t.act==='free'&&SwordHit.angd(t.face,br)<=GUARD_ARC)out.push({k:t.gpt<=DEFL+(t.dfl||0)?'deflect':'block',a,t,seg:p.seg,mv:a.mv,br});
         else out.push({k:'hit',a,t,seg:p.seg,mv:a.mv,br})}}
     // (5) resolve (all outcomes were decided from the pre-resolution state, so simultaneous hits both land)
     let hs=0;const stag0={};for(const id of C.order)stag0[id]=C.F[id].act==='stun'&&C.F[id].sk==='stagger';
@@ -107,7 +107,7 @@ const CombatCore=(()=>{
         if(t.st<=0&&t.act==='free'){stunF(t,45,'stagger');emit(C,'guardbreak',a.id,t.id)}}
       else{const crit=stag0[t.id]?2.5:1,dm=mv.dmg*sc*crit*(a.dm||1);t.hp=Math.max(0,t.hp-dm);t.pr=0;emit(C,'hit',a.id,t.id,{move:mv.id,seg:o.seg,dmg:dm,crit:crit>1,fx:o.fx});hs=Math.max(hs,mv.hs);
         if(t.hp<=0){t.act='dead';t.guard=false;t.ph=null;t.mv=null;emit(C,'dead',a.id,t.id)}
-        else{const wasStag=t.act==='stun'&&t.sk==='stagger';if(!wasStag&&!t.sa)stunF(t,mv.stun,'hit');addPo(C,t,mv.pdmg*sc*(t.sa?.8:1));
+        else{const wasStag=t.act==='stun'&&t.sk==='stagger';if(!wasStag&&!t.sa)stunF(t,mv.stun,'hit');addPo(C,t,mv.pdmg*sc*(t.sa?.8:1)*(a.pm||1));
           if(!t.sa){const bx=Math.sin(o.br+Math.PI),bz=Math.cos(o.br+Math.PI);t.kx=-bx;t.kz=-bz;t.kr=mv.kb*sc}}}}
     if(hs>0)C.hs=hs;
     // (6) advance counters (not reached during hit-stop)
