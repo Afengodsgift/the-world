@@ -15,7 +15,7 @@ const DEPS={ // file -> files that must come first
   'games/OutlawArena.js':['utils/random.js'],
   'data/warden.js':['data/islands.js','utils/math.js'],
   'combat/Moves.js':[],'combat/SwordHit.js':[],'combat/Combos.js':[],'combat/CombatCore.js':['combat/Moves.js','combat/SwordHit.js','combat/Combos.js'],'combat/WardenAnim.js':[],
-  'combat/WardenMX.js':[],'combat/DuelistAI.js':[],'combat/Foes.js':[],'combat/WardenFx.js':[],'combat/WardenSfx.js':[],'combat/WardenVfx.js':[],'combat/CineCam.js':[],'combat/WardenNet.js':[],'combat/WardenProg.js':[],'combat/PlayerCombat.js':['combat/WardenProg.js','combat/Foes.js','combat/WardenFx.js','combat/WardenSfx.js','combat/WardenVfx.js','combat/CineCam.js','combat/WardenNet.js','combat/DuelistAI.js','combat/CombatCore.js','combat/Moves.js','combat/WardenAnim.js','combat/WardenMX.js','data/warden.js'],
+  'combat/WardenMX.js':[],'combat/DuelistAI.js':[],'combat/Foes.js':[],'combat/WardenFx.js':[],'combat/WardenSfx.js':[],'combat/WardenVfx.js':[],'combat/CineCam.js':[],'combat/WardenNet.js':[],'combat/WardenProg.js':[],'combat/WardenGear.js':[],'combat/PlayerCombat.js':['combat/WardenProg.js','combat/WardenGear.js','combat/Foes.js','combat/WardenFx.js','combat/WardenSfx.js','combat/WardenVfx.js','combat/CineCam.js','combat/WardenNet.js','combat/DuelistAI.js','combat/CombatCore.js','combat/Moves.js','combat/WardenAnim.js','combat/WardenMX.js','data/warden.js'],
   'games/WardenIsles.js':['data/islands.js','data/warden.js','utils/math.js','combat/PlayerCombat.js'],
   'combat/Scope.js':[],
   'combat/HitZones.js':[],

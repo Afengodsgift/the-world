@@ -58,4 +58,8 @@ ok(Object.keys(M).filter(k=>M[k]&&M[k].who==='D').length===18,'foe move count (1
 {const {C,P,D}=mk({P:{sa:1},D:{z:1.6,sa:1,hp:1e5}});C.start('D','cut');step(C,14);const hp=D.hp;C.start('P','heavy');for(let i=0;i<60&&D.hp===hp;i++)step(C,1);
   ok(D.hp<hp&&D.act==='attack'||D.hp<hp&&D.act==='free','super-armoured foe takes the hit but is not interrupted (hp '+hp+'>'+D.hp+', act '+D.act+')');ok(D.kr===0,'super armour: no knockback');}
 {const {C,P,D}=mk({P:{sa:1},D:{z:1.6,hp:1e5}});C.start('D','cut');step(C,14);C.start('P','heavy');for(let i=0;i<60&&D.act!=='stun'&&D.hp===1e5;i++)step(C,1);ok(D.act==='stun'&&D.sk==='hit','a normal foe is still interrupted (control)')}
+// ---- gear hooks: stamina cost, posture, deflect window ----
+{const a=mk(),b=mk({P:{}});b.P.sm=.5;a.P.sm=1;step(a.C,1,L());step(b.C,1,L());ok(b.P.st>a.P.st,'stamina cost multiplier (sm .5 spends less)')}
+{const {C,P,D}=mk({P:{sa:1},D:{z:1.6,hp:1e5}});P.pm=2;D.sa=0;C.start('P','light');for(let i=0;i<30&&D.po===0;i++)step(C,1);const p2=D.po;
+ const o=mk({P:{sa:1},D:{z:1.6,hp:1e5}});o.C.start('P','light');for(let i=0;i<30&&o.D.po===0;i++)step(o.C,1);ok(p2>1.9*o.D.po&&o.D.po>0,'posture multiplier (pm 2 doubles posture damage: '+p2.toFixed(1)+' vs '+o.D.po.toFixed(1)+')')}
 process.exit(bad?1:0);

@@ -25,6 +25,7 @@ const WardenProg=(()=>{
   // embers for a felled foe; a boss the first time this cycle pays double
   function reward(T,siteId){const m=cycleMul().ember,boss=!!T.boss;let n=boss?150+Math.round(T.hp*.25):12+Math.round(T.hp*.05);if(boss&&siteId&&!S.done[siteId])n*=2;return Math.round(n*m)}
   function add(n){n=n|0;if(n<=0)return;S.embers+=n;S.total+=n;S.kills++;save()}
+  const earn=n=>{n=n|0;if(n>0){S.embers+=n;save()}};const spend=n=>{if(S.embers<n)return false;S.embers-=n;save();return true};
   // Dying: the carried embers stay where you fell (one pile only).
   function die(sid,x,z){if(S.embers>0)S.lost={sid,x,z,n:S.embers};S.embers=0;save();return S.lost}
   function claim(){if(!S.lost)return 0;const n=S.lost.n;S.embers+=n;S.lost=null;save();return n}
@@ -34,5 +35,5 @@ const WardenProg=(()=>{
     S.cycle++;S.best=Math.max(S.best,S.cycle);S.done={};const bonus=300*(S.cycle-1);S.embers+=bonus;S.total+=bonus;save();return{cycle:S.cycle,bonus,twist:twist(S.cycle)}}
   const progress=()=>{let n=0;for(const b of bosses)if(S.done[b])n++;return{n,of:bosses.length}};
   const reset=()=>{S.cycle=1;S.embers=0;S.ups={vig:0,end:0,mig:0,belt:0};S.done={};S.lost=null;S.total=0;S.best=1;S.kills=0;save()};
-  return{S,NAMES,MAXL,setBosses,twist,cycleMul,cost,stats,buy,reward,add,die,claim,felled,progress,reset,load,save}})();
+  return{S,NAMES,MAXL,setBosses,twist,cycleMul,cost,stats,buy,reward,add,die,claim,earn,spend,felled,progress,reset,load,save}})();
 if(typeof module!=='undefined')module.exports=WardenProg;

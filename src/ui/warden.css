@@ -62,3 +62,10 @@ body.warden-fight #wemb{display:none!important}
 #wshrine button{width:auto!important;height:auto!important;min-height:0!important;position:static!important;flex:none}
 #wshrine .su>div{flex:1;min-width:0}
 #wshrine{max-height:84vh}
+#wshrine .stb{display:flex;gap:6px;margin:4px 0 6px}
+#wshrine .stb button{flex:1;padding:8px 4px;border-radius:8px;border:1px solid #ffffff22;background:#ffffff0d;color:#d9c9b0;font:700 13px system-ui,sans-serif}
+#wshrine .stb button.on{background:#3a2410;border-color:#ffb35a99;color:#ffd9a0}
+#wshrine .su .bt{display:flex;flex-direction:column;gap:4px}
+#wshrine .su small.af{color:#9fd39f}
+#wshrine .su>.bt{flex:none;min-width:92px}
+#wshrine .su .bt button{width:100%!important}
