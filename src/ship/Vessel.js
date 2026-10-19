@@ -42,6 +42,7 @@ const Vessel=(()=>{
         ob.traverse(c=>{if(c.isMesh){c.castShadow=true;c.receiveShadow=true}if(K.sails&&K.sails.test(c.name))v.sails.push({n:c,r:c.rotation.y});if(K.flags&&K.flags.test(c.name)){v.flags.push({n:c,r:c.rotation.y});
           if(v.tint&&c.material){c.material=c.material.clone();c.material.color&&c.material.color.set(v.tint)}}});v.grp.add(ob);v.loaded=true}));
     }
+    if(v.deck)v.deck.camH=K.deckM+3.4;
     if(v.deck)Decks.seal(v.deck,K.deckM-.25,K.deckM+2.0,2.6,2,K.gangway);
     if(v.deck&&K.dais){Decks.stamp(v.deck,K.dais.x,K.dais.z,K.dais.r+.6,K.dais.h-.5);Decks.stamp(v.deck,K.dais.x,K.dais.z,K.dais.r,K.dais.h)}   // the wheel's dais: two walkable steps up (the model's steps are decoration)
     if(v.deck&&!o.noGuns){v.guns=placeGuns(v);for(const g of v.guns){Decks.stampBox(v.deck,g.x,g.z,.55,1.0,0,1.7);

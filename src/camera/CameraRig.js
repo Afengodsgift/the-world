@@ -53,6 +53,7 @@ const CameraRig=(()=>{
       for(let k=0;k<_nb.length;k++)if(inBox(_nb[k],x,y,z,.4))return Math.max(.12,t-2/N);
       for(let k=0;k<_near.length;k++){const c=_near[k],dx=x-c.x,dz=z-c.z,top=c.h!==undefined?c.h:H(c.x,c.z)+9;
         if(dx*dx+dz*dz<(c.r+.25)**2&&y<top)return Math.max(.15,t-1.5/N)}}
+    if(typeof Decks!=='undefined'&&Decks.rayBlock){const t=Decks.rayBlock(a.x,a.y,a.z,b.x,b.y,b.z);if(t<1)return Math.max(.2,t-1.2/N)}   // cabins / castles / masts of any ship you stand on
     return 1;
   }
 
@@ -124,7 +125,7 @@ const CameraRig=(()=>{
     const ay=st.ay+1.6+.4*st.tpsK;
     _p.set(S.x+lx-_f.x*d+shx,ay-_f.y*d,S.z+lz-_f.z*d+shz);
     _l.set(S.x+shx,st.ay+1.4+.2*st.tpsK+st.dip.x*.6,S.z+shz);
-    if(sk>.001){const qx=(sh0.x-S.x)*mix,qz=(sh0.z-S.z)*mix,qy=(sh0.y-st.ay)*mix;_l.x+=qx;_l.z+=qz;_l.y+=qy;_p.x+=qx-_f.x*(dd-d);_p.z+=qz-_f.z*(dd-d);_p.y+=qy-_f.y*(dd-d)+3*sk}   // pivot toward the ship, boom longer, a little higher
+    if(sk>.001){const qx=(sh0.x-S.x)*mix,qz=(sh0.z-S.z)*mix,qy=(sh0.y-st.ay)*mix;_l.x+=qx;_l.z+=qz;_l.y+=qy;_p.x+=qx-_f.x*(dd-d);_p.z+=qz-_f.z*(dd-d);_p.y+=qy-_f.y*(dd-d)+(sh0.lift===undefined?3:sh0.lift)*sk}   // pivot toward the ship, boom longer, a little higher
     if(fe>.001){
       if(sp3>.5){const kk=-lag*fe/sp3;_p.x+=st.vx*kk;_p.y+=st.vyn*kk;_p.z+=st.vz*kk}               // flight trail along the 3D velocity
       _u.set(0,1,0).addScaledVector(_f,-_f.y).normalize();                                          // camera 'up' (world up made perpendicular to the view)
@@ -133,7 +134,7 @@ const CameraRig=(()=>{
     _p.y+=st.dip.x;
     {const gm=ground(_p.x,_p.z,_l.y)+.8;if(_p.y<gm)_p.y+=(gm-_p.y)*(1-st.tpsK)}   // chase camera: lift it off the ground; shoulder view: do NOT bend the view direction, armFree() pulls the camera in along the line of sight instead
     // obstruction: pull the camera in so it never ends up inside a house/rock or under the ground; snaps in fast, eases back out slowly
-    let free=st.fpsK<.01?armFree(_l,_p):1;free+=(1-free)*Math.min(1,sk*1.6);st.arm+=(free-st.arm)*(free<st.arm?1:1-Math.exp(-(2.4+2.2*st.tpsK)*dt));
+    let free=st.fpsK<.01?armFree(_l,_p):1;free+=(1-free)*Math.min(1,sk*1.6)*(st.ship&&st.ship.block?0:1);st.arm+=(free-st.arm)*(free<st.arm?1:1-Math.exp(-(2.4+2.2*st.tpsK)*dt));
     if(st.arm<.999)_p.lerpVectors(_l,_p,st.arm);
 
     // ---- first-person: blend position to the eye, look straight along the view direction ----

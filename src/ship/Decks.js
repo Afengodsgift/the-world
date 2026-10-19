@@ -76,6 +76,14 @@ const Decks=(()=>{
     // a gangway: a stretch of the side that is only a climbable rail (gap = {side,z0,z1,h}: side -1/+1, ship-space z range, rail height in metres)
     if(gap)for(let iz=0;iz<d.nz;iz++)for(let ix=0;ix<N;ix++){const x=(d.x0+(ix+.5)*d.cs)*sc,z=(d.z0+(iz+.5)*d.cs)*sc,i=iz*N+ix;
       if(x*gap.side>0&&z>=gap.z0&&z<=gap.z1&&d.h[i]*sc>=lo+gap.h+.4&&d.h[i]*sc<=lo+wall+.6)d.h[i]=(lo+.25+gap.h)/sc}}
+  // first fraction (0..1) along the segment a->b that lies inside a TALL solid of any ship (cabin, castle, mast base: cells higher than d.camH; rails and cannons never count) or 1. Camera occlusion.
+  const _rb={};
+  function rayBlock(ax,ay,az,bx,by,bz){
+    let best=1;
+    for(const d of decks.values()){if(d.off||!d.camH)continue;const p=d.pose,r=d.rad+Math.hypot(bx-ax,bz-az);
+      if(Math.hypot(ax-p.x,az-p.z)>r&&Math.hypot(bx-p.x,bz-p.z)>r)continue;
+      for(let i=1;i<=16;i++){const t=i/16;if(t>=best)break;toLocal(d,ax+(bx-ax)*t,ay+(by-ay)*t,az+(bz-az)*t,_rb);const f=floor(d,_rb.x,_rb.z);if(f>=d.camH&&_rb.y<f-.1){best=t;break}}}
+    return best}
   const RING=[[R,0],[-R,0],[0,R],[0,-R]];
   // is a body of radius R standing at (x,z) with its feet at ship-space height ly stopped by anything higher than ly+step?  returns the tallest blocking height (or 0)
   function wallAt(d,x,z,ly,step){
@@ -163,5 +171,5 @@ const Decks=(()=>{
   function pin(S,d,x,z){const sup=floor(d,x,z);S._dk={id:d.id,x,y:Math.max(0,sup),z,h:d.pose.h};toWorld(d,x,Math.max(0,sup),z,_a);S.x=_a.x;S.z=_a.z;S.y=_a.y;S.vy=0;return _a.y}
   const standingOn=S=>S._dk?S._dk.id:null;
   const disable=(d,on)=>{if(d)d.off=!!on};
-  return {seal,wallNormal,disable,STEP,HOP,R,grid,create,add,remove,get,all,clear,setPose,toWorld,toLocal,floor,stamp,stampBox,wallAt,slide,freeSpot,route,step,pin,standingOn,decks};
+  return {rayBlock,seal,wallNormal,disable,STEP,HOP,R,grid,create,add,remove,get,all,clear,setPose,toWorld,toLocal,floor,stamp,stampBox,wallAt,slide,freeSpot,route,step,pin,standingOn,decks};
 })();

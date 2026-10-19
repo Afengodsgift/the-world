@@ -19,7 +19,7 @@ const Ship=(()=>{
   const storm=()=>{try{return typeof Env!=='undefined'&&Env.state&&Env.state.wx?Env.state.wx.storm||0:0}catch(e){return 0}};
   const windNow=()=>Sailing.wind(Date.now()/1000,seed(),storm());
   const send=p=>Net.emit('shp',p);
-  const _m={},_o={};let holdFire=false,sailM=null,sailHid=false,hudLk=false,hudHc=false,btnX=null,btnC=null,btnB=null,ret=null;
+  const _m={},_o={};let holdFire=false,sailM=null,sailHid=false,sailA=1,sailApplied=1,hudLk=false,hudHc=false,btnX=null,btnC=null,btnB=null,ret=null;
   // the camera yaw rides the ship's turns (ctr = the centre direction this frame) and is held within +-lim of it (lim >= 3: free look all the way round)
   function follow(ctr,lim){if(ctrPrev!==null)S.yaw+=wrapA(ctr-ctrPrev);ctrPrev=ctr;if(lim<3){const o=wrapA(S.yaw-ctr);S.yaw+=clamp(o,-lim,lim)-o}}
 
@@ -165,10 +165,14 @@ const Ship=(()=>{
       else if(seated&&st.cam==='captain'){const h=helmLocal(),e=Decks.toWorld(v.deck,0,Decks.floor(v.deck,h.x,h.z)+C.stations.eyeUp,h.z+C.stations.eyeFwd,_m);follow(wrapA(pose.h+Math.PI),9);
         cfg={x:pose.x,y:pose.y+K.deckM+3,z:pose.z,d:10,pk:1,eye:{x:e.x,y:e.y,z:e.z},pr:[-.5,.55]}}
       else{if(seated)follow(wrapA(pose.h+Math.PI),9);else ctrPrev=null;
-        cfg=ab?{x:pose.x,y:pose.y+K.deckM+3.4,z:pose.z,d:seated?12+v.hl*.85:14+v.hl*.55,pk:seated?1:.3}:null}
+        // third person, Black Flag style: a long boom well behind and ABOVE the ship (the sails fade out locally so they never block the view)
+        cfg=ab?{x:pose.x,y:pose.y+K.deckM+4.5,z:pose.z,d:seated?20+v.hl*1.2:16+v.hl*.8,pk:seated?1:.3,lift:seated?7:5}
+          :(S._dk&&!S.flying&&!st.aboard&&typeof Decks!=='undefined'?{x:S.x,y:S.y+1.8,z:S.z,d:11,pk:1,lift:3,block:1}:null)}   // fighting on another ship: close boom, a bit higher, cabins and castles never sit between you and the camera
       CameraRig.setShip(cfg);
       // captain's view: only on YOUR screen the sails (two merged meshes) are hidden so the horizon is clear; everybody else still sees them
       if(v.loaded&&!sailM){sailM=[];v.grp.traverse(c=>{if(c.isMesh&&c.material&&/^Sail/.test(c.material.name||''))sailM.push(c)})}
+      {const tg=(cfg&&!cfg.eye&&ab)?.22:1;sailA+=(tg-sailA)*Math.min(1,dt*4);                         // third-person: the sails turn see-through (only on your screen)
+        if(sailM&&Math.abs(sailA-sailApplied)>.01){sailApplied=sailA;for(const m of sailM){const mt=m.material;if(!mt)continue;mt.transparent=sailA<.99;mt.opacity=sailA;mt.depthWrite=sailA>.99;mt.needsUpdate=true}}}
       const hs=!!(cfg&&cfg.eye&&!GN&&typeof CameraRig.eyeK==='function'&&CameraRig.eyeK()>.55);if(sailM&&hs!==sailHid){sailHid=hs;for(const m of sailM)m.visible=!hs}}catch(e){}
     try{me.userData.steer=st.role==='helm'?poseHelm:null}catch(e){}
     if(holdFire&&st.gun&&typeof Fleet!=='undefined')Fleet.playerFire(st.gun,true,true);

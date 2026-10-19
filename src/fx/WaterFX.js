@@ -31,10 +31,10 @@ const WaterFX=(()=>{
     floorM=new THREE.Mesh(new THREE.CircleGeometry(6000,48),new THREE.MeshLambertMaterial({color:'#17607f'}));floorM.rotation.x=-Math.PI/2;floorM.position.y=-12.06;floorM.renderOrder=-2;scene.add(floorM);
     const tex=dotTex();
     {const fg=new THREE.PlaneGeometry(1,1);fg.rotateX(-Math.PI/2);
-     foam=new THREE.InstancedMesh(fg,new THREE.MeshBasicMaterial({map:tex,color:'#ffffff',transparent:true,depthWrite:false,fog:true}),NF);
+     foam=new THREE.InstancedMesh(fg,new THREE.MeshBasicMaterial({map:tex,color:'#ffffff',transparent:true,depthWrite:false,fog:false,blending:THREE.AdditiveBlending}),NF);
      foam.frustumCulled=false;foam.renderOrder=3;_s.set(0,0,0);_m.compose(_p.set(0,-999,0),_q.identity(),_s);for(let i=0;i<NF;i++){foam.setMatrixAt(i,_m);foam.setColorAt(i,_c.setScalar(0))}scene.add(foam);
      const wg=new THREE.BufferGeometry();wg.setAttribute('position',new THREE.BufferAttribute(new Float32Array(NW*3).fill(-999),3));
-     wspray=new THREE.Points(wg,new THREE.PointsMaterial({map:tex,size:.5,sizeAttenuation:true,transparent:true,opacity:.85,depthWrite:false,color:'#ffffff'}));wspray.frustumCulled=false;wspray.renderOrder=3;scene.add(wspray)}
+     wspray=new THREE.Points(wg,new THREE.PointsMaterial({map:tex,size:.5,sizeAttenuation:true,transparent:true,opacity:.7,depthWrite:false,color:'#ffffff',blending:THREE.AdditiveBlending}));wspray.frustumCulled=false;wspray.renderOrder=3;scene.add(wspray)}
     const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.BufferAttribute(new Float32Array(NS*3).fill(-999),3));
     spray=new THREE.Points(sg,new THREE.PointsMaterial({map:tex,size:.34,sizeAttenuation:true,transparent:true,opacity:.9,depthWrite:false,color:'#ffffff'}));spray.frustumCulled=false;spray.renderOrder=3;scene.add(spray);
     const bg=new THREE.BufferGeometry();bg.setAttribute('position',new THREE.BufferAttribute(new Float32Array(NB*3).fill(-999),3));
