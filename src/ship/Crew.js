@@ -172,7 +172,9 @@ const Crew=(()=>{
   function slash(){
     if(slashCd>0||(typeof Fleet!=='undefined'&&Fleet._me.down>0))return false;
     const fwd=typeof camera!=='undefined'?(()=>{const v=new THREE.Vector3();camera.getWorldDirection(v);return Math.atan2(v.x,v.z)})():(S.rot||0);
-    let tg=null,bd=3.6;for(const c of list.values()){if(c.dead)continue;const dx=c.B.x-S.x,dz=c.B.z-S.z,d=Math.hypot(dx,dz);if(d>bd||Math.abs(c.B.y-S.y)>2.6)continue;
+    let tg=null,bd=3.6;const lt=typeof LockOn!=='undefined'&&LockOn.target();
+    if(lt&&lt.crew){const c=list.get(lt.id);if(c&&!c.dead&&Math.hypot(c.B.x-S.x,c.B.z-S.z)<4.6&&Math.abs(c.B.y-S.y)<2.6)tg=c}
+    if(!tg)for(const c of list.values()){if(c.dead)continue;const dx=c.B.x-S.x,dz=c.B.z-S.z,d=Math.hypot(dx,dz);if(d>bd||Math.abs(c.B.y-S.y)>2.6)continue;
       if(d>2.4&&Math.abs(wrapA(Math.atan2(dx,dz)-fwd))>1.9)continue;bd=d;tg=c}
     slashCd=.4;combo=comboT>0?(combo%3)+1:1;comboT=1.3;try{me.userData.swing=1;swordT=4;sword(me,true)}catch(e){}
     const ang=tg?Math.atan2(tg.B.x-S.x,tg.B.z-S.z):fwd;S.rot=ang;try{me.rotation.y=ang}catch(e){}
@@ -184,7 +186,8 @@ const Crew=(()=>{
     return false}
 
   function build(){
-    if(built)return;built=true;Net.on('flt',onNet);Systems.add('crew',step);
+    if(built)return;built=true;Net.on('flt',onNet);
+    if(typeof LockOn!=='undefined')LockOn.source('crew',()=>{const a=[];for(const c of list.values())if(!c.dead&&c.group&&c.group.visible)a.push({id:c.id,crew:1,x:c.B.x,y:c.B.y,z:c.B.z,lift:1.5,hp:c.hp,max:c.max,cap:c.cap});return a});Systems.add('crew',step);
     try{const css=document.createElement('style');css.textContent='#seaboard{position:fixed;z-index:7;right:calc(env(safe-area-inset-right,0px) + 96px);bottom:calc(env(safe-area-inset-bottom,0px) + 112px);min-width:58px;height:48px;padding:0 14px;border-radius:24px;background:#1f4f7acc;color:#fff;font:700 14px sans-serif;border:2px solid #fff8;display:none;align-items:center;justify-content:center;touch-action:none;user-select:none}#seaslash{position:fixed;z-index:7;right:calc(env(safe-area-inset-right,0px) + 22px);bottom:calc(env(safe-area-inset-bottom,0px) + 104px);width:58px;height:58px;border-radius:50%;background:#7a1f1fcc;color:#fff;font:700 28px sans-serif;border:2px solid #fff8;display:none;align-items:center;justify-content:center;touch-action:none;user-select:none}';(document.head||document.body).appendChild(css);
       bbtn=document.createElement('div');bbtn.id='seaboard';bbtn.textContent='⚓ Board!';document.body.appendChild(bbtn);bbtn.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();Fleet.boardEnemy()});
       btn=document.createElement('div');btn.id='seaslash';btn.textContent='⚔';document.body.appendChild(btn);vis=false;
