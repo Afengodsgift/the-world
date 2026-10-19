@@ -36,11 +36,38 @@ const PlayerCombat=(()=>{
     const F=nearest();if(!F)return;const dx=F.f.x-S.x,dz=F.f.z-S.z,d=Math.hypot(dx,dz);if(d>4.5)return;const a=Math.atan2(dx,dz);
     if(lock||Math.abs(Math.atan2(Math.sin(a-S.rot),Math.cos(a-S.rot)))<1.0){pendFace=a;pendT=8;S.rot=a}}
   function reject(){if(P.st>2||!el)return;const b=el.querySelector('.p .st');b.classList.add('bad');setTimeout(()=>b.classList.remove('bad'),260);tone(110,80,.08,'square',.05)}   // out of stamina: say so instead of silently dropping the tap
+  // ---------- difficulty: foes are tougher than the base roster, and tougher again when two fight them together (the host rescales as the partner joins / leaves) ----------
+  const DIFF={hp:1.3,dm:1.15},COOP={hp:1.8,dm:1.2};
+  const foeMul=()=>({hp:DIFF.hp*(Q?COOP.hp:1),dm:DIFF.dm*(Q?COOP.dm:1)});
+  function rescaleFoes(){const m=foeMul();for(const F of foes){const f=F.f,base=F.T.hp*m.hp,r=f.hpMax>0?f.hp/f.hpMax:1;if(f.act!=='dead'){f.hpMax=Math.round(base);f.hp=Math.max(1,r*f.hpMax)}f.dm=(F.T.dm||1)*m.dm;F.sc=m.hp}}
+  // ---------- flasks: Health (50 HP over 2.5 s), Stamina Tonic (full stamina), Might Tonic (+30% damage for 30 s). Counts persist in the browser; felled foes drop them ----------
+  const FL={hp:{n:'Health Flask',max:5,ic:'\u2764',use:'heal'},st:{n:'Stamina Tonic',max:4,ic:'\u26A1',use:'stam'},mt:{n:'Might Tonic',max:3,ic:'\u2694',use:'might'}};
+  let flasks={hp:3,st:2,mt:1},healLeft=0,mightT=0,itemLock=0;
+  try{const j=JSON.parse(localStorage.getItem('wflask')||'null');if(j)for(const k in FL)if(Number.isFinite(j[k]))flasks[k]=Math.max(0,Math.min(FL[k].max,j[k]|0))}catch(e){}
+  const saveFl=()=>{try{localStorage.setItem('wflask',JSON.stringify(flasks))}catch(e){}};
+  function useFlask(k){
+    if(!on||!P||P.act==='dead'||itemLock>0||flasks[k]<=0)return;const t=FL[k].use;
+    if(t==='heal'&&(P.hp>=P.hpMax||healLeft>0)){msg('Health is full',.8);return}
+    if(t==='stam'&&P.st>=P.stMax*.8){msg('Stamina is fine',.8);return}
+    if(t==='might'&&mightT>0){msg('Already empowered',.8);return}
+    flasks[k]--;saveFl();itemLock=.9;
+    if(t==='heal'){healLeft=50;sfx('clash',.3,.7,()=>tone(520,900,.25,'sine',.1))}
+    else if(t==='stam'){P.st=P.stMax;sfx('clash',.3,1.2,()=>tone(700,1100,.2,'sine',.1))}
+    else{mightT=30;P.dm=1.3;msg('MIGHT',1);sfx('heavy',.4,1.4,()=>tone(200,500,.3,'sawtooth',.1))}
+    flaskUi()}
+  function flaskTick(dt){
+    if(itemLock>0)itemLock-=dt;
+    if(healLeft>0){if(P.act==='dead')healLeft=0;else{const g=Math.min(healLeft,20*dt);healLeft-=g;P.hp=Math.min(P.hpMax,P.hp+g);if(P.hp>=P.hpMax)healLeft=0}}
+    if(mightT>0){mightT-=dt;if(mightT<=0||P.act==='dead'){mightT=0;P.dm=1}}}
+  function flaskUi(){if(!el)return;for(const k in FL){const b=el.querySelector('#wI'+k);if(!b)continue;b.querySelector('i').textContent=flasks[k];b.classList.toggle('none',flasks[k]<=0);b.classList.toggle('use',k==='mt'?mightT>0:k==='hp'?healLeft>0:false)}}
+  function flaskDrop(T){const rnd=Math.random;let got=null;
+    if(T.boss){got=['hp',rnd()<.5?'st':'mt'];}else if(rnd()<.22)got=['hp'];
+    if(!got)return;const names=[];for(const k of got)if(flasks[k]<FL[k].max){flasks[k]++;names.push(FL[k].n)}if(names.length){saveFl();flaskUi();setTimeout(()=>msg('Found: '+names.join(' + '),2),900)}}
   // ---------- co-op (see WardenNet.js): host runs the foes, each player is authoritative for themselves, the partner is a puppet fighter 'Q' in the local sim ----------
   const NET=WardenNet.S;let Q=null,spectate=false,netSendT=0,helloAt=0,netStarts=[];
   const netOn=()=>NET.mode!=='solo'&&!!Q;
-  function netAddQ(){if(!C||Q&&C.F.Q===Q)return;Q=C.add('Q',{x:S.x+1,z:S.z,face:S.rot,hp:100,team:'p'})}
-  function netDropQ(){if(C&&C.F.Q){delete C.F.Q;C.order=C.order.filter(i=>i!=='Q')}Q=null}
+  function netAddQ(){if(!C||Q&&C.F.Q===Q)return;Q=C.add('Q',{x:S.x+1,z:S.z,face:S.rot,hp:100,team:'p'});if(NET.mode==='host')rescaleFoes()}
+  function netDropQ(){if(C&&C.F.Q){delete C.F.Q;C.order=C.order.filter(i=>i!=='Q')}Q=null;if(NET.mode==='host')rescaleFoes()}
   function netHost(){helloAt=0;NET.mode='host';NET.site=site.id;NET.t0=Date.now();NET.left=false}
   function netJoin(){NET.mode='guest';NET.site=site.id;NET.left=false;netAddQ();WardenNet.send({k:'j',s:site.id});NET.gotSnap=performance.now()}
   function netLeave(){if(NET.mode!=='solo')WardenNet.send({k:'l',s:NET.site});WardenNet.reset();netDropQ();spectate=false}
@@ -105,6 +132,7 @@ const PlayerCombat=(()=>{
       case'guard':if(down.guard)return true;down.guard=true;ST.input('P',{t:'guardDown',e:C.tick},t);break;
       case'dodge':{const d=stickDir();const c={t:'dodge',e:C.tick};if(d){c.dx=d[0];c.dz=d[1]}ST.input('P',c,t);break}
       case'flow':flowPress(t);break;
+      case'ihp':useFlask('hp');break;case'ist':useFlask('st');break;case'imt':useFlask('mt');break;
       case'lock':toggleLock();break;
       default:return false}
     return true}
@@ -120,7 +148,7 @@ const PlayerCombat=(()=>{
     else if(al.length>1){const cur=foes[lockI],ord=al.slice().sort((a,b)=>Math.hypot(a.f.x-S.x,a.f.z-S.z)-Math.hypot(b.f.x-S.x,b.f.z-S.z)),k=ord.indexOf(cur);lockI=ord[(k+1)%ord.length].i}
     else lock=false;
     if(el)el.querySelector('#wLock').classList.toggle('on',lock)}
-  const KEY={KeyE:'flow',KeyF:'light',KeyG:'heavy',KeyQ:'guard',Space:'dodge',Tab:'lock'};
+  const KEY={Digit1:'ihp',Digit2:'ist',Digit3:'imt',KeyE:'flow',KeyF:'light',KeyG:'heavy',KeyQ:'guard',Space:'dodge',Tab:'lock'};
   function onKey(e){
     if(!on||e.target&&e.target.tagName==='INPUT')return;const n=KEY[e.code];
     if(e.type==='keydown'){if(n){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)press(n,e.timeStamp-t0)}else if(e.code==='KeyB'){e.stopImmediatePropagation()}}
@@ -135,10 +163,10 @@ const PlayerCombat=(()=>{
   function build(){WardenNet.setHandler(netMsg);
     el=document.createElement('div');el.id='wroot';
     el.innerHTML='<div id="wh"><div class="wb p"><i class="hp"><b></b></i><i class="st"><b></b></i><i class="fl"><b></b></i></div><div class="wb d"><span>The Duelist</span><i class="hp"><b></b></i><i class="po"><b></b></i></div></div><div id="wmsg"></div><div id="whd" style="position:fixed;left:50%;top:46%;width:0;height:0;pointer-events:none;z-index:50;opacity:0;transition:opacity .5s"><div style="position:absolute;left:-26px;top:-150px;width:0;height:0;border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:54px solid #ff2a1a;filter:drop-shadow(0 0 8px #ff6a2a)"></div></div><div id="whn" style="position:fixed;left:0;right:0;top:34%;text-align:center;pointer-events:none;z-index:50;color:#ffb27a;font:700 15px sans-serif;letter-spacing:.14em;text-shadow:0 0 6px #000,0 0 3px #000;opacity:0;transition:opacity .5s"></div>'+
-      '<div id="wc"><button id="wLight">Light</button><button id="wHeavy">Heavy</button><button id="wGuard">Guard</button><button id="wDodge">Dodge</button><button id="wFlow">Flow</button><button id="wLock">Lock</button></div>'+
-      '<div id="whint">F light · G heavy (hold) · Q guard · Space dodge · E flow (skill / finisher) · Tab lock</div>';
+      '<div id="wc"><button id="wLight">Light</button><button id="wHeavy">Heavy</button><button id="wGuard">Guard</button><button id="wDodge">Dodge</button><button id="wFlow">Flow</button><button id="wIhp" class="wi"><b>\u2764</b><i>3</i></button><button id="wIst" class="wi"><b>\u26A1</b><i>2</i></button><button id="wImt" class="wi"><b>\u2694</b><i>1</i></button><button id="wLock">Lock</button></div>'+
+      '<div id="whint">F light · G heavy (hold) · Q guard · Space dodge · E flow · 1/2/3 flasks · Tab lock</div>';
     document.body.appendChild(el);
-    bind(el.querySelector('#wLight'),'light');bind(el.querySelector('#wHeavy'),'heavy');bind(el.querySelector('#wGuard'),'guard');bind(el.querySelector('#wDodge'),'dodge');bind(el.querySelector('#wFlow'),'flow');bind(el.querySelector('#wLock'),'lock');
+    bind(el.querySelector('#wLight'),'light');bind(el.querySelector('#wHeavy'),'heavy');bind(el.querySelector('#wGuard'),'guard');bind(el.querySelector('#wDodge'),'dodge');bind(el.querySelector('#wFlow'),'flow');bind(el.querySelector('#wIhp'),'ihp');bind(el.querySelector('#wIst'),'ist');bind(el.querySelector('#wImt'),'imt');flaskUi();bind(el.querySelector('#wLock'),'lock');
     addEventListener('keydown',onKey,true);addEventListener('keyup',onKey,true);
     addEventListener('blur',releaseAll);document.addEventListener('visibilitychange',releaseAll);addEventListener('orientationchange',releaseAll)}
   const bars={};
@@ -196,7 +224,7 @@ const PlayerCombat=(()=>{
     for(const F of foes)freeBody(F.body);foes=[];byId={};
     const ids=Foes.ids(site.foes.length);
     site.foes.forEach((def,i)=>{
-      const T=Foes.TYPES[def.t],id=ids[i],f=C.F[id]=CombatCore.mkFighter(id,{x:WRD.x+site.x+def.dx,z:WRD.z+site.z+def.dz,face:Math.PI,hp:T.hp,team:'e',dm:T.dm||1,rm:T.rm||1});
+      const T=Foes.TYPES[def.t],id=ids[i],f=C.F[id]=CombatCore.mkFighter(id,{x:WRD.x+site.x+def.dx,z:WRD.z+site.z+def.dz,face:Math.PI,hp:Math.round(T.hp*foeMul().hp),team:'e',dm:(T.dm||1)*foeMul().dm,rm:T.rm||1});
       if(!C.order.includes(id))C.order.push(id);f.r=T.r;f.spd=T.spd||1.3;
       const b=body(T,i);b.g.scale.setScalar(T.scale);b.g.position.set(f.x,H(f.x,f.z),f.z);b.g.rotation.y=f.face;
       if(b.u.mixer&&typeof emoStop==='function'&&T.body==='avatar')emoStop(b.u);
@@ -207,7 +235,7 @@ const PlayerCombat=(()=>{
     fightN++;hurt=false;fightVo=false;try{WardenSfx.load()}catch(e){}const R=site.wall?site.R-.5:site.R+10,sol=WardenSolids().filter(s=>Math.hypot(s.x-WRD.x-site.x,s.z-WRD.z-site.z)<site.R+14);
     C=CombatCore.create({arena:{x:WRD.x+site.x,z:WRD.z+site.z,R},solids:sol});ST=CombatCore.stepper(C,6);t0=performance.now();
     P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});spawnFoes();WardenFx.clear();WardenVfx.clear();Q=null;spectate=false;netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
-    flow=0;flowOn=false;flowN=0;fq=null;skillCD=0;bars.fl=-1;state='fight';stateT=0;lock=site.fog||foes.some(F=>F.T.boss);lockI=0;lastEv=[];pv.init=false;down.guard=down.heavy=false;stW=0;gT=0;
+    flow=0;flowOn=false;flowN=0;fq=null;skillCD=0;bars.fl=-1;healLeft=0;mightT=0;itemLock=0;state='fight';stateT=0;lock=site.fog||foes.some(F=>F.T.boss);lockI=0;lastEv=[];pv.init=false;down.guard=down.heavy=false;stW=0;gT=0;
     if(el)el.querySelector('#wLock').classList.toggle('on',lock);D=target().f}
   // Inside a walled arena the screen is the cost on a low-end phone: render at 1.25x (not 2x) while you fight, restore on leaving. Skipped when ?dpr= was given.
   let resPrev=null;
@@ -251,7 +279,7 @@ const PlayerCombat=(()=>{
       else if(e.t==='posturebreak'&&T){if(T.T.boss)msg('POSTURE BROKEN');sfx('heavy',.8,1.1,()=>tone(500,120,.3,'sawtooth',.12))}
       else if(e.t==='posturebreak'&&e.d==='P'){msg('POSTURE BROKEN',.8);sfx('heavy',.9,.8,()=>tone(300,90,.3,'sawtooth',.12))}
       else if(e.t==='guardbreak'){sfx('heavy',.9,.85,()=>tone(250,70,.3,'sawtooth',.14));if(e.d==='P')msg('GUARD BROKEN',.8)}
-      else if(e.t==='dead'&&T){sfx('heavy',.7,.7,()=>tone(200,40,.5,'sawtooth',.14));if(T.body.T.body==='avatar')T.body.u.emoteReq='playdead';if(T.T.boss){CineCam.play('death',{x:T.f.x,z:T.f.z,h:1.2*T.T.scale,sc:Math.max(1,T.T.scale*.9)},{id:T.T.id});msg(T.T.name.toUpperCase()+' IS FELLED',3);setTimeout(()=>WardenSfx.play(hurt?'vo_winner':'vo_flawless_victory',.8,1,{nojit:1}),700)}
+      else if(e.t==='dead'&&T){flaskDrop(T.T);sfx('heavy',.7,.7,()=>tone(200,40,.5,'sawtooth',.14));if(T.body.T.body==='avatar')T.body.u.emoteReq='playdead';if(T.T.boss){CineCam.play('death',{x:T.f.x,z:T.f.z,h:1.2*T.T.scale,sc:Math.max(1,T.T.scale*.9)},{id:T.T.id});msg(T.T.name.toUpperCase()+' IS FELLED',3);setTimeout(()=>WardenSfx.play(hurt?'vo_winner':'vo_flawless_victory',.8,1,{nojit:1}),700)}
         if(lock&&lockI===T.i){const n=nearest();if(n&&n!==T)lockI=n.i;else{lock=false;el.querySelector('#wLock').classList.remove('on')}}
         if(!alive().length){state='won';stateT=performance.now();lock=false;el.querySelector('#wLock').classList.remove('on')}}
       else if(e.t==='dead'&&e.d==='P'&&NET.mode==='host'&&Q&&Q.act!=='dead'){msg('YOU DIED · your partner fights on',3);sfx('heavy',.8,.6,()=>tone(180,35,.6,'sawtooth',.16));spectate=true}
@@ -301,7 +329,7 @@ const PlayerCombat=(()=>{
       return h};
     const evs=CineCam.frozen()?[]:ST.advance(now(),held,()=>{S.x+=P.x-lx;S.z+=P.z-lz;lx=P.x;lz=P.z;lastEv=C.ev});
     for(const e of evs)if(e.t==='start'&&NET.mode==='host'&&byId[e.a]){const F=byId[e.a];netStarts.push({id:e.a,m:e.move,h:F.f.hold|0})}
-    events(evs);flowTick(dt);netSend(dt);netVis();
+    events(evs);flowTick(dt);flaskTick(dt);netSend(dt);netVis();
     // 2) facing: the sim owns it while attacking / dodging / stunned; lock-on owns it otherwise
     if(P.act==='attack'||P.act==='dodge'||P.act==='stun')S.rot=P.face;
     else if(lock&&D.act!=='dead'){const a=heading();S.rot=a;S.yaw+=Math.atan2(Math.sin(a+Math.PI-S.yaw),Math.cos(a+Math.PI-S.yaw))*Math.min(1,dt*7)}
