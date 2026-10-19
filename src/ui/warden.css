@@ -28,6 +28,12 @@ body.warden-fight #whint{display:block}
 #wc #wFlow.on{background-color:#7a2a8acc;border-color:#f6c9ff;box-shadow:0 0 16px #c66bff}
 @keyframes wfl{to{box-shadow:0 0 26px #ffd27a}}
 #wh .fl b{background:#e0a935}#wh .fl.full b{background:#ffd27a}#wh .fl.on b{background:#c66bff}
+#wc .wi{width:44px;height:44px;bottom:calc(var(--B0,52px) + var(--J,88px) + var(--g,8px) + var(--F,70px) + var(--g,8px) + 14px);font-size:18px;line-height:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
+#wc .wi b{font-weight:400}#wc .wi i{font-style:normal;font-size:11px;font-weight:700;opacity:.9}
+#wc #wIhp{right:calc(var(--R0,24px) + (var(--J,88px)*2 + var(--g,8px) - var(--F,70px))/2 + var(--F,70px) + 8px)}
+#wc #wIst{right:calc(var(--R0,24px) + (var(--J,88px)*2 + var(--g,8px) - var(--F,70px))/2 + var(--F,70px) + 56px)}
+#wc #wImt{right:calc(var(--R0,24px) + (var(--J,88px)*2 + var(--g,8px) - var(--F,70px))/2 + var(--F,70px) + 104px)}
+#wc .wi.none{opacity:.4}#wc .wi.use{border-color:#ffd27a;box-shadow:0 0 10px #ffb04a}
 #wc #wLock{left:var(--L0,16px);bottom:calc(var(--B0,52px) + var(--SK,110px) + var(--g,8px));width:max(48px,var(--S,48px));height:max(48px,var(--S,48px))}
 #wc #wLock.on{background:#2a5a8acc}
 #whint{position:fixed;z-index:6;left:12px;bottom:10px;font:11px system-ui,sans-serif;color:#fffb;text-shadow:0 1px 3px #000;pointer-events:none}
