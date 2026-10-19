@@ -166,7 +166,8 @@ const Ship=(()=>{
         cfg={x:pose.x,y:pose.y+K.deckM+3,z:pose.z,d:10,pk:1,eye:{x:e.x,y:e.y,z:e.z},pr:[-.5,.55]}}
       else{if(seated)follow(wrapA(pose.h+Math.PI),9);else ctrPrev=null;
         // third person, Black Flag style: a long boom well behind and ABOVE the ship (the sails fade out locally so they never block the view)
-        cfg=ab?{x:pose.x,y:pose.y+K.deckM+4.5,z:pose.z,d:seated?20+v.hl*1.2:16+v.hl*.8,pk:seated?1:.3,lift:seated?7:5}
+        cfg=(!seated&&typeof Bowsprit!=='undefined'&&Bowsprit.onSprit())?{x:S.x,y:S.y+1.5,z:S.z,d:7.5,pk:1,lift:1.2}   // on the bowsprit: a close orbit around YOU (photo spot)
+          :ab?{x:pose.x,y:pose.y+K.deckM+4.5,z:pose.z,d:seated?20+v.hl*1.2:16+v.hl*.8,pk:seated?1:.3,lift:seated?7:5}
           :(S._dk&&!S.flying&&!st.aboard&&typeof Decks!=='undefined'?{x:S.x,y:S.y+1.8,z:S.z,d:11,pk:1,lift:3,block:1}:null)}   // fighting on another ship: close boom, a bit higher, cabins and castles never sit between you and the camera
       CameraRig.setShip(cfg);
       // captain's view: only on YOUR screen the sails (two merged meshes) are hidden so the horizon is clear; everybody else still sees them

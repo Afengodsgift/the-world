@@ -6,5 +6,9 @@ const Bowsprit=(()=>{
     if(typeof S==='undefined'||!S._dk||S._dk.id!=='ship'||S.flying)return false;
     const sp=(C.cls[C.player]||{}).sprit;if(!sp)return false;
     return S._dk.z>=sp.tip&&Math.abs(S._dk.x)<sp.hw+.3}
-  return {build(){},atTip};
+  // out on the stick (past the bow rail)? the ship camera then comes in close so you can frame yourself for screenshots
+  function onSprit(){
+    if(typeof S==='undefined'||!S._dk||S._dk.id!=='ship'||S.flying)return false;
+    const sp=(C.cls[C.player]||{}).sprit;return !!sp&&S._dk.z>=sp.z0+.8&&Math.abs(S._dk.x)<sp.hw+.4}
+  return {build(){},atTip,onSprit};
 })();

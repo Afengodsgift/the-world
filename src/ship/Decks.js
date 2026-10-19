@@ -87,7 +87,7 @@ const Decks=(()=>{
   // a walkable plank over open water (the bowsprit): o={hw half width, z0, flat (end of the level part), z1, h0, h1 (metres, ship space)}; makes cells that did not exist (and cuts through bow rails)
   function plank(d,o){
     for(let iz=0;iz<d.nz;iz++)for(let ix=0;ix<d.nx;ix++){const x=(d.x0+(ix+.5)*d.cs)*d.sc,z=(d.z0+(iz+.5)*d.cs)*d.sc;
-      if(Math.abs(x)>o.hw||z<o.z0||z>o.z1)continue;const t=z<=o.flat?0:(z-o.flat)/(o.z1-o.flat);d.h[iz*d.nx+ix]=(o.h0+(o.h1-o.h0)*t)/d.sc}}
+      if(Math.abs(x)>((o.tipHw&&z>=o.tip-.6)?o.tipHw:o.hw)||z<o.z0||z>o.z1)continue;const t=z<=o.flat?0:(z-o.flat)/(o.z1-o.flat);d.h[iz*d.nx+ix]=(o.h0+(o.h1-o.h0)*t)/d.sc}}
   const RING=[[R,0],[-R,0],[0,R],[0,-R]];
   // is a body of radius R standing at (x,z) with its feet at ship-space height ly stopped by anything higher than ly+step?  returns the tallest blocking height (or 0)
   function wallAt(d,x,z,ly,step){
