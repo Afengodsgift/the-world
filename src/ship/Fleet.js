@@ -128,6 +128,7 @@ const Fleet=(()=>{
     if(o.emit)Net.emit('flt',{k:'f',n:id,s:o.src,g:v.guns.indexOf(g),x:+m.x.toFixed(2),y:+m.y.toFixed(2),z:+m.z.toFixed(2),vx:+(vel.vx+(o.vx||0)).toFixed(2),vy:+vel.vy.toFixed(2),vz:+vel.vz.toFixed(2),f:o.f,dmg:o.dmg})}
   // which hull does this ball touch? shooter-side test. Pirates shoot at your ship, you shoot at pirates (never your own).
   function target(s){
+    if(!s.f&&typeof Monster!=='undefined'){const mh=Monster.shellHit(s);if(mh)return mh}
     if(s.f){const v=plv();if(v&&s.src!=='ship'){const r=Vessel.hit(v,s.x,s.y,s.z);if(r)return {id:'p',r}}return null}
     for(const e of ships.values()){if(e.sinking||e.v.id===s.src)continue;const r=Vessel.hit(e.v,s.x,s.y,s.z);if(r)return {id:e.id,r}}return null}
   function stepShells(dt){

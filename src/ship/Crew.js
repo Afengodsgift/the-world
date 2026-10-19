@@ -177,12 +177,15 @@ const Crew=(()=>{
     if(!tg)for(const c of list.values()){if(c.dead)continue;const dx=c.B.x-S.x,dz=c.B.z-S.z,d=Math.hypot(dx,dz);if(d>bd||Math.abs(c.B.y-S.y)>2.6)continue;
       if(d>2.4&&Math.abs(wrapA(Math.atan2(dx,dz)-fwd))>1.9)continue;bd=d;tg=c}
     slashCd=.4;combo=comboT>0?(combo%3)+1:1;comboT=1.3;try{me.userData.swing=1;swordT=4;sword(me,true)}catch(e){}
-    const ang=tg?Math.atan2(tg.B.x-S.x,tg.B.z-S.z):fwd;S.rot=ang;try{me.rotation.y=ang}catch(e){}
+    let mt=null;if(!tg&&typeof Monster!=='undefined'){const l2=typeof LockOn!=='undefined'&&LockOn.target();
+      if(l2&&l2.melee&&Math.hypot(l2.x-S.x,l2.z-S.z)<5.2)mt={x:l2.x,y:l2.y,z:l2.z,hit:l2.melee};else{const q=Monster.meleeTarget(S.x,S.y,S.z,3.8);if(q)mt={x:q.x,y:q.y,z:q.z,hit:d=>Monster.damage(q.part,d)}}}
+    const ang=tg?Math.atan2(tg.B.x-S.x,tg.B.z-S.z):mt?Math.atan2(mt.x-S.x,mt.z-S.z):fwd;S.rot=ang;try{me.rotation.y=ang}catch(e){}
     // the arc
     if(haveVis()){const arc=new THREE.Mesh(new THREE.RingGeometry(.9,1.7,16,1,-1.1,2.2),new THREE.MeshBasicMaterial({color:combo===3?'#ffd24a':'#ffffff',transparent:true,opacity:.75,side:THREE.DoubleSide,depthWrite:false}));
       arc.rotation.x=-Math.PI/2;arc.rotation.z=ang-Math.PI/2;arc.position.set(S.x+Math.sin(ang)*.6,S.y+1.1,S.z+Math.cos(ang)*.6);scene.add(arc);let t=0;const id=setInterval(()=>{t+=.05;arc.material.opacity=.75*(1-t);arc.scale.setScalar(1+t*.4);if(t>=1){clearInterval(id);scene.remove(arc);arc.geometry.dispose();arc.material.dispose()}},30)}
     try{const a=WAudio.get();if(a){const o=a.createOscillator(),gn=a.createGain(),t=a.currentTime;o.type='sawtooth';o.frequency.setValueAtTime(700,t);o.frequency.exponentialRampToValueAtTime(180,t+.12);gn.gain.setValueAtTime(.12,t);gn.gain.exponentialRampToValueAtTime(.001,t+.14);o.connect(gn);gn.connect(WAudio.out());o.start(t);o.stop(t+.15)}}catch(e){}
     if(tg){const dmg=combo===3?46:28;pop(tg.B.x,tg.B.y+2,tg.B.z,dmg,combo===3?'#ffd24a':'#fff');boom(tg.B.x,tg.B.y+1,tg.B.z,'#ff7a5a');hit(tg.id,dmg,combo===3?'head':'torso');if(combo===3){tg.stg=.5}return true}
+    if(mt){const dmg=combo===3?46:28;pop(mt.x,mt.y+1.5,mt.z,dmg,combo===3?'#ffd24a':'#fff');boom(mt.x,mt.y+.6,mt.z,'#b07aff');mt.hit(dmg);return true}
     return false}
 
   function build(){
