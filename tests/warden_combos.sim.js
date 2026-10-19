@@ -10,7 +10,7 @@ ok(CB.light({from:'light',chain:1,sinceDodge:99})==='light2'&&CB.light({from:'li
 ok(CB.light({from:null,chain:3,sinceDodge:99})==='light','a finished chain restarts');
 ok(CB.light({from:null,adv:true,chain:2,sinceDodge:99})==='advance','forward + Light = Advancing Cut');
 ok(CB.light({from:null,chain:0,sinceDodge:10})==='evade'&&CB.light({from:null,chain:0,sinceDodge:40})==='light','Light right after a dodge = Evasive Punish, later = normal');
-ok(CB.heavy({from:'light'})==='rising'&&CB.heavy({from:null})===null&&CB.heavy({from:'light3'})===null,'Heavy after Light = Rising Slash, otherwise a normal charge');
+ok(CB.heavy({from:'light'})==='rising'&&CB.heavy({from:null})===null&&CB.heavy({from:'light3'})==='whirl','Heavy after Light = Rising Slash, after the 3rd = Tempest, otherwise a normal charge');
 // ---- core ----
 const mk=o=>{const C=CC.create({arena:{x:0,z:0,R:30}});const P=C.add('P',Object.assign({x:0,z:0,face:0},o&&o.P));const D=C.add('D',Object.assign({x:0,z:2,face:Math.PI,hp:1e5},o&&o.D));return{C,P,D}};
 const step=(C,n,cmds)=>{const ev=[];for(let i=0;i<n;i++)for(const e of C.step(i===0&&cmds?cmds:{}))ev.push(e);return ev};
@@ -50,4 +50,12 @@ ok(Object.keys(M).filter(k=>M[k]&&M[k].who==='D').length===18,'foe move count (1
 // every move has a clip mapping with one entry per phase (otherwise it would animate wrongly or not at all)
 {const src=fs.readFileSync(R+'src/combat/WardenAnim.js','utf8'),a=src.indexOf('const MAP={')+'const MAP='.length,b=src.indexOf('};\n  const NAMES'),MAP=(new Function('return '+src.slice(a,b+1)))();
  for(const id of Object.keys(M).filter(k=>M[k]&&M[k].phases&&k!=='dodge')){const key=id==='light'?'light_b':id;const mm=MAP[key];ok(mm&&mm.length===M[id].phases.length,'clip map for '+id+' has '+(mm?mm.length:0)+' entries for '+M[id].phases.length+' phases')}}
+// ---- new sets: Shield Shove, Lunge, Tempest, super armour ----
+{const {C,P}=mk({D:{z:9}});step(C,1,{P:{list:[{t:'guardDown',e:0}],face:0}});step(C,5);const s=starts(step(C,1,L()));ok(s[0]==='shove','Guard + Light = Shield Shove ('+s[0]+')')}
+{const {C,P}=mk({D:{z:9}});step(C,1,{P:{list:[{t:'dodge',e:0,dx:1,dz:0}],face:0}});while(P.act==='dodge')step(C,1);step(C,4);const s=starts(step(C,1,{P:{list:[{t:'heavyDown',e:C.tick+1}],face:0}}));ok(s[0]==='lunge','Heavy just after a dodge = Lunge ('+s[0]+')')}
+{const {C,P}=mk({D:{z:9}});step(C,1,L());let seq=[];for(let k=0;k<2;k++){let g=0;while(!(P.mv&&P.act==='attack'&&P.pi>=2&&P.pt>0&&M[P.mv.id].cancel.light!==undefined&&C.tick>=0&&g<80)&&g<80){step(C,1);g++;if(P.pi>=2)break}for(let i=0;i<30&&P.mv&&(P.mv.id==='light'||P.mv.id==='light2');i++){const e=step(C,1,L());const st=starts(e);if(st.length){seq.push(st[0]);break}}}
+  while(!(P.mv&&P.mv.id==='light3')&&C.tick<400)step(C,1);let got=null;for(let i=0;i<60&&!got&&P.mv&&P.mv.id==='light3';i++){const st=starts(step(C,1,{P:{list:[{t:'heavyDown',e:C.tick+1}],face:0}}));if(st.length)got=st[0]}ok(got==='whirl','Heavy after the third Light = Tempest ('+got+')');ok(M.whirl.phases.find(p=>p.k==='active').a0>3,'Tempest covers a full circle')}
+{const {C,P,D}=mk({P:{sa:1},D:{z:1.6,sa:1,hp:1e5}});C.start('D','cut');step(C,14);const hp=D.hp;C.start('P','heavy');for(let i=0;i<60&&D.hp===hp;i++)step(C,1);
+  ok(D.hp<hp&&D.act==='attack'||D.hp<hp&&D.act==='free','super-armoured foe takes the hit but is not interrupted (hp '+hp+'>'+D.hp+', act '+D.act+')');ok(D.kr===0,'super armour: no knockback');}
+{const {C,P,D}=mk({P:{sa:1},D:{z:1.6,hp:1e5}});C.start('D','cut');step(C,14);C.start('P','heavy');for(let i=0;i<60&&D.act!=='stun'&&D.hp===1e5;i++)step(C,1);ok(D.act==='stun'&&D.sk==='hit','a normal foe is still interrupted (control)')}
 process.exit(bad?1:0);

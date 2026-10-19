@@ -8,7 +8,7 @@
 const CombatCore=(()=>{
   const SPEED=.05,SUBM=.1,GUARD_ARC=1.2,REARM=14,DEFL=7,BUF=6;
   function mkFighter(id,o){o=o||{};return{id,x:o.x||0,z:o.z||0,y:0,r:.45,face:o.face||0,hp:o.hp||100,hpMax:o.hp||100,st:100,stMax:100,po:0,poMax:100,
-    team:o.team||null,dm:o.dm||1,rm:o.rm||1,act:'free',pt:0,ph:null,pi:0,pk:0,mv:null,hold:0,done:{},sk:null,stun:0,kx:0,kz:0,kr:0,dir:null,guard:false,gpt:99,rel:99,sr:99,pr:99,c:0,rel2:false,buf:null,q:[],ex:0,ez:0,lc:0,lcT:-999,dEnd:-999}}
+    team:o.team||null,sa:o.sa||0,dm:o.dm||1,rm:o.rm||1,act:'free',pt:0,ph:null,pi:0,pk:0,mv:null,hold:0,done:{},sk:null,stun:0,kx:0,kz:0,kr:0,dir:null,guard:false,gpt:99,rel:99,sr:99,pr:99,c:0,rel2:false,buf:null,q:[],ex:0,ez:0,lc:0,lcT:-999,dEnd:-999}}
   function create(o){o=o||{};const C={tick:0,hs:0,ev:[],fx:[],fxN:0,F:{},solids:(o.solids||[]).slice(),arena:o.arena||{x:0,z:0,R:1e9},order:[]};
     C.add=(id,fo)=>{C.F[id]=mkFighter(id,fo);C.order.push(id);return C.F[id]};
     C.step=cmds=>step(C,cmds||{});C.start=(id,m,hold)=>{const f=C.F[id];if(f&&Moves[m])startMove(C,f,m,hold|0)};return C}
@@ -44,13 +44,14 @@ const CombatCore=(()=>{
     const free=f.act==='free'||(f.act==='charge'&&c.t!=='heavyUp');
     switch(c.t){
       case'light':{const from=f.act==='attack'&&f.mv?f.mv.id:null;if(!(f.act==='free'||canCancel(f,'light'))||f.st<=0)return false;
-        const id=Combos.light({from:f.act==='free'?null:from,adv:!!c.adv,chain:C.tick-f.lcT<=Combos.CHAIN_GAP?f.lc:0,sinceDodge:C.tick-f.dEnd});startMove(C,f,id);f.lc=Moves[id].chain||0;return true}
+        const id=Combos.light({guard:f.guard,from:f.act==='free'?null:from,adv:!!c.adv,chain:C.tick-f.lcT<=Combos.CHAIN_GAP?f.lc:0,sinceDodge:C.tick-f.dEnd});startMove(C,f,id);f.lc=Moves[id].chain||0;return true}
       case'atk':if(f.act==='free'){startMove(C,f,c.m,c.hold||0);return true}return false;
       case'dodge':{if((f.act==='free'||f.act==='charge'||canCancel(f,'dodge'))&&f.st>0){const D=Moves.dodge;let dx=c.dx,dz=c.dz;if(!(Math.hypot(dx||0,dz||0)>.01)){dx=-Math.sin(f.face);dz=-Math.cos(f.face)}const L=Math.hypot(dx,dz);f.dir=[dx/L,dz/L];f.act='dodge';f.pt=0;f.guard=false;f.ph=null;f.mv=null;f.c=0;spend(f,D.stam);emit(C,'dodge',f.id,null);return true}return false}
       case'guardDown':if(f.act==='free'||canCancel(f,'guard')){if(f.act==='attack'){f.act='free';f.ph=null;f.mv=null}f.guard=true;f.gpt=f.rel>=REARM?0:99;return true}return false;
       case'guardUp':if(f.guard){f.guard=false;f.rel=0}return true;
       case'heavyDown':{const from=f.act==='attack'&&f.mv?f.mv.id:null;
         if(from&&canCancel(f,'heavy')&&f.st>0){const id=Combos.heavy({from});if(id){startMove(C,f,id);f.lc=Moves[id].chain||0;return true}}
+        if(f.act==='free'&&f.st>0&&!f.guard&&C.tick-f.dEnd<=Combos.EVADE_GAP&&!c.q&&f.dEnd>-900){startMove(C,f,'lunge');f.lc=0;return true}
         if(f.act==='free'&&f.st>0&&!c.q){f.act='charge';f.c=0;f.rel2=false;f.guard=false;return true}return false}
       case'heavyUp':if(f.act==='charge'){f.rel2=true}return true}
     return true}
@@ -106,8 +107,8 @@ const CombatCore=(()=>{
         if(t.st<=0&&t.act==='free'){stunF(t,45,'stagger');emit(C,'guardbreak',a.id,t.id)}}
       else{const crit=stag0[t.id]?2.5:1,dm=mv.dmg*sc*crit*(a.dm||1);t.hp=Math.max(0,t.hp-dm);t.pr=0;emit(C,'hit',a.id,t.id,{move:mv.id,seg:o.seg,dmg:dm,crit:crit>1,fx:o.fx});hs=Math.max(hs,mv.hs);
         if(t.hp<=0){t.act='dead';t.guard=false;t.ph=null;t.mv=null;emit(C,'dead',a.id,t.id)}
-        else{const wasStag=t.act==='stun'&&t.sk==='stagger';if(!wasStag)stunF(t,mv.stun,'hit');addPo(C,t,mv.pdmg*sc);
-          const bx=Math.sin(o.br+Math.PI),bz=Math.cos(o.br+Math.PI);t.kx=-bx;t.kz=-bz;t.kr=mv.kb*sc}}}
+        else{const wasStag=t.act==='stun'&&t.sk==='stagger';if(!wasStag&&!t.sa)stunF(t,mv.stun,'hit');addPo(C,t,mv.pdmg*sc*(t.sa?.8:1));
+          if(!t.sa){const bx=Math.sin(o.br+Math.PI),bz=Math.cos(o.br+Math.PI);t.kx=-bx;t.kz=-bz;t.kr=mv.kb*sc}}}}
     if(hs>0)C.hs=hs;
     // (6) advance counters (not reached during hit-stop)
     for(const id of C.order){const f=C.F[id];if(f.act==='dead')continue;

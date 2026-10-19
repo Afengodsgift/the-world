@@ -7,6 +7,7 @@ const Combos=(()=>{
   // ctx: {from: id of the move being cancelled out of (null if free), adv: forward held, chain: chain index reached by the last move (0 if the gap expired), sinceDodge: ticks since a dodge ended}
   function light(ctx){
     const f=ctx.from;
+    if(ctx.guard&&!f)return 'shove';
     if(f==='light'||f==='advance'||f==='evade')return 'light2';
     if(f==='light2')return 'light3';
     if(f)return 'light';
@@ -14,6 +15,6 @@ const Combos=(()=>{
     if(ctx.sinceDodge<=EVADE_GAP)return 'evade';
     if(ctx.chain===1)return 'light2';if(ctx.chain===2)return 'light3';
     return 'light'}
-  function heavy(ctx){const f=ctx.from;return f==='light'||f==='light2'||f==='advance'||f==='evade'?'rising':null}
-  return{light,heavy,CHAIN_GAP,EVADE_GAP,IDS:['light','light2','light3','advance','evade','rising']}})();
+  function heavy(ctx){const f=ctx.from;return f==='light3'?'whirl':f==='light'||f==='light2'||f==='advance'||f==='evade'?'rising':null}
+  return{light,heavy,CHAIN_GAP,EVADE_GAP,IDS:['light','light2','light3','advance','evade','rising','shove','whirl']}})();
 if(typeof module!=='undefined')module.exports=Combos;
