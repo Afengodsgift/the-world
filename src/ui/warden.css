@@ -39,3 +39,26 @@ body.warden-fight #whint{display:block}
 #whint{position:fixed;z-index:6;left:12px;bottom:10px;font:11px system-ui,sans-serif;color:#fffb;text-shadow:0 1px 3px #000;pointer-events:none}
 @media (pointer:coarse){#whint{display:none!important}}
 @media (pointer:fine){#wc{display:none!important}}
+
+/* Embers / Ember Shrine / cycle toast (progression, WardenProg.js) */
+#wem{display:none;position:fixed;z-index:6;left:calc(var(--sl,0px) + 12px);top:calc(var(--st,env(safe-area-inset-top,0px)) + 8px + var(--T,40px) + 56px);font:700 12px system-ui,sans-serif;color:#ffb35a;text-shadow:0 1px 3px #000;pointer-events:none}
+body.warden-fight #wem{display:block}
+#wemb{display:none;position:fixed;z-index:7;left:calc(var(--sl,0px) + 12px);top:calc(var(--st,env(safe-area-inset-top,0px)) + 56px);padding:6px 12px;border-radius:16px;border:1px solid #ffb35a88;background:#1c1410dd;color:#ffd9a0;font:700 12px system-ui,sans-serif;touch-action:manipulation}
+body.warden-fight #wemb{display:none!important}
+#wtoast{position:fixed;z-index:8;left:50%;top:22%;transform:translateX(-50%);max-width:86vw;text-align:center;padding:10px 18px;border-radius:10px;background:#140d0acc;color:#ffd9a0;font:700 15px system-ui,sans-serif;text-shadow:0 2px 6px #000;opacity:0;transition:opacity .4s;pointer-events:none}
+#wtoast.on{opacity:1}
+#wshrine{display:none;position:fixed;z-index:9;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,92vw);max-height:88vh;overflow:auto;padding:14px;border-radius:14px;border:1px solid #ffb35a66;background:#150f0cf2;color:#f3e3cc;font:13px/1.35 system-ui,sans-serif;box-shadow:0 8px 40px #000a}
+#wshrine.on{display:block}
+#wshrine .sh{display:flex;justify-content:space-between;align-items:center;font-size:17px;color:#ffb35a}
+#wshrine .sh button{background:none;border:0;color:#fff;font-size:24px;line-height:1;padding:0 6px}
+#wshrine .sc{margin:6px 0 2px;color:#ffd9a0;font-weight:700}#wshrine .sc span,#wshrine .se span{font-weight:400;opacity:.7;font-size:12px}
+#wshrine .se{margin-bottom:8px;font-size:15px}
+#wshrine .su{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #ffffff18}
+#wshrine .su small{display:block;opacity:.7}#wshrine .su i{font-style:normal;opacity:.6;font-size:12px}
+#wshrine .su button{min-width:64px;padding:8px 10px;border-radius:8px;border:1px solid #ffb35a99;background:#3a2410;color:#ffd9a0;font:700 13px system-ui,sans-serif}
+#wshrine .su button:disabled{opacity:.4}
+#wshrine .sf{margin-top:8px;font-size:12px;opacity:.65}
+#wemb{width:auto!important;height:auto!important;min-width:0!important;right:auto!important;bottom:auto!important}
+#wshrine button{width:auto!important;height:auto!important;min-height:0!important;position:static!important;flex:none}
+#wshrine .su>div{flex:1;min-width:0}
+#wshrine{max-height:84vh}

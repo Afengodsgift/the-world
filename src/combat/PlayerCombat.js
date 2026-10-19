@@ -38,12 +38,12 @@ const PlayerCombat=(()=>{
   function reject(){if(P.st>2||!el)return;const b=el.querySelector('.p .st');b.classList.add('bad');setTimeout(()=>b.classList.remove('bad'),260);tone(110,80,.08,'square',.05)}   // out of stamina: say so instead of silently dropping the tap
   // ---------- difficulty: foes are tougher than the base roster, and tougher again when two fight them together (the host rescales as the partner joins / leaves) ----------
   const DIFF={hp:1.3,dm:1.15},COOP={hp:1.8,dm:1.2};
-  const foeMul=()=>({hp:DIFF.hp*(Q?COOP.hp:1),dm:DIFF.dm*(Q?COOP.dm:1)});
+  const foeMul=()=>{const c=WardenProg.cycleMul();return{hp:DIFF.hp*(Q?COOP.hp:1)*c.hp,dm:DIFF.dm*(Q?COOP.dm:1)*c.dm}};
   function rescaleFoes(){const m=foeMul();for(const F of foes){const f=F.f,base=F.T.hp*m.hp,r=f.hpMax>0?f.hp/f.hpMax:1;if(f.act!=='dead'){f.hpMax=Math.round(base);f.hp=Math.max(1,r*f.hpMax)}f.dm=(F.T.dm||1)*m.dm;F.sc=m.hp}}
   // ---------- flasks: Health (50 HP over 2.5 s), Stamina Tonic (full stamina), Might Tonic (+30% damage for 30 s). Counts persist in the browser; felled foes drop them ----------
   const FL={hp:{n:'Health Flask',max:5,ic:'\u2764',use:'heal'},st:{n:'Stamina Tonic',max:4,ic:'\u26A1',use:'stam'},mt:{n:'Might Tonic',max:3,ic:'\u2694',use:'might'}};
   let flasks={hp:3,st:2,mt:1},healLeft=0,mightT=0,itemLock=0;
-  try{const j=JSON.parse(localStorage.getItem('wflask')||'null');if(j)for(const k in FL)if(Number.isFinite(j[k]))flasks[k]=Math.max(0,Math.min(FL[k].max,j[k]|0))}catch(e){}
+  try{const j=JSON.parse(localStorage.getItem('wflask')||'null');if(j)for(const k in FL)if(Number.isFinite(j[k]))flasks[k]=Math.max(0,Math.min(9,j[k]|0))}catch(e){}
   const saveFl=()=>{try{localStorage.setItem('wflask',JSON.stringify(flasks))}catch(e){}};
   function useFlask(k){
     if(!on||!P||P.act==='dead'||itemLock>0||flasks[k]<=0)return;const t=FL[k].use;
@@ -53,16 +53,52 @@ const PlayerCombat=(()=>{
     flasks[k]--;saveFl();itemLock=.9;
     if(t==='heal'){healLeft=50;sfx('clash',.3,.7,()=>tone(520,900,.25,'sine',.1))}
     else if(t==='stam'){P.st=P.stMax;sfx('clash',.3,1.2,()=>tone(700,1100,.2,'sine',.1))}
-    else{mightT=30;P.dm=1.3;msg('MIGHT',1);sfx('heavy',.4,1.4,()=>tone(200,500,.3,'sawtooth',.1))}
+    else{mightT=30;P.dm=baseDm*1.3;msg('MIGHT',1);sfx('heavy',.4,1.4,()=>tone(200,500,.3,'sawtooth',.1))}
     flaskUi()}
   function flaskTick(dt){
     if(itemLock>0)itemLock-=dt;
     if(healLeft>0){if(P.act==='dead')healLeft=0;else{const g=Math.min(healLeft,20*dt);healLeft-=g;P.hp=Math.min(P.hpMax,P.hp+g);if(P.hp>=P.hpMax)healLeft=0}}
-    if(mightT>0){mightT-=dt;if(mightT<=0||P.act==='dead'){mightT=0;P.dm=1}}}
+    if(mightT>0){mightT-=dt;if(mightT<=0||P.act==='dead'){mightT=0;P.dm=baseDm}}}
   function flaskUi(){if(!el)return;for(const k in FL){const b=el.querySelector('#wI'+k);if(!b)continue;b.querySelector('i').textContent=flasks[k];b.classList.toggle('none',flasks[k]<=0);b.classList.toggle('use',k==='mt'?mightT>0:k==='hp'?healLeft>0:false)}}
   function flaskDrop(T){const rnd=Math.random;let got=null;
     if(T.boss){got=['hp',rnd()<.5?'st':'mt'];}else if(rnd()<.22)got=['hp'];
-    if(!got)return;const names=[];for(const k of got)if(flasks[k]<FL[k].max){flasks[k]++;names.push(FL[k].n)}if(names.length){saveFl();flaskUi();setTimeout(()=>msg('Found: '+names.join(' + '),2),900)}}
+    if(!got)return;const names=[];for(const k of got)if(flasks[k]<flaskCap(k)){flasks[k]++;names.push(FL[k].n)}if(names.length){saveFl();flaskUi();setTimeout(()=>msg('Found: '+names.join(' + '),2),900)}}
+  // ---------- progression (WardenProg.js): Embers from every kill, permanent upgrades at the Ember Shrine, Ashen Cycles (New Game+) ----------
+  const PG=WardenProg;PG.setBosses(WARDEN.sites.filter(s=>s.fog).map(s=>s.id));
+  let baseDm=1,shrineEl=null,chipEl=null,chipKey='',mark=null,markT=0,toastEl=null,toastT=0;
+  const flaskCap=k=>Math.min(9,FL[k].max+PG.stats().belt);
+  function applyStats(){const st=PG.stats();P.hpMax=st.hp;P.hp=st.hp;P.stMax=st.st;P.st=st.st;baseDm=st.dm;P.dm=st.dm}
+  function toast(t,sec){if(!toastEl){toastEl=document.createElement('div');toastEl.id='wtoast';document.body.appendChild(toastEl)}toastEl.textContent=t;toastEl.classList.add('on');toastT=sec||2.4}
+  function say(t,sec){if(on&&el)msg(t,sec);else toast(t,sec)}
+  function payFoes(){for(const F of foes){if(F.f.act!=='dead'||F.paid)continue;F.paid=true;const n=PG.reward(F.T,site&&site.id);PG.add(n);say('+'+n+' Embers',1.6)}}
+  function lostMark(t,dt){   // the pile of embers you left where you fell
+    const L=PG.S.lost;if(!L){if(mark)mark.visible=false;return}
+    if(!mark){const g=new THREE.Group(),m=new THREE.MeshBasicMaterial({color:0xff9a3a,transparent:true,opacity:.9,blending:THREE.AdditiveBlending,depthWrite:false});
+      g.add(new THREE.Mesh(new THREE.SphereGeometry(.28,10,8),m));const r=new THREE.Mesh(new THREE.RingGeometry(.5,.62,24),m.clone());r.rotation.x=-Math.PI/2;r.position.y=-.55;g.add(r);
+      const l=new THREE.PointLight(0xff7a2a,1.2,9);g.add(l);scene.add(g);mark=g}
+    const near=Math.hypot(L.x-S.x,L.z-S.z)<120;mark.visible=near;if(!near)return;
+    mark.position.set(L.x,H(L.x,L.z)+1.2+Math.sin(t*2.2)*.12,L.z);mark.rotation.y+=dt*1.5;
+    if(on&&P&&P.act!=='dead'&&site&&site.id===L.sid&&state==='fight'&&Math.hypot(L.x-S.x,L.z-S.z)<1.9){const n=PG.claim();say('Embers recovered: +'+n,2);sfx('clash',.5,1.5,()=>tone(600,1200,.2,'sine',.1))}}
+  const ups=[['vig','+10 max health'],['end','+6 max stamina'],['mig','+4% damage'],['belt','+1 flask capacity']];
+  function shrineHtml(){const S0=PG.S,p=PG.progress(),cm=PG.cycleMul(),tw=PG.twist(S0.cycle);let h='<div class="sh"><b>Ember Shrine</b><button id="wshx">&times;</button></div>'+
+      '<div class="sc">Cycle '+S0.cycle+(tw?' · '+tw:'')+' <span>'+p.n+'/'+p.of+' bosses felled</span></div>'+
+      '<div class="se">🔥 <b>'+S0.embers+'</b> Embers'+(S0.lost?' <span>('+S0.lost.n+' lie where you fell)</span>':'')+'</div>';
+    for(const [k,d] of ups){const lv=S0.ups[k],c=PG.cost(k),mx=lv>=PG.MAXL[k];h+='<div class="su"><div><b>'+PG.NAMES[k]+'</b> <i>Lv '+lv+'/'+PG.MAXL[k]+'</i><small>'+d+'</small></div><button data-k="'+k+'"'+(mx||S0.embers<c?' disabled':'')+'>'+(mx?'MAX':c)+'</button></div>'}
+    h+='<div class="sf">Resting here refills your flasks. Felling every boss ends the cycle: the isles grow stronger (foes ×'+(PG.cycleMul(S0.cycle+1).hp).toFixed(2)+' health) and every kill pays more Embers.</div>';return h}
+  function shrineShow(){
+    if(!shrineEl){shrineEl=document.createElement('div');shrineEl.id='wshrine';document.body.appendChild(shrineEl);
+      shrineEl.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='wshx'){shrineEl.classList.remove('on');return}if(b.dataset.k&&PG.buy(b.dataset.k)){sfx('clash',.5,1.3,()=>tone(500,1000,.2,'sine',.1));shrineEl.innerHTML=shrineHtml();chipKey=''}});
+      shrineEl.addEventListener('pointerdown',e=>e.stopPropagation())}
+    for(const k in FL)flasks[k]=Math.max(flasks[k],[3,2,1][['hp','st','mt'].indexOf(k)]+PG.stats().belt);saveFl();flaskUi();
+    shrineEl.innerHTML=shrineHtml();shrineEl.classList.add('on')}
+  function chipTick(wx,wz){   // the Embers chip: only while you are out on the Warden Isles and not fighting
+    const near=!on&&Math.hypot(wx,wz)<(WARDEN.wallR||37)+230&&!S.flying&&S.state!=='swim';
+    if(!chipEl){if(!near)return;chipEl=document.createElement('button');chipEl.id='wemb';document.body.appendChild(chipEl);chipEl.addEventListener('pointerdown',e=>{e.stopPropagation()});chipEl.addEventListener('click',()=>{if(shrineEl&&shrineEl.classList.contains('on'))shrineEl.classList.remove('on');else shrineShow()})}
+    const k=near+'|'+PG.S.embers+'|'+PG.S.cycle+'|'+(PG.S.lost?1:0);if(k===chipKey)return;chipKey=k;chipEl.style.display=near?'block':'none';
+    chipEl.textContent='🔥 '+PG.S.embers+' · Cycle '+PG.S.cycle;if(!near&&shrineEl)shrineEl.classList.remove('on')}
+  function cycleTurn(r){
+    toast('THE ISLES STIR · CYCLE '+r.cycle+(r.twist?' · '+r.twist.toUpperCase():'')+' · +'+r.bonus+' Embers',5);
+    for(const k in RT){const q=RT[k];if(q&&q.cleared&&!(on&&site&&site.id===k)){q.cleared=false;for(const F of q.foes||[])freeBody(F.body);q.foes=[];try{WardenIsles.fog(k,'idle')}catch(e){}}}}
   // ---------- co-op (see WardenNet.js): host runs the foes, each player is authoritative for themselves, the partner is a puppet fighter 'Q' in the local sim ----------
   const NET=WardenNet.S;let Q=null,spectate=false,netSendT=0,helloAt=0,netStarts=[];
   const netOn=()=>NET.mode!=='solo'&&!!Q;
@@ -162,7 +198,7 @@ const PlayerCombat=(()=>{
   // ---------- DOM (built once) ----------
   function build(){WardenNet.setHandler(netMsg);
     el=document.createElement('div');el.id='wroot';
-    el.innerHTML='<div id="wh"><div class="wb p"><i class="hp"><b></b></i><i class="st"><b></b></i><i class="fl"><b></b></i></div><div class="wb d"><span>The Duelist</span><i class="hp"><b></b></i><i class="po"><b></b></i></div></div><div id="wmsg"></div><div id="whd" style="position:fixed;left:50%;top:46%;width:0;height:0;pointer-events:none;z-index:50;opacity:0;transition:opacity .5s"><div style="position:absolute;left:-26px;top:-150px;width:0;height:0;border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:54px solid #ff2a1a;filter:drop-shadow(0 0 8px #ff6a2a)"></div></div><div id="whn" style="position:fixed;left:0;right:0;top:34%;text-align:center;pointer-events:none;z-index:50;color:#ffb27a;font:700 15px sans-serif;letter-spacing:.14em;text-shadow:0 0 6px #000,0 0 3px #000;opacity:0;transition:opacity .5s"></div>'+
+    el.innerHTML='<div id="wh"><div class="wb p"><i class="hp"><b></b></i><i class="st"><b></b></i><i class="fl"><b></b></i></div><div class="wb d"><span>The Duelist</span><i class="hp"><b></b></i><i class="po"><b></b></i></div></div><div id="wmsg"></div><div id="wem"></div><div id="whd" style="position:fixed;left:50%;top:46%;width:0;height:0;pointer-events:none;z-index:50;opacity:0;transition:opacity .5s"><div style="position:absolute;left:-26px;top:-150px;width:0;height:0;border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:54px solid #ff2a1a;filter:drop-shadow(0 0 8px #ff6a2a)"></div></div><div id="whn" style="position:fixed;left:0;right:0;top:34%;text-align:center;pointer-events:none;z-index:50;color:#ffb27a;font:700 15px sans-serif;letter-spacing:.14em;text-shadow:0 0 6px #000,0 0 3px #000;opacity:0;transition:opacity .5s"></div>'+
       '<div id="wc"><button id="wLight">Light</button><button id="wHeavy">Heavy</button><button id="wGuard">Guard</button><button id="wDodge">Dodge</button><button id="wFlow">Flow</button><button id="wIhp" class="wi"><b>\u2764</b><i>3</i></button><button id="wIst" class="wi"><b>\u26A1</b><i>2</i></button><button id="wImt" class="wi"><b>\u2694</b><i>1</i></button><button id="wLock">Lock</button></div>'+
       '<div id="whint">F light (x3, then G = Tempest) · Guard+Light = Shove · dodge then G = Lunge · G heavy (hold) · Q guard · Space dodge · E flow · 1/2/3 flasks · Tab lock</div>';
     document.body.appendChild(el);
@@ -172,7 +208,8 @@ const PlayerCombat=(()=>{
   const bars={};
   function setBar(sel,v){const k=Math.round(Math.max(0,Math.min(1,v))*100);if(bars[sel]===k)return;bars[sel]=k;el.querySelector(sel+' b').style.transform='scaleX('+k/100+')'}
   let nameKey='';
-  function hud(){setBar('.p .hp',P.hp/P.hpMax);setBar('.p .st',P.st/P.stMax);
+  let emK='';
+  function hud(){const ek=PG.S.embers+'|'+PG.S.cycle;if(ek!==emK){emK=ek;el.querySelector('#wem').textContent='\ud83d\udd25 '+PG.S.embers+(PG.S.cycle>1?'  \u00b7  Cycle '+PG.S.cycle:'')}setBar('.p .hp',P.hp/P.hpMax);setBar('.p .st',P.st/P.stMax);
     const F=target(),n=alive().length,nk=F?F.T.name+(n>1?' ×'+n:''):'';if(nk!==nameKey){nameKey=nk;el.querySelector('.wb.d span').textContent=nk}
     if(F){setBar('.d .hp',F.f.hp/F.f.hpMax);setBar('.d .po',F.f.po/F.f.poMax);const brk=F.f.act==='stun'&&F.f.sk==='stagger';if(bars.brk!==brk){bars.brk=brk;el.querySelector('.wb.d').classList.toggle('brk',brk)}}
     const c=P.act==='charge'?Math.min(1,P.c/Moves.heavy.chargeMax)*360:0,r=Math.round(c/6);if(bars.chg!==r){bars.chg=r;el.querySelector('#wHeavy').style.setProperty('--chg',r*6+'deg')}}
@@ -224,8 +261,8 @@ const PlayerCombat=(()=>{
     for(const F of foes)freeBody(F.body);foes=[];byId={};
     const ids=Foes.ids(site.foes.length);
     site.foes.forEach((def,i)=>{
-      const T=Foes.TYPES[def.t],id=ids[i],f=C.F[id]=CombatCore.mkFighter(id,{x:WRD.x+site.x+def.dx,z:WRD.z+site.z+def.dz,face:Math.PI,hp:Math.round(T.hp*foeMul().hp),team:'e',sa:T.sa?1:0,dm:(T.dm||1)*foeMul().dm,rm:T.rm||1});
-      if(!C.order.includes(id))C.order.push(id);f.r=T.r;f.spd=T.spd||1.3;
+      const T=Foes.TYPES[def.t],id=ids[i],f=C.F[id]=CombatCore.mkFighter(id,{x:WRD.x+site.x+def.dx,z:WRD.z+site.z+def.dz,face:Math.PI,hp:Math.round(T.hp*foeMul().hp),team:'e',sa:T.sa||WardenProg.cycleMul().sa?1:0,dm:(T.dm||1)*foeMul().dm,rm:T.rm||1});
+      if(!C.order.includes(id))C.order.push(id);f.r=T.r;f.spd=(T.spd||1.3)*WardenProg.cycleMul().spd;
       const b=body(T,i);b.g.scale.setScalar(T.scale);b.g.position.set(f.x,H(f.x,f.z),f.z);b.g.rotation.y=f.face;
       if(b.u.mixer&&typeof emoStop==='function'&&T.body==='avatar')emoStop(b.u);
       const F={i,id,T,f,body:b,ai:DuelistAI.create(fightN*7919+i*131+1,{foe:T.ai,intro:T.pack?25:75}),loco:{x:0,z:0,vf:0,vs:0,sp:0,init:false},flash:0,awake:!T.aggro,dorm:T.aggro?'sleep':null,dormSync:null,wakeT:0,ph2:false,home:{x:f.x,z:f.z}};
@@ -234,7 +271,7 @@ const PlayerCombat=(()=>{
   function startFight(){
     fightN++;hurt=false;fightVo=false;try{WardenSfx.load()}catch(e){}const R=site.wall?site.R-.5:site.R+10,sol=WardenSolids().filter(s=>Math.hypot(s.x-WRD.x-site.x,s.z-WRD.z-site.z)<site.R+14);
     C=CombatCore.create({arena:{x:WRD.x+site.x,z:WRD.z+site.z,R},solids:sol});ST=CombatCore.stepper(C,6);t0=performance.now();
-    P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});spawnFoes();WardenFx.clear();WardenVfx.clear();Q=null;spectate=false;netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
+    P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});applyStats();spawnFoes();WardenFx.clear();WardenVfx.clear();Q=null;spectate=false;netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
     flow=0;flowOn=false;flowN=0;fq=null;skillCD=0;bars.fl=-1;healLeft=0;mightT=0;itemLock=0;state='fight';stateT=0;lock=site.fog||foes.some(F=>F.T.boss);lockI=0;lastEv=[];pv.init=false;down.guard=down.heavy=false;stW=0;gT=0;
     if(el)el.querySelector('#wLock').classList.toggle('on',lock);D=target().f}
   // Inside a walled arena the screen is the cost on a low-end phone: render at 1.25x (not 2x) while you fight, restore on leaving. Skipped when ?dpr= was given.
@@ -282,8 +319,8 @@ const PlayerCombat=(()=>{
       else if(e.t==='dead'&&T){flaskDrop(T.T);sfx('heavy',.7,.7,()=>tone(200,40,.5,'sawtooth',.14));if(T.body.T.body==='avatar')T.body.u.emoteReq='playdead';if(T.T.boss){CineCam.play('death',{x:T.f.x,z:T.f.z,h:1.2*T.T.scale,sc:Math.max(1,T.T.scale*.9)},{id:T.T.id});msg(T.T.name.toUpperCase()+' IS FELLED',3);setTimeout(()=>WardenSfx.play(hurt?'vo_winner':'vo_flawless_victory',.8,1,{nojit:1}),700)}
         if(lock&&lockI===T.i){const n=nearest();if(n&&n!==T)lockI=n.i;else{lock=false;el.querySelector('#wLock').classList.remove('on')}}
         if(!alive().length){state='won';stateT=performance.now();lock=false;el.querySelector('#wLock').classList.remove('on')}}
-      else if(e.t==='dead'&&e.d==='P'&&NET.mode==='host'&&Q&&Q.act!=='dead'){msg('YOU DIED · your partner fights on',3);sfx('heavy',.8,.6,()=>tone(180,35,.6,'sawtooth',.16));spectate=true}
-      else if(e.t==='dead'&&e.d==='P'){msg('YOU DIED',3);sfx('heavy',.8,.6,()=>tone(180,35,.6,'sawtooth',.16));setTimeout(()=>WardenSfx.play('vo_game_over',.8,1,{nojit:1}),600);state='lost';stateT=performance.now()}}}
+      else if(e.t==='dead'&&e.d==='P'&&NET.mode==='host'&&Q&&Q.act!=='dead'){PG.die(site.id,P.x,P.z);msg('YOU DIED · your partner fights on',3);sfx('heavy',.8,.6,()=>tone(180,35,.6,'sawtooth',.16));spectate=true}
+      else if(e.t==='dead'&&e.d==='P'){PG.die(site.id,P.x,P.z);msg('YOU DIED',3);sfx('heavy',.8,.6,()=>tone(180,35,.6,'sawtooth',.16));setTimeout(()=>WardenSfx.play('vo_game_over',.8,1,{nojit:1}),600);state='lost';stateT=performance.now()}}}
   // dormant foes sit / stand sheathed until you come near: rouse() starts the draw / roar / power-up clip, rise() hands them to the AI once it ends; a hit skips the show
   function rouse(F,skip){if(F.awake||F.dorm==='wake'&&!skip)return;if(skip||!F.anim){rise(F);return}F.dorm='wake';F.wakeT=0;if(F.T.boss){CineCam.play('intro',{x:()=>F.f.x,z:()=>F.f.z,h:1.75*F.T.scale,sc:Math.max(1,F.T.scale*.9)},{id:F.T.id});msg(F.T.name,2.4);sfx('heavy',.6,.55,()=>tone(90,45,.6,'sawtooth',.14));WardenSfx.play('vo_prepare_yourself',.8,1,{nojit:1})}else if(!fightVo){fightVo=true;WardenSfx.play('vo_fight',.8,1,{nojit:1})}}
   function rise(F){F.dorm=null;F.awake=true;F.dormSync=null;if(F.anim&&F.anim.setMode)F.anim.setMode(null)}
@@ -295,7 +332,7 @@ const PlayerCombat=(()=>{
   // a cleared site keeps its corpses until you are well away, then it re-arms (fight it again whenever you like)
   function rearm(wx,wz){for(const s of SITES()){const r=RT[s.id];if(!r||!r.cleared)continue;if(Math.hypot(wx-s.x,wz-s.z)>s.R+45){r.cleared=false;for(const F of r.foes)freeBody(F.body);r.foes=[];try{if(s.fog)WardenIsles.fog(s.id,'idle')}catch(e){}}}}
   function tick(dt,t){
-    const wx=S.x-WRD.x,wz=S.z-WRD.z;
+    const wx=S.x-WRD.x,wz=S.z-WRD.z;chipTick(wx,wz);lostMark(t,dt);if(toastT>0){toastT-=dt;if(toastT<=0&&toastEl)toastEl.classList.remove('on')}
     if(!on){rearm(wx,wz);
       for(const k in RT)for(const F of RT[k].foes||[])if(F.f.act==='dead'&&Math.hypot(F.f.x-S.x,F.f.z-S.z)<70)foeTick(F,dt,0);   // corpses of cleared sites keep animating until they have finished falling
       if(S.flying||S.state==='swim'||!S.grounded||!me||!me.userData.nact)return;
@@ -309,7 +346,7 @@ const PlayerCombat=(()=>{
     if(spectate&&(!Q||Q.act==='dead')){spectate=false;state='lost';stateT=performance.now()}
     if(state==='lost'&&performance.now()-stateT>3200){startFight();msg('Again.',1.4)}
     else if(state==='won'&&performance.now()-stateT>(PC.loop?5000:4500)){
-      if(PC.loop){startFight();msg('Again.',1.4)}else{rt(site).cleared=true;felled++;msg(site.n+' · cleared ('+felled+' felled)',2.4);leave(true);return}}
+      if(PC.loop){startFight();msg('Again.',1.4)}else{rt(site).cleared=true;felled++;const cr=site.fog?PG.felled(site.id):null;msg(site.n+' · cleared ('+felled+' felled)',2.4);leave(true);if(cr)cycleTurn(cr);return}}
     // one-time status toast so a missing animation set is visible instead of silent
     {const F0=foes[0],ka=(pAnim?pAnim.st:'none')+'/'+(F0&&F0.anim?F0.anim.st:'none');if(ka!==mxSaid&&pAnim&&F0&&F0.anim&&pAnim.st!=='none'&&F0.anim.st!=='none'){mxSaid=ka;msg(pAnim.st==='ready'&&F0.anim.st==='ready'?'Animations '+WardenMX.BUILD+' loaded':'Animation load FAILED ('+(pAnim.err||F0.anim.err||ka)+')',2.2)}}
     const TF=target();D=TF.f;
@@ -345,7 +382,7 @@ const PlayerCombat=(()=>{
     gT=P.guard?gT+1:0;const o=PC._pose?{a:WardenAnim.POSES[PC._pose[0]],b:WardenAnim.POSES[PC._pose[1]],u:PC._pose[2],w:1}:WardenAnim.target(P,gT);WardenAnim.mix(o.a,o.b,o.u,tg);stW+=((o.w)-stW)*Math.min(1,dt*10);
     {const k=Math.min(1,dt*40);for(const kk of['ru','rf','lu','lf'])cur[kk].lerp(tg[kk],k).normalize();cur.tw+=(tg.tw-cur.tw)*k;cur.ln+=(tg.ln-cur.ln)*k}
     const used=pAnim?pAnim.update(P,fr,ploco,dt,true):false;if(!used&&!PC._skip)WardenAnim.apply(me.userData,cur,stW);
-    for(const F of foes)foeTick(F,dt,fr);
+    for(const F of foes)foeTick(F,dt,fr);payFoes();
     WardenFx.update(dt);WardenVfx.update(dt);
     hud();if(msgT>0){msgT-=dt;if(msgT<=0)el.querySelector('#wmsg').classList.remove('on')}}
   function foeTick(F,dt,fr){
