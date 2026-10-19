@@ -84,6 +84,10 @@ const Decks=(()=>{
       if(Math.hypot(ax-p.x,az-p.z)>r&&Math.hypot(bx-p.x,bz-p.z)>r)continue;
       for(let i=1;i<=16;i++){const t=i/16;if(t>=best)break;toLocal(d,ax+(bx-ax)*t,ay+(by-ay)*t,az+(bz-az)*t,_rb);const f=floor(d,_rb.x,_rb.z);if(f>=d.camH&&_rb.y<f-.1){best=t;break}}}
     return best}
+  // a walkable plank over open water (the bowsprit): o={hw half width, z0, flat (end of the level part), z1, h0, h1 (metres, ship space)}; makes cells that did not exist (and cuts through bow rails)
+  function plank(d,o){
+    for(let iz=0;iz<d.nz;iz++)for(let ix=0;ix<d.nx;ix++){const x=(d.x0+(ix+.5)*d.cs)*d.sc,z=(d.z0+(iz+.5)*d.cs)*d.sc;
+      if(Math.abs(x)>o.hw||z<o.z0||z>o.z1)continue;const t=z<=o.flat?0:(z-o.flat)/(o.z1-o.flat);d.h[iz*d.nx+ix]=(o.h0+(o.h1-o.h0)*t)/d.sc}}
   const RING=[[R,0],[-R,0],[0,R],[0,-R]];
   // is a body of radius R standing at (x,z) with its feet at ship-space height ly stopped by anything higher than ly+step?  returns the tallest blocking height (or 0)
   function wallAt(d,x,z,ly,step){
@@ -171,5 +175,5 @@ const Decks=(()=>{
   function pin(S,d,x,z){const sup=floor(d,x,z);S._dk={id:d.id,x,y:Math.max(0,sup),z,h:d.pose.h};toWorld(d,x,Math.max(0,sup),z,_a);S.x=_a.x;S.z=_a.z;S.y=_a.y;S.vy=0;return _a.y}
   const standingOn=S=>S._dk?S._dk.id:null;
   const disable=(d,on)=>{if(d)d.off=!!on};
-  return {rayBlock,seal,wallNormal,disable,STEP,HOP,R,grid,create,add,remove,get,all,clear,setPose,toWorld,toLocal,floor,stamp,stampBox,wallAt,slide,freeSpot,route,step,pin,standingOn,decks};
+  return {plank,rayBlock,seal,wallNormal,disable,STEP,HOP,R,grid,create,add,remove,get,all,clear,setPose,toWorld,toLocal,floor,stamp,stampBox,wallAt,slide,freeSpot,route,step,pin,standingOn,decks};
 })();
