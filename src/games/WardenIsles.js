@@ -55,7 +55,7 @@ const WardenIsles=(()=>{
   const fogs={};
   function fogBuild(){
     const m=new THREE.MeshBasicMaterial({color:'#a9b8ff',transparent:true,opacity:.16,side:THREE.FrontSide,depthWrite:false,fog:false});
-    for(const s of WARDEN.sites){if(!s.fog)continue;const g=new THREE.Mesh(new THREE.CylinderGeometry(s.R,s.R,9,36,1,true),m.clone());g.position.set(WRD.x+s.x,s.y+4.5,WRD.z+s.z);g.frustumCulled=false;G.add(g);fogs[s.id]={m:g,st:'idle'}}}
+    for(const s of WARDEN.sites){if(!s.fog&&!s.duel)continue;const g=new THREE.Mesh(new THREE.CylinderGeometry(s.R,s.R,s.duel?5:9,36,1,true),m.clone());if(s.duel)g.material.color.set('#ff9a5a');g.position.set(WRD.x+s.x,s.y+4.5,WRD.z+s.z);g.frustumCulled=false;G.add(g);fogs[s.id]={m:g,st:'idle'}}}
   function fog(id,st){const f=fogs[id];if(!f)return;f.st=st;f.m.visible=st!=='gone';f.m.material.opacity=st==='sealed'?.42:.16}
   // camp markers: a brazier at the heart of each soldier camp so you can spot them
   function campMarks(){for(const s of WARDEN.sites)if(!s.fog&&!s.wall)brazier(WRD.x+s.x,s.y+1.1,WRD.z+s.z)}
