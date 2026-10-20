@@ -27,4 +27,14 @@ const mk=()=>{const st={};const c={console,Math,JSON,Number,localStorage:{getIte
   // reload from the save
   const c2=mk();c2.st.wprog=st.wprog;c2.P.load();ok(c2.P.S.cycle===2&&c2.P.S.ups.vig===1&&c2.P.S.ups.belt===3,'a new session reads the save back');
   const c3=mk();c3.st.wprog='{"cycle":"x","embers":-5,"ups":{"vig":99,"end":-3},"lost":{"x":"q"}}';c3.P.load();ok(c3.P.S.cycle===1&&c3.P.S.embers===0&&c3.P.S.ups.vig<=10&&c3.P.S.ups.end===0&&c3.P.S.lost===null,'a corrupt save is clamped, not trusted')}
+// ---- duels ----
+{const {P}=mk();ok(P.rank()==='Rookie','new duellist is a Rookie');
+  let r=P.duelResult(true,true);ok(r.embers===150&&r.rating===25&&r.streak===1,'first win vs a player: +150 embers, +25 rating');
+  r=P.duelResult(true,true);ok(r.embers===175&&r.streak===2,'a streak pays more (+25 per win)');
+  r=P.duelResult(true,false);ok(r.embers===40&&P.S.duel.rating===50&&P.S.duel.streak===2,'beating the Shade pays a little and never moves rating or streak');
+  r=P.duelResult(false,false);ok(r.embers===0&&P.S.duel.rating===50&&P.S.duel.l===1,'losing to the Shade costs nothing');
+  r=P.duelResult(false,true);ok(P.S.duel.streak===0&&r.rating===30&&r.embers===20,'losing to a player: -20 rating, streak resets, small consolation');
+  for(let i=0;i<30;i++)P.duelResult(false,true);ok(P.S.duel.rating===0,'rating never goes below 0');
+  for(let i=0;i<60;i++)P.duelResult(true,true);ok(P.rank()==='Legend'&&P.S.duel.best>=60,'enough wins make a Legend');
+  ok(P.rank(250)==='Blade'&&P.rank(99)==='Rookie'&&P.rank(100)==='Duellist','rank thresholds')}
 process.exit(bad?1:0);

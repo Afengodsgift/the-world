@@ -6,6 +6,7 @@ const Foes=(()=>{
   const PACK_ATK=2;
   const TYPES={
     duelist:{name:'The Duelist',hp:220,r:.54,scale:1.1,rm:1.1,spd:1.5,ai:'duelist',role:'duelist',body:'avatar',dress:2,sword:{f:'sword_claymore.glb',len:1.45,l0:6.6},boss:true,aggro:9},
+    shade:{name:'The Arena Shade',hp:200,r:.54,scale:1.1,rm:1.1,spd:1.5,ai:'duelist',role:'duelist',body:'avatar',dress:2,sword:{f:'sword_claymore.glb',len:1.45,l0:6.6}},
     hollow:{name:'The Hollow Warden',hp:340,r:.85,scale:1.55,rm:1.45,spd:1.25,ai:'hollow',role:'hollow',body:'avatar',dress:2,tint:.07,sa:true,boss:true,ph2:'The Hollow Warden rages.'},
     soldier:{name:'Ashen Soldier',hp:60,r:.45,scale:1,spd:1.3,ai:'soldier',role:'guard',body:'glb',files:['guard2','guard3'],bright:1.3,sword:{f:'sword_falchion.glb',len:1.0,l0:5.36},shield:true,pack:true,aggro:13,dm:.55},
     paladin:{name:'The Oathbound Knight',hp:300,r:.7,scale:1.3,rm:1.25,spd:1.3,ai:'knight',role:'paladin',body:'glb',file:'paladin',bright:2.6,boss:true,sword:{f:'sword_falchion.glb',len:1.1,l0:5.36},shield:true,aggro:11,ph2:'The knight casts his shield aside.'},

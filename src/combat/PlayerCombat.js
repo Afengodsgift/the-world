@@ -46,7 +46,7 @@ const PlayerCombat=(()=>{
   try{const j=JSON.parse(localStorage.getItem('wflask')||'null');if(j)for(const k in FL)if(Number.isFinite(j[k]))flasks[k]=Math.max(0,Math.min(9,j[k]|0))}catch(e){}
   const saveFl=()=>{try{localStorage.setItem('wflask',JSON.stringify(flasks))}catch(e){}};
   function useFlask(k){
-    if(!on||!P||P.act==='dead'||itemLock>0||flasks[k]<=0)return;const t=FL[k].use;
+    if(!on||!P||P.act==='dead'||itemLock>0||flasks[k]<=0)return;if(site&&site.duel){msg('No flasks in the arena',.8);return}const t=FL[k].use;
     if(t==='heal'&&(P.hp>=P.hpMax||healLeft>0)){msg('Health is full',.8);return}
     if(t==='stam'&&P.st>=P.stMax*.8){msg('Stamina is fine',.8);return}
     if(t==='might'&&mightT>0){msg('Already empowered',.8);return}
@@ -68,12 +68,12 @@ const PlayerCombat=(()=>{
   let baseDm=1,shrineEl=null,chipEl=null,chipKey='',mark=null,markT=0,toastEl=null,toastT=0;
   const flaskCap=k=>Math.min(9,FL[k].max+PG.stats().belt);
   let wst=WardenGear.stats();
-  function applyStats(){const st=PG.stats();wst=WardenGear.stats();const hp=Math.round(st.hp*wst.hp);P.hpMax=hp;P.hp=hp;P.stMax=st.st;P.st=st.st;baseDm=st.dm*wst.dm;P.dm=baseDm;P.rm=wst.rm;P.sm=wst.sm;P.pm=wst.pm;P.dfl=wst.dfl}
+  function applyStats(){const duel=site&&site.duel,st=duel?{hp:100,st:100,dm:1,belt:0}:PG.stats();wst=WardenGear.stats();const hp=Math.round(st.hp*wst.hp);P.hpMax=hp;P.hp=hp;P.stMax=st.st;P.st=st.st;baseDm=st.dm*wst.dm;P.dm=baseDm;P.rm=wst.rm;P.sm=wst.sm;P.pm=wst.pm;P.dfl=wst.dfl+(duel&&DU.pair?3:0)}
   const pRole=()=>WardenGear.TYPES[WardenGear.equipped().ty].role||'player';
   function swapModel(){if(pAnim){try{pAnim.off()}catch(e){}pAnim=null}if(sword){sword.dead=true;try{if(sword.grip&&sword.hand)sword.hand.remove(sword.grip)}catch(e){}}sword=null;swordTried=false}
   function toast(t,sec){if(!toastEl){toastEl=document.createElement('div');toastEl.id='wtoast';document.body.appendChild(toastEl)}toastEl.textContent=t;toastEl.classList.add('on');toastT=sec||2.4}
   function say(t,sec){if(on&&el)msg(t,sec);else toast(t,sec)}
-  function payFoes(){for(const F of foes){if(F.f.act!=='dead'||F.paid)continue;F.paid=true;const n=Math.round(PG.reward(F.T,site&&site.id)*wst.gild);PG.add(n);say('+'+n+' Embers',1.6);gearDrop(F.T)}}
+  function payFoes(){for(const F of foes){if(F.f.act!=='dead'||F.paid)continue;F.paid=true;if(F.human||site&&site.duel)continue;const n=Math.round(PG.reward(F.T,site&&site.id)*wst.gild);PG.add(n);say('+'+n+' Embers',1.6);gearDrop(F.T)}}
   function gearDrop(T){const it=WardenGear.drop(Math.random,!!T.boss,PG.S.cycle);if(!it)return;if(WardenGear.full()){const v=WardenGear.sellValue(it);PG.earn(v);setTimeout(()=>say('Pack full: sold '+WardenGear.name(it)+' for '+v,2.2),1200);return}
     WardenGear.add(it);setTimeout(()=>say('Found: '+WardenGear.name(it)+' ('+WardenGear.RAR[it.rar]+')',2.6),1200)}
   function lostMark(t,dt){   // the pile of embers you left where you fell
@@ -136,6 +136,7 @@ const PlayerCombat=(()=>{
   function netJoin(){NET.mode='guest';NET.site=site.id;NET.left=false;netAddQ();WardenNet.send({k:'j',s:site.id});NET.gotSnap=performance.now()}
   function netLeave(){if(NET.mode!=='solo')WardenNet.send({k:'l',s:NET.site});WardenNet.reset();netDropQ();spectate=false}
   function netMsg(p){
+    if(p&&(p.k==='dh'||p.k==='dr'||p.k==='dl')){duelMsg(p);return}
     if(!on||!site)return;
     if(p.k==='j'&&NET.mode==='host'&&p.s===site.id){netAddQ();msg('Your partner joins the fight',1.6)}
     else if(p.k==='l'&&p.s===NET.site){if(NET.mode==='host'){netDropQ();NET.joined=false;msg('Your partner left the fight',1.6)}else if(NET.mode==='guest'){netDropQ();netHost();msg('The host left: you lead the fight',1.8)}}
@@ -161,6 +162,36 @@ const PlayerCombat=(()=>{
   let qAct='';
   function netVis(){if(!Q||!NET.partner||typeof others==='undefined')return;const o=others.get(NET.partner);if(!o)return;const k=Q.act==='attack'?'atk':Q.act;if(k===qAct)return;qAct=k;
     const e=k==='dodge'?'roll':k==='atk'?(Q.mv&&Q.mv.id==='heavy'?'cross':'jab'):Q.guard?'block':null;if(e&&typeof loadEmotes==='function')loadEmotes().then(()=>{o.group.userData.emoteReq=e}).catch(()=>{})}
+  // ---------- duels: The Ashen Arena. Alone you fight the Shade (a bot); when another player walks in, the Shade is replaced by THEM. Same puppet model as co-op: each player is authoritative for their own
+  // dodges / blocks / hits taken (so defence never waits on the network), and the opponent is a puppet fighter overwritten from their 15 Hz reports. Duels ignore upgrades and flasks (weapons and affixes still count).
+  // Messages: 'dh' hello (1 Hz, name / rating / weapon), 'dr' state report (15 Hz), 'dl' leaving.
+  const DU={pair:null,rep:null,gotAt:0,helloAt:0,sendT:0,cd:0,over:false,overT:0,t0:Date.now()};
+  const nick=()=>(typeof myName!=='undefined'&&myName)||'Player';
+  const meId=()=>typeof myId!=='undefined'?myId:'me';
+  const duelSide=()=>DU.pair&&meId()<DU.pair.id?1:-1;
+  function duelT(){const p=DU.pair,WT=WardenGear.TYPES[p.ty]||WardenGear.TYPES.falchion;
+    return Object.assign({},Foes.TYPES.shade,{id:'rival:'+(WardenGear.TYPES[p.ty]?p.ty:'falchion'),name:String(p.n).slice(0,16),hp:100,role:WT.role,sword:{f:WT.file,len:WT.want,l0:WT.l0},human:true,tint:1})}
+  function duelBegin(){DU.over=false;DU.cd=3.2;DU.cdEnd=performance.now()+3200;DU.rep=null;DU.gotAt=performance.now();startFight();WardenMX.fetch(foes[0].T.role).catch(()=>{});msg('DUEL · '+DU.pair.n+' · '+PG.rank(DU.pair.r),1.6)}
+  function duelUnpair(t){DU.pair=null;DU.cd=0;DU.rep=null;DU.over=false;if(on&&site&&site.duel){startFight();msg(t,2)}}
+  function duelLeave(){if(DU.pair)WardenNet.send({k:'dl'});DU.pair=null;DU.cd=0;DU.rep=null;DU.over=false}
+  function duelMsg(p){
+    if(!on||!site||!site.duel)return;
+    if(p.k==='dh'){if(!DU.pair&&typeof p.from==='string'){DU.pair={id:p.from,n:p.n||'Rival',r:p.r|0,ty:p.ty};duelBegin()}else if(DU.pair&&DU.pair.id===p.from){DU.gotAt=performance.now();DU.pair.r=p.r|0}}
+    else if(p.k==='dr'){if(DU.pair&&p.from===DU.pair.id){DU.rep=p;DU.gotAt=performance.now()}}
+    else if(p.k==='dl'){if(DU.pair&&p.from===DU.pair.id)duelUnpair('Your opponent left')}}
+  function duelApply(rep){const F=foes[0];if(!F||!F.human||F.repDead)return;const o=rep.p,f=F.f;
+    if(o.act==='dead'||o.hp<=0){F.repDead=true;WardenNet.apply(f,o,Moves,1);f.hp=0;f.act='dead';f.ph=null;f.mv=null;events([{t:'dead',a:'P',d:F.id,_rep:1}]);return}
+    WardenNet.apply(f,o,Moves,.7)}
+  function duelNet(dt){
+    if(!on||!site||!site.duel)return;const nw=performance.now();
+    if(DU.cd>0){const n=Math.ceil(DU.cd);DU.cd=Math.max(0,(DU.cdEnd-nw)/1000);const m=Math.ceil(DU.cd);if(DU.cd<=0){DU.cd=0;msg('FIGHT',1)}else if(m!==n&&m<=3)msg(String(m),.9)}
+    if(nw-DU.helloAt>=1000){DU.helloAt=nw;WardenNet.send({k:'dh',n:nick(),r:PG.S.duel.rating,ty:WardenGear.equipped().ty})}
+    if(!DU.pair)return;
+    if(nw-DU.sendT>=66){DU.sendT=nw;WardenNet.send({k:'dr',p:WardenNet.pack(P)})}
+    if(DU.rep){const r=DU.rep;DU.rep=null;duelApply(r)}
+    if(nw-DU.gotAt>4500)duelUnpair('Opponent lost: back to the Shade')}
+  function duelOver(win){if(DU.over)return;DU.over=true;DU.overT=performance.now();const human=!!(DU.pair&&foes[0]&&foes[0].human),r=PG.duelResult(win,human);
+    msg((win?'VICTORY':'DEFEATED')+(r.embers?' · +'+r.embers+' Embers':'')+(human?' · '+r.rank+' '+r.rating:''),3);emK=''}
   // ---------- Flow: the meter fills from dodges / deflects / hits / posture breaks. Not full: the Flow button is a stamina skill (Cinder Arc; with the stick held it is the Ginga Step: a sidestep with i-frames into an evasive slash).
   // Full: it starts Flow (the meter drains for ~9 s) and the button becomes a finisher (Armada, then Meia Lua), each paid for out of the meter.
   let flow=0,flowOn=false,flowN=0,fq=null,skillCD=0;
@@ -189,7 +220,7 @@ const PlayerCombat=(()=>{
       const b=el.querySelector('#wFlow');b.style.setProperty('--fl',(flow/100*360)+'deg');b.classList.toggle('full',full);b.classList.toggle('on',flowOn);b.textContent=flowOn?(flowN%2?'Meia':'Armada'):'Flow';
       setBar('.p .fl',flow/100);const fb=el.querySelector('.p .fl');fb.classList.toggle('full',full);fb.classList.toggle('on',flowOn)}}
   function press(name,tms){
-    if(!on||P.act==='dead'||CineCam.busy()&&CineCam.isActive())return false;const t=tms===undefined?now():tms;
+    if(!on||P.act==='dead'||DU.cd>0||CineCam.busy()&&CineCam.isActive())return false;const t=tms===undefined?now():tms;
     switch(name){
       case'light':{assist();reject();const c={t:'light',e:C.tick},d=stickDir(),fa=pendFace!==null?pendFace:S.rot;if(d&&d[0]*Math.sin(fa)+d[1]*Math.cos(fa)>.6)c.adv=true;ST.input('P',c,t);break}
       case'heavy':if(down.heavy)return true;assist();reject();down.heavy=true;ST.input('P',{t:'heavyDown',e:C.tick},t);break;
@@ -237,7 +268,7 @@ const PlayerCombat=(()=>{
   function setBar(sel,v){const k=Math.round(Math.max(0,Math.min(1,v))*100);if(bars[sel]===k)return;bars[sel]=k;el.querySelector(sel+' b').style.transform='scaleX('+k/100+')'}
   let nameKey='';
   let emK='';
-  function hud(){const ek=PG.S.embers+'|'+PG.S.cycle;if(ek!==emK){emK=ek;el.querySelector('#wem').textContent='\ud83d\udd25 '+PG.S.embers+(PG.S.cycle>1?'  \u00b7  Cycle '+PG.S.cycle:'')}setBar('.p .hp',P.hp/P.hpMax);setBar('.p .st',P.st/P.stMax);
+  function hud(){const du=site&&site.duel,dd=PG.S.duel,ek=du?'d'+dd.rating+'|'+dd.w+'|'+dd.l+'|'+dd.streak+(DU.pair?DU.pair.n:''):PG.S.embers+'|'+PG.S.cycle;if(ek!==emK){emK=ek;el.querySelector('#wem').textContent=du?'\u2694 '+PG.rank()+' '+dd.rating+'  \u00b7  W'+dd.w+' L'+dd.l+(dd.streak>1?'  \u00b7  streak '+dd.streak:''):'\ud83d\udd25 '+PG.S.embers+(PG.S.cycle>1?'  \u00b7  Cycle '+PG.S.cycle:'')}setBar('.p .hp',P.hp/P.hpMax);setBar('.p .st',P.st/P.stMax);
     const F=target(),n=alive().length,nk=F?F.T.name+(n>1?' ×'+n:''):'';if(nk!==nameKey){nameKey=nk;el.querySelector('.wb.d span').textContent=nk}
     if(F){setBar('.d .hp',F.f.hp/F.f.hpMax);setBar('.d .po',F.f.po/F.f.poMax);const brk=F.f.act==='stun'&&F.f.sk==='stagger';if(bars.brk!==brk){bars.brk=brk;el.querySelector('.wb.d').classList.toggle('brk',brk)}}
     const c=P.act==='charge'?Math.min(1,P.c/Moves.heavy.chargeMax)*360:0,r=Math.round(c/6);if(bars.chg!==r){bars.chg=r;el.querySelector('#wHeavy').style.setProperty('--chg',r*6+'deg')}}
@@ -289,18 +320,19 @@ const PlayerCombat=(()=>{
     for(const F of foes)freeBody(F.body);foes=[];byId={};
     const ids=Foes.ids(site.foes.length);
     site.foes.forEach((def,i)=>{
-      const T=Foes.TYPES[def.t],id=ids[i],f=C.F[id]=CombatCore.mkFighter(id,{x:WRD.x+site.x+def.dx,z:WRD.z+site.z+def.dz,face:Math.PI,hp:Math.round(T.hp*foeMul().hp),team:'e',sa:T.sa||WardenProg.cycleMul().sa?1:0,dm:(T.dm||1)*foeMul().dm,rm:T.rm||1});
+      const T=site.duel&&DU.pair?duelT():Foes.TYPES[def.t],id=ids[i],hum=!!T.human,Ld=hum?duelSide():0,f=C.F[id]=CombatCore.mkFighter(id,{x:WRD.x+site.x+(hum?0:def.dx),z:WRD.z+site.z+(hum?-9*Ld:def.dz),face:hum&&Ld<0?0:Math.PI,hp:hum?100:Math.round(T.hp*foeMul().hp),team:'e',sa:!hum&&(T.sa||WardenProg.cycleMul().sa)?1:0,dm:hum?1:(T.dm||1)*foeMul().dm,rm:T.rm||1});
       if(!C.order.includes(id))C.order.push(id);f.r=T.r;f.spd=(T.spd||1.3)*WardenProg.cycleMul().spd;
       const b=body(T,i);b.g.scale.setScalar(T.scale);b.g.position.set(f.x,H(f.x,f.z),f.z);b.g.rotation.y=f.face;
       if(b.u.mixer&&typeof emoStop==='function'&&T.body==='avatar')emoStop(b.u);
-      const F={i,id,T,f,body:b,ai:DuelistAI.create(fightN*7919+i*131+1,{foe:T.ai,intro:T.pack?25:75}),loco:{x:0,z:0,vf:0,vs:0,sp:0,init:false},flash:0,awake:!T.aggro,dorm:T.aggro?'sleep':null,dormSync:null,wakeT:0,ph2:false,home:{x:f.x,z:f.z}};
+      const F={i,id,T,f,body:b,human:hum,ai:DuelistAI.create(fightN*7919+i*131+1,{foe:T.ai,intro:T.pack?25:75}),loco:{x:0,z:0,vf:0,vs:0,sp:0,init:false},flash:0,awake:!T.aggro,dorm:T.aggro?'sleep':null,dormSync:null,wakeT:0,ph2:false,home:{x:f.x,z:f.z}};
       foes.push(F);byId[id]=F});
     rt(site).foes=foes}
   function startFight(){
     fightN++;hurt=false;fightVo=false;try{WardenSfx.load()}catch(e){}const R=site.wall?site.R-.5:site.R+10,sol=WardenSolids().filter(s=>Math.hypot(s.x-WRD.x-site.x,s.z-WRD.z-site.z)<site.R+14);
     C=CombatCore.create({arena:{x:WRD.x+site.x,z:WRD.z+site.z,R},solids:sol});ST=CombatCore.stepper(C,6);t0=performance.now();
+    if(site.duel&&DU.pair){const L=duelSide();S.x=WRD.x+site.x;S.z=WRD.z+site.z+9*L;S.rot=L>0?Math.PI:0;lx=S.x;lz=S.z}
     P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});applyStats();spawnFoes();WardenFx.clear();WardenVfx.clear();Q=null;spectate=false;netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
-    flow=0;flowOn=false;flowN=0;fq=null;skillCD=0;bars.fl=-1;healLeft=0;mightT=0;itemLock=0;state='fight';stateT=0;lock=site.fog||foes.some(F=>F.T.boss);lockI=0;lastEv=[];pv.init=false;down.guard=down.heavy=false;stW=0;gT=0;
+    flow=0;flowOn=false;flowN=0;fq=null;skillCD=0;bars.fl=-1;healLeft=0;mightT=0;itemLock=0;state='fight';stateT=0;lock=site.fog||site.duel||foes.some(F=>F.T.boss);lockI=0;lastEv=[];pv.init=false;down.guard=down.heavy=false;stW=0;gT=0;
     if(el)el.querySelector('#wLock').classList.toggle('on',lock);D=target().f}
   // Inside a walled arena the screen is the cost on a low-end phone: render at 1.25x (not 2x) while you fight, restore on leaving. Skipped when ?dpr= was given.
   let resPrev=null;
@@ -314,12 +346,12 @@ const PlayerCombat=(()=>{
   function engage(s){
     try{if(typeof loadEmotes==='function')loadEmotes().catch(()=>{})}catch(e){}   // the 'playdead' fall clip lives in the emote library: without it corpses (and you) just stand there
     if(on)return;if(!el)build();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenFx.build();WardenVfx.build();WardenMX.fetch(pRole()).catch(()=>{});
-    site=s;fightN=0;const hh=WardenNet.hostFor(s.id);NET.joined=false;startFight();if(hh)netJoin();else netHost();for(const F of foes)WardenMX.fetch(F.T.role).catch(()=>{});
+    site=s;fightN=0;const hh=WardenNet.hostFor(s.id);NET.joined=false;startFight();if(s.duel){}else if(hh)netJoin();else netHost();for(const F of foes)WardenMX.fetch(F.T.role).catch(()=>{});
     lx=S.x;lz=S.z;on=true;document.body.classList.add('warden-fight');ensureAvatars();if(sword&&sword.grip)sword.grip.visible=true;
     for(const F of foes)for(const k of['sword','shield'])if(F.body[k]){const o=F.body[k].grip||F.body[k];if(o)o.visible=true}
     arenaRes(true);msg(s.n,2.2);try{if(s.fog)WardenIsles.fog(s.id,'sealed')}catch(e){}}
   function leave(hold){   // hold: keep the corpses of a cleared site in the world
-    if(!on)return;netLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;pendFace=null;
+    if(!on)return;netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;pendFace=null;
     if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0)}catch(e){}WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
     try{if(site&&site.fog)WardenIsles.fog(site.id,rt(site).cleared?'gone':'idle')}catch(e){}}
@@ -333,22 +365,24 @@ const PlayerCombat=(()=>{
   function events(evs){
     if(PC._log)for(const e of evs)if(e.t!=='hitstop')PC._log.push(e);
     for(const e of evs){
-      const A=byId[e.a],T=byId[e.d];flowEv(e,T);
+      const A=byId[e.a],T=byId[e.d];
+      if(e.t==='dead'&&T&&T.human&&!e._rep){T.f.act='free';T.f.hp=Math.max(1,T.f.hp);T.f.mv=null;T.f.ph=null;continue}
+      flowEv(e,T);
       if(e.t==='fx'||e.t==='fxburst'||e.t==='fxend')WardenFx.event(e);
       {const fp=e.t==='hit'||e.t==='block'||e.t==='deflect'||e.t==='posturebreak'||e.t==='guardbreak'?(T?T.f:(e.d==='P'?P:null)):null;if(fp)vfxAt(e,fp)}
       if(e.t==='start'){if(e.a==='P'||A&&e.move&&A.f){const q=e.a==='P'?P:A.f;if(q&&(e.a==='P'||/atk|cut|slam|sweep|swipe|heavy|light/.test(e.move)))WardenVfx.slash(q.x,H(q.x,q.z)+1.2,q.z,q.face,/heavy|slam/.test(e.move),e.a==='P'?0:1)}if(e.a==='P'){if(e.move==='light'&&pAnim)pAnim.nextLight(performance.now()/1000);sfx('whoosh',.4,e.move==='heavy'?.75:1.1,()=>tone(e.move==='heavy'?220:380,e.move==='heavy'?90:150,e.move==='heavy'?.18:.1,'triangle',.1))}else{if(A&&A.anim&&A.anim.pickAlt)A.anim.pickAlt(e.move,Math.random());sfx('whoosh',.35,.8,()=>tone(160,70,.16,'sawtooth',.07))}}
       else if(e.t==='dodge'&&e.a==='P')tone(200,80,.14,'sine',.08);
       else if(e.t==='hit'){if(T&&e.a==='P'){if(wst.bleed&&T.f.act!=='dead')T.bleed={t:4,dps:wst.bleed};if(wst.vamp&&P.hp>0)P.hp=Math.min(P.hpMax,P.hp+e.dmg*wst.vamp)}if(T){T.flash=1;T.lh=performance.now();wake(T,true);sfx(e.dmg>=20||e.crit?'heavy':'strike',.8,e.crit?.85:1,()=>tone(140,50,.14,'square',.14));if(e.crit)msg('CRITICAL');if(T.body.T.body==='avatar')T.body.u.hitReq=1}else{sfx(e.dmg>=20?'heavy':'strike',.9,.9,()=>tone(110,40,.18,'square',.16));if(e.d==='P'&&P.hp>0){hurt=true;msg('',0);hitFrom(A,e.move)}}}
-      else if(e.t==='block')sfx('clash',.6,.9,()=>tone(420,260,.1,'square',.1));
-      else if(e.t==='deflect'){sfx('clash',.85,1.4,()=>tone(1500,900,.18,'sine',.14));msg(T?'':'DEFLECTED',.5)}
+      else if(e.t==='block')sfx('clash',.36,.9,()=>tone(420,260,.1,'square',.06));
+      else if(e.t==='deflect'){sfx('clash',.52,1.4,()=>tone(1500,900,.18,'sine',.09));msg(T?'':'DEFLECTED',.5)}
       else if(e.t==='posturebreak'&&T){if(T.T.boss)msg('POSTURE BROKEN');sfx('heavy',.8,1.1,()=>tone(500,120,.3,'sawtooth',.12))}
       else if(e.t==='posturebreak'&&e.d==='P'){msg('POSTURE BROKEN',.8);sfx('heavy',.9,.8,()=>tone(300,90,.3,'sawtooth',.12))}
       else if(e.t==='guardbreak'){sfx('heavy',.9,.85,()=>tone(250,70,.3,'sawtooth',.14));if(e.d==='P')msg('GUARD BROKEN',.8)}
-      else if(e.t==='dead'&&T){flaskDrop(T.T);sfx('heavy',.7,.7,()=>tone(200,40,.5,'sawtooth',.14));if(T.body.T.body==='avatar')T.body.u.emoteReq='playdead';if(T.T.boss){CineCam.play('death',{x:T.f.x,z:T.f.z,h:1.2*T.T.scale,sc:Math.max(1,T.T.scale*.9)},{id:T.T.id});msg(T.T.name.toUpperCase()+' IS FELLED',3);setTimeout(()=>WardenSfx.play(hurt?'vo_winner':'vo_flawless_victory',.8,1,{nojit:1}),700)}
+      else if(e.t==='dead'&&T){if(!T.human&&!site.duel)flaskDrop(T.T);sfx('heavy',.7,.7,()=>tone(200,40,.5,'sawtooth',.14));if(T.body.T.body==='avatar')T.body.u.emoteReq='playdead';if(T.T.boss){CineCam.play('death',{x:T.f.x,z:T.f.z,h:1.2*T.T.scale,sc:Math.max(1,T.T.scale*.9)},{id:T.T.id});msg(T.T.name.toUpperCase()+' IS FELLED',3);setTimeout(()=>WardenSfx.play(hurt?'vo_winner':'vo_flawless_victory',.8,1,{nojit:1}),700)}
         if(lock&&lockI===T.i){const n=nearest();if(n&&n!==T)lockI=n.i;else{lock=false;el.querySelector('#wLock').classList.remove('on')}}
-        if(!alive().length){state='won';stateT=performance.now();lock=false;el.querySelector('#wLock').classList.remove('on')}}
+        if(!alive().length){state='won';stateT=performance.now();lock=false;el.querySelector('#wLock').classList.remove('on');if(site.duel)duelOver(true)}}
       else if(e.t==='dead'&&e.d==='P'&&NET.mode==='host'&&Q&&Q.act!=='dead'){PG.die(site.id,P.x,P.z);msg('YOU DIED · your partner fights on',3);sfx('heavy',.8,.6,()=>tone(180,35,.6,'sawtooth',.16));spectate=true}
-      else if(e.t==='dead'&&e.d==='P'){PG.die(site.id,P.x,P.z);msg('YOU DIED',3);sfx('heavy',.8,.6,()=>tone(180,35,.6,'sawtooth',.16));setTimeout(()=>WardenSfx.play('vo_game_over',.8,1,{nojit:1}),600);state='lost';stateT=performance.now()}}}
+      else if(e.t==='dead'&&e.d==='P'){if(site.duel)setTimeout(()=>duelOver(false),0);else PG.die(site.id,P.x,P.z);msg('YOU DIED',3);sfx('heavy',.8,.6,()=>tone(180,35,.6,'sawtooth',.16));setTimeout(()=>WardenSfx.play('vo_game_over',.8,1,{nojit:1}),600);state='lost';stateT=performance.now()}}}
   // dormant foes sit / stand sheathed until you come near: rouse() starts the draw / roar / power-up clip, rise() hands them to the AI once it ends; a hit skips the show
   function rouse(F,skip){if(F.awake||F.dorm==='wake'&&!skip)return;if(skip||!F.anim){rise(F);return}F.dorm='wake';F.wakeT=0;if(F.T.boss){CineCam.play('intro',{x:()=>F.f.x,z:()=>F.f.z,h:1.75*F.T.scale,sc:Math.max(1,F.T.scale*.9)},{id:F.T.id});msg(F.T.name,2.4);sfx('heavy',.6,.55,()=>tone(90,45,.6,'sawtooth',.14));WardenSfx.play('vo_prepare_yourself',.8,1,{nojit:1})}else if(!fightVo){fightVo=true;WardenSfx.play('vo_fight',.8,1,{nojit:1})}}
   function rise(F){F.dorm=null;F.awake=true;F.dormSync=null;if(F.anim&&F.anim.setMode)F.anim.setMode(null)}
@@ -360,6 +394,7 @@ const PlayerCombat=(()=>{
   // a cleared site keeps its corpses until you are well away, then it re-arms (fight it again whenever you like)
   function rearm(wx,wz){for(const s of SITES()){const r=RT[s.id];if(!r||!r.cleared)continue;if(Math.hypot(wx-s.x,wz-s.z)>s.R+45){r.cleared=false;for(const F of r.foes)freeBody(F.body);r.foes=[];try{if(s.fog)WardenIsles.fog(s.id,'idle')}catch(e){}}}}
   function tick(dt,t){
+    if(msgT>0&&el){msgT-=dt;if(msgT<=0)el.querySelector('#wmsg').classList.remove('on')}   // the banner times out even after the fight is over (it used to stay up until you left the isle)
     const wx=S.x-WRD.x,wz=S.z-WRD.z;chipTick(wx,wz);lostMark(t,dt);if(toastT>0){toastT-=dt;if(toastT<=0&&toastEl)toastEl.classList.remove('on')}
     if(!on){rearm(wx,wz);
       for(const k in RT)for(const F of RT[k].foes||[])if(F.f.act==='dead'&&Math.hypot(F.f.x-S.x,F.f.z-S.z)<70)foeTick(F,dt,0);   // corpses of cleared sites keep animating until they have finished falling
@@ -367,12 +402,13 @@ const PlayerCombat=(()=>{
       const s=SITES().find(q=>!rt(q).cleared&&Math.hypot(wx-q.x,wz-q.z)<q.R-(q.wall?1.5:1));if(s)engage(s);if(!on)return}
     const d=Math.hypot(wx-site.x,wz-site.z);
     if(S.flying||S.state==='swim'){leave(false);return}
-    if(site.fog){if(state!=='won'&&d>site.R-.8){const k=(site.R-.8)/d;S.x=WRD.x+site.x+(wx-site.x)*k;S.z=WRD.z+site.z+(wz-site.z)*k}}      // the fog gate holds you in until the foe is felled
+    if(site.fog||site.duel&&DU.pair){if((state!=='won'||site.duel)&&d>site.R-.8){const k=(site.R-.8)/d;S.x=WRD.x+site.x+(wx-site.x)*k;S.z=WRD.z+site.z+(wz-site.z)*k}}      // the fog gate holds you in until the foe is felled
     else if(d>site.R+(site.wall?1.5:4)){leave(false);return}
-    ensureAvatars();
+    ensureAvatars();duelNet(dt);
     // end-of-fight handling
     if(spectate&&(!Q||Q.act==='dead')){spectate=false;state='lost';stateT=performance.now()}
-    if(state==='lost'&&performance.now()-stateT>3200){startFight();msg('Again.',1.4)}
+    if(site.duel){if(DU.over&&performance.now()-DU.overT>4200){DU.over=false;if(DU.pair)duelBegin();else{startFight();msg('Again.',1.2)}}}
+    else if(state==='lost'&&performance.now()-stateT>3200){startFight();msg('Again.',1.4)}
     else if(state==='won'&&performance.now()-stateT>(PC.loop?5000:4500)){
       if(PC.loop){startFight();msg('Again.',1.4)}else{rt(site).cleared=true;felled++;const cr=site.fog?PG.felled(site.id):null;msg(site.n+' · cleared ('+felled+' felled)',2.4);leave(true);if(cr)cycleTurn(cr);return}}
     // one-time status toast so a missing animation set is visible instead of silent
@@ -388,11 +424,12 @@ const PlayerCombat=(()=>{
       for(const F of foes){const q=F.f;
         if(F.f.act==='dead'){h[F.id]={face:q.face,mx:0,mz:0};continue}
         if(!F.awake&&F.dorm!=='wake'&&Math.hypot(S.x-q.x,S.z-q.z)<F.T.aggro)wake(F);
+        if(F.human){h[F.id]={face:q.face,mx:0,mz:0,list:[]};continue}
         if(NET.mode==='guest'){const n=F.nin||{mx:0,mz:0};h[F.id]={face:q.face,mx:n.mx,mz:n.mz,list:[]};continue}
         if(F.awake&&PC.ai&&state==='fight'){F.ai.noAtk=!!F.T.pack&&atk>=Foes.PACK_ATK&&q.act!=='attack';const a=DuelistAI.think(F.ai,aiTarget(q),q,lastEv,nt);F.nin={mx:a.mx,mz:a.mz};h[F.id]={face:a.face,mx:a.mx,mz:a.mz,list:a.list}}
         else h[F.id]={face:F.awake||F.dorm==='wake'?Math.atan2(S.x-q.x,S.z-q.z):q.face,mx:0,mz:0}}
       return h};
-    const evs=CineCam.frozen()?[]:ST.advance(now(),held,()=>{S.x+=P.x-lx;S.z+=P.z-lz;lx=P.x;lz=P.z;lastEv=C.ev});
+    const evs=CineCam.frozen()||DU.cd>0?[]:ST.advance(now(),held,()=>{S.x+=P.x-lx;S.z+=P.z-lz;lx=P.x;lz=P.z;lastEv=C.ev});
     for(const e of evs)if(e.t==='start'&&NET.mode==='host'&&byId[e.a]){const F=byId[e.a];netStarts.push({id:e.a,m:e.move,h:F.f.hold|0})}
     events(evs);flowTick(dt);flaskTick(dt);netSend(dt);netVis();
     // 2) facing: the sim owns it while attacking / dodging / stunned; lock-on owns it otherwise
@@ -412,7 +449,7 @@ const PlayerCombat=(()=>{
     const used=pAnim?pAnim.update(P,fr,ploco,dt,true):false;if(!used&&!PC._skip)WardenAnim.apply(me.userData,cur,stW);
     for(const F of foes){if(F.bleed&&F.bleed.t>0&&F.f.act!=='dead'&&NET.mode!=='guest'){F.bleed.t-=dt;F.f.hp=Math.max(1,F.f.hp-F.bleed.dps*dt);F.flash=Math.max(F.flash,.25)}foeTick(F,dt,fr)}payFoes();
     WardenFx.update(dt);WardenVfx.update(dt);
-    hud();if(msgT>0){msgT-=dt;if(msgT<=0)el.querySelector('#wmsg').classList.remove('on')}}
+    hud()}
   function foeTick(F,dt,fr){
     const b=F.body,f=F.f,g=b.g;g.position.set(f.x,H(f.x,f.z),f.z);
     if(f.act==='attack'||f.act==='stun'||f.act==='dead'){g.rotation.y=f.face}else g.rotation.y=lerpAngle(g.rotation.y,f.face,1-Math.exp(-12*dt));
@@ -427,4 +464,4 @@ const PlayerCombat=(()=>{
     F.flash=Math.max(0,F.flash-dt*5);if((F.flash>0||b.flashOn)&&b.u.model){b.flashOn=F.flash>0;b.u.model.traverse(c=>{if(c.isSkinnedMesh&&c.material&&c.material.emissive)c.material.emissive.setRGB(F.flash*.7,F.flash*.25,F.flash*.1)})}}
   return Object.assign(PC,{setSeq:v=>{if(pAnim)pAnim.variant=v},tick,speedMul,press,release,enter:()=>{},engage:id=>{const s=SITES().find(q=>q.id===id);if(s&&!on)engage(s)},leave:()=>leave(false),on:()=>on,site:()=>site,GRIP,setGrip:()=>{setGrip(sword);for(const F of foes)setGrip(F.body.sword)},newFight:()=>{if(on)startFight()},
     _flow:v=>{if(v!==undefined)flow=v;return[flow,flowOn,flowN]},
-    _t:()=>({on,C,P,D,lock,sword,foes,site,AI:foes[0]&&foes[0].ai,state,cur,stW,down,pAnim,dAnim:foes[0]&&foes[0].anim,duel:foes[0]&&foes[0].body.g,dSword:foes[0]&&foes[0].body.sword,RT})})})();
+    _t:()=>({DU,on,C,P,D,lock,sword,foes,site,AI:foes[0]&&foes[0].ai,state,cur,stW,down,pAnim,dAnim:foes[0]&&foes[0].anim,duel:foes[0]&&foes[0].body.g,dSword:foes[0]&&foes[0].body.sword,RT})})})();
