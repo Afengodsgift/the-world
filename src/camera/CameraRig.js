@@ -153,6 +153,7 @@ const CameraRig=(()=>{
     spring(st.roll,clamp(-st.turn*.045*(st.cruise*.6+st.boost),-.14,.14)*(1-.35*st.fpsK),dt,5,.8);
     const buf=st.boost*(1-.5*st.fpsK)*(1-dk);
     if(buf>.02){_p.x+=(Math.sin(st.t*31)+Math.sin(st.t*47+1.3))*.012*buf;_p.y+=Math.sin(st.t*37+.4)*.012*buf}
+    if(st.shakeA>.002){const a=st.shakeA;_p.x+=(Math.sin(st.t*53)+Math.sin(st.t*91+1.1))*.09*a;_p.y+=Math.sin(st.t*67+.4)*.09*a;_p.z+=(Math.sin(st.t*47+2.1))*.09*a;st.shakeA*=Math.exp(-5.5*dt)}else st.shakeA=0;   // hit / recoil shake (CameraRig.shake)
     camera.position.copy(_p);camera.lookAt(_l);camera.rotateZ(st.roll.x);
     if(buf>.02)camera.rotateX(Math.sin(st.t*29)*.003*buf);
 
@@ -166,6 +167,7 @@ const CameraRig=(()=>{
 
   return {
     update,
+    shake(a){st.shakeA=Math.min(1.6,Math.max(st.shakeA||0,a||0))},          // 0..1.6: a short camera shudder that dies away (ship hits, cannon recoil)
     addBlocker(b){const k={x:b.x,z:b.z,hw:b.hw,hd:b.hd,y0:b.y0,top:b.top,c:Math.cos(b.ry||0),s:Math.sin(b.ry||0)};blockers.push(k);return k},clearBlockers(){blockers.length=0},blockerCount:()=>blockers.length,inBox,
     setShooter(b){st.shooter=!!b},                      // a weapon is out: use the shooter view (fps or tps)
     setBias(m){st.biasT=m||0},

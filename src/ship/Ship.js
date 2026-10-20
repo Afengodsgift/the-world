@@ -124,6 +124,10 @@ const Ship=(()=>{
   // ---------- per-frame ----------
   function step(dt,t){
     if(!built)return;st.t+=dt;
+    // a hit on the hull (everybody sees it in the synced hull value): the ship lurches, the camera shudders, splinters fly
+    if(st.hullPrev===undefined)st.hullPrev=ship.hull;
+    if(ship.hull<st.hullPrev-.5){const d=st.hullPrev-ship.hull,k=Math.min(1,d/30);try{Vessel.kick(v,(Math.random()<.5?-1:1)*.12*(.5+k),.05+.06*k,-.25*k);if(st.aboard||st.role)CameraRig.shake(.35+.7*k);Fx.burst(pose.x,C.sea+3.5,pose.z,'#8b5a2b',6+Math.round(10*k))}catch(e){}}
+    st.hullPrev=ship.hull;
     const wnd=windNow();
     // simulate (host) or mirror (guest)
     if(st.host&&st.host!==myId&&!others.has(st.host)){st.host=null;st.crew.helm=st.crew.gun=null;st.role=null}                 // the host left: nobody drives

@@ -7,7 +7,7 @@
 const Monster=(()=>{
   const C=SHIP,SEA=C.sea,NT=6,SEG=9,HEAD_R=3.4,LEN=30,HP_HEAD=420,HP_TEN=90,IDLE=0,WIND=1,SLAM=2,STUCK=3,BACK=4,SEV=5;
   const R=Math.random,clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),wrapA=a=>Math.atan2(Math.sin(a),Math.cos(a));
-  let m=null,built=false,spawnT=70,snapT=0,inst=null,head=null,eyes=[],rings=[],mat=null,flash=0,seq=1,sayT=0;
+  let m=null,built=false,spawnT=45,lvTurn=true,snapT=0,inst=null,head=null,eyes=[],rings=[],mat=null,flash=0,seq=1,sayT=0;
   const isHost=()=>typeof Fleet!=='undefined'&&Fleet.isHost();
   const players=()=>{const a=[{id:myId,x:S.x,y:S.y,z:S.z}];if(typeof others!=='undefined')for(const [id,o] of others)if(o.group)a.push({id,x:o.group.position.x,y:o.group.position.y,z:o.group.position.z});return a};
   const seaY=(x,z)=>SEA+(typeof Ocean!=='undefined'?Ocean.height(x,z,Date.now()/1000):0);
@@ -27,7 +27,7 @@ const Monster=(()=>{
   function drop(){if(m){m=null}if(inst)inst.visible=false;if(head)head.visible=false;for(const r of rings)r.visible=false}
 
   // ---------- host simulation ----------
-  const _b={x:0,y:0,z:0};
+  const _b={x:0,y:0,z:0},_e={x:0,y:0,z:0};
   function think(o,dt){
     o.t+=dt;o.hitT=Math.max(0,o.hitT-dt);const sh=Ship.vessel().pose;
     if(o.dead){o.deadT+=dt;o.rise=Math.max(0,o.rise-dt*.35);if(o.deadT>7)return false;return true}
@@ -38,7 +38,9 @@ const Monster=(()=>{
     o.ang+=dt*.07;const tx=sh.x+Math.cos(o.ang)*21,tz=sh.z+Math.sin(o.ang)*21,ex=tx-o.x,ez=tz-o.z,L=Math.hypot(ex,ez)||1,sp=Math.min(9,L*.6);
     const nx=o.x+ex/L*sp*dt,nz=o.z+ez/L*sp*dt;if(H(nx,nz)<-4){o.x=nx;o.z=nz}
     // tentacles
-    const P=players().filter(p=>!(p.id===myId&&typeof Fleet!=='undefined'&&Fleet._me.down>0)),busy=o.ten.filter(t=>t.st===WIND||t.st===SLAM||t.st===STUCK).length,maxBusy=o.ten.filter(t=>t.st!==SEV).length<=3?2:3;let nb=busy;
+    const P=players().filter(p=>!(p.id===myId&&typeof Fleet!=='undefined'&&Fleet._me.down>0));
+    if(typeof Fleet!=='undefined'&&Fleet.ships)for(const e of Fleet.ships.values()){if(e.sinking||!e.v||!e.v.deck)continue;const dk=e.v.deck;Decks.toWorld(dk,0,e.K.deckM,Math.sin(o.t*.5+e.sh.x)*e.v.hl*.4,_e);P.push({id:'E'+e.id,x:_e.x,y:_e.y,z:_e.z,e})}
+    const busy=o.ten.filter(t=>t.st===WIND||t.st===SLAM||t.st===STUCK).length,maxBusy=o.ten.filter(t=>t.st!==SEV).length<=3?2:3;let nb=busy;
     for(let i=0;i<NT;i++){const t=o.ten[i];t.hitT=Math.max(0,t.hitT-dt);t.T+=dt;base(o,t,_b);
       if(t.st===SEV){t.regrow-=dt;if(t.regrow<=0){t.st=IDLE;t.hp=t.max;t.cd=3;t.T=0;t.px=_b.x;t.py=_b.y;t.pz=_b.z}continue}
       if(t.st===IDLE||t.st===BACK){
@@ -47,7 +49,7 @@ const Monster=(()=>{
         t.cd-=dt;
         if(t.st===IDLE&&t.cd<=0&&nb<maxBusy){
           let tg=null,td=1e9;for(const p of P){const d=Math.hypot(p.x-_b.x,p.z-_b.z);if(d<td&&d<LEN-3&&p.y>SEA-2.5){td=d;tg=p}}
-          if(tg){t.st=WIND;t.T=0;t.tg=tg.id;t.tx=tg.x;t.ty=tg.y;t.tz=tg.z;nb++;Net.emit('flt',{k:'mw',i,x:+tg.x.toFixed(1),y:+tg.y.toFixed(1),z:+tg.z.toFixed(1)})}else t.cd=1}
+          if(tg){t.st=WIND;t.T=0;t.tg=tg.id;t.tx=tg.x;t.ty=tg.y;t.tz=tg.z;nb++;t.te=tg.e||null;Net.emit('flt',{k:'mw',i,x:+tg.x.toFixed(1),y:+tg.y.toFixed(1),z:+tg.z.toFixed(1)})}else t.cd=1}
       }else if(t.st===WIND){
         if(t.T<.75){const p=P.find(q=>q.id===t.tg);if(p){t.tx=p.x;t.ty=p.y;t.tz=p.z}}               // tracks you, then commits: the last third of a second is dodgeable
         ease(t,t.tx,t.ty+7,t.tz,15,dt);
@@ -67,6 +69,7 @@ const Monster=(()=>{
     const x=t.px,y=t.py,z=t.pz;Net.emit('flt',{k:'ms',i,x:+x.toFixed(1),y:+y.toFixed(1),z:+z.toFixed(1)});slamFx(x,y,z);
     const dmg=Math.round(16+R()*6);
     for(const p of players()){if(Math.hypot(p.x-x,p.z-z)<2.6&&Math.abs(p.y-y)<3&&p.id===myId)hit(dmg,x,z)}
+    if(t.te&&typeof Fleet!=='undefined'&&Fleet.damageEnemy&&isHost()){const e=t.te;t.te=null;if(!e.sinking){Fleet.damageEnemy(e,Math.round(e.K.hp*.09)+4,'monster');e.prov=30;if(typeof Crew!=='undefined'&&Crew.splash)try{Crew.splash(e.id,x,y,z,5,30)}catch(er){}}return}
     shipHit(x,y,z)}
   // a tentacle landed ON the deck (not in the water): the hull takes damage (every client runs this; only the ship's authority applies it)
   function shipHit(x,y,z){const dk=Decks.get('ship');if(dk){const l=Decks.toLocal(dk,x,y,z,{}),f=Decks.floor(dk,l.x,l.z);if(f>=0&&Math.abs(l.y-f)<2.5)Ship.damage(9)}}
@@ -140,7 +143,7 @@ const Monster=(()=>{
     if(isHost()){
       if(!m){spawnT-=dt*(1+2*(typeof Env!=='undefined'&&Env.state&&Env.state.wx?Env.state.wx.storm||0:0));
         if(spawnT<=0){const ok=Ship.vessel()&&Ship.vessel().pose&&Math.hypot(Ship.vessel().pose.x-DOCK.ship.x,Ship.vessel().pose.z-DOCK.ship.z)>140&&(typeof Fleet.ships==='undefined'||Fleet.ships.size<2);
-          const Lv=typeof Leviathan!=='undefined'?Leviathan:null;spawnT=ok&&!(Lv&&Lv.get())&&((Lv&&R()<.5?Lv.spawn():spawn()))?(240+R()*200):12}}
+          const Lv=typeof Leviathan!=='undefined'?Leviathan:null;spawnT=ok&&!(Lv&&Lv.get())&&((Lv&&(lvTurn=!lvTurn)?Lv.spawn():spawn()))?(150+R()*120):12}}
       else{if(!think(m,dt)){drop();spawnT=200+R()*200}
         snapT-=dt;if(m&&snapT<=0){snapT=.125;Net.emit('flt',{k:'mo',a:snapshot()})}}}
     else if(m&&m.snap){const k=1-Math.exp(-10*dt),s=m.snap;m.x+=(s[0]-m.x)*k;m.z+=(s[1]-m.z)*k;m.rise+=(s[2]-m.rise)*k;m.t+=dt;m.hitT=Math.max(0,m.hitT-dt);

@@ -37,7 +37,7 @@ const Sailing=(()=>{
     const P=sh.p||DEF,pr=P.probe;
     sh.sail=clamp(sh.sail+(inp.trim||0)*dt*.5,0,1);
     sh.rud+=((inp.rud||0)-sh.rud)*Math.min(1,dt*3.2);
-    const beta=Math.abs(wrap(env.wind.dir-sh.h)),tgt=P.vmax*sh.sail*eff(beta)*env.wind.s;
+    const beta=Math.abs(wrap(env.wind.dir-sh.h)),tgt=P.vmax*sh.sail*eff(beta)*env.wind.s*(.55+.45*Math.max(0,Math.min(1,(sh.hull===undefined?C.hull:sh.hull)/C.hull)));   // a battered ship is slower
     sh.v+=(tgt-sh.v)*(tgt>sh.v?P.accel:P.coast)*dt;
     const steer=Math.min(1,.2+sh.v*P.turnV);
     let nh=wrap(sh.h+sh.rud*P.turn*steer*dt);

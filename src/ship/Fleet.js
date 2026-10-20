@@ -77,12 +77,12 @@ const Fleet=(()=>{
     const ax=sh.x+Math.sin(sh.h)*45,az=sh.z+Math.cos(sh.h)*45;if(H(ax,az)<-2.5)return want;
     for(const d of [.6,-.6,1.2,-1.2]){const hh=sh.h+d,x=sh.x+Math.sin(hh)*45,z=sh.z+Math.cos(hh)*45;if(H(x,z)<-2.5)return hh}return sh.h+1.5}
   function ai(e,dt){
-    const sh=sh_(e),p=pl(),K=e.K,dx=p.x-sh.x,dz=p.z-sh.z,D=Math.hypot(dx,dz),brg=Math.atan2(dx,dz);let want=brg,spd=1;
+    const sh=sh_(e),fo=foe(e),p=fo||pl(),K=e.K,dx=p.x-sh.x,dz=p.z-sh.z,D=Math.hypot(dx,dz),brg=Math.atan2(dx,dz);let want=brg,spd=1;
     if(e.sinking){sh.v*=.985;return}
     if(e.lash){                                                     // lashed alongside: ride with the player's ship until the crew is beaten, the player sails off, or the lines burn through
       e.lashT-=dt;const L=e.lash;L.z-=L.z*Math.min(1,dt*.7);Sailing.toWorld(p,L.x,L.z,_a);sh.x=_a.x;sh.z=_a.z;sh.h=wrap(p.h+L.dh);sh.v=p.v;
       if(e.lashT<=0||p.v>7.5){e.lash=null;banner('The lines are cut — the pirates break away','☠ PIRATES')}return}
-    const st=K.style;
+    const st=fo?'gunnery':K.style;
     if(st==='ram'){want=Math.atan2(dx+Math.sin(p.h)*p.v*3,dz+Math.cos(p.h)*p.v*3)}
     else if(st==='board'){                                          // come up the lane beside your ship from behind, match speed, lash on
       const lp=Sailing.toShip(p,sh.x,sh.z,_b),v=plv();if(!e.sd)e.sd=lp.x>=0?1:-1;const sd=e.sd,gap=(v?v.hb:5)+e.v.hb-.8,lane=sd*gap;
@@ -102,9 +102,16 @@ const Fleet=(()=>{
       if(g.cd>0||D>E.fireRange||D<6)continue;Vessel.muzzle(e.v,g,_a);Vessel.outward(e.v,g,_b);
       const tx=p.x-_a.x,tz=p.z-_a.z,dd=Math.hypot(tx,tz)||1;if((_b.x*tx+_b.z*tz)/dd<.82)continue;
       if(R()>dt*1.8)continue;
-      const v=aim(_a,p.x,SEA+.7,p.z,Math.sin(p.h)*p.v,Math.cos(p.h)*p.v,CN.spread*(K.style==='gunnery'?.7:1.6),{});
-      fire(e.v,g,_a,v,{owner:'f'+e.id,res:true,f:1,src:e.v.id,dmg:CN.dmg*K.dmg,reload:K.reload*(.9+R()*.3),emit:true})}}
+      const v=aim(_a,p.x,SEA+(fo?1.8:.7),p.z,Math.sin(p.h)*p.v,Math.cos(p.h)*p.v,CN.spread*(K.style==='gunnery'?.7:1.6),{});
+      fire(e.v,g,_a,v,{owner:'f'+e.id,res:true,f:1,m:fo?1:0,src:e.v.id,dmg:CN.dmg*K.dmg,reload:K.reload*(.9+R()*.3),emit:true})}}
   const sh_=e=>e.sh;
+  // a pirate that a sea monster has attacked turns its guns on the beast (for a good while) instead of on you
+  const _fo={x:0,z:0,h:0,v:0,mon:1};
+  function foe(e){
+    if(!(e.prov>0))return null;let b=null,bd=1e9;
+    for(const M of [typeof Monster!=='undefined'?Monster:null,typeof Leviathan!=='undefined'?Leviathan:null]){const o=M&&M.get&&M.get();if(!o||o.dead)continue;
+      const d=Math.hypot(o.x-e.sh.x,o.z-e.sh.z);if(d<bd){bd=d;b=o}}
+    if(!b||bd>150)return null;_fo.x=b.x;_fo.z=b.z;_fo.h=b.hd||0;_fo.v=b.sp||0;return _fo}
   // ships push each other apart (enemy hulls only; the player's ship is simulated by its own host)
   function separate(){
     const arr=[...ships.values()].filter(e=>!e.lash&&!e.sinking),p=pl(),pv=plv();
@@ -123,11 +130,13 @@ const Fleet=(()=>{
   function fire(v,g,m,vel,o){
     const ow=Vessel.outward(v,g,{});g.cd=o.reload;g.recoil=1;
     const id=o.owner+'#'+(shellN++);
-    spawnShell({n:id,x:m.x,y:m.y,z:m.z,vx:vel.vx+(o.vx||0),vy:vel.vy,vz:vel.vz+(o.vz||0),res:o.res,f:o.f,src:o.src,dmg:o.dmg});
+    spawnShell({n:id,x:m.x,y:m.y,z:m.z,vx:vel.vx+(o.vx||0),vy:vel.vy,vz:vel.vz+(o.vz||0),res:o.res,f:o.f,m:o.m,src:o.src,dmg:o.dmg});
+    try{Vessel.kick(v,-ow.z*.0+(ow.x>0?-1:1)*.035,-.012,0);if(o.src==='ship'&&(S._dk&&S._dk.id==='ship'))CameraRig.shake(.22)}catch(e){}   // the gun kicks the hull (and shakes you, on your own deck)
     muzzleFx(m,ow);boomSfx(m.x,m.z,1);
     if(o.emit)Net.emit('flt',{k:'f',n:id,s:o.src,g:v.guns.indexOf(g),x:+m.x.toFixed(2),y:+m.y.toFixed(2),z:+m.z.toFixed(2),vx:+(vel.vx+(o.vx||0)).toFixed(2),vy:+vel.vy.toFixed(2),vz:+vel.vz.toFixed(2),f:o.f,dmg:o.dmg})}
   // which hull does this ball touch? shooter-side test. Pirates shoot at your ship, you shoot at pirates (never your own).
   function target(s){
+    if(s.m){const mh=(typeof Monster!=='undefined'&&Monster.shellHit(s))||(typeof Leviathan!=='undefined'&&Leviathan.shellHit(s));return mh||null}
     if(!s.f&&typeof Monster!=='undefined'){const mh=Monster.shellHit(s);if(mh)return mh}
     if(!s.f&&typeof Leviathan!=='undefined'){const lh=Leviathan.shellHit(s);if(lh)return lh}
     if(s.f){const v=plv();if(v&&s.src!=='ship'){const r=Vessel.hit(v,s.x,s.y,s.z);if(r)return {id:'p',r}}return null}
@@ -153,7 +162,7 @@ const Fleet=(()=>{
     if(d.f&&d.k==='deck'){const dd=Math.hypot(S.x-d.x,(S.y-d.y)*.6,S.z-d.z);if(dd<CN.splash)hurtMe(CN.pdmg*(1-dd/CN.splash*.6),d.x,d.z)}}
   function captainDown(e){if(e.sinking)return;banner(e.K.cap.n+' falls! The ship is yours!','☠ PIRATES');damageEnemy(e,e.hp+1,'crew')}
   function damageEnemy(e,n,kind){
-    if(e.sinking)return;e.hp=Math.max(0,e.hp-n);e.hitT=.3;drawTag(e);
+    if(e.sinking)return;e.hp=Math.max(0,e.hp-n);e.hitT=.3;if(kind==='monster')e.prov=30;drawTag(e);
     if(e.hp<=0){e.sinking=true;e.lash=null;const c=Math.round(e.K.coin[0]+R()*(e.K.coin[1]-e.K.coin[0]));loot(c,e.K.name,e.K.boss);Net.emit('flt',{k:'l',c,n:e.K.name,b:e.K.boss?1:0})}}
   function loot(c,name,boss){
     try{if(typeof Outlaw!=='undefined'&&Outlaw.earn)Outlaw.earn(c)}catch(e){}
@@ -230,6 +239,7 @@ const Fleet=(()=>{
       const far=Math.hypot(p.x-DOCK.ship.x,p.z-DOCK.ship.z)>E.minDock;if(far&&!wasFar)spawnT=Math.min(spawnT,14);wasFar=far;
       if(far){spawnT-=dt;if(spawnT<=0){spawnT=E.spawnEvery;if(live().length<E.cap)trySpawn()}}
       for(const e of [...ships.values()]){
+        if(e.prov>0)e.prov-=dt;e.sh.hull=Math.max(0,e.hp/e.K.hp)*C.hull;
         ai(e,dt);
         if(e.sinking){e.sunk=Math.min(1,e.sunk+dt/8);if(e.sunk>=1){remove(e);continue}}
         else if(Math.hypot(e.sh.x-p.x,e.sh.z-p.z)>480){remove(e);continue}}

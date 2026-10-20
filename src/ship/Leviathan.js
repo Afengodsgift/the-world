@@ -13,7 +13,7 @@ const Leviathan=(()=>{
   const players=()=>{const a=[{id:myId,x:S.x,y:S.y,z:S.z}];if(typeof others!=='undefined')for(const [id,o] of others)if(o.group)a.push({id,x:o.group.position.x,y:o.group.position.y,z:o.group.position.z});return a};
   const seaY=(x,z)=>SEA+(typeof Ocean!=='undefined'?Ocean.height(x,z,Date.now()/1000):0);
 
-  function make(x,z,hd,id){return {id:id||'lv'+((Math.random()*1e6)|0),x,z,hd,y:0,rise:0,hp:HP,max:HP,st:SWIM,T:0,cd:5,dead:false,deadT:0,ang:Math.random()*6.28,dir:Math.random()<.5?1:-1,tx:0,tz:0,hitT:0,snap:null,t:0,sp:0}}
+  function make(x,z,hd,id){return {pe:null,id:id||'lv'+((Math.random()*1e6)|0),x,z,hd,y:0,rise:0,hp:HP,max:HP,st:SWIM,T:0,cd:2.5,dead:false,deadT:0,ang:Math.random()*6.28,dir:Math.random()<.5?1:-1,tx:0,tz:0,hitT:0,snap:null,t:0,sp:0}}
   function spawn(x,z){
     if(m)return m;const v=Ship.vessel(),p=v.pose;
     if(x===undefined){for(let i=0;i<30;i++){const a=p.h+(Math.random()<.5?1:-1)*(.9+Math.random()*.7),d=60+Math.random()*20;x=p.x+Math.sin(a)*d;z=p.z+Math.cos(a)*d;if(H(x,z)<-9)break;x=undefined}
@@ -24,27 +24,42 @@ const Leviathan=(()=>{
   function partPos(o,pt,out){const b=backVec(o);out=out||{x:0,y:0,z:0};out.x=o.x+b.x*pt.off*SC;out.z=o.z+b.z*pt.off*SC;out.y=seaY(out.x,out.z)+.2+o.rise*.0+(o.st===LUNGE?1.2:0);return out}
 
   // ---------- host simulation ----------
+  // what is it hunting? your ship, or a pirate ship (they are fair game too): {x,z,vx,vz,hb,e}
+  const _tg={x:0,z:0,vx:0,vz:0,hb:6,e:null};
+  function target(o){
+    if(o.pe&&typeof Fleet!=='undefined'){const e=Fleet.ships.get(o.pe);if(e&&!e.sinking&&e.sh){_tg.x=e.sh.x;_tg.z=e.sh.z;_tg.vx=Math.sin(e.sh.h)*e.sh.v;_tg.vz=Math.cos(e.sh.h)*e.sh.v;_tg.hb=e.v.hb||7;_tg.e=e;return _tg}o.pe=null}
+    const v=Ship.vessel(),sh=v.pose;_tg.x=sh.x;_tg.z=sh.z;_tg.vx=Math.sin(sh.h)*(sh.v||0);_tg.vz=Math.cos(sh.h)*(sh.v||0);_tg.hb=v.hb||6;_tg.e=null;return _tg}
+  // next victim: a pirate ship close by half the time (they shoot back), else you
+  function pickTarget(o){
+    o.pe=null;if(typeof Fleet==='undefined'||Math.random()<.45)return;let best=null,bd=130;
+    for(const e of Fleet.ships.values()){if(e.sinking||!e.sh)continue;const d=Math.hypot(e.sh.x-o.x,e.sh.z-o.z);if(d<bd){bd=d;best=e}}
+    if(best)o.pe=best.id}
   function think(o,dt){
-    o.t+=dt;o.T+=dt;o.hitT=Math.max(0,o.hitT-dt);const sh=Ship.vessel().pose;
+    o.t+=dt;o.T+=dt;o.hitT=Math.max(0,o.hitT-dt);const pl=Ship.vessel().pose;
     if(o.dead){o.deadT+=dt;o.rise=Math.max(-1,o.rise-dt*.3);return o.deadT<7}
     o.rise=Math.min(1,o.rise+dt*.4);
-    const dx=sh.x-o.x,dz=sh.z-o.z,D=Math.hypot(dx,dz);
-    if(D>150){banner('The leviathan loses interest…','🐉 LEVIATHAN');Net.emit('flt',{k:'lx'});return false}
+    if(Math.hypot(pl.x-o.x,pl.z-o.z)>220){banner('The leviathan loses interest…','🐉 LEVIATHAN');Net.emit('flt',{k:'lx'});return false}
+    const sh=target(o),dx=sh.x-o.x,dz=sh.z-o.z,D=Math.hypot(dx,dz),tv=Math.hypot(sh.vx,sh.vz);
     let want=o.hd,spd=7;
     if(o.st===SWIM){
-      o.ang+=o.dir*dt*.11;const tx=sh.x+Math.cos(o.ang)*30,tz=sh.z+Math.sin(o.ang)*30;want=Math.atan2(tx-o.x,tz-o.z);spd=Math.min(8,Math.hypot(tx-o.x,tz-o.z)*.5+3);
-      o.cd-=dt;if(o.cd<=0&&D<60){o.st=WIND;o.T=0;o.tx=sh.x;o.tz=sh.z;Net.emit('flt',{k:'lw'})}}
-    else if(o.st===WIND){want=Math.atan2(sh.x-o.x,sh.z-o.z);spd=2.5;o.tx=sh.x;o.tz=sh.z;if(o.T>1.5){o.st=LUNGE;o.T=0}}
-    else if(o.st===LUNGE){want=Math.atan2(o.tx-o.x,o.tz-o.z);spd=19;
-      const bd=Math.hypot(sh.x-o.x,sh.z-o.z);if(bd<(Ship.vessel().hb||6)+3.2||o.T>3.2){bite(o);o.st=BACK;o.T=0}}
-    else if(o.st===BACK){want=Math.atan2(o.x-sh.x,o.z-sh.z)+.5*o.dir;spd=11;if(o.T>3.2){o.st=SWIM;o.T=0;o.cd=5+Math.random()*4}}
-    const turn=o.st===LUNGE?.9:1.5;o.hd=wrapA(o.hd+clamp(wrapA(want-o.hd),-turn*dt,turn*dt));
-    o.sp+=(spd-o.sp)*Math.min(1,dt*2);const nx=o.x+Math.sin(o.hd)*o.sp*dt,nz=o.z+Math.cos(o.hd)*o.sp*dt;
-    if(H(nx,nz)<-5&&H(nx+Math.sin(o.hd)*8,nz+Math.cos(o.hd)*8)<-4){o.x=nx;o.z=nz}else{o.hd=wrapA(o.hd+dt*1.2);o.sp*=.9}
+      // run the ship down if it is getting away, otherwise circle it close
+      if(D>52){want=Math.atan2(dx+sh.vx*2,dz+sh.vz*2);spd=Math.max(14,tv+9)}
+      else{o.ang+=o.dir*dt*.2;const tx=sh.x+Math.cos(o.ang)*(sh.hb+20),tz=sh.z+Math.sin(o.ang)*(sh.hb+20);want=Math.atan2(tx-o.x,tz-o.z);spd=Math.max(8,Math.min(tv+9,Math.hypot(tx-o.x,tz-o.z)*.5+tv+3))}
+      o.cd-=dt;if(o.cd<=0&&D<75){o.st=WIND;o.T=0;Net.emit('flt',{k:'lw'})}}
+    else if(o.st===WIND){want=Math.atan2(dx,dz);spd=Math.max(3,tv*.9);if(o.T>1){o.st=LUNGE;o.T=0}}
+    else if(o.st===LUNGE){                                          // keeps tracking a point ahead of the hull, faster than it can run
+      const lead=Math.min(2.2,D/22);want=Math.atan2(dx+sh.vx*lead,dz+sh.vz*lead);spd=Math.max(22,tv+16);
+      if(D<sh.hb+3.4){bite(o,sh);o.st=BACK;o.T=0}
+      else if(o.T>4.5){o.st=BACK;o.T=0}}                            // missed: no free damage, it just gives up this pass
+    else if(o.st===BACK){want=Math.atan2(o.x-sh.x,o.z-sh.z)+.6*o.dir;spd=Math.max(11,tv+5);if(o.T>2.4){o.st=SWIM;o.T=0;o.cd=1.5+Math.random()*2.5;if(Math.random()<.5)pickTarget(o)}}
+    const turn=o.st===LUNGE?1.7:o.st===SWIM&&D>52?1.4:1.6;o.hd=wrapA(o.hd+clamp(wrapA(want-o.hd),-turn*dt,turn*dt));
+    o.sp+=(spd-o.sp)*Math.min(1,dt*2.4);const nx=o.x+Math.sin(o.hd)*o.sp*dt,nz=o.z+Math.cos(o.hd)*o.sp*dt;
+    if(H(nx,nz)<-5&&H(nx+Math.sin(o.hd)*8,nz+Math.cos(o.hd)*8)<-4){o.x=nx;o.z=nz}else{o.hd=wrapA(o.hd+dt*1.4);o.sp*=.92}
     return true}
-  // the bite: the hull takes a beating, people near the head are thrown and hurt (each client hurts only itself)
-  function bite(o){
-    const h=partPos(o,PARTS[0],{});Net.emit('flt',{k:'ls',x:+h.x.toFixed(1),y:+h.y.toFixed(1),z:+h.z.toFixed(1)});biteFx(h.x,h.y,h.z);
+  // the bite: the hull takes a beating, people near the head are thrown and hurt (each client hurts only itself). A pirate ship takes it too (and fights back).
+  function bite(o,tg){
+    const h=partPos(o,PARTS[0],{}),pe=tg&&tg.e;Net.emit('flt',{k:'ls',x:+h.x.toFixed(1),y:+h.y.toFixed(1),z:+h.z.toFixed(1),e:pe?1:0});biteFx(h.x,h.y,h.z);
+    if(pe){Fleet.damageEnemy(pe,Math.round((pe.K.hp||200)*.38),'monster');pe.prov=30;if(typeof Crew!=='undefined'&&Crew.splash)try{Crew.splash(pe.id,h.x,h.y,h.z,9,40)}catch(e){}return}
     for(const p of players())if(p.id===myId&&Math.hypot(p.x-h.x,p.z-h.z)<9&&p.y>SEA-1)Fleet.hurtMe(14,h.x,h.z);
     Ship.damage(26)}
   function biteFx(x,y,z){try{WaterFX.splash(x,z,1.5);WaterFX.hullHit(x,y,z,22)}catch(e){}try{Fx.burst(x,y+.5,z,'#cfe9ff',14)}catch(e){}}
@@ -94,7 +109,7 @@ const Leviathan=(()=>{
       case 'lx':{if(!isHost())drop();break}
       case 'lo':{if(isHost())break;if(!m)m=make(d.a[0],d.a[1],d.a[2]);m.snap=d.a;break}
       case 'lw':{break}
-      case 'ls':{biteFx(d.x,d.y,d.z);if(!isHost()){for(const p of players())if(p.id===myId&&Math.hypot(p.x-d.x,p.z-d.z)<9&&p.y>SEA-1)Fleet.hurtMe(14,d.x,d.z)}Ship.damage(26);break}
+      case 'ls':{biteFx(d.x,d.y,d.z);if(d.e)break;if(!isHost()){for(const p of players())if(p.id===myId&&Math.hypot(p.x-d.x,p.z-d.z)<9&&p.y>SEA-1)Fleet.hurtMe(14,d.x,d.z)}Ship.damage(26);break}
       case 'ld':{if(isHost())damage(d.p,d.d);break}
       case 'lk':{if(!isHost()){if(m){m.dead=true;m.deadT=0}reward(d.c)}break}
     }}

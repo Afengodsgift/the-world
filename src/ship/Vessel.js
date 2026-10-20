@@ -53,6 +53,8 @@ const Vessel=(()=>{
   // ---------- per frame ----------
   // st: {x,z,h,roll,v}; drives the pose, the model and the walkable deck. dt seconds.
   const _op={y:0,pitch:0,roll:0};
+  // shove a hull: roll (+ = port side up), pitch (+ = bow down), heave (m/s): clamped so a barrage cannot flip it
+  function kick(v,roll,pitch,heave){const k=v.kk||(v.kk={r:0,rv:0,p:0,pv:0,y:0,yv:0});k.rv=Math.max(-.6,Math.min(.6,k.rv+(roll||0)));k.pv=Math.max(-.4,Math.min(.4,k.pv+(pitch||0)));k.yv=Math.max(-1.5,Math.min(1.5,k.yv+(heave||0)))}
   function update(v,dt,st){
     v.t+=dt;const q=v.pose,sw=1+.5*storm(),k=v.K.scale/2.2;
     q.px=q.x;q.pz=q.z;q.ph=q.h;q.py=q.y;
@@ -65,6 +67,8 @@ const Vessel=(()=>{
       const o=Ocean.pose(q.x,q.z,q.h,v.hl||11,v.hb||5,Date.now()/1000,undefined,_op,1),f=Math.min(1,dt*3.5);
       if(v.wv===undefined){v.wv=o.y;v.wpi=o.pitch;v.wro=o.roll}else{v.wv+=(o.y-v.wv)*f;v.wpi+=(o.pitch-v.wpi)*f;v.wro+=(o.roll-v.wro)*f}
       wy=v.wv;wp=v.wpi;wr=v.wro}
+    // impulses (cannon recoil, hits): a damped spring on roll / pitch / heave that settles back into the waves
+    {const k=v.kk||(v.kk={r:0,rv:0,p:0,pv:0,y:0,yv:0});k.rv+=(-k.r*38-k.rv*5.5)*dt;k.r+=k.rv*dt;k.pv+=(-k.p*34-k.pv*5)*dt;k.p+=k.pv*dt;k.yv+=(-k.y*30-k.yv*5)*dt;k.y+=k.yv*dt;wy+=k.y;wp+=k.p;wr+=k.r}
     q.y=C.sea-v.K.draft+wy-sk*(v.K.deckM+4);
     q.pitch=wp+(st.v||0)*.0015+sk*.35;
     q.roll=(st.roll||0)+wr+sk*.25*(v.ph>3?1:-1);
@@ -86,5 +90,5 @@ const Vessel=(()=>{
     const f=Decks.floor(v.deck,l.x,l.z);if(f<0||l.y>f)return null;
     return {kind:l.y>v.K.deckM-.6?'deck':'hull',l:{x:l.x,y:l.y,z:l.z}}}
   function dispose(v){v.disposed=true;Decks.remove(v.id);if(v.grp&&typeof scene!=='undefined'){scene.remove(v.grp);v.grp.traverse(o=>{if(o.geometry&&!o.userData.shared){}})}}
-  return {create,update,muzzle,outward,hit,dispose,model,put,track,whenReady:()=>Promise.all(pending),measure};
+  return {create,update,kick,muzzle,outward,hit,dispose,model,put,track,whenReady:()=>Promise.all(pending),measure};
 })();
