@@ -204,6 +204,10 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/core/WorldState.js"></script>
 <script src="src/space/SpaceEvents.js"></script>
 <script src="src/space/SpaceObjects.js"></script>
+<script src="src/space/SpaceMap.js"></script>
+<script src="src/space/SpaceBelt.js"></script>
+<script src="src/space/SpaceGate.js"></script>
+<script src="src/space/SpacePlanet.js"></script>
 <script src="src/ui/Journal.js"></script>
 <script src="src/ui/Theme.js"></script>
 <script src="src/ui/HudMode.js"></script>
@@ -650,7 +654,7 @@ function buildWorld(code){
   {const cv=document.createElement('canvas');cv.width=cv.height=256;const cx2=cv.getContext('2d'),im2=cx2.createImageData?cx2.createImageData(256,256):null;
    if(im2){for(let y=0;y<256;y++)for(let x=0;x<256;x++){const a=x/256*6.2832,b=y/256*6.2832,v=128+40*Math.sin(a*3+Math.sin(b*2))+30*Math.sin(b*5+a)+20*Math.sin(a*8-b*6);const i=(y*256+x)*4;im2.data[i]=im2.data[i+1]=im2.data[i+2]=v;im2.data[i+3]=255}cx2.putImageData(im2,0,0)}
    seaTex=new THREE.CanvasTexture(cv);seaTex.wrapS=seaTex.wrapT=THREE.RepeatWrapping;seaTex.repeat.set(500,500);sea.material.bumpMap=seaTex;sea.material.bumpScale=.35}
-  sea.rotation.x=-Math.PI/2;sea.position.y=-.3;scene.add(sea);seaMesh=sea;Env.build();SpaceEnv.build();Ocean.build(seaMesh,6000);SpaceObjects.build();WaterFX.build();
+  sea.rotation.x=-Math.PI/2;sea.position.y=-.3;scene.add(sea);seaMesh=sea;Env.build();SpaceEnv.build();Ocean.build(seaMesh,6000);SpaceObjects.build();try{const q=new URLSearchParams(location.search).get('space');if(q)setTimeout(()=>SpaceObjects.warp(q),3500)}catch(e){}WaterFX.build();
   rng=mulberry(hashSeed(code));
   if(AM.plant_bushLarge)AM.plant_bushLarge.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.material.side=THREE.DoubleSide;o.material.emissive=new THREE.Color('#2a6a30')}});
   const dist=(x,z)=>Math.hypot(x-TOWN.x,z-TOWN.z),P={};
@@ -1225,7 +1229,7 @@ function tickFrame(t){
   const sy=Math.sin(S.yaw),cy=Math.cos(S.yaw),px=S.x,pz=S.z;
   const dx=cy*ix+sy*iy,dz=-sy*ix+cy*iy;
   if(S.flying){ // flight has inertia: takeoff ~0.5 s to full speed, glide-out when you let go
-    const tx=len>.05?dx*speed:0,tz=len>.05?dz*speed:0,cur=Math.hypot(S.fvx||0,S.fvz||0),kk=1-Math.exp(-(Math.hypot(tx,tz)>cur?Boost.upRate(4):Boost.downRate(3.2))*dt);
+    const tx=len>.05?dx*speed:0,tz=len>.05?dz*speed:0,cur=Math.hypot(S.fvx||0,S.fvz||0),kk=1-Math.exp(-(Math.hypot(tx,tz)>cur?Boost.upRate(4):Boost.downRate(3.2)*SpaceFlight.drift(Space.f.space))*dt);   // in open space the glide-out lasts much longer (SpaceFlight.drift)
     S.fvx=(S.fvx||0)+(tx-(S.fvx||0))*kk;S.fvz=(S.fvz||0)+(tz-(S.fvz||0))*kk;{const sMul=SpaceFlight.moveMulH(S.y,Math.hypot(S.x,S.z));S.x+=S.fvx*dt*sMul;S.z+=S.fvz*dt*sMul}Locomotion.carry(S);
     if(len>.05&&!CameraRig.shooterActive())S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt));
   }else{S.fvx=S.fvz=0;Locomotion.move(S,len>.05?dx*speed:0,len>.05?dz*speed:0,dt,S.dv?'swim':!S.grounded?'air':H(S.x,S.z)<-.5?'swim':'ground');if(len>.05&&!CameraRig.shooterActive())S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt))}
@@ -1247,7 +1251,7 @@ function tickFrame(t){
   if(jumpQ){if((wasG||S.coy>0)&&!S.flying){S.vy=wat?6:9;S.coy=0;if(typeof Ambience!=='undefined')Ambience.jump()}else{S.flying=!S.flying;if(S.flying&&!S.tipped){S.tipped=1;banner('Drag up to climb · drag down to dive','FLYING')}}}jumpQ=false;
   const dvOn=Dive.step(S,dt,{wat,seabed,down:!!(S.diveHeld||keys.KeyC),kick:diveKick});   // vertical swimming (src/input/Dive.js); skips gravity/ground code while submerged
   if(dvOn&&!S.divetip){S.divetip=1;banner('Release to float back up · Jump kicks you upward','DIVING')}
-  if(dvOn){}else if(S.flying)S.vy+=((len>.05?(fp||SpaceFlight.vertical(CameraRig.neutralPitch()-S.pitch,bst()?2.4:1,bst()?70:34)).v:0)-S.vy)*Math.min(1,dt*6);else S.vy=SpaceFlight.fall(S.vy,S.y,dt);   // heavier on the way down = snappier, less floaty jump (same height); terminal velocity
+  if(dvOn){}else if(S.flying){const vT=len>.05?(fp||SpaceFlight.vertical(CameraRig.neutralPitch()-S.pitch,bst()?2.4:1,bst()?70:34)).v:0;S.vy+=(vT-S.vy)*Math.min(1,dt*6*(vT*S.vy>=0&&Math.abs(vT)<Math.abs(S.vy)?SpaceFlight.drift(Space.f.space):1))}else S.vy=SpaceFlight.fall(S.vy,S.y,dt);   // heavier on the way down = snappier, less floaty jump (same height); terminal velocity
   const imp=dvOn?0:SpaceFlight.landImpact(-S.vy);if(!dvOn){S._dy=SpaceFlight.dy(S.vy,S.y,S.flying,dt,Math.hypot(S.x,S.z));S.y+=S._dy;if(S.flying)S.y=Math.min(S.y,SpaceFlight.CEIL)} // above ~900 m flight scales with distance from the world (src/space/SpaceFlight.js)
   if(S.flying&&S.y<=gY)S.flying=false;
   if(dvOn){S.grounded=true}else if(S.y<=gY||(wasG&&S.vy<=0&&S.y-gY<.35)){S.y=gY;S.vy=0;S.grounded=true;if(!wasG&&imp>5){me.userData.land=Math.min(.18,imp*.014);if(CameraRig.land)CameraRig.land(imp);if(typeof Ambience!=='undefined')Ambience.land(imp,{x:S.x,z:S.z,H})}}else S.grounded=false;

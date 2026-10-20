@@ -9,6 +9,9 @@ Both players derive the sky locally from their own altitude, so nothing visual i
 | `SpaceManager.js` (`Space`) | altitude profile `Space.f.*` (0..1 factors) + the two-slice depth render (`Space.render`) |
 | `SpaceFlight.js` (`SpaceFlight`) | how flight scales with altitude: climb/sideways multipliers, terminal velocity & gravity (re-entry), world bound |
 | `SpaceEnvironment.js` (`SpaceEnv`) | the world seen from above: opaque sea, curved rim, atmosphere glow, world-fixed cloud deck |
+| `SpaceObjects.js` / `SpaceEvents.js` | things to find out there (beacon, approach assist, discovery, shared journal) |
+| `SpaceMap.js` (`SpaceMap`) | WHERE things are, in one place (belt, planet, the gate's axis), plus shared 3D value noise |
+| `SpaceBelt.js` / `SpaceGate.js` / `SpacePlanet.js` | the asteroid field, the two-person ring inside it, and a second world (below) |
 
 Other systems only *read* `Space.f`: `Environment.js` (sky colour, stars, fog, weather, cloud tint), `Ambience.js` (wind fades, space pad),
 `CameraRig.js` (distance/FOV/shake, height-follow), `RemoteSmooth.js` (partner smoothing at altitude speeds). `index.html` calls
@@ -43,9 +46,34 @@ sky, constant ~20 px on screen so it is noticed but still just a light), the rea
   It sits at (8, 112, -11) km: ~14 km from the top of a straight climb over the town, 41 degrees up. Its beacon turns cyan once found.
 - Tests: `tests/space_objects.sim.mjs`.
 
+## Out there: the belt, the ring, a second world (`SpaceBelt.js`, `SpaceGate.js`, `SpacePlanet.js`, positions in `SpaceMap.js`)
+A trail with a reason to follow it: the satellite (112 km up) -> a blinking light far off toward the second world -> an asteroid field -> a ring in its middle that
+faces the planet -> the planet itself. Nothing is marked on a map; you see a light, fly to it, and what you find points to the next thing.
+- **Drift (`SpaceFlight.drift`)**: in open space you keep your momentum. Let go of the stick and the glide-out lasts up to ~8x longer (rate x0.12); pressing still accelerates
+  at the normal rate. 1.0 (no change) below 40 km, so the ground and the sky are exactly as before. Applied to the horizontal and vertical smoothing in `index.html`.
+- **Framework additions (`SpaceObjects`)**, all optional per definition: `r` (distances are measured to the surface, so a field or a planet is "reached" at its edge),
+  `assist:[near,far]` (approach-assist range in metres from that surface), `findR`, `always` (updated every frame, the def owns `group.visible`: impostors), `noBeacon`.
+- **Asteroid belt** (-190, 140, 230 km; 2.6 km radius): 118 rocks in four shapes drawn as four `InstancedMesh`es (~10k triangles), sizes 12 m to 300 m, a thin disc with a round
+  clearing at its middle and a clear lane down the gate's axis. Seeded, so both phones see the same field with no network. The rocks are solid (`SpaceBelt.collide`:
+  you slide around them, no damage). ~1 ms/frame inside the field, nothing outside it. Found by getting close to its edge and looking at it.
+- **The ring** (the middle of the belt, 75 m radius, faces the planet): three broken arcs, cyan inlay, two posts 92 m apart inside it. Built on `Link.both`
+  (`src/interaction/Link.js`, which gained an optional per-zone `dy` for 3D zones): when two people stand at the two posts at the same moment for 3 s it wakes: the inlay,
+  posts and shimmer light and a column of light runs toward the planet. Positions only, no new network traffic; each phone writes the same idempotent
+  `SpaceEvents.discover('gate_awake')`, so it stays awake for good (the next session starts lit). Alone at a post you get one line after 5 s: "It hums. It wants someone at
+  the other post." Two people at the same post do nothing.
+- **A second world** (-520, 300, 610 km; radius 90 km; ~856 km from home): procedurally generated (teal and indigo seas, rust and dusk-violet continents, dark ridges, ice caps,
+  a separate cloud layer, a thin amber atmosphere), so it is visibly somewhere else. Drawn as an impostor like the home world (the far slice ends at 900 km): beyond 600 km it is
+  drawn 600 km away and scaled by the same factor, which keeps its apparent size exactly. Fades in with the stars (nothing below ~35 km, fully by ~95 km). Textures are
+  generated 4+2 rows per frame while you climb past 6 km, so nothing stalls. Solid (held 600 m above the surface); approach assist slows you to normal speed in the last 4 km.
+  Found within 150 km looking at it: "Another world. Nobody has been here." There is nothing to land on yet; that is the hook for later.
+- **Test hook**: `?space=sat|belt|gate|planet` flies you there (a few km off, facing it, at rest) a few seconds after the world loads. For the gate you arrive 300 m behind the
+  ring, looking through it at the planet.
+- Tests: `tests/space_world.sim.mjs` (placement, drift, framework additions, the belt's layout and collision, the gate with the real `Link` incl. the failure cases and
+  persistence, the planet's generation/impostor/collision/discovery, the warp hook, inertness on the ground).
+
 ## Next (not built yet)
-Space flight model (momentum/stabilisation), asteroids and loose debris, two-player interaction with the satellite (two ports 18 m apart, both players must
-activate), the distant unknown object, space map, and the hooks for a second planet. Create them as `SpaceObjects.js` / `SpaceEvents.js` etc. next to these files.
+Two-player interaction with the satellite (two ports 18 m apart, both players activate), what the ring does besides pointing, a surface you can reach on the second world
+(landing, weather, a reason to go), a space map, more rocks that move (asteroids that drift across your path), sound for the belt and the ring.
 
 ## Flight camera (`CameraRig.js`)
 Designed from third-person camera practice: a tight chase camera for fast action (damping that is too loose feels floaty and lets the target leave the

@@ -54,8 +54,11 @@ const SpaceFlight=(()=>{
     if(e>.35){const t=sm(.35,1.2,e);v=14*bm+(fwd-14*bm)*t;h=Math.cos(t*Math.PI/2)}
     else if(e<-.8){const t=sm(.8,1.3,-e);v=-20*bm+(20*bm-fwd)*t;h=Math.cos(t*Math.PI/2)}
     return {v,h}}
+  // Drift: in open space you keep your momentum. Releasing the stick lets the glide-out last up to ~8x longer (rate x0.12) instead of braking within a second;
+  // pressing a direction still accelerates at the normal rate. 1 (no change) below 40 km: s is Space.f.space (0 below 40 km, 1 at 110 km).
+  const drift=s=>1-.88*sm(0,1,s);
   // landing effects never see more than a normal hard landing (there is no fall damage in this game)
   const landImpact=imp=>Math.min(imp,60);
-  return {CEIL,OPEN_Y,moveMul,moveMulRaw,moveMulH,setAssist,bound,contain,terminal,gravMul,dy,fall,vertical,landImpact};
+  return {CEIL,OPEN_Y,moveMul,moveMulRaw,moveMulH,setAssist,bound,contain,terminal,gravMul,dy,fall,vertical,landImpact,drift};
 })();
 if(typeof module!=='undefined')module.exports=SpaceFlight;

@@ -1,4 +1,7 @@
 // SpaceObjects: things you can find out in space. Each one is a small definition registered here (id, position, how to build it, how to animate it);
+// A definition may also give: r (radius: every distance below is measured to the SURFACE, so a field or a planet is 'reached' at its edge), assist:[near,far]
+// (the approach-assist range from that surface, metres), findR (how close to find it), always (update() every frame and the def owns group.visible: for
+// impostors like a planet), noBeacon. All optional: a bare satellite-style definition behaves exactly as before.
 // this module does the shared parts: a distant blinking beacon, the real model only when you are close, approach assist (see SpaceFlight), and
 // discovery (you have to get close AND look at it for a moment: noticing, not tripping over). Asteroids, debris fields and later landmarks
 // are more register() calls. Procedural low-poly geometry, one shared texture, no per-frame allocation: cheap enough for phones.
@@ -10,7 +13,7 @@ const SpaceObjects=(()=>{
   const clamp=(v,a,b)=>v<a?a:v>b?b:v;
   const defs=[],live=[];
   const ASSIST_NEAR=300,ASSIST_FAR=3000,FIND_R=90,FIND_T=1.4,MODEL_R=5000;
-  const assistFor=d=>sm(ASSIST_NEAR,ASSIST_FAR,d);                      // 0 close (normal flight speed) .. 1 far (full altitude speed)
+  const assistFor=(d,near,far)=>sm(near===undefined?ASSIST_NEAR:near,far===undefined?ASSIST_FAR:far,d);   // 0 close (normal flight speed) .. 1 far (full altitude speed); near/far per object (a planet needs km, a satellite metres)
   const _d=new THREE.Vector3(),_c=new THREE.Vector3();
   function tex(w,h,draw){if(typeof document==='undefined')return null;const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.anisotropy=2;return t}
   const glowTex=()=>tex(64,64,(g,w,h)=>{const r=g.createRadialGradient(32,32,0,32,32,32);r.addColorStop(0,'rgba(255,255,255,1)');r.addColorStop(.22,'rgba(255,255,255,.95)');r.addColorStop(.42,'rgba(255,255,255,.4)');r.addColorStop(.7,'rgba(255,255,255,.09)');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,w,h)});
@@ -60,6 +63,7 @@ const SpaceObjects=(()=>{
     for(const d of defs){
       const o={def:d,pos:new THREE.Vector3(d.pos[0],d.pos[1],d.pos[2]),found:typeof SpaceEvents!=='undefined'&&SpaceEvents.isFound(d.id),look:0,dist:1e12};
       o.group=d.build(o);o.group.position.copy(o.pos);o.group.visible=false;scene.add(o.group);
+      if(d.noBeacon){o.beacon=null;live.push(o);continue}
       o.beacon=new THREE.Sprite(new THREE.SpriteMaterial({map:glow,color:'#ff6a55',transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false,opacity:0,toneMapped:false}));
       o.beacon.position.copy(o.pos);o.beacon.visible=false;o.beacon.renderOrder=15;scene.add(o.beacon);live.push(o)}}
   function ping(){try{const a=WAudio.get();if(!a)return;const t=a.currentTime;for(const [f,v] of [[196,.07],[294,.035]]){const o=a.createOscillator(),g=a.createGain();o.type='sine';o.frequency.value=f;o.connect(g);g.connect(WAudio.out());g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.08);g.gain.exponentialRampToValueAtTime(.0005,t+3.4);o.start(t);o.stop(t+3.5)}}catch(e){}}
@@ -69,22 +73,35 @@ const SpaceObjects=(()=>{
       if(typeof banner==='function')banner(o.def.found.banner,'FOUND SOMETHING');ping()}}
   function update(dt,t){
     if(!live.length)return;
-    let nearest=1e12;const stars=Space.f.stars,vis=sm(.12,.45,stars);       // the beacon is only visible against a dark sky
+    let amin=1;const stars=Space.f.stars,vis=sm(.12,.45,stars);       // the beacon is only visible against a dark sky
     for(const o of live){
-      const dx=o.pos.x-S.x,dy=o.pos.y-S.y,dz=o.pos.z-S.z,dist=Math.hypot(dx,dy,dz);o.dist=dist;if(dist<nearest)nearest=dist;
-      const near=dist<MODEL_R;o.group.visible=near;if(near)o.def.update(o,dt,t);
+      const d=o.def,r=d.r||0,dx=o.pos.x-S.x,dy=o.pos.y-S.y,dz=o.pos.z-S.z,dist=Math.hypot(dx,dy,dz),de=Math.max(0,dist-r);o.dist=dist;o.edge=de;
+      const as=d.assist?assistFor(de,d.assist[0],d.assist[1]):assistFor(de);if(as<amin)amin=as;
+      const near=de<MODEL_R;if(d.always){o.group.visible=true;d.update(o,dt,t)}else{o.group.visible=near;if(near)d.update(o,dt,t)}
       // distant beacon: a tiny blinking light (constant on-screen size), handing over to the real nav light up close
-      const b=o.beacon,show=vis>.01&&dist>60;b.visible=show;
-      // ~20 px quad (bright core ~6 px, soft halo): noticeable against the stars, still just a light
-      if(show){const ph=(t%2.4)/2.4,pulse=Math.exp(-ph*9),far=sm(60,160,dist);
-        b.material.opacity=vis*far*(.2+.8*pulse);b.material.color.set(o.found?'#7fe8ff':'#ff6a55');const sc=clamp(dist*.05,1.5,2000);b.scale.set(sc,sc,1)}
+      const b=o.beacon;
+      if(b){const show=vis>.01&&dist>60+r;b.visible=show;
+        // ~20 px quad (bright core ~6 px, soft halo): noticeable against the stars, still just a light
+        if(show){const ph=(t%2.4)/2.4,pulse=Math.exp(-ph*9),far=sm(60+r,160+r,dist);
+          b.material.opacity=vis*far*(.2+.8*pulse);b.material.color.set(o.found?'#7fe8ff':'#ff6a55');const sc=clamp(dist*.05,1.5,2000);b.scale.set(sc,sc,1)}}
       if(near){const ph=(t%2.4)/2.4,pulse=Math.exp(-ph*9),l=o.light;if(l){l.scale.setScalar(.7+2.2*pulse);l.material.color.set(o.found?'#7fe8ff':'#ff6a55')}}
       // discovery: close enough AND looking at it for a moment
-      if(!o.found&&dist<FIND_R&&typeof camera!=='undefined'){
+      if(!o.found&&de<(d.findR||FIND_R)&&typeof camera!=='undefined'){
         camera.getWorldDirection(_d);_c.set(dx,dy,dz).normalize();
         if(_d.dot(_c)>.55)o.look+=dt;else o.look=Math.max(0,o.look-dt*.5);
         if(o.look>FIND_T)discover(o)}}
-    SpaceFlight.setAssist(assistFor(nearest));}
-  return {register,build,update,assistFor,live,defs,FIND_R,FIND_T,MODEL_R};
+    SpaceFlight.setAssist(amin);}
+  // dev/testing (index.html: ?space=sat|belt|gate|planet): fly straight there. In flight, a short way off, facing it, with no leftover velocity (the long flight is the point of the
+  // game, but nobody should have to repeat 300 km to look at a ring).  The gate is approached from behind, looking through it down its axis at the planet.
+  function warp(id){
+    const o=live.find(x=>x.def.id===id||(id==='sat'&&x.def.id==='satellite'));if(!o)return false;
+    const T=o.pos,r=o.def.r||0;let X,Y,Z;
+    if(o.def.id==='gate'&&typeof SpaceMap!=='undefined'){const A=SpaceMap.axis;X=T.x-A[0]*300;Y=T.y-A[1]*300;Z=T.z-A[2]*300}
+    else{const hl=Math.hypot(T.x,T.z)||1,gap=o.def.id==='planet'?r+150000:o.def.id==='belt'?r+4000:r+3000;X=T.x-T.x/hl*gap;Y=T.y;Z=T.z-T.z/hl*gap}
+    S.x=X;S.y=Y;S.z=Z;S.flying=true;S.fvx=S.fvz=0;S.vy=0;S.yaw=Math.atan2(T.x-X,T.z-Z);
+    if(typeof CameraRig!=='undefined'&&CameraRig.neutralPitch)S.pitch=CameraRig.neutralPitch();
+    if(typeof me!=='undefined'&&me){me.position.set(S.x,S.y,S.z);me.userData.pp=null;me.userData.v=0}
+    return true}
+  return {register,build,update,warp,assistFor,live,defs,FIND_R,FIND_T,MODEL_R};
 })();
 if(typeof module!=='undefined')module.exports=SpaceObjects;

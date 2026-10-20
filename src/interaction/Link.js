@@ -1,6 +1,6 @@
 // Link: two-player primitives. These exist because the world is for exactly two people; each one
 // forces the pair to coordinate, not just "happen to both be there".
-//   Link.both({zones:[{x,z,r,y?},...], holdMs, when?, onProgress?(p,occ,dt), onDone})
+//   Link.both({zones:[{x,z,r,y?,dy?(vertical tolerance, default 3 m)},...], holdMs, when?, onProgress?(p,occ,dt), onDone})
 //        every zone must be occupied at the same moment by DIFFERENT players, held for holdMs.
 //        Position-derived on both clients (partner avatar position), so it needs no network traffic.
 //   Link.sync({id, windowMs, onPress?(who), onDone})  + Link.press(id)
@@ -12,7 +12,7 @@ const Link=(()=>{
   const now=()=>performance.now();
   const partnerPos=()=>{const o=typeof others!=='undefined'&&others.size?others.values().next().value:null;return o&&o.group?o.group.position:null};
   const partnerHere=()=>typeof others!=='undefined'&&others.size>0;   // these are TWO-player primitives: nothing may complete without a connected partner
-  const inZone=(p,z)=>!!p&&Math.hypot(p.x-z.x,p.z-z.z)<z.r&&(z.y===undefined||Math.abs(p.y-z.y)<3);
+  const inZone=(p,z)=>!!p&&Math.hypot(p.x-z.x,p.z-z.z)<z.r&&(z.y===undefined||Math.abs(p.y-z.y)<(z.dy||3));
   function boot(){if(on)return;on=true;Systems.add('link',tick);Net.on('ls',d=>{if(d&&d.id)remote(d.id)})}
 
   function both(def){boot();const g=Object.assign({t:0,occ:[],done:false,holdMs:1500},def);groups.push(g);return g}
