@@ -132,7 +132,7 @@ const Fleet=(()=>{
     const id=o.owner+'#'+(shellN++);
     spawnShell({n:id,x:m.x,y:m.y,z:m.z,vx:vel.vx+(o.vx||0),vy:vel.vy,vz:vel.vz+(o.vz||0),res:o.res,f:o.f,m:o.m,src:o.src,dmg:o.dmg});
     try{Vessel.kick(v,-ow.z*.0+(ow.x>0?-1:1)*.035,-.012,0);if(o.src==='ship'&&(S._dk&&S._dk.id==='ship'))CameraRig.shake(.22)}catch(e){}   // the gun kicks the hull (and shakes you, on your own deck)
-    muzzleFx(m,ow);boomSfx(m.x,m.z,1);
+    muzzleFx(m,ow);boomSfx(m.x,m.z,1);if(o.src==='ship'&&typeof Deckhands!=='undefined')try{Deckhands.fired(v.guns.indexOf(g))}catch(e){}
     if(o.emit)Net.emit('flt',{k:'f',n:id,s:o.src,g:v.guns.indexOf(g),x:+m.x.toFixed(2),y:+m.y.toFixed(2),z:+m.z.toFixed(2),vx:+(vel.vx+(o.vx||0)).toFixed(2),vy:+vel.vy.toFixed(2),vz:+vel.vz.toFixed(2),f:o.f,dmg:o.dmg})}
   // which hull does this ball touch? shooter-side test. Pirates shoot at your ship, you shoot at pirates (never your own).
   function target(s){
@@ -194,17 +194,19 @@ const Fleet=(()=>{
     const v=plv();if(!v||!Ship._onDeck()||Ship.seated())return null;let best=null,bd=3.2;
     for(const g of v.guns){Decks.toWorld(v.deck,g.x,g.ly,g.z,_a);const d=Math.hypot(_a.x-S.x,_a.z-S.z);if(d<bd&&Math.abs(_a.y-S.y)<2.6){bd=d;best=g}}return best}
   const _d={};
-  function playerFire(g,quiet,manual){
+  function playerFire(g,quiet,manual,crew){
     const v=plv();if(!v||pl().sunk>0)return false;
     if(g.cd>0){if(!quiet)banner('Reloading…','💣 CANNON');return false}
     const m=Vessel.muzzle(v,g,{}),o=Vessel.outward(v,g,{});let tg=null,bd=1e9;
     for(const e of ships.values()){if(e.sinking)continue;const dx=e.sh.x-m.x,dz=e.sh.z-m.z,D=Math.hypot(dx,dz);if(D>CN.range||D<3||(o.x*dx+o.z*dz)/D<.5)continue;if(D<bd){bd=D;tg=e}}
+    if(!tg){for(const M of [typeof Monster!=='undefined'?Monster:null,typeof Leviathan!=='undefined'?Leviathan:null]){const o2=M&&M.get&&M.get();if(!o2||o2.dead)continue;   // a sea monster in the arc is a target too
+      const dx=o2.x-m.x,dz=o2.z-m.z,D=Math.hypot(dx,dz);if(D>CN.range||D<3||(o.x*dx+o.z*dz)/D<.5)continue;if(D<bd){bd=D;tg={sh:{x:o2.x,z:o2.z,h:o2.hd||0,v:o2.sp||0}}}}}
     if(!tg&&quiet&&!manual)return false;
     let dir=null;
     if(manual){const dv=Ship.aimDir(new THREE.Vector3()),ao=Math.atan2(o.x,o.z),da=Math.max(-C.cannon.aimYaw,Math.min(C.cannon.aimYaw,wrap(Math.atan2(dv.x,dv.z)-ao))),el=Math.max(-C.cannon.aimDown,Math.min(C.cannon.aimUp,Math.asin(Math.max(-1,Math.min(1,dv.y))))),ce=Math.cos(el);dir={vx:Math.sin(ao+da)*ce*CN.v,vz:Math.cos(ao+da)*ce*CN.v,vy:Math.sin(el)*CN.v}}   // a gunner's shot goes exactly where his camera looks, inside the gun's limits
     const sp=pl(),vel=dir?dir:tg?aim(m,tg.sh.x,SEA+.7,tg.sh.z,Math.sin(tg.sh.h)*tg.sh.v,Math.cos(tg.sh.h)*tg.sh.v,CN.spread,{})
       :{vx:o.x*CN.v*Math.cos(.14),vz:o.z*CN.v*Math.cos(.14),vy:CN.v*Math.sin(.14)};
-    fire(v,g,m,vel,{owner:String(myId),res:true,f:0,src:'ship',dmg:CN.dmg,reload:(CN.pReload||CN.reload)*(.95+R()*.1),emit:true,vx:Math.sin(sp.h)*sp.v,vz:Math.cos(sp.h)*sp.v});return true}
+    fire(v,g,m,vel,{owner:String(myId),res:true,f:0,src:'ship',dmg:CN.dmg,reload:(CN.pReload||CN.reload)*(crew?1.35:1)*(.95+R()*.1),emit:true,vx:Math.sin(sp.h)*sp.v,vz:Math.cos(sp.h)*sp.v});return true}
   // every gun on one side at once, all along your camera: a gunner's broadside (each gun clamps the aim to its own arc)
   function sideSalvo(side){
     const v=plv();if(!v)return 0;let n=0;

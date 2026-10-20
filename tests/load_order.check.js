@@ -45,6 +45,7 @@ const DEPS={ // file -> files that must come first
   'combat/LockOn.js':['core/Systems.js'],
   'ship/Leviathan.js':['data/ship.js','ship/Fleet.js','ship/Ship.js','core/Net.js','core/Systems.js','combat/LockOn.js','world/Ocean.js'],
   'ship/Monster.js':['data/ship.js','ship/Fleet.js','ship/Ship.js','core/Net.js','core/Systems.js','combat/LockOn.js','world/Ocean.js'],
+  'ship/Deckhands.js':['ship/Fleet.js','ship/Ship.js','ship/Decks.js','ship/Vessel.js','core/Systems.js'],
   'ship/Crew.js':['combat/LockOn.js','ship/Fleet.js','ship/Decks.js','ship/Vessel.js','core/Net.js','core/Systems.js','world/Fx.js'],
   'ship/Fleet.js':['data/ship.js','ship/Sailing.js','ship/Decks.js','ship/Vessel.js','ship/Ship.js','interaction/InteractionManager.js','core/Net.js','core/Systems.js','world/Fx.js','core/Audio.js'],
   'ship/Ship.js':['data/ship.js','data/decks.js','data/islands.js','ship/Sailing.js','ship/Decks.js','ship/Vessel.js','interaction/InteractionManager.js','core/Net.js','core/Systems.js','world/Fx.js'],

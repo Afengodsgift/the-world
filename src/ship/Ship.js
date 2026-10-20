@@ -64,6 +64,7 @@ const Ship=(()=>{
   function damage(n){
     if(!isHost()||ship.sunk>0||!built)return;ship.hull=Math.max(0,ship.hull-n);
     if(ship.hull<=0){ship.sunk=.001;ship.sail=0;broadcast();banner('Your ship is going down! Swim for it!','⛵ SHIP')}}
+  function repair(n){if(!isHost()||ship.sunk>0||!built)return;ship.hull=Math.min(C.hull,ship.hull+n)}
   // the wreck is gone: a fresh hull at the harbour; everybody who was near it washes up on the pier
   function reset(host){
     const wasNear=distShip()<60||onDeck();
@@ -195,7 +196,7 @@ const Ship=(()=>{
   Interaction.register('ship-boost','Boost! 🚀',()=>built&&st.role==='helm'&&ship.sunk===0,boost);
   Interaction.register('ship-leave','Leave the helm',()=>built&&!!st.role,release);
 
-  return {build,damage,boost,whenReady:()=>Vessel.whenReady(),seated:()=>!!st.role,role:()=>st.role,vessel:()=>v,onDeck:()=>!!st.aboard,speed:()=>Math.abs(ship.v||0),
+  return {build,damage,repair,boost,whenReady:()=>Vessel.whenReady(),seated:()=>!!st.role,role:()=>st.role,vessel:()=>v,onDeck:()=>!!st.aboard,speed:()=>Math.abs(ship.v||0),
     setInput(ix,iy){if(st.role==='helm'){raw.x=ix;raw.y=iy}},locked:()=>!!(st.role||st.gun),gunning:()=>!!st.gun,gun:()=>st.gun,aimGun,aimDir,leave,toggleCam,setCam,cam:()=>st.cam,                           // called by the controller while seated: the stick drives the ship
     marks:()=>built?[{n:'Your ship',x:pose.x,z:pose.z,r:6,icon:'⛵',dyn:true}]:[],
     _s:st,_ship:ship,_pose:pose,_step:step,_net:onNet,_claim:claim,_release:release,_board:board,_wind:windNow,_onDeck:onDeck,_helmPos:helmPos,_raw:raw,_deck:()=>v.deck};
