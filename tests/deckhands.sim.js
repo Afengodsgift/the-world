@@ -30,4 +30,18 @@ ok(D.list.filter(c=>c.role==="gun").length===Math.min(nGuns,6)&&D.list.some(c=>c
 // 4. the carpenter patches the hull
 {PL.hull=60;A.Fleet.shells.length=0;const h0=PL.hull;tick(3,.05,()=>D.step(.05));const h1=PL.hull;tick(12,.05,()=>D.step(.05));
  ok(h1<=h0+1,'no repairs straight after being hit');ok(PL.hull>h0+8,'then the carpenter patches her up ('+h0+' -> '+Math.round(PL.hull)+')')}
+// 5. board order: half the gunners jump across with cutlasses and fight the pirates, who fight back
+{PL.hull=C.hull;A.Fleet.shells.length=0;place(A,SP[0],SP[1],0);const e=F.make(8003,'maiden',SP[0]+22,SP[1],0);e.sh.v=0;e.sh.sail=0;A.Crew.spawn(e);
+ for(const c of [A,B])c.Deckhands.build();B.Deckhands.step(.05);D.command('board',true);
+ const pk=()=>A.Crew.ofShip(8003);const alive0=pk().filter(c=>!c.dead).length;let maxAway=0,hurt=0,hpMin=1e9,killed=0;
+ tick(40,.05,()=>{e.hp=e.K.hp;e.sh.x=SP[0]+22;e.sh.z=SP[1];e.sh.v=0;A.Crew.step(.05);D.step(.05);B.Deckhands.step(.05);killed=Math.max(killed,pk().filter(c=>c.dead).length);maxAway=Math.max(maxAway,D.list.filter(c=>c.mode===1).length);for(const c of D.list)hpMin=Math.min(hpMin,c.hp)});
+ ok(maxAway>=2,'fighters jump across to the pirate deck ('+maxAway+' went)');
+ ok(killed>0||e.sinking||!A.Fleet.ships.has(8003),'and cut down pirates ('+killed+'/'+alive0+', the ship '+(e.sinking?'surrendered':'still floats')+')');
+ {const c=D.list[0];c.mode=1;c.sid=8003;const h0=c.hp;D.hurt(0,30);ok(c.hp===h0-30,'a boarder takes damage');D.hurt(0,999);ok(c.mode===2,'a beaten crew mate is carried back to his gun');for(const q of D.list)if(q.mode===2){q.mode=0;q.hp=q.max}}
+ ok(B.Deckhands.order()==='board','the partner sees the same order');
+ D.command('hold',true);tick(4,.05,()=>{D.step(.05)});ok(D.list.every(c=>c.mode!==1),'a new order calls the boarders back');
+ F.remove(e)}
+// 6. crew off: nobody fires, partner sees it
+{D.command('fire',false);ok(!D.on()&&!B.Deckhands.on(),'crew dismissed for both players');const e=F.make(8004,'maiden',SP[0]+28,SP[1],0);let shots=0;
+ tick(10,.05,()=>{D.step(.05);e.sh.x=SP[0]+28;e.sh.z=SP[1];e.prov=0;for(const s of A.Fleet.shells)if(!s.f)shots++});ok(shots===0,'a dismissed crew does not fire');D.command('fire',true);F.remove(e)}
 process.exit(fails?1:0);

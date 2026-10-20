@@ -45,7 +45,8 @@ const Crew=(()=>{
 
   // ---------- host AI ----------
   function think(c,e,dt){
-    const T=KIND[c.kind],B=c.B,P=players().filter(p=>!(p.me&&Fleet._me.down>0));let tg=null,td=1e9;
+    const T=KIND[c.kind],B=c.B,P=players().filter(p=>!(p.me&&Fleet._me.down>0));if(typeof Deckhands!=='undefined')for(const a of Deckhands.foes(c.sid))P.push(a);let tg=null,td=1e9;   // your crew mates boarding this ship are targets too
+    
     for(const p of P){const d=Math.hypot(p.x-B.x,p.z-B.z);if(d<td&&Math.abs(p.y-B.y)<7){td=d;tg=p}}
     c.cdT-=dt;c.stg-=dt;c.flash=Math.max(0,c.flash-dt);
     const melee=T.gun<0,inWater=tg&&tg.y<SEA+.35;
@@ -71,10 +72,10 @@ const Crew=(()=>{
   // victim-applies: the host decides, the target's own client takes the damage
   function strike(c,p){
     const T=KIND[c.kind],boss=Fleet.ships.get(c.sid)&&Fleet.ships.get(c.sid).K.boss,dmg=Math.round(T.dmg*(boss?1.5:1)*(.85+R()*.3));
-    Net.emit('flt',{k:'cm',id:c.id,tg:p.id,d:dmg,x:c.B.x,z:c.B.z});swingFx(c);if(String(p.id)===String(myId))Fleet.hurtMe(dmg,c.B.x,c.B.z)}
+    Net.emit('flt',{k:'cm',id:c.id,tg:p.id,d:dmg,x:c.B.x,z:c.B.z});swingFx(c);if(p.ally){Deckhands.hurt(p.i,dmg);return}if(String(p.id)===String(myId))Fleet.hurtMe(dmg,c.B.x,c.B.z)}
   function shoot(c,p,D){
     const T=KIND[c.kind],hit=R()<clamp(T.acc-D/140,.08,.6),dmg=Math.round(T.dmg*(.85+R()*.3));
-    Net.emit('flt',{k:'cs',id:c.id,tg:p.id,h:hit?1:0,d:dmg,tx:p.x,ty:p.y+1.2,tz:p.z});shotFx(c,p.x,p.y+1.2,p.z,hit);if(hit&&String(p.id)===String(myId))Fleet.hurtMe(dmg,c.B.x,c.B.z)}
+    Net.emit('flt',{k:'cs',id:c.id,tg:p.id,h:hit?1:0,d:dmg,tx:p.x,ty:p.y+1.2,tz:p.z});shotFx(c,p.x,p.y+1.2,p.z,hit);if(hit&&p.ally){Deckhands.hurt(p.i,dmg);return}if(hit&&String(p.id)===String(myId))Fleet.hurtMe(dmg,c.B.x,c.B.z)}
 
   // ---------- hits on pirates ----------
   function hit(id,d,zone){
@@ -198,5 +199,5 @@ const Crew=(()=>{
 
   // pirates as extra targets for the player's guns (Outlaw.fire reads these like its own raiders)
   const targets=()=>{const a=[];for(const c of list.values())if(!c.dead&&c.group&&c.group.userData.bones&&c.group.visible)a.push(c);return a};
-  return {build,spawn,clearShip,make,list,ofShip,alive,hit,splash,snapshot,apply,slash,targets,owns:id=>list.has(id),think,step,_net:onNet,KIND};
+  return {walk,freeCells,sword,swingFx,build,spawn,clearShip,make,list,ofShip,alive,hit,splash,snapshot,apply,slash,targets,owns:id=>list.has(id),think,step,_net:onNet,KIND};
 })();
