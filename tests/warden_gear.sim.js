@@ -5,6 +5,7 @@ const mk=()=>{const st={};const c={console,Math,JSON,Number,Array,localStorage:{
   vm.runInContext(fs.readFileSync(R+'src/combat/WardenGear.js','utf8')+';this.G=WardenGear',c);return{G:c.G,st}};
 {const {G,st}=mk();
   ok(G.equipped().id==='start'&&G.all().length===1&&G.stats().dm===1,'fresh save: only the worn falchion, neutral stats');
+  {let by=0;for(const k in G.TYPES)if(/warden\/w_/.test(G.TYPES[k].file))by+=fs.statSync(R+'assets/'+G.TYPES[k].file).size;ok(by<2e6,'baked weapon models stay small ('+Math.round(by/1024)+' KB, loaded only when equipped)')}
   for(const k in G.TYPES){const T=G.TYPES[k];ok(fs.existsSync(R+'assets/'+T.file),k+': model '+T.file+' exists');ok(T.l0>0&&T.want>0&&T.dm>0&&T.sm>0,k+': sane numbers')}
   ok(G.stats({ty:'claymore',rar:0,af:[]}).dm>1.2&&G.stats({ty:'claymore',rar:0,af:[]}).sm>1,'claymore: hits harder, costs more stamina');
   ok(G.stats({ty:'cutlass',rar:0,af:[]}).sm<1&&G.stats({ty:'cutlass',rar:0,af:[]}).flow>1,'cutlass: cheap swings, faster Flow');
