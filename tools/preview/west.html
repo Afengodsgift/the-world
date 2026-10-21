@@ -1,0 +1,12 @@
+<!doctype html><meta charset=utf-8><body style="margin:0;background:#9ec3e0"><script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
+<script>
+// dev tool: lays out the converted Wild West pieces (assets/west) on a grid: /tools/preview/west.html?cat=Walls  (cat = prefix of the manifest category; ?cols=8)
+const q=new URLSearchParams(location.search),cat=q.get('cat')||'',cols=+(q.get('cols')||8),R=new THREE.WebGLRenderer({antialias:true});R.setSize(innerWidth,innerHeight);document.body.appendChild(R.domElement);
+const sc=new THREE.Scene();sc.background=new THREE.Color('#9ec3e0');sc.add(new THREE.HemisphereLight('#fff','#887',1.1));const dl=new THREE.DirectionalLight('#fff',1.2);dl.position.set(4,8,6);sc.add(dl);
+fetch('/assets/west/manifest.json').then(r=>r.json()).then(async man=>{
+  const names=Object.keys(man).filter(n=>man[n].cat.startsWith(cat)),L=new THREE.GLTFLoader();let i=0;const sp=+(q.get('sp')||4.2);
+  for(const n of names){const g=await new Promise(r=>L.load('/assets/west/'+n+'.glb',x=>r(x.scene)));g.position.set((i%cols)*sp,0,Math.floor(i/cols)*sp);sc.add(g);i++}
+  const rows=Math.ceil(names.length/cols),cam=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,.1,500);const cx=(cols-1)*sp/2,cz=(rows-1)*sp/2;
+  cam.position.set(cx,Math.max(cols*sp,rows*sp)*.9,cz+Math.max(cols,rows)*sp*.7);cam.lookAt(cx,0,cz);R.render(sc,cam);window.__done=names.length});
+</script>

@@ -69,7 +69,8 @@ const HitZones=(()=>{
   // nearest cover cylinder along the ray -> {t,c}. A ray that starts inside a cover circle ignores it (you can stand right next to a crate).
   function coverT(o,d,max,cover){
     let best=max,hit=null;const a=d.x*d.x+d.z*d.z;if(a<1e-8)return {t:best,c:null};
-    for(const c of cover){const fx=o.x-c.x,fz=o.z-c.z,b=fx*d.x+fz*d.z,k=fx*fx+fz*fz-c.r*c.r,D=b*b-a*k;if(D<0)continue;
+    for(const c of cover){if(c.x0!==undefined){const t=Blocks.rayBox(o,d,c);if(t!==null&&t<best){best=t;hit=c}continue}   // building walls / floors / roofs are boxes (src/world/Blocks.js)
+      const fx=o.x-c.x,fz=o.z-c.z,b=fx*d.x+fz*d.z,k=fx*fx+fz*fz-c.r*c.r,D=b*b-a*k;if(D<0)continue;
       const sq=Math.sqrt(D),t0=(-b-sq)/a;if(t0<=0||t0>=best)continue;
       if(c.h!==undefined){const t1=(-b+sq)/a,y0=o.y+d.y*t0,y1=o.y+d.y*t1,top=c.y+c.h;if(Math.min(y0,y1)>=top||Math.max(y0,y1)<=c.y-.3)continue} // passes over (or under) it
       best=t0;hit=c}

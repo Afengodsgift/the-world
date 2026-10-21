@@ -174,6 +174,9 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/combat/Consumables.js"></script>
 <script src="src/data/warden.js"></script>
 <script src="src/combat/EnemyAI.js"></script>
+<script src="src/world/Blocks.js"></script>
+<script src="src/world/WestKit.js"></script>
+<script src="src/world/WestTown.js"></script>
 <script src="src/games/OutlawArena.js"></script>
 <script src="src/games/OutlawItems.js"></script>
 <script src="src/games/Outlaw.js"></script>
@@ -1253,6 +1256,7 @@ function tickFrame(t){
   const hi=S.flying&&S.y>gY+14&&Math.hypot(S.x-SKY.x,S.z-SKY.z)>SKY.R+60;
   for(const c of solids){if(hi)break;const ax=S.x-c.x,az=S.z-c.z,dd=Math.hypot(ax,az),R=c.r+.4;
     if(dd<R){if(c.h&&S.y>=c.h-.15)gY=Math.max(gY,c.h);else if(!c.noSide&&dd>1e-4){S.x=c.x+ax/dd*R;S.z=c.z+az/dd*R}}}
+  if(typeof Blocks!=='undefined'&&!hi&&!S.flying&&Math.hypot(S.x-OUT.x,S.z-OUT.z)<OUT.R+20){Blocks.push(S,.4);const bf=Blocks.floorAt(S.x,S.z,S.y);if(bf>gY)gY=bf}   // Outlaw Isle buildings: walls, stairs, roofs (src/world/Blocks.js)
   if(typeof Decks!=='undefined'&&!hi){const dg=Decks.step(S,px,pz,{dt,grounded:S.grounded,moving:len>.05,flying:S.flying});if(dg>gY)gY=dg}   // ships: carry + walls + rails + stairs (src/ship/Decks.js)
   if(wat&&gY>-.5)wat=false; // standing on something (a bridge deck over the sea) is not swimming
   const wasG=S.grounded;

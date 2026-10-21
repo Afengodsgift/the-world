@@ -56,7 +56,8 @@ const Outlaw=(()=>{
   const rnd=(a,b)=>a+Math.random()*(b-a);
 
   // ---------- geometry helpers ----------
-  function segCircle(ax,az,bx,bz,c){ // does segment a->b pass through circle c?
+  function segCircle(ax,az,bx,bz,c){ // does segment a->b pass through circle c? (building walls are boxes: Blocks.segBox; roofs / floors are ignored on the ground plan)
+    if(c.x0!==undefined)return !c.slab&&Blocks.segBox(ax,az,bx,bz,c);
     const dx=bx-ax,dz=bz-az,fx=ax-c.x,fz=az-c.z,a=dx*dx+dz*dz;if(a<1e-6)return false;
     const b=2*(fx*dx+fz*dz),k=fx*fx+fz*fz-c.r*c.r,D=b*b-4*a*k;if(D<0)return false;
     const s=Math.sqrt(D);return (-b-s)/(2*a)<1&&(-b+s)/(2*a)>.02}
@@ -81,19 +82,25 @@ const Outlaw=(()=>{
     const y=C.y,g=kind==='barrel'?new THREE.CylinderGeometry(.55,.55,1.2,10):new THREE.BoxGeometry(1.4,1.3,1.4);
     const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:kind==='barrel'?'#7a4a22':'#a9803f',roughness:.9}));m.position.set(x,y+.65,z);m.rotation.y=Math.random()*3;m.castShadow=true;scene.add(m);
     const c={x,z,r:.95,y:C.y-.05,h:kind==='barrel'?1.2:1.3};solids.push(c);cover.push(c)}
+  let town=null;
+  const ny=n=>n.y!==undefined?n.y:H(n.x,n.z);
   function build(){
     C={x:OUT.x,z:OUT.z,y:OUT.y+.05};cover.length=0; // dedicated Outlaw Isle (see data/islands.js)
     const ground=new THREE.Mesh(new THREE.CircleGeometry(46,40),new THREE.MeshStandardMaterial({color:'#b79a68',roughness:1}));ground.rotation.x=-Math.PI/2;ground.position.set(C.x,C.y+.04,C.z);ground.receiveShadow=true;scene.add(ground);
-    building(C.x-14,C.z-8,11,7,6,'#8a5a30','SALOON',0);building(C.x+14,C.z-8,11,7,5.4,'#7d6a52','BANK',0);
-    building(C.x-14,C.z+10,10,6,5,'#9a7440','HOTEL',Math.PI);building(C.x+14,C.z+10,9,6,4.6,'#6e5a46','JAIL',Math.PI);
-    bank.x=C.x+14;bank.z=C.z-8;bank.max=bank.hp=1500;
-    building(C.x-34,C.z,12,7,5,'#8f6a3c','STABLE',Math.PI/2);building(C.x+34,C.z,10,8,7.5,'#d8cdb8','CHURCH',-Math.PI/2);
-    building(C.x-24,C.z-26,9,6,5,'#7a5a3a','DEPOT',0);building(C.x+12,C.z+26,8,5,4.4,'#a07a48','GUNSMITH',Math.PI);
+    const OLD=()=>{    building(C.x-14,C.z-8,11,7,6,'#8a5a30','SALOON',0);building(C.x+14,C.z-8,11,7,5.4,'#7d6a52','BANK',0);
+      building(C.x-14,C.z+10,10,6,5,'#9a7440','HOTEL',Math.PI);building(C.x+14,C.z+10,9,6,4.6,'#6e5a46','JAIL',Math.PI);
+      bank.x=C.x+14;bank.z=C.z-8;bank.max=bank.hp=1500;
+      building(C.x-34,C.z,12,7,5,'#8f6a3c','STABLE',Math.PI/2);building(C.x+34,C.z,10,8,7.5,'#d8cdb8','CHURCH',-Math.PI/2);
+      building(C.x-24,C.z-26,9,6,5,'#7a5a3a','DEPOT',0);building(C.x+12,C.z+26,8,5,4.4,'#a07a48','GUNSMITH',Math.PI);
+};
+    const PROPS=()=>{[[-24,8],[24,6],[-4,18],[4,-18],[-28,-14],[28,-16],[-8,-24],[20,-30],[-30,18],[30,16],[0,28],[-18,22]].forEach(([dx,dz],i)=>{const x=C.x+dx,z=C.z+dz;if(typeof Blocks!=='undefined'&&(Blocks.floors.some(f=>x>f.x0-2&&x<f.x1+2&&z>f.z0-2&&z<f.z1+2)||solids.some(q=>Math.hypot(q.x-x,q.z-z)<q.r+1.6)))return;prop(x,z,i%2?'crate':'barrel')})};
+    if(typeof WestTown!=='undefined'&&typeof WestKit!=='undefined'&&typeof Blocks!=='undefined'){
+      bank.x=C.x+16;bank.z=C.z-10;bank.max=bank.hp=1500;
+      WestTown.buildTown({C,scene,cover,solids,Kit:WestKit,Blocks,tint:[1,.96,.9]}).then(T=>{town=T;PROPS()}).catch(e=>{console.warn('west town failed, legacy boxes',e);Blocks.clear();OLD();PROPS()});
+    }else{OLD();PROPS()}
     {const wy=C.y,mt=new THREE.MeshStandardMaterial({color:'#6b4a2a'}),tk=new THREE.Mesh(new THREE.CylinderGeometry(2.6,2.6,3,14),mt);tk.position.set(C.x+26,wy+9,C.z-24);tk.castShadow=true;scene.add(tk);
      const ro=new THREE.Mesh(new THREE.ConeGeometry(3,1.6,14),new THREE.MeshStandardMaterial({color:'#4a3320'}));ro.position.set(C.x+26,wy+11.3,C.z-24);scene.add(ro);
      const lg=new THREE.Mesh(new THREE.CylinderGeometry(1.4,2,7.5,6),mt);lg.position.set(C.x+26,wy+3.7,C.z-24);scene.add(lg);const cc={x:C.x+26,z:C.z-24,r:2.3};solids.push(cc);cover.push(cc)}
-    [[-24,8],[24,6],[-4,18],[4,-18],[-28,-14],[28,-16],[-8,-24],[20,-30],[-30,18],[30,16],[0,28],[-18,22]].forEach(([dx,dz],i)=>prop(C.x+dx,C.z+dz,i%2?'crate':'barrel'));
-    [[-5,-2],[4,3],[-2,6],[7,-3],[-8,2],[0,-5],[10,2],[-10,-3]].forEach(([dx,dz],i)=>prop(C.x+dx,C.z+dz,i%2?'barrel':'crate'));
     const pad=new THREE.Mesh(new THREE.CylinderGeometry(2.2,2.4,.3,24),new THREE.MeshStandardMaterial({color:'#c0392b',emissive:'#7a1a10',emissiveIntensity:.6}));pad.position.set(C.x,C.y+.15,C.z+1);scene.add(pad);
     const sg=label('OUTLAW TOWN',6,1.5);sg.position.set(C.x,5,C.z+1);sg.userData.bb=1;scene.add(sg);fx.push({sign:sg});
     portals();CombatAnims.load();GunLoco.load();   // death / head-hit / pistol-ready clips (assets/combat_anims.json); Mixamo rifle locomotion + death falls (assets/gun_anims.json, src/character/GunLoco.js)
@@ -363,7 +370,7 @@ const Outlaw=(()=>{
   }
   function pickCover(n,t,o){
     o=o||{};const band=o.band||[14,24],mid=(band[0]+band[1])/2,dn0=Math.hypot(t.x-n.x,t.z-n.z);let b=null,bs=1e9;
-    for(const c of cover){const dn=Math.hypot(c.x-n.x,c.z-n.z);if(dn>(o.reach||32))continue;
+    for(const c of cover){if(c.wall&&!c.post)continue;const dn=Math.hypot(c.x-n.x,c.z-n.z);if(dn>(o.reach||32))continue;
       const ux=c.x-t.x,uz=c.z-t.z,l=Math.hypot(ux,uz)||1,px=c.x+ux/l*(c.r+1.1),pz=c.z+uz/l*(c.r+1.1);
       if(los(px,pz,t.x,t.z))continue;const dt=Math.hypot(px-t.x,pz-t.z);
       if(o.fwd&&dt>dn0-5)continue;if(o.back&&dt<dn0+4)continue;if(o.near&&dn>9)continue;if(o.avoid&&Math.hypot(px-o.avoid.x,pz-o.avoid.z)<6)continue;
@@ -408,7 +415,7 @@ const Outlaw=(()=>{
       const s=Math.hypot(p.x-n.x,p.z-n.z)+load*7-(n.tid===p.id?6:0)+(p.fly&&(n.type===1||n.role==='rusher')?35:0);if(s<bs){bs=s;t=p}}
     n.tid=t.id;n.cd-=dt;n.t+=dt;n.dec-=dt;n.age=(n.age||0)+dt;const brave=n.age>35||n.hunt; // after 35s enemies stop hiding and push in (prevents stalemates)
     if(n.raider&&bank.hp>0&&!alive.some(p=>Math.hypot(p.x-n.x,p.z-n.z)<14))t={id:'bank',x:bank.x,z:bank.z+7,vx:0,vz:0,down:false}; // raiders hit the vault unless a player is close
-    let dx=t.x-n.x,dz=t.z-n.z;const d=Math.hypot(dx,dz)||1,ux=dx/d,uz=dz/d,tfy=t.y===undefined?C.y:t.y,seen=t.id==='bank'?los(n.x,n.z,t.x,t.z):EnemyAI.sees(cover,n.x,H(n.x,n.z),n.z,n.st==='crouch'?'crouch':'stand',t.x,tfy,t.z)>0;
+    let dx=t.x-n.x,dz=t.z-n.z;const d=Math.hypot(dx,dz)||1,ux=dx/d,uz=dz/d,tfy=t.y===undefined?C.y:t.y,seen=t.id==='bank'?los(n.x,n.z,t.x,t.z):EnemyAI.sees(cover,n.x,ny(n),n.z,n.st==='crouch'?'crouch':'stand',t.x,tfy,t.z)>0;
     let gx=ux,gz=uz;if(!seen){const dv=detour(n,t);if(dv){const q=Math.hypot(dv.x-n.x,dv.z-n.z)||1;gx=(dv.x-n.x)/q;gz=(dv.z-n.z)/q}}
     if(seen&&!n.seen)n.react=T.react*Math.max(.35,1-wave*.06);n.seen=seen;if(n.react>0)n.react-=dt;
     // AWARENESS: a raider only knows where you were last SEEN (or heard shooting). Whoever sees you tells squad mates within 55 m; everyone else works from that, which goes stale.
@@ -428,12 +435,12 @@ const Outlaw=(()=>{
     }else if(n.type===1){ // THE HEAVY: slow and deliberate. Wind-up (rev + laser) -> 2 s burst -> VENT (vulnerable). Plated front, weak rear. Melee only if you stand next to it.
       n.hs=n.hs||'advance';n.hst=(n.hst||0)-dt;sp=T.sp;const hx=tpK.x-n.x,hz=tpK.z-n.z,hd=Math.hypot(hx,hz)||1;
       if(n.hs==='advance'){mx=hx/hd;mz=hz/hd;
-        if(d<2.6&&EnemyAI.meleeReach(d,tfy-H(n.x,n.z),2.6)){n.hs='swing';n.hst=.6;sfxAt('rev',n.x,n.z,.7)}
+        if(d<2.6&&EnemyAI.meleeReach(d,tfy-ny(n),2.6)){n.hs='swing';n.hst=.6;sfxAt('rev',n.x,n.z,.7)}
         else if(seen&&d<T.range*.8&&d>3.5&&n.react<=0&&n.hst<=0){n.hs='windup';n.hst=.95;sfxAt('rev',n.x,n.z)}}
       else if(n.hs==='windup'){sp=0;n.st='aim';if(n.hst<=0){n.hs='burst';n.hst=2.1;n.bcd=0}}
       else if(n.hs==='burst'){sp=T.sp*.3;mx=hx/hd;mz=hz/hd;n.st='aim';n.bcd-=dt;if(n.bcd<=0){n.bcd=T.cd;if(seen)enemyShoot(n,t,d,T)}if(n.hst<=0){n.hs='vent';n.hst=2.4;sfxAt('vent',n.x,n.z)}}
       else if(n.hs==='vent'){sp=0;n.st='vent';if(n.hst<=0){n.hs='advance';n.hst=1.8}}   // after venting it walks up for ~2 s before the next wind-up
-      else if(n.hs==='swing'){sp=0;n.st='idle';if(n.hst<=0){if(EnemyAI.meleeReach(d,tfy-H(n.x,n.z),2.8))dealDmg(n,t,22);n.hs='advance'}}
+      else if(n.hs==='swing'){sp=0;n.st='idle';if(n.hst<=0){if(EnemyAI.meleeReach(d,tfy-ny(n),2.8))dealDmg(n,t,22);n.hs='advance'}}
     }else{
       // GUNMEN: every move has a reason. Bound cover to cover toward where they believe you are, hold a band for their role, peek to shoot, relocate when it gets hot,
       // flankers take ONE side route and only while the squad is engaged, aggressors push when you reload / are low, suppressors pin you, marksmen perch. No weaving.
@@ -488,6 +495,7 @@ const Outlaw=(()=>{
     n.sk=(n.sk||0)+dt;if(n.sk>=3){n.sk=0;const mvd=Math.hypot(n.x-(n.skx===undefined?n.x:n.skx),n.z-(n.skz===undefined?n.z:n.skz));
       if(sp>0&&n.mode!=='cover'&&d>9&&mvd<.9){if((n.stuck=(n.stuck||0)+1)>=2){n.stuck=0;const [rx,rz]=OutlawArena.front(n.type);n.x=rx;n.z=rz}}else n.stuck=0;n.skx=n.x;n.skz=n.z}n.z+=mz/ml*sp*dt;
     for(const c of solids){const ox=n.x-c.x,oz=n.z-c.z;if(Math.abs(ox)>c.r+1||Math.abs(oz)>c.r+1)continue;const od=Math.hypot(ox,oz),m=c.r+.45;if(od<m&&od>.001){n.x=c.x+ox/od*m;n.z=c.z+oz/od*m}}
+    if(typeof Blocks!=='undefined'&&Math.abs(n.x-C.x)<60&&Math.abs(n.z-C.z)<50){const o={x:n.x,z:n.z,y:ny(n)};Blocks.push(o,.45);n.x=o.x;n.z=o.z;const fy=Blocks.floorAt(n.x,n.z,o.y,.6),g0=H(n.x,n.z);n.y=Math.max(g0,fy)}else if(n.y!==undefined)n.y=undefined;   // town buildings: walls stop raiders, stairs / roofs lift them (src/world/Blocks.js)
     const lr=Math.hypot(n.x-C.x,n.z-C.z);if(lr>195){n.x=C.x+(n.x-C.x)/lr*195;n.z=C.z+(n.z-C.z)/lr*195}
     if(H(n.x,n.z)<.3){n.x+=(C.x-n.x)/lr*1.5;n.z+=(C.z-n.z)/lr*1.5} // stay on land (the arena is the whole island now)
     n.r=Math.atan2(ux,uz);if(sp===0&&n.st==='run')n.st='idle';
@@ -509,16 +517,16 @@ const Outlaw=(()=>{
     else if(!wiped){wiped=true; // everyone down: reset the current wave
       for(const n of npcs.values())n.dead=1;queue=[];wave=Math.max(0,wave-1);nextWave=clock+6000;banner('Wiped out! Retrying…','OUTLAW TOWN');send({k:'wv',n:-1})}
     snapT-=dt;if(snapT<=0){snapT=.1;
-      send({k:'n',tr:OutlawArena.trainQ(),w:wave,kl:kills,bk:Math.round(bank.hp),a:[...npcs.values()].map(n=>[n.id,n.type,+n.x.toFixed(2),+n.z.toFixed(2),+n.r.toFixed(2),Math.round(n.hp),Math.round(n.max),n.st,n.dead?(n.lastZone==='head'?2:1):0])})}   // dead: 0 alive, 1 dead, 2 killed by a headshot (picks the fall)
+      send({k:'n',tr:OutlawArena.trainQ(),w:wave,kl:kills,bk:Math.round(bank.hp),a:[...npcs.values()].map(n=>[n.id,n.type,+n.x.toFixed(2),+n.z.toFixed(2),+n.r.toFixed(2),Math.round(n.hp),Math.round(n.max),n.st,n.dead?(n.lastZone==='head'?2:1):0,n.y===undefined?null:+n.y.toFixed(2)])})}   // dead: 0 alive, 1 dead, 2 killed by a headshot (picks the fall)
   }
 
   // ---------- CLIENT: snapshot ----------
   function applySnap(p){
     if(p.tr!==undefined)OutlawArena.trainSync(p.tr);
     wave=p.w;kills=p.kl;bank.hp=p.bk;const seen=new Set();
-    for(const [id,type,x,z,r,h,mh,st,dead] of p.a){seen.add(id);let n=npcs.get(id);
+    for(const [id,type,x,z,r,h,mh,st,dead,ey] of p.a){seen.add(id);let n=npcs.get(id);
       if(!n){n={id,type,x,z,r,hp:h,max:mh,st,dead:0,group:null};npcs.set(id,n);spawnVisual(n);n.group.position.set(x,H(x,z),z)}
-      n.tx=x;n.tz=z;n.r=r;n.hp=h;n.max=mh;n.st=st;if(dead){n.dead=1;n.deadHead=dead===2}}
+      n.tx=x;n.tz=z;n.y=ey===null||ey===undefined?undefined:ey;n.r=r;n.hp=h;n.max=mh;n.st=st;if(dead){n.dead=1;n.deadHead=dead===2}}
     for(const n of npcs.values())if(!seen.has(n.id))n.dead=1;
     updateHud()}
 
@@ -541,7 +549,7 @@ const Outlaw=(()=>{
         g.rotation.x=Math.min(1.5,n.dt*3);g.scale.setScalar(Math.max(.01,TYPES[n.type].sc*(1-Math.max(0,n.dt-.5)*1.4)));if(n.laser)n.laser.visible=false;
         if(n.dt>1.2){removeVisual(n);npcs.delete(n.id)}continue}
       if(isHost()){p.x=n.x;p.z=n.z}else{const k=Math.min(1,dt*10);p.x+=(n.tx-p.x)*k;p.z+=(n.tz-p.z)*k;n.x=p.x;n.z=p.z}
-      p.y=H(p.x,p.z);let da=n.r-g.rotation.y;da=Math.atan2(Math.sin(da),Math.cos(da));g.rotation.y+=da*Math.min(1,dt*10);
+      {const ty=n.y!==undefined?n.y:H(p.x,p.z);p.y=Math.abs(ty-p.y)>1.6?ty:p.y+(ty-p.y)*Math.min(1,dt*14)}let da=n.r-g.rotation.y;da=Math.atan2(Math.sin(da),Math.cos(da));g.rotation.y+=da*Math.min(1,dt*10);
       // hit reaction: a quick flinch when hp drops (head variant for big hits/headshots); rate-limited so rapid fire does not freeze the animation
       if(n.lhp===undefined)n.lhp=n.hp;
       if(n.hp<n.lhp-.5){const drop=n.lhp-n.hp;if(clock-(n.reactAt||-1e9)>450){n.reactAt=clock;const q=g.userData;q.hitReq=1;if(drop>=.3*n.max||n.lastZone==='head')q.hitHead=1}}
