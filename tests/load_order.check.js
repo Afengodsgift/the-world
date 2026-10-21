@@ -11,6 +11,7 @@ const DEPS={ // file -> files that must come first
   'space/SpaceEvents.js':['core/Net.js','core/WorldState.js'],
   'space/SpaceObjects.js':['space/SpaceEvents.js','space/SpaceManager.js','space/SpaceFlight.js','core/Audio.js'],
   'audio/Ambience.js':['core/Audio.js','data/islands.js'],
+  'core/Expedition.js':[],
   'combat/Melee.js':['core/Audio.js'],
   'games/OutlawArena.js':['utils/random.js'],
   'data/warden.js':['data/islands.js','utils/math.js'],
