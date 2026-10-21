@@ -166,3 +166,15 @@ baker `tools/build_rally_kit.js`.
   anyone); slalom amplitude too violent for the car's turn rate; hammers placed 13 m after a bend (no run-in); respawn after the lip used ground speed.
 * **For the wiring step:** Palm Atoll scatters palms, bushes and rocks across the whole island (`index.html` ~line 648-662); they need an exclusion
   corridor along these roads (`Sites.js` already does this for `KT`). The road ribbon and props are not drawn yet; the world has not been touched.
+
+## 10. Playable build (in the game)
+
+* **Open it:** the 🏁 button under ☰. Pick a car, then Time trial / vs AI (None, Easy, Normal, Hard) / vs your friend (needs them in the world; they get a Join prompt).
+* **Controls (touch):** left stick steers (up/down climbs/dives in flight), auto-gas on (pull down to brake), BOOST, DRIFT (airbrake in flight), RECOVER, ✕ to leave.
+  Desktop: arrows/WASD, Space, Shift, R.
+* **Wiring (the only edits to index.html):** stylesheet + 7 script tags, `Rally.locked()` input takeover in tick(), `Rally.frame(dt)` after the camera update,
+  and `Rally.clears(x,z)` in the vegetation add().
+* **Tests in the real game (headless Chromium, not part of run_all.sh):** `tests/rally_browser.mjs` (solo: lobby -> race -> both flights -> results -> exit) and
+  `tests/rally_net_browser.mjs` (two players over the Net adapter). Software WebGL runs under 1 fps, so both use `Rally.sim()` to fast-forward.
+* **Known limits:** no car-to-car collisions; AI runs separately on each phone from a shared seed; starts sync to within network latency; no server authority
+  (plausible-timing checks only); mobile frame rate is unmeasured; props are generated, the pack's kit pieces are not used yet.

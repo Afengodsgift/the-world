@@ -65,18 +65,19 @@ const Pilot=(()=>{
     }
     if(hz.length)vt=Math.min(vt,24+6*k.dodge);                   // ease off near swinging hammers: a steady speed makes the arrival time (and so the gap) predictable
     // the last 50 m of a road that ends in a jump (the kicker, the launch ramp) are taken flat out; the corner before them is where we slow
-    const vt2=pr.road<T.roads.length-1&&pr.s>T.roads[pr.road].len-50?top*1.3:vt;
+    const rd=T.roads[pr.road],nearEnd=pr.road<T.roads.length-1&&pr.s>rd.len-50;
+    const vt2=nearEnd?(rd.lipV?Math.min(vt,rd.lipV*Math.min(1,k.v+.05)):top*1.3):vt;   // roads can name the speed their jump wants (rd.lipV); ramps are flat out
     inp.thr=clamp((vt2-v)*.5,-1,1);
     if(v>vt2+7)inp.brake=true;
-    if(k.boost&&c.charges>0&&c.boostT<=0&&v>26&&kap<.003&&Math.abs(err)<.1&&Math.abs(p.lane)<1)inp.boost=true;
+    if(k.boost&&!nearEnd&&c.charges>0&&c.boostT<=0&&v>26&&kap<.003&&Math.abs(err)<.1&&Math.abs(p.lane)<1)inp.boost=true;
     return inp;
   }
 
   function fly(p,c,racer,inp){
     const T=p.T,g=T.gates[racer.next];let tx,ty,tz;
     if(g&&g.type==='air'){tx=g.x;ty=g.y;tz=g.z}
-    else if(T.landingTarget){tx=T.landingTarget.x;tz=T.landingTarget.z;ty=T.ground(tx,tz,1e4)+2}
-    else if(g){tx=g.x;ty=g.y;tz=g.z}else{inp.thr=.2;return inp}
+    else if(g){tx=g.x;tz=g.z;ty=T.ground(tx,tz,1e4)+2}                      // next is the touchdown gate: glide down to the strip
+    else{inp.thr=.2;return inp}
     const dx=tx-c.x,dz=tz-c.z,hd=Math.hypot(dx,dz);
     inp.steer=clamp(wrap(Math.atan2(dx,dz)-c.h)*2,-1,1);
     const want=clamp(Math.atan2(ty-c.y,Math.max(hd,1)),-.7,.7);

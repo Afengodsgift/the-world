@@ -59,7 +59,7 @@ const Track=(()=>{
     }
     for(let i=0;i<m;i++){const a=Math.max(0,i-1),b=Math.min(m-1,i+1),tx=X[b]-X[a],tz=Z[b]-Z[a],l=Math.hypot(tx,tz)||1;TX[i]=tx/l;TZ[i]=tz/l}
     const cs=ctl.map(k=>cum[k]); // arclength of each control point (gates / pads / hazards reference control points)
-    return {id:rd.id,m,X,Z,Y,W,S,TX,TZ,len,cs,sh:rd.shoulder==null?5:rd.shoulder};
+    return {id:rd.id,m,X,Z,Y,W,S,TX,TZ,len,cs,sh:rd.shoulder==null?5:rd.shoulder,lipV:rd.lipV||0};
   }
 
   function build(def,env){
@@ -166,24 +166,33 @@ const Track=(()=>{
   const ROAD={rough:false},ROUGH={rough:true};
 
   // ---------------- racer progress (one per competitor; the host runs the same code to validate) ----------------
-  function racer(){return {next:0,passed:0,splits:[],perfect:0,finished:false,finishT:0,px:NaN,py:0,pz:0,stuckT:0,lostT:0,rec:0,ev:{gate:-1,perfect:false,mode:null,finish:false,t:0}}}
+  function racer(){return {gT:0,next:0,passed:0,splits:[],sk:[],perfect:0,finished:false,finishT:0,px:NaN,py:0,pz:0,stuckT:0,lostT:0,rec:0,ev:{gate:-1,perfect:false,mode:null,finish:false,t:0}}}
   // Called every frame with the new position. A gate counts when the segment prev->cur crosses its plane FORWARD inside its radius (so no
   // tunnelling at 100+ m/s, no backwards passes, strictly in order). Within `loose`*r counts too (a near miss still progresses) but is not 'perfect'.
   function advance(T,r,x,y,z,t){
-    const ev=r.ev;ev.gate=-1;ev.perfect=false;ev.mode=null;ev.finish=false;
+    const ev=r.ev;ev.gate=-1;ev.perfect=false;ev.mode=null;ev.finish=false;ev.skipped=0;
     if(r.finished){r.px=x;r.py=y;r.pz=z;return ev}
     if(r.px===r.px){
+      // does the segment prev->cur cross gate g's plane forward, inside its (loose) radius? returns 0 no, 1 near miss, 2 perfect
+      const cross=g=>{
+        const d0=(r.px-g.x)*g.nx+(r.pz-g.z)*g.nz,d1=(x-g.x)*g.nx+(z-g.z)*g.nz;if(!(d0<0&&d1>=0))return 0;
+        const f=d0/(d0-d1),dist=Math.hypot(r.px+(x-r.px)*f-g.x,r.py+(y-r.py)*f-g.y,r.pz+(z-r.pz)*f-g.z);
+        return dist<=g.r?2:dist<=g.r*g.loose?1:0;
+      };
       const g=T.gates[r.next];
       if(g){
-        const d0=(r.px-g.x)*g.nx+(r.pz-g.z)*g.nz,d1=(x-g.x)*g.nx+(z-g.z)*g.nz;
-        if(d0<0&&d1>=0){
-          const f=d0/(d0-d1),qx=r.px+(x-r.px)*f,qy=r.py+(y-r.py)*f,qz=r.pz+(z-r.pz)*f,dist=Math.hypot(qx-g.x,qy-g.y,qz-g.z);
-          if(dist<=g.r*g.loose){
-            const tp=t-(1-f)*0; // pass time ~ now (frame granularity is far below the 10 Hz network resolution)
-            ev.gate=g.i;ev.perfect=dist<=g.r;ev.mode=g.mode;ev.finish=g.finish;ev.t=tp;
-            r.splits.push(tp);r.passed++;r.next++;if(ev.perfect)r.perfect++;
-            if(g.finish||r.next>=T.gates.length){r.finished=true;r.finishT=tp;ev.finish=true}
-          }
+        let q=cross(g),take=0;
+        if(q)take=1;
+        else{ // skip tolerance: an ordinary gate or ring missed by a few metres does not end your race if you pass the NEXT gate (never the start, lips, touchdowns or finish)
+          const g2=T.gates[r.next+1];
+          if(g2&&(g.k==='gate'||g.k==='ring')&&(q=cross(g2))){take=2}
+        }
+        if(take){
+          if(take===2){r.splits.push(t);r.sk.push(1);r.passed++;r.next++;ev.skipped=1}       // the skipped gate counts, at the same time as the one after it
+          const gi=T.gates[r.next];
+          ev.gate=gi.i;ev.perfect=q===2&&take===1;ev.mode=gi.mode;ev.finish=gi.finish;ev.t=t;
+          r.splits.push(t);r.sk.push(0);r.passed++;r.next++;r.gT=0;if(ev.perfect)r.perfect++;
+          if(gi.finish||r.next>=T.gates.length){r.finished=true;r.finishT=t;ev.finish=true}
         }
       }
     }
@@ -201,9 +210,10 @@ const Track=(()=>{
     const top=g.type==='air'||p.type==='air'?RALLY.fly.vmax*RALLY.fly.boostMul*1.05:RALLY.cls.comet.vmax*RALLY.cls.comet.boostMul*1.05+30;
     return Math.max(0,(Math.hypot(g.x-p.x,g.y-p.y,g.z-p.z)-g.r*g.loose-p.r*p.loose)/top);
   }
-  function plausible(T,r){for(let i=1;i<r.splits.length;i++)if(r.splits[i]-r.splits[i-1]<minTime(T,i)-.25)return false;return true}
-  // does this racer need rescuing? ('water': a grounded car in the sea; 'stuck': barely moving for 3 s; 'lost': far from every road for 5 s)
+  function plausible(T,r){for(let i=1;i<r.splits.length;i++){if(r.sk&&(r.sk[i-1]||r.sk[i]))continue;if(r.splits[i]-r.splits[i-1]<minTime(T,i)-.25)return false}return true}   // a skipped gate shares its time with the next one, so it is exempt
+  // does this racer need rescuing? ('water': a grounded car in the sea; 'stuck': barely moving for 3 s; 'lost': far from every road for 5 s, or no gate for 25 s)
   function needsRecovery(T,r,c,dt){
+    r.gT+=dt;if(r.gT>25&&!r.finished){r.gT=0;return 'lost'}     // no gate for 25 s (fell onto the wrong lap, wandered off): rescue to the last gate
     if(c.grounded&&c.mode==='car'){
       if(c.y<-.8)return 'water';
       r.stuckT=Math.hypot(c.vx,c.vz)<1.5?r.stuckT+dt:0;if(r.stuckT>3){r.stuckT=0;return 'stuck'}

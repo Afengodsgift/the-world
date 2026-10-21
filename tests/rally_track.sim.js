@@ -6,10 +6,10 @@ const ctx={Math,Object,Number,JSON,Array,isFinite,Map,Float32Array};vm.createCon
 vm.runInContext(['src/data/rally.js','src/race/CarPhysics.js','src/data/tracks.js','src/race/Track.js','src/race/Pilot.js'].map(f=>fs.readFileSync(R+f,'utf8')).join('\n')+';this.RL=RALLY;this.CP=CarPhysics;this.TR=TRACKS;this.Tk=Track;this.Pilot=Pilot',ctx);
 const {RL,CP,TR,Tk,Pilot}=ctx;
 let fails=0;const ok=(c,m)=>{if(!c){fails++;console.log('FAIL',m)}else console.log('ok  ',m)};
-// Replica of the game's terrain for the two islands involved (index.html H(): the ISL term; main-island terms are far below sea level out here)
-const ISL=[{x:760,z:1400,R:230,pk:0},{x:0,z:1750,R:180,pk:10}];
+// Replica of the game's terrain for the three islands involved (index.html H(): the ISL term; main-island terms are far below sea level out here)
+const ISL=[{x:760,z:1400,R:230,pk:0},{x:0,z:1750,R:180,pk:10},{x:-980,z:1450,R:300,pk:60}];
 const H=(x,z)=>{let h=-12;for(const I of ISL){const dx=x-I.x,dz=z-I.z,dd=Math.hypot(dx,dz),v=Math.max(-12,(1-(dd/I.R)**2)*4-.6)+Math.sin(x*.09)*Math.cos(z*.11)*.7+I.pk*Math.exp(-dd*dd/(2*(I.R*.35)**2));if(v>h)h=v}return h};
-const T=Tk.build(TR['palm-storm'],{H});
+const T=Tk.build(TR['skybreak-1'],{H});
 const PALM={x:760,z:1400},KT={hw:95,hh:65};
 const A=T.roads[0],B=T.roads[1],S=T.roads[2];
 
@@ -26,19 +26,34 @@ const A=T.roads[0],B=T.roads[1],S=T.roads[2];
   ok(minY>=.45-1e-6,`roads never dip below the waterline (min deck y ${minY.toFixed(2)})`);
   ok(minR>=12,`tightest bend has a ${minR.toFixed(1)} m centre-line radius (road is 16 m wide)`);
   ok(maxSl<=.62&&maxSl>.4,`steepest slope is the launch ramp: ${maxSl.toFixed(2)} (kit-ramp territory, not a wall)`);
+  { let mr=1e9,ms=0;for(const r of T.roads)for(let i=2;i<r.m-2;i++){const a=Math.atan2(r.TX[i+1],r.TZ[i+1])-Math.atan2(r.TX[i-1],r.TZ[i-1]),da=Math.abs(Math.atan2(Math.sin(a),Math.cos(a)));if(da>1e-6)mr=Math.min(mr,(r.S[i+1]-r.S[i-1])/da);ms=Math.max(ms,Math.abs(r.Y[i+1]-r.Y[i-1])/(r.S[i+1]-r.S[i-1]))}
+    ok(mr>=12&&ms<=.62,`across all five roads: tightest bend ${mr.toFixed(1)} m radius, steepest slope ${ms.toFixed(2)}`);
+    ok(T.roads.every(r=>{let m=1e9;for(let i=0;i<r.m;i++)m=Math.min(m,r.Y[i]);return m>=.45-1e-6}),'no road anywhere dips below the waterline');
+    const tot=T.roads.reduce((a,r)=>a+r.len,0);ok(tot>1900&&tot<2300,`${tot.toFixed(0)} m of road across three islands`)}
   ok(A.len>600&&A.len<750,`Palm ground course is ${A.len.toFixed(0)} m, plus ${B.len.toFixed(0)} m run-up/ramp`);
   const lipA=[A.X[A.m-1],A.Z[A.m-1]],b0=[B.X[0],B.Z[0]];
   ok(Math.abs(Math.hypot(lipA[0]-b0[0],lipA[1]-b0[1])-24)<1,'the kicker is a real 24 m gap between two roads');
   // no road runs through another one: samples far apart along a road are never closer than the road width
-  let overlap=0;const all=[];for(const r of [A,B])for(let i=0;i<r.m;i+=2)all.push([r.id,r.S[i],r.X[i],r.Z[i]]);
-  for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){const a=all[i],b=all[j];if(a[0]===b[0]&&Math.abs(a[1]-b[1])<50)continue;if(a[0]!==b[0]&&((a[0]==='palm-a'&&a[1]>600&&b[1]<30)))continue;if(Math.hypot(a[2]-b[2],a[3]-b[3])<20)overlap++}
+  let overlap=0;const all=[];for(const r of T.roads)for(let i=0;i<r.m;i+=2)all.push([r.id,r.S[i],r.X[i],r.Z[i],r.W[i]]);
+  for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){const a=all[i],b=all[j];if(a[0]===b[0]&&Math.abs(a[1]-b[1])<50)continue;if(a[0]!==b[0]){const ia=T.roads.findIndex(r=>r.id===a[0]),ib=T.roads.findIndex(r=>r.id===b[0]),ra=T.roads[ia],rb=T.roads[ib];if(Math.abs(ia-ib)===1&&((ia<ib&&a[1]>ra.len-45&&b[1]<45)||(ib<ia&&b[1]>rb.len-45&&a[1]<45)))continue}   // consecutive roads meet across a kicker gap: that is the point
+    if(Math.hypot(a[2]-b[2],a[3]-b[3])<(a[0]===b[0]?20:(a[4]+b[4])/2+2))overlap++}
   ok(overlap===0,'no stretch of road passes within 20 m of a different stretch (no accidental crossings)');
-  // the sky leg points at the strip it lands on
-  const g8=T.gates[8],last=T.gates[13],tgt=T.landingTarget;
-  const ang=Math.atan2(tgt.x-g8.x,tgt.z-g8.z),ramp=Math.atan2(B.TX[B.m-1],B.TZ[B.m-1]);
-  ok(Math.abs(Math.atan2(Math.sin(ang-ramp),Math.cos(ang-ramp)))<.08,'the launch ramp heading points at the Storm Cay landing strip');
-  ok(T.landOK(tgt.x,tgt.z)&&!T.landOK(0,0),'landing zone covers the touchdown strip and nothing else');
-  ok(Math.abs(last.y-20)<1&&T.gates.slice(9,14).every(g=>g.type==='air'),'five aerial rings on a rising-then-gliding arc');
+  // every authored reference resolved (a bad control-point index would silently become NaN)
+  ok(T.gates.length===32&&T.gates.every(g=>[g.x,g.y,g.z,g.nx,g.nz].every(isFinite)),'all 32 gates resolve to real positions');
+  ok(T.pads.every(p=>[p.x,p.y,p.z].every(isFinite))&&T.hazards.every(h=>[h.x,h.y,h.z].every(isFinite)),'every boost pad and hammer resolves to a real position');
+  // the launch ramps aim at the first ring of their flight; each flight ends in a landing zone
+  const lips=T.gates.map((g,i)=>[g,i]).filter(([g])=>g.k==='lip'),tds=T.gates.map((g,i)=>[g,i]).filter(([g])=>g.k==='touchdown');
+  ok(lips.length===2&&tds.length===2,'two flights: two launch lips, two touchdowns');
+  for(const [g,i] of lips){const rd=T.roads[g.road],ramp=Math.atan2(rd.TX[rd.m-1],rd.TZ[rd.m-1]),ring=T.gates[i+1],ang=Math.atan2(ring.x-g.x,ring.z-g.z);
+    ok(Math.abs(Tk.wrap(ang-ramp))<.6&&ring.y>g.y,`lip ${i}: the ramp heading is within ${(Math.abs(Tk.wrap(ang-ramp))*57.3).toFixed(0)} deg of the first ring, which is higher than the lip`)}
+  for(const [g,i] of tds)ok(T.landOK(g.x,g.z)&&!T.landOK(0,0),`touchdown ${i} is inside a landing zone (and the world origin is not)`);
+  ok(T.gates.slice(9,14).concat(T.gates.slice(19,24)).every(g=>g.type==='air'),'two sets of five aerial rings');
+  // the sky legs: ring spacing is sane and the last ring of each leg is a shallow glide to the strip
+  for(const [a,b] of [[9,14],[19,24]]){let mx=0,mn=1e9;for(let i=a;i<b;i++){const d=Math.hypot(T.gates[i+1].x-T.gates[i].x,T.gates[i+1].z-T.gates[i].z);mx=Math.max(mx,d);mn=Math.min(mn,d)}
+    const last=T.gates[b-1],td=T.gates[b],gl=Math.atan2(last.y-T.ground(td.x,td.z,1e4),Math.hypot(td.x-last.x,td.z-last.z));
+    ok(mn>70&&mx<220&&gl<.3,`flight ${a}: rings ${mn.toFixed(0)}-${mx.toFixed(0)} m apart, final glide ${(gl*57.3).toFixed(0)} deg`)}
+  const fr=T.roads[3],fb=T.roads[4];ok(Math.abs(Math.hypot(fr.X[fr.m-1]-fb.X[0],fr.Z[fr.m-1]-fb.Z[0])-24)<2,'Frost also has a real 24 m kicker gap');
+  ok(fb.Y[fb.m-1]>35,`the Frost finish is on the mountain (${fb.Y[fb.m-1].toFixed(0)} m above the sea)`);
 }
 // ---------- 2. surface ----------
 {
@@ -74,6 +89,15 @@ const A=T.roads[0],B=T.roads[1],S=T.roads[2];
   ok(r4.passed===1&&!e.perfect,'a near miss (inside 1.5x radius) still progresses but is not perfect');
   const r5=Tk.racer(),o3=q.r*3;Tk.advance(T,r5,q.x-q.nx*3+(-q.nz)*o3,q.y,q.z-q.nz*3+q.nx*o3,0);e=Tk.advance(T,r5,q.x+q.nx*3+(-q.nz)*o3,q.y,q.z+q.nz*3+q.nx*o3,.1);
   ok(r5.passed===0,'a wide miss (3x radius) does not count: you have to go back');
+  // skip tolerance: miss ordinary gate 2 by 40 m but pass gate 3 -> both count; never for the start, lips, touchdowns
+  { const rs=Tk.racer();rs.next=2;rs.passed=2;const g2=T.gates[2],g3=T.gates[3];
+    Tk.advance(T,rs,g3.x-g3.nx*10,g3.y,g3.z-g3.nz*10,5);const e3=Tk.advance(T,rs,g3.x+g3.nx*10,g3.y,g3.z+g3.nz*10,5.4);
+    ok(rs.passed===4&&rs.next===4&&e3.gate===3&&rs.splits.length===2&&rs.sk[0]===1,'missing an ordinary gate but passing the next one counts both (skip tolerance)');
+    const rl=Tk.racer();rl.next=8;rl.passed=8;const l9=T.gates[9];Tk.advance(T,rl,l9.x-l9.nx*10,l9.y,l9.z-l9.nz*10,5);Tk.advance(T,rl,l9.x+l9.nx*10,l9.y,l9.z+l9.nz*10,5.4);
+    ok(rl.passed===8,'but the launch lip can never be skipped (the transformation happens there)');
+    const rt=Tk.racer();rt.next=14;rt.passed=14;const t15=T.gates[15];Tk.advance(T,rt,t15.x-t15.nx*10,t15.y,t15.z-t15.nz*10,5);Tk.advance(T,rt,t15.x+t15.nx*10,t15.y,t15.z+t15.nz*10,5.4);
+    ok(rt.passed===14,'nor a touchdown');
+    ok(Tk.plausible(T,rs),'a skipped gate does not trip the host plausibility check') }
   // aerial ring: height matters (flying 40 m under it is a miss)
   const ring=T.gates[10],r6=Tk.racer();r6.next=10;r6.passed=10;Tk.advance(T,r6,ring.x-ring.nx*10,ring.y-40,ring.z-ring.nz*10,0);Tk.advance(T,r6,ring.x+ring.nx*10,ring.y-40,ring.z+ring.nz*10,.2);
   ok(r6.passed===10,'flying 40 m below a ring is a miss');
@@ -123,14 +147,14 @@ function race(skill,t0,cls,seed){
   const slots=T.gridSlots(12),s=slots[seed%12];
   const env={ground:T.ground,surf:T.surf,landOK:T.landOK};
   const car=CP.newCar(s.x,s.z,s.h,cls||'ace',env),r=Tk.racer(),p=Pilot.make(T,skill,seed+1),inp={};
-  const o={finished:false,time:0,gates:0,perfect:0,hits:0,bumps:0,rec:0,launchVy:0,toFly:0,landedAt:null,maxSpeed:0,offRoadT:0,minGap:1e9,flew:false,modeAtFinish:null,airT:0,order:true,lastGate:-1};
+  const o={finished:false,time:0,gates:0,perfect:0,hits:0,bumps:0,rec:0,launchVy:0,toFly:0,landings:[],maxSpeed:0,offRoadT:0,minGap:1e9,flew:false,modeAtFinish:null,airT:0,order:true,lastGate:-1};
   const DT=1/60;let t=t0,hitCd=0;
   for(let i=0;i<60*200;i++){
     Pilot.drive(p,car,r,t,DT,inp);
-    const ev=CP.step(car,inp,DT,env);
+    const wasFly=car.mode==='fly',ev=CP.step(car,inp,DT,env);
     if(ev.launch&&car.mode==='car')o.launchVy=Math.max(o.launchVy,car.vy);
     if(ev.bump>10)o.bumps++;
-    if(ev.land&&o.flew&&o.landedAt===null)o.landedAt={t:t-t0,x:car.x,z:car.z,imp:ev.land,mode:car.mode,landOK:T.landOK(car.x,car.z)};
+    if(wasFly&&car.mode==='car'&&ev.land)o.landings.push({t:t-t0,x:car.x,z:car.z,imp:ev.land,landOK:T.landOK(car.x,car.z)});
     if(car.mode==='car'&&car.grounded&&T.padAt(car.x,car.y,car.z)>=0)CP.pad(car,1.4);
     hitCd-=DT;if(car.mode==='car'&&car.grounded&&hitCd<=0&&T.hitHazard(car.x,car.y,car.z,t,1.65)>=0){o.hits++;hitCd=1;car.vx*=.4;car.vz*=.4}
     const e=Tk.advance(T,r,car.x,car.y,car.z,t);
@@ -149,21 +173,21 @@ function race(skill,t0,cls,seed){
     console.log(`     [${sk}] ${o.finished?'finished':'DID NOT FINISH'} in ${o.time.toFixed(1)} s, gates ${o.gates}/${T.gates.length}, perfect ${o.perfect}, hammer hits ${o.hits}, wall bumps ${o.bumps}, recoveries ${o.rec}, launch vy ${o.launchVy.toFixed(1)}, air time ${o.airT.toFixed(1)} s, top speed ${o.maxSpeed.toFixed(0)}`)}
   const ex=res.expert,st=res.steady,rk=res.rookie;
   ok(ex.finished&&st.finished&&rk.finished,'every skill level completes the whole route: grid to finish across the sea');
-  ok(ex.gates===T.gates.length&&ex.order,'all 16 gates passed, strictly in order (ground, ramp lip, 5 rings, touchdown, finish)');
-  ok(ex.toFly===1&&ex.flew,'transformed to flight exactly once, at the launch lip');
+  ok(ex.gates===T.gates.length&&ex.order,`all ${T.gates.length} gates passed, strictly in order (3 islands, 2 ramps, 10 rings, 2 touchdowns, finish)`);
+  ok(ex.toFly===2&&ex.flew,'transformed to flight exactly twice, once at each launch lip');
   ok(ex.launchVy>14,`the ramp throws the car skyward (climb rate ${ex.launchVy.toFixed(1)} m/s at the lip)`);
-  ok(ex.landedAt&&ex.landedAt.landOK&&ex.landedAt.mode==='car','touched down inside the landing zone and became a car again');
+  ok(ex.landings.length===2&&ex.landings.every(l=>l.landOK),`both flights touched down inside their landing zones and became cars again (impacts ${ex.landings.map(l=>l.imp.toFixed(0)).join(', ')} m/s)`);
   ok(ex.modeAtFinish==='car','finished on the ground, in car mode');
-  ok(ex.airT>6&&ex.airT<25,`the sky section is a real flight: ${ex.airT.toFixed(1)} s in the air`);
+  ok(ex.airT>12&&ex.airT<40,`the sky sections are real flights: ${ex.airT.toFixed(1)} s in the air`);
   ok(ex.rec===0&&st.rec===0&&rk.rec===0,'nobody needed rescuing (no water, no stuck, no lost)');
   ok(ex.time<st.time&&st.time<rk.time,`skill matters: expert ${ex.time.toFixed(0)} s < steady ${st.time.toFixed(0)} s < rookie ${rk.time.toFixed(0)} s (no cheating speed)`);
   ok(rk.time/ex.time<1.6,'the easy driver is beatable but not absurdly slow (within 1.6x of the expert)');
-  ok(ex.perfect>=3,`the expert threads most rings (${ex.perfect} perfect passes)`);
+  ok(ex.perfect>=T.gates.length*.7,`the expert threads most gates (${ex.perfect}/${T.gates.length} perfect)`);
   ok(Tk.plausible(T,ex.racer)&&Tk.plausible(T,rk.racer),'the host referee accepts honest split times');
   // hammer timing: start the race at different moments of the hammer cycle; the pilot must read them rather than get lucky
   let hits=0,fin=0,n=0;for(const t0 of [0,.4,.8,1.2,1.6,2,2.4,2.8]){const o=race('expert',t0,'ace',1);n++;hits+=o.hits;if(o.finished)fin++}
   ok(fin===n,`finishes from every hammer phase (${fin}/${n})`);
-  ok(hits<=3,`reads the swinging hammers: ${hits} clips over ${n} stress runs (occasional recoverable mistakes are intended AI behaviour)`);
+  ok(hits<=5,`reads the four swinging hammers: ${hits} clips over ${n} stress runs (occasional recoverable mistakes are intended AI behaviour)`);
   // other classes and grid slots work too
   const cm=race('expert',0,'comet',3),br=race('steady',0,'bruiser',7);
   console.log(`     [comet/expert] ${cm.time.toFixed(1)} s   [bruiser/steady] ${br.time.toFixed(1)} s`);
