@@ -284,7 +284,7 @@ const PlayerCombat=(()=>{
   const pool={};     // foe type id -> [body]  (reused between fights; hidden when free)
   function attachSword(av,file,len,slot,fixed){
     const u=av&&av.userData;if(!u||!u.bones||!u.bones.RightHand||!THREE.GLTFLoader)return null;const st={ready:false,grip:null,hand:u.bones.RightHand,len:slot.len,want:len,av,fixed};
-    new THREE.GLTFLoader().load('assets/'+(file.indexOf('/')>=0?file:'warden/'+file),g=>{if(st.dead)return;const grip=new THREE.Group(),m=g.scene;m.traverse(o=>{if(o.isMesh){o.castShadow=false;o.frustumCulled=false}});grip.add(m);st.hand.add(grip);st.grip=grip;st.ready=true;setGrip(st);grip.visible=on},()=>{},()=>{slot.tried=false});
+    const go=n=>new THREE.GLTFLoader().load('assets/'+(file.indexOf('/')>=0?file:'warden/'+file),g=>{if(st.dead)return;const grip=new THREE.Group(),m=g.scene;m.traverse(o=>{if(o.isMesh){o.castShadow=false;o.frustumCulled=false}});grip.add(m);st.hand.add(grip);st.grip=grip;st.ready=true;setGrip(st);grip.visible=on},()=>{},()=>{if(n>0&&!st.dead)setTimeout(()=>go(n-1),1500*(4-n));else slot.tried=false});go(3);
     return st}
   function setGrip(st,g){
     if(!st||!st.grip)return;g=g||GRIP;const hand=st.hand,ws=new THREE.Vector3();st.av.updateMatrixWorld(true);hand.getWorldScale(ws);st.grip.scale.setScalar(st.want/(st.len*ws.x));
@@ -303,11 +303,11 @@ const PlayerCombat=(()=>{
     if(T.body==='avatar'&&T.tint!==undefined&&T.tint!==1)b.u.model.traverse(c=>{if(c.isSkinnedMesh&&c.material&&c.material.color){c.material.userData.c0=c.material.color.clone();c.material.color.copy(c.material.userData.c0).multiply(new THREE.Color(T.tint,T.tint*(T.tint<1?.7:1),T.tint*(T.tint<1?.75:1)))}});
     if(T.sword&&!b.sword)b.sword=attachSword(b.g,T.sword.f,T.sword.len,{len:T.sword.l0,set tried(v){}},T.grip);
     if(T.shield&&!b.shield)attachShield(b)}
-  function glbLoad(b,T){
-    fetch('assets/warden/'+(b.file||T.file)+'.glb').then(r=>r.arrayBuffer()).then(buf=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(buf,'assets/warden/',res,rej))).then(gl=>{
+  function glbLoad(b,T,n){n=n===undefined?3:n;   // a failed download is retried (3 times, growing gaps): one dropped request must not leave a boss or guard invisible for the whole session
+    fetch('assets/warden/'+(b.file||T.file)+'.glb').then(r=>{if(!r.ok)throw new Error('http '+r.status);return r.arrayBuffer()}).then(buf=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(buf,'assets/warden/',res,rej))).then(gl=>{
       const m=new THREE.Group();m.scale.setScalar(.01);m.add(gl.scene);b.g.add(m);const bones={},seen=new Set();
       gl.scene.traverse(o=>{if(o.isBone)bones[o.name.replace('mixamorig','')]=o;if(o.isSkinnedMesh){o.frustumCulled=false;o.castShadow=true;for(const mt of [].concat(o.material))if(!seen.has(mt)){seen.add(mt);if(T.bright)mt.color.multiplyScalar(T.bright)}}});
-      b.u.mixer=new THREE.AnimationMixer(gl.scene);b.u.bones=bones;b.u.model=gl.scene;b.ready=true}).catch(e=>{b.err=String(e&&e.message||e)})}
+      b.u.mixer=new THREE.AnimationMixer(gl.scene);b.u.bones=bones;b.u.model=gl.scene;b.ready=true}).catch(e=>{b.err=String(e&&e.message||e);if(n>0)setTimeout(()=>{if(!b.ready){b.err=null;glbLoad(b,T,n-1)}},1500*(4-n))})}
   function body(T,v){
     const key=T.id+(T.files?':'+(v%T.files.length):''),L=pool[key]||(pool[key]=[]),f=L.find(b=>!b.used);if(f){f.used=true;f.g.visible=true;return f}
     const b={T,used:true,anims:{},sword:null,shield:null,styled:false,ready:false,flashOn:false,file:T.files?T.files[v%T.files.length]:T.file};
