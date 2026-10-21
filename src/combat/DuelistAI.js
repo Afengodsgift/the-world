@@ -17,7 +17,7 @@ const DuelistAI=(()=>{
   function think(A,P,D,evs,tick){
     const out={face:Math.atan2(P.x-D.x,P.z-D.z),mx:0,mz:0,list:[]};A.t++;
     if(!A.on||D.act==='dead'||P.act==='dead')return out;
-    const dx=P.x-D.x,dz=P.z-D.z,rawD=Math.hypot(dx,dz),dist=rawD/(D.rm||1),ux=dx/(rawD||1),uz=dz/(rawD||1),st=A.foe,H=st==='hollow'||st==='beast',KN=st==='knight',DA=st==='dancer',SO=st==='soldier',AR=st==='archer';
+    const dx=P.x-D.x,dz=P.z-D.z,rawD=Math.hypot(dx,dz),dist=rawD/(D.rm||1),ux=dx/(rawD||1),uz=dz/(rawD||1),st=A.foe,H=st==='hollow'||st==='beast',BK=st==='blackknight',KN=st==='knight'||BK,DA=st==='dancer',SO=st==='soldier',AR=st==='archer';
     // what the player visibly does now, and how long we have been seeing it (a human reaction delay)
     const k=key(P);if(k!==A.seenKey){A.seenKey=k;A.see=0}else A.see++;
     A.gP=P.guard&&P.act==='free'?A.gP+1:0;if(A.cool>0)A.cool--;if(A.gcool>0)A.gcool--;if(A.rip>1)A.rip--;if(A.breath>0)A.breath--;
@@ -45,7 +45,7 @@ const DuelistAI=(()=>{
     if(!H&&!KN&&!SO&&A.rip===1&&dist<REACH.riposte+.3){A.rip=0;return start(A,out,'riposte',0,tick)}
     // defence (Duelist): after reacting to a visible heavy charge / wind-up at close range, sometimes guard it
     // the Knight's shield wall (phase 1 only: at half health the shield is gone): raise it against a visible attack, or just sit behind it for a while
-    if(KN&&!A.ph2&&A.gcool<=0&&dist<3.6&&((k==='astartup'||k==='charge')&&A.see>=REACT-4||k==='free'&&A.r()<.006)){A.guardT=45+Math.floor(A.r()*40);out.list.push({t:'guardDown',e:tick});out.mx=out.mz=0;return out}
+    if(KN&&!BK&&!A.ph2&&A.gcool<=0&&dist<3.6&&((k==='astartup'||k==='charge')&&A.see>=REACT-4||k==='free'&&A.r()<.006)){A.guardT=45+Math.floor(A.r()*40);out.list.push({t:'guardDown',e:tick});out.mx=out.mz=0;return out}
     if(!H&&!KN&&!DA&&!SO&&A.cool<=6&&dist<2.8&&(k==='charge'||k==='astartup')&&A.see>=REACT&&A.r()<.012*A.see){A.guardT=40+Math.floor(A.r()*25);out.list.push({t:'guardDown',e:tick});out.mx=out.mz=0;return out}
     if(A.cool>0||k==='dodge')return out;              // resting, or the player is mid-dodge: wait for them to land
     if(A.noAtk)return out;                            // someone else holds the attack token: keep circling
@@ -57,6 +57,7 @@ const DuelistAI=(()=>{
     if(dist>=lo&&dist<=hi&&A.last[A.last.length-1]!==gc){A.closeP+=A.ph2?.05:.03;if(A.r()<A.closeP){A.closeP=0;return start(A,out,gc,0,tick)}}
     if(dist<lo)A.closeP=0;
     if(H)return hollow(A,P,D,out,tick,dist,k);
+    if(BK)return blackknight(A,P,D,out,tick,dist,k);
     if(KN)return knight(A,P,D,out,tick,dist,k);
     if(A.mood==='evasive'&&dist<2.4&&k!=='arecovery'&&k!=='stun'&&A.gP<=30){out.mx=-ux*.8;out.mz=-uz*.8;return out}   // baiting: back off to thrust range instead of trading
     if(dist>REACH.thrust+.2)return out;              // too far to do anything but close in
@@ -93,6 +94,17 @@ const DuelistAI=(()=>{
     if((k==='arecovery'||k==='stun')&&A.see>=REACT){w.cut+=4;w.twin+=2.5;w.fall*=.4}              // a visibly recovering player is punished
     if(A.ph2){w.twin+=1.5;w.fall+=1;if(dist<3.6)w.quake=1.4}
     if(dist>2.7){w.cut=0;w.twin=0;w.bash=0;w.fall*=.5}else if(dist<1.7){w.thrust=.2}
+    return choose(A,out,w,dist,tick,Object.assign({},REACH,HR))}
+  // The Black Knight: no shield, a relentless blade. Combos that end in a low sweep or a spin, a hammer blow on turtles, a riposte on anything he blocks, dash openers; in phase 2 the leap and the quake join and he rests less.
+  function blackknight(A,P,D,out,tick,dist,k){
+    const L0=A.last[A.last.length-1];
+    if(A.ph2&&L0!=='leap'&&dist>=3.6&&dist<=7&&A.r()<.06)return start(A,out,'leap',0,tick);
+    if(dist>REACH.thrust+.2)return out;
+    const w={cut:3,twin:2.4,thrust:1.4,spin:1.1,lowsweep:1.5,riposte:.5,fall:.8};
+    if(A.gP>20){w.hammer=4.5;w.bash=2.5;w.lowsweep+=2;w.cut*=.3;w.twin*=.4;w.spin*=.5}                       // you turtle: the hammer blow cracks guards, the low sweep ignores them
+    if((k==='arecovery'||k==='stun')&&A.see>=REACT){w.cut+=4;w.twin+=3;w.spin*=.3;w.lowsweep*=.4}             // a recovering player is punished with the fast combos
+    if(A.ph2){w.spin+=1.6;w.twin+=1.4;w.fall+=1;w.hammer=(w.hammer||0)+1;if(dist<3.6)w.quake=1.2}
+    if(dist>2.7){w.cut=0;w.twin=0;w.bash=0;w.riposte=0;w.spin=0;w.hammer=0;w.fall*=.5}else if(dist<1.7){w.thrust=.2;w.lowsweep*=.6}
     return choose(A,out,w,dist,tick,Object.assign({},REACH,HR))}
   // The Cinder Dancer: keeps ~4 m away and casts, closes with a flip-kick gap closer, and trades combos only when you are inside her space.
   function dancer(A,P,D,out,tick,dist,k){

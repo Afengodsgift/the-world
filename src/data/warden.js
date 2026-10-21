@@ -20,6 +20,7 @@ const WARDEN={
     {id:'maw',n:'The Maw',x:75,z:-140,R:24,y:2.5,fog:true,foes:[{t:'maw',dx:0,dz:-7}]},
     {id:'den',n:"The Bear's Den",x:-115,z:60,R:20,y:2.5,fog:true,foes:[{t:'bear',dx:0,dz:-6}]},
     {id:'ridgeshot',n:'The Huntress Ridge',x:-20,z:-175,R:26,y:2.0,fog:true,foes:[{t:'archer',dx:0,dz:-9}]},
+    {id:'blackgate',n:"The Black Knight's Gate",x:-128,z:-28,R:22,y:2.5,fog:true,foes:[{t:'darkknight',dx:0,dz:-7}]},
     {id:'arena',n:'The Ashen Arena',x:60,z:105,R:26,y:2.5,fog:false,duel:true,foes:[{t:'shade',dx:0,dz:-9}]},
     {id:'camp3',n:'The Drowned Camp',x:-100,z:15,R:16,y:2.5,fog:false,foes:[{t:'soldier',dx:-4,dz:-2},{t:'soldier',dx:4,dz:-2},{t:'soldier',dx:0,dz:-6}]},
     {id:'camp4',n:'The Ember Camp',x:100,z:60,R:16,y:2.5,fog:false,foes:[{t:'soldier',dx:-4,dz:-2},{t:'soldier',dx:4,dz:-2},{t:'soldier',dx:0,dz:-6}]},
@@ -55,14 +56,14 @@ function WardenProps(){
   // ruined pillar groves around the walls
   for(let i=0,n=0;n<10&&i<400;i++){const d=44+r()*60,an=r()*Math.PI*2,wx=Math.sin(an)*d,wz=Math.cos(an)*d;if(!ok(wx,wz,.9))continue;put(pick(PIL),wx,wz,2.2+r()*2.2,{tilt:.35,sink:-.3});n++}
   // dead woods, clumped by a cheap value-noise so it reads as stands of trees, not a grid
-  for(let i=0,n=0;n<50&&i<3000;i++){const d=44+r()*150,an=r()*Math.PI*2,wx=Math.sin(an)*d,wz=Math.cos(an)*d;if(!ok(wx,wz,.9)||WardenH(wx,wz)>9)continue;
+  for(let i=0,n=0;n<40&&i<3000;i++){const d=44+r()*150,an=r()*Math.PI*2,wx=Math.sin(an)*d,wz=Math.cos(an)*d;if(!ok(wx,wz,.9)||WardenH(wx,wz)>9)continue;
     const q=Math.sin(wx*.045+1.3)*Math.cos(wz*.05)+Math.sin((wx+wz)*.03);if(q<.1&&r()<.85)continue;put(pick(TRE),wx,wz,1.5+r()*1.4,{tilt:.12,sink:-.1});n++}
   // boulders and rock falls, thicker in the crags
-  for(let i=0,n=0;n<44&&i<2500;i++){const d=40+r()*165,an=r()*Math.PI*2,wx=Math.sin(an)*d,wz=Math.cos(an)*d;if(!ok(wx,wz,.7))continue;put(pick(BLD),wx,wz,1.2+r()*2.6+(WardenH(wx,wz)>5?1.2:0),{tilt:.3,sink:-.15});n++}
+  for(let i=0,n=0;n<36&&i<2500;i++){const d=40+r()*165,an=r()*Math.PI*2,wx=Math.sin(an)*d,wz=Math.cos(an)*d;if(!ok(wx,wz,.7))continue;put(pick(BLD),wx,wz,1.2+r()*2.6+(WardenH(wx,wz)>5?1.2:0),{tilt:.3,sink:-.15});n++}
   // far mountains on the landward rim, none across the south (landing beach side)
   for(let i=0,n=0;n<9&&i<400;i++){const d=150+r()*40,an=r()*Math.PI*2,wx=Math.sin(an)*d,wz=Math.cos(an)*d;if(wz>60||WardenH(wx,wz)<1.2)continue;put(pick(MTN),wx,wz,5.5+r()*4,{sink:-2.5});n++}
   // each boss site is a PLACE: a broken ring of landmarks just outside the fight circle, themed per site (ruin pillars / boulders / dead woods), with a gap where the fog gate faces the island centre
-  const THEME={cathedral:{l:PIL,n:10,s:3.6,v:1.6,tilt:.2},brokengate:{l:PIL,n:8,s:3.0,v:1.2,tilt:.4},ridgeshot:{l:PIL,n:7,s:2.8,v:1.2,tilt:.3},maw:{l:BLD,n:9,s:3.4,v:2.2,tilt:.4},hollowkeep:{l:BLD,n:8,s:3.0,v:2,tilt:.4},den:{l:TRE,n:10,s:2.1,v:.9,tilt:.12},glade:{l:TRE,n:9,s:1.9,v:.8,tilt:.12}};
+  const THEME={blackgate:{l:PIL,n:9,s:3.2,v:1.4,tilt:.3},cathedral:{l:PIL,n:10,s:3.6,v:1.6,tilt:.2},brokengate:{l:PIL,n:8,s:3.0,v:1.2,tilt:.4},ridgeshot:{l:PIL,n:7,s:2.8,v:1.2,tilt:.3},maw:{l:BLD,n:9,s:3.4,v:2.2,tilt:.4},hollowkeep:{l:BLD,n:8,s:3.0,v:2,tilt:.4},den:{l:TRE,n:10,s:2.1,v:.9,tilt:.12},glade:{l:TRE,n:9,s:1.9,v:.8,tilt:.12}};
   for(const q of W.sites){if(!q.fog)continue;const th=THEME[q.id]||{l:PIL,n:8,s:2.6,v:1.2,tilt:.3},gate=Math.atan2(-q.x,-q.z);
     for(let i=0;i<th.n;i++){const an=i/th.n*Math.PI*2+(r()-.5)*.25;if(Math.abs(Math.atan2(Math.sin(an-gate),Math.cos(an-gate)))<.3)continue;
       const d=q.R+2+r()*3,wx=q.x+Math.sin(an)*d,wz=q.z+Math.cos(an)*d;if(WardenH(wx,wz)<.5)continue;put(pick(th.l),wx,wz,th.s+r()*th.v,{tilt:th.tilt,sink:-.25})}}

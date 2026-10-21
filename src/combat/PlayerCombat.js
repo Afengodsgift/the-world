@@ -320,7 +320,7 @@ const PlayerCombat=(()=>{
     for(const F of foes)freeBody(F.body);foes=[];byId={};
     const ids=Foes.ids(site.foes.length);
     site.foes.forEach((def,i)=>{
-      const T=site.duel&&DU.pair?duelT():Foes.TYPES[def.t],id=ids[i],hum=!!T.human,Ld=hum?duelSide():0,f=C.F[id]=CombatCore.mkFighter(id,{x:WRD.x+site.x+(hum?0:def.dx),z:WRD.z+site.z+(hum?-9*Ld:def.dz),face:hum&&Ld<0?0:Math.PI,hp:hum?100:Math.round(T.hp*foeMul().hp),team:'e',sa:!hum&&(T.sa||WardenProg.cycleMul().sa)?1:0,dm:hum?1:(T.dm||1)*foeMul().dm,rm:T.rm||1});
+      const T=site.duel&&DU.pair?duelT():Foes.TYPES[def.t],id=ids[i],hum=!!T.human,Ld=hum?duelSide():0,f=C.F[id]=CombatCore.mkFighter(id,{x:WRD.x+site.x+(hum?0:def.dx),z:WRD.z+site.z+(hum?-9*Ld:def.dz),face:hum&&Ld<0?0:Math.PI,hp:hum?100:Math.round(T.hp*foeMul().hp),team:'e',sa:!hum&&(T.sa||WardenProg.cycleMul().sa)?1:0,dm:hum?1:(T.dm||1)*foeMul().dm,rm:T.rm||1,pg:!hum&&T.boss?.5:0});
       if(!C.order.includes(id))C.order.push(id);f.r=T.r;f.spd=(T.spd||1.3)*WardenProg.cycleMul().spd;
       const b=body(T,i);b.g.scale.setScalar(T.scale);b.g.position.set(f.x,H(f.x,f.z),f.z);b.g.rotation.y=f.face;
       if(b.u.mixer&&typeof emoStop==='function'&&T.body==='avatar')emoStop(b.u);
@@ -377,6 +377,7 @@ const PlayerCombat=(()=>{
       else if(e.t==='deflect'){sfx('clash',.52,1.4,()=>tone(1500,900,.18,'sine',.09));msg(T?'':'DEFLECTED',.5)}
       else if(e.t==='posturebreak'&&T){if(T.T.boss)msg('POSTURE BROKEN');sfx('heavy',.8,1.1,()=>tone(500,120,.3,'sawtooth',.12))}
       else if(e.t==='posturebreak'&&e.d==='P'){msg('POSTURE BROKEN',.8);sfx('heavy',.9,.8,()=>tone(300,90,.3,'sawtooth',.12))}
+      else if(e.t==='phase'&&T){T.flash=1.2;sfx('heavy',.8,.5,()=>tone(90,50,.5,'sawtooth',.16))}
       else if(e.t==='guardbreak'){sfx('heavy',.9,.85,()=>tone(250,70,.3,'sawtooth',.14));if(e.d==='P')msg('GUARD BROKEN',.8)}
       else if(e.t==='dead'&&T){if(!T.human&&!site.duel)flaskDrop(T.T);sfx('heavy',.7,.7,()=>tone(200,40,.5,'sawtooth',.14));if(T.body.T.body==='avatar')T.body.u.emoteReq='playdead';if(T.T.boss){CineCam.play('death',{x:T.f.x,z:T.f.z,h:1.2*T.T.scale,sc:Math.max(1,T.T.scale*.9)},{id:T.T.id});msg(T.T.name.toUpperCase()+' IS FELLED',3);setTimeout(()=>WardenSfx.play(hurt?'vo_winner':'vo_flawless_victory',.8,1,{nojit:1}),700)}
         if(lock&&lockI===T.i){const n=nearest();if(n&&n!==T)lockI=n.i;else{lock=false;el.querySelector('#wLock').classList.remove('on')}}
