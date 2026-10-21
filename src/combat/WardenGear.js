@@ -9,7 +9,17 @@ const WardenGear=(()=>{
     cutlass:{n:'Cutlass',role:'player',file:'pirates/sword_002.glb',l0:1.85,want:.95,dm:.9,rm:1,sm:.75,pm:.9,flow:1.3,d:'Light and cheap: swing more, Flow builds faster'},
     longsword:{n:'Longsword',role:'player',file:'pirates/sword_001.glb',l0:1.94,want:1.15,dm:1,rm:1.12,sm:1,pm:1,d:'Longer reach'},
     claymore:{n:'Claymore',role:'player_gs',file:'warden/sword_claymore.glb',l0:6.6,want:1.55,dm:1.3,rm:1.08,sm:1.25,pm:1.1,d:'Heavy hits, hungry for stamina'},
-    axe:{n:'Hand Axe',role:'player_axe',file:'pirates/axe.glb',l0:.95,want:.8,dm:1.2,rm:.94,sm:1.3,pm:1.5,d:'Shatters posture'}};
+    axe:{n:'Hand Axe',role:'player_axe',file:'pirates/axe.glb',l0:.95,want:.8,dm:1.2,rm:.94,sm:1.3,pm:1.5,d:'Shatters posture'},
+    // baked from the uploaded packs by tools/bake_weapons.mjs: normalised to length 1 (grip 12% up), so l0 is 1 and want is the whole length in metres
+    katana:{n:'Katana',role:'player',file:'warden/w_katana.glb',l0:1,want:1.15,dm:.95,rm:1.05,sm:.8,pm:.85,flow:1.4,d:'Swift: cheap swings, Flow builds fast'},
+    sunblade:{n:'Sunblade',role:'player',file:'warden/w_sunblade.glb',l0:1,want:1.3,dm:1.1,rm:1.15,sm:1.05,pm:1,d:'Long gilded blade'},
+    saber:{n:'Saber',role:'player',file:'warden/w_saber.glb',l0:1,want:1.2,dm:.95,rm:1.08,sm:.85,pm:.95,flow:1.15,d:'Light and wide-reaching'},
+    emberbrand:{n:'Emberbrand',role:'player',file:'warden/w_emberbrand.glb',l0:1,want:1.25,dm:1.05,rm:1.05,sm:1,pm:1,flow:1.25,d:'Flame-forged: Flow builds faster'},
+    bloodrender:{n:'Bloodrender',role:'player',file:'warden/w_bloodrender.glb',l0:1,want:1.3,dm:1.2,rm:1.05,sm:1.15,pm:1.1,d:'Hits hard, drinks stamina'},
+    knight:{n:'Dread Sword',role:'player',file:'warden/w_knight.glb',l0:1,want:1.05,dm:1.1,rm:1,sm:1,pm:1.15,d:'Wicked and balanced; breaks posture'},
+    wingblade:{n:'Wingblade',role:'player_gs',file:'warden/w_wingblade.glb',l0:1,want:1.75,dm:1.4,rm:1.12,sm:1.35,pm:1.15,d:'A great blade: slow, brutal'},
+    waraxe:{n:'War Axe',role:'player_axe',file:'warden/w_waraxe.glb',l0:1,want:1.3,dm:1.3,rm:1,sm:1.35,pm:1.6,d:'Cleaves posture apart'},
+    hammer:{n:'Battle Hammer',role:'player_axe',file:'warden/w_hammer.glb',l0:1,want:1.35,dm:1.35,rm:.98,sm:1.45,pm:1.8,d:'Crushes guards; heavy on stamina'}};
   // [adjective, label(value), per-tier values]
   const AFFIX={
     dmg:{adj:'Keen',lbl:v=>'+'+v+'% damage',v:[6,10,15]},
@@ -21,7 +31,7 @@ const WardenGear=(()=>{
     frugal:{adj:'Thrifty',lbl:v=>'-'+v+'% stamina cost',v:[8,12,18]},
     deft:{adj:'Guarding',lbl:v=>'Deflect window +'+v+' ticks',v:[1,2,3]}};
   const RAR=['Common','Fine','Rare','Relic'],RCOL=['#bdb6a8','#7fc77f','#6aa6ff','#ff9a3a'];
-  const BASEP={falchion:60,cutlass:80,longsword:110,claymore:170,axe:140},RP=[1,2.6,6,14];
+  const BASEP={falchion:60,cutlass:80,longsword:110,claymore:170,axe:140,katana:130,sunblade:150,saber:110,emberbrand:160,bloodrender:180,knight:150,wingblade:210,waraxe:190,hammer:200},RP=[1,2.6,6,14];
   const S={inv:[],eq:'start',n:1,seed:0,sold:[]};
   const clampI=(v,lo,hi)=>Math.max(lo,Math.min(hi,Number.isFinite(v)?v|0:lo));
   function sane(it){if(!it||typeof it.id!=='string'||!TYPES[it.ty])return null;const rar=clampI(it.rar,0,3),af=[];
