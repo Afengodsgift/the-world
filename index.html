@@ -145,6 +145,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <script src="src/utils/helpers.js"></script>
 <script src="src/core/Audio.js"></script>
 <script src="src/core/Perf.js"></script>
+<script src="src/core/Expedition.js"></script>
 <script src="src/data/islands.js"></script>
 <script src="src/world/AssetLoader.js"></script>
 <script src="src/input/InputManager.js"></script>
@@ -836,7 +837,8 @@ function explore(dt,t){
   orbs.forEach((o,i)=>{if(!o.on)return;o.m.rotation.y+=dt*2;o.m.position.y=o.y+Math.sin(t/400+i)*.15;
     if(Math.hypot(S.x-o.x,S.z-o.z)<1.6&&Math.abs(S.y+1-o.y)<2.2)take(i,true)});
   Interaction.update();
-  raceTick(t);huntTick(dt,t);partnerTrack();seaTick(dt,t);kartTick(t);ringTick(t);sharkRunTick(t);slalomTick(t);dashTick(t);Tag.tick(dt,t);Outlaw.tick(dt,t);WardenIsles.tick(dt,t);Farm.tick(dt,t);WorldMap.tick();
+  Expedition.update(typeof PlayerCombat!=='undefined'&&PlayerCombat.on(),t);   // activity-scoped: inside a Warden fight site only the audited systems below are skipped
+  raceTick(t);huntTick(dt,t);partnerTrack();if(!Expedition.skip('sea'))seaTick(dt,t);kartTick(t);ringTick(t);sharkRunTick(t);slalomTick(t);dashTick(t);Tag.tick(dt,t);if(!(Outlaw.idle()&&Expedition.skip('outlaw')))Outlaw.tick(dt,t);WardenIsles.tick(dt,t);Farm.tick(dt,t);WorldMap.tick();
   if(!race.on&&!hunt.on&&!slalom.on&&mk)mk.style.display='none';
   if(pulse>0){pulse=Math.max(0,pulse-dt);pil.material.emissive.setRGB(pulse*.6,pulse*.45,pulse*.1)}
 }
