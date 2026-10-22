@@ -17,6 +17,12 @@ const Foes=(()=>{
     bear:{name:'The Ashfur Bear',hp:300,r:1.0,scale:1.6,rm:1.5,spd:1.45,ai:'beast',role:'bear',body:'glb',file:'bear',bright:1.4,sa:true,boss:true,aggro:12,ph2:'The Bear goes berserk.'},
     archer:{name:'Erika, the Ashen Huntress',hp:240,r:.5,scale:1.12,rm:1.1,spd:1.55,ai:'archer',role:'archer',body:'glb',file:'archer',bright:2.2,boss:true,aggro:16,ph2:'Erika draws faster.'},
     arissa:{name:'Arissa, the Cinder Dancer',hp:260,r:.55,scale:1.12,rm:1.12,spd:1.5,ai:'dancer',role:'arissa',body:'glb',file:'arissa',bright:2.0,boss:true,aggro:10,ph2:'Arissa quickens.'}};
+  // the Ashen Catacombs' own foes: variants of existing bodies and movesets (data/dungeon.js uses these ids)
+  const clone=(b,id,o)=>{TYPES[id]=Object.assign({},TYPES[b],o)};
+  clone('paladin','gaoler',{name:'The Gaoler',hp:380,scale:1.5,bright:1.8,ph2:'The Gaoler tears off his shield and swings the keys.'});
+  clone('hollow','vaultwarden',{name:'The Vault Warden',hp:300,ph2:'The Vault Warden rattles his chains.'});
+  clone('ganfaul','ganfauld',{hp:270});
+  clone('darkknight','darkknightd',{hp:240});
   for(const k in TYPES){TYPES[k].id=k;if(TYPES[k].ph2===undefined)TYPES[k].ph2=TYPES[k].name+' quickens.'}
   // fighter ids in the sim: 'P' is the player; foes are D, E, F, G... (the first foe is always 'D', as it was when there was only one)
   const IDS='DEFGHJKL';

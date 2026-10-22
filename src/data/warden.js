@@ -26,6 +26,8 @@ const WARDEN={
     {id:'camp4',n:'The Ember Camp',x:100,z:60,R:16,y:2.5,fog:false,foes:[{t:'soldier',dx:-4,dz:-2},{t:'soldier',dx:4,dz:-2},{t:'soldier',dx:0,dz:-6}]},
     {id:'camp2',n:'The Ridge Post',x:55,z:-75,R:16,y:7.5,fog:false,foes:[{t:'soldier',dx:-3,dz:-2},{t:'soldier',dx:3,dz:-3}]}],
 };
+// the Ashen Catacombs (data/dungeon.js): its rooms are ordinary fight sites; its corridors are terrain pads (flat ground, no fight)
+if(typeof DUNGEON!=='undefined'){const G=DUNGEON.build();for(const s of G.sites)WARDEN.sites.push(s);WARDEN.pads=G.pads;WARDEN.dungeon=G}else WARDEN.pads=[];
 // terrain height of the isle (blended into H() by the WARDEN block in index.html)
 function WardenH(wx,wz){
   const d=Math.hypot(wx,wz),R=WRD.R,base=Math.max(-12,(1-(d/R)**2)*4-.6),t=1-sstep(40,58,d);
@@ -33,6 +35,7 @@ function WardenH(wx,wz){
   h+=13*Math.exp(-((wx-95)**2+(wz+70)**2)/1800)+9*Math.exp(-((wx+85)**2+(wz+95)**2)/1300);   // two dark crags behind the arena
   h=h*(1-t)+WARDEN.plateauY*t;
   for(const q of WARDEN.sites){if(q.wall)continue;const dd=Math.hypot(wx-q.x,wz-q.z);if(dd<q.R+12){const k=1-sstep(q.R-2,q.R+12,dd);h=h*(1-k)+q.y*k}}   // every fight site is level ground
+  for(const q of WARDEN.pads){const dd=Math.hypot(wx-q.x,wz-q.z);if(dd<q.R+10){const k=1-sstep(q.R-1,q.R+10,dd);h=h*(1-k)+q.y*k}}   // dungeon corridors
   return h}
 // every solid circle the isle adds (world coordinates): wall ring + pillars. WardenIsles pushes exactly these into `solids`; tests compare.
 function WardenSolids(){
@@ -46,7 +49,7 @@ function WardenSolids(){
 function WardenProps(){
   let a=0x5EED77;const r=()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
   const W=WARDEN,L=[],pick=l=>l[Math.floor(r()*l.length)],put=(p,wx,wz,s,o)=>{o=o||{};const y=WardenH(wx,wz)+(o.sink||0);L.push({p,x:WRD.x+wx,y,z:WRD.z+wz,ry:r()*Math.PI*2,s,tx:(r()-.5)*(o.tilt||0),tz:(r()-.5)*(o.tilt||0)})};
-  const ok=(wx,wz,min)=>{const d=Math.hypot(wx,wz);if(d<W.wallR+5||d>WRD.R-8)return false;for(const q of W.sites)if(!q.wall&&Math.hypot(wx-q.x,wz-q.z)<q.R+8)return false;if(WardenH(wx,wz)<min)return false;if(wz>0&&Math.abs(wx)<9&&d<150)return false;return true};   // land only, clear of the wall and of the road from the landing beach to the gate
+  const ok=(wx,wz,min)=>{const d=Math.hypot(wx,wz);if(d<W.wallR+5||d>WRD.R-8)return false;for(const q of W.sites)if(!q.wall&&Math.hypot(wx-q.x,wz-q.z)<q.R+8)return false;for(const q of W.pads)if(Math.hypot(wx-q.x,wz-q.z)<q.R+10)return false;if(WardenH(wx,wz)<min)return false;if(wz>0&&Math.abs(wx)<9&&d<150)return false;return true};   // land only, clear of the wall and of the road from the landing beach to the gate
   const PIL=['Hilly_Prop_Ruins_Pillar_1','Hilly_Prop_Ruins_Pillar_2','Hilly_Prop_Ruins_Pillar_3'],
         BLD=['Shared_Prop_Boulder_1','Shared_Prop_Boulder_2','Shared_Prop_Boulder_3','Shared_Prop_Boulder_4','Shared_Prop_Boulder_5','Shared_Prop_Boulder_6','Hilly_Prop_Rock_1','Hilly_Prop_Rock_2','Hilly_Prop_Rock_3','Hilly_Prop_Rock_4','Cliff_Prop_Rock_1','Cliff_Prop_Rock_2'],
         TRE=['Hilly_Prop_Tree_Cedar_1','Hilly_Prop_Tree_Cedar_2','Hilly_Prop_Tree_Pine_1','Hilly_Prop_Tree_Pine_2','Hilly_Prop_Tree_Pine_3','Hilly_Prop_Tree_Oak_1'],
@@ -64,7 +67,7 @@ function WardenProps(){
   for(let i=0,n=0;n<9&&i<400;i++){const d=150+r()*40,an=r()*Math.PI*2,wx=Math.sin(an)*d,wz=Math.cos(an)*d;if(wz>60||WardenH(wx,wz)<1.2)continue;put(pick(MTN),wx,wz,5.5+r()*4,{sink:-2.5});n++}
   // each boss site is a PLACE: a broken ring of landmarks just outside the fight circle, themed per site (ruin pillars / boulders / dead woods), with a gap where the fog gate faces the island centre
   const THEME={blackgate:{l:PIL,n:9,s:3.2,v:1.4,tilt:.3},cathedral:{l:PIL,n:10,s:3.6,v:1.6,tilt:.2},brokengate:{l:PIL,n:8,s:3.0,v:1.2,tilt:.4},ridgeshot:{l:PIL,n:7,s:2.8,v:1.2,tilt:.3},maw:{l:BLD,n:9,s:3.4,v:2.2,tilt:.4},hollowkeep:{l:BLD,n:8,s:3.0,v:2,tilt:.4},den:{l:TRE,n:10,s:2.1,v:.9,tilt:.12},glade:{l:TRE,n:9,s:1.9,v:.8,tilt:.12}};
-  for(const q of W.sites){if(!q.fog)continue;const th=THEME[q.id]||{l:PIL,n:8,s:2.6,v:1.2,tilt:.3},gate=Math.atan2(-q.x,-q.z);
+  for(const q of W.sites){if(!q.fog||q.dg)continue;const th=THEME[q.id]||{l:PIL,n:8,s:2.6,v:1.2,tilt:.3},gate=Math.atan2(-q.x,-q.z);
     for(let i=0;i<th.n;i++){const an=i/th.n*Math.PI*2+(r()-.5)*.25;if(Math.abs(Math.atan2(Math.sin(an-gate),Math.cos(an-gate)))<.3)continue;
       const d=q.R+2+r()*3,wx=q.x+Math.sin(an)*d,wz=q.z+Math.cos(an)*d;if(WardenH(wx,wz)<.5)continue;put(pick(th.l),wx,wz,th.s+r()*th.v,{tilt:th.tilt,sink:-.25})}}
   return L}
