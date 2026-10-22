@@ -14,7 +14,7 @@ const fs=require('fs'),vm=require('vm'),R=__dirname+'/../';let bad=0;const ok=(v
   ok(S.play('strike',.5,1)===true,'and they play');
   // source checks for the other two loaders
   const pc=fs.readFileSync(R+'src/combat/PlayerCombat.js','utf8'),mx=fs.readFileSync(R+'src/combat/WardenMX.js','utf8');
-  ok(/function glbLoad\(b,T,n\)/.test(pc)&&/glbLoad\(b,T,n-1\)/.test(pc),'model loads retry');
-  ok(/const go=n=>new THREE\.GLTFLoader/.test(pc)&&/go\(n-1\)/.test(pc),'weapon attaches retry');
-  ok(/tryFetch\(ROLES\[role\]\.file,3\)/.test(mx),'animation sets retry');
+  ok(/function glbLoad\(b,T,n\)/.test(pc)&&/glbLoad\(b,T,n\+1\)/.test(pc)&&/Math\.min\(8000/.test(pc),'model loads retry');
+  ok(/const go=n=>new THREE\.GLTFLoader/.test(pc)&&/go\(n\+1\)/.test(pc),'weapon attaches retry');
+  ok(/tryFetch\(ROLES\[role\]\.file,6\)/.test(mx)&&/const load=\(\)=>fetchRole\(role\)/.test(mx),'animation sets retry');
   process.exit(bad?1:0)})();
