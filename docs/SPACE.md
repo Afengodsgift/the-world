@@ -56,20 +56,24 @@ faces the planet -> the planet itself. Nothing is marked on a map; you see a lig
 - **Asteroid belt** (-190, 140, 230 km; 2.6 km radius): 118 rocks in four shapes drawn as four `InstancedMesh`es (~10k triangles), sizes 12 m to 300 m, a thin disc with a round
   clearing at its middle and a clear lane down the gate's axis. Seeded, so both phones see the same field with no network. The rocks are solid (`SpaceBelt.collide`:
   you slide around them, no damage). ~1 ms/frame inside the field, nothing outside it. Found by getting close to its edge and looking at it.
-- **The ring** (the middle of the belt, 75 m radius, faces the planet): three broken arcs, cyan inlay, two posts 92 m apart inside it. Built on `Link.both`
+- **The ring** (the middle of the belt, 100 m radius, faces the planet): three broken arcs, cyan inlay, two posts 124 m apart inside it. Built on `Link.both`
   (`src/interaction/Link.js`, which gained an optional per-zone `dy` for 3D zones): when two people stand at the two posts at the same moment for 3 s it wakes: the inlay,
   posts and shimmer light and a column of light runs toward the planet. Positions only, no new network traffic; each phone writes the same idempotent
   `SpaceEvents.discover('gate_awake')`, so it stays awake for good (the next session starts lit). Alone at a post you get one line after 5 s: "It hums. It wants someone at
   the other post." Two people at the same post do nothing.
-- **A second world** (-520, 300, 610 km; radius 90 km; ~856 km from home): procedurally generated (teal and indigo seas, rust and dusk-violet continents, dark ridges, ice caps,
+- **A second world** (-520, 300, 610 km; radius 90 km; ~805 km from home): procedurally generated (teal and indigo seas, rust and dusk-violet continents, dark ridges, ice caps,
   a separate cloud layer, a thin amber atmosphere), so it is visibly somewhere else. Drawn as an impostor like the home world (the far slice ends at 900 km): beyond 600 km it is
   drawn 600 km away and scaled by the same factor, which keeps its apparent size exactly. Fades in with the stars (nothing below ~35 km, fully by ~95 km). Textures are
   generated 4+2 rows per frame while you climb past 6 km, so nothing stalls. Solid (held 600 m above the surface); approach assist slows you to normal speed in the last 4 km.
   Found within 150 km looking at it: "Another world. Nobody has been here." There is nothing to land on yet; that is the hook for later.
-- **Test hook**: `?space=sat|belt|gate|planet` flies you there (a few km off, facing it, at rest) a few seconds after the world loads. For the gate you arrive 300 m behind the
-  ring, looking through it at the planet.
+- **The arrow** (`SpaceObjects.next`, `spaceTrack()` in `index.html`): in space an amber arrow with a label ("Signal", "A light", "A ring", "A world" and the distance) points at the next thing
+  on the trail you have not found: satellite -> belt -> ring -> planet. Found things drop out and it moves on, so a visit to space always has somewhere to go and nothing needs
+  a code or a URL. It is projected by hand (these things are hundreds of km away, far beyond the camera's 4 km far plane, which would flip the usual world-to-screen helper) and is
+  kept out of the Boost / Jump corner. The planet sits just above where the world opens up (60 km) because the flight camera looks ~24 degrees down: any higher and it hangs just
+  above the top of the screen and nobody sees it (this is what happened the first time).
+- **The planet has its own sun** (`SpaceMap.sun`, fixed) and its own shaders: lit by the home world's sun it was a black disc half of every day. From the belt it is a bright gibbous world.
 - Tests: `tests/space_world.sim.mjs` (placement, drift, framework additions, the belt's layout and collision, the gate with the real `Link` incl. the failure cases and
-  persistence, the planet's generation/impostor/collision/discovery, the warp hook, inertness on the ground).
+  persistence, the planet's generation/impostor/collision/discovery, the trail arrow, inertness on the ground). Also checked in a real headless Chromium (software WebGL) driving the actual game.
 
 ## Next (not built yet)
 Two-player interaction with the satellite (two ports 18 m apart, both players activate), what the ring does besides pointing, a surface you can reach on the second world

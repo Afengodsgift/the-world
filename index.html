@@ -40,6 +40,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 #use{position:fixed;z-index:5;right:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 156px);display:none;width:auto;padding:12px 22px;background:#ffffffdd;color:#1a1f3a}
 #skinRow button{flex:1;padding:8px 4px;font-size:12px;border-radius:10px;background:#ffffff14;border:1px solid #ffffff33;color:#fff}
 #skinRow button.sel{background:#ffd27a;color:#1a1f3a;border-color:#ffd27a}
+#smk{position:fixed;z-index:5;transform:translate(-50%,-50%);color:#ffd27a;text-align:center;font-size:22px;line-height:1;text-shadow:0 0 8px #000,0 2px 6px #000;pointer-events:none;display:none}
 #pmk{position:fixed;z-index:5;transform:translate(-50%,-50%);color:#7fd0ff;text-align:center;font-size:22px;line-height:1;text-shadow:0 0 8px #000,0 2px 6px #000;pointer-events:none;display:none}
 
 #fshint{position:fixed;z-index:7;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 8px);padding:6px 14px;border-radius:14px;background:#000a;color:#fff;font-size:12px;pointer-events:none;display:none;white-space:nowrap}
@@ -133,6 +134,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <button id="boost">Boost</button>
 <button id="emobtn">😀</button><div id="emopanel"></div><button id="panbtn">🍳</button><button id="smack">Smack</button><div id="banner"></div><button id="use">Use</button>
 <div id="pmk"><div>▲</div><small style="font-size:12px"></small></div>
+<div id="smk"><div>▲</div><small style="font-size:12px"></small></div>
 
 <script>
 // offline cache (sw.js): assets are kept on the device after the first good download. ?sw=0 turns it off and clears it.
@@ -675,7 +677,7 @@ function buildWorld(code){
   {const cv=document.createElement('canvas');cv.width=cv.height=256;const cx2=cv.getContext('2d'),im2=cx2.createImageData?cx2.createImageData(256,256):null;
    if(im2){for(let y=0;y<256;y++)for(let x=0;x<256;x++){const a=x/256*6.2832,b=y/256*6.2832,v=128+40*Math.sin(a*3+Math.sin(b*2))+30*Math.sin(b*5+a)+20*Math.sin(a*8-b*6);const i=(y*256+x)*4;im2.data[i]=im2.data[i+1]=im2.data[i+2]=v;im2.data[i+3]=255}cx2.putImageData(im2,0,0)}
    seaTex=new THREE.CanvasTexture(cv);seaTex.wrapS=seaTex.wrapT=THREE.RepeatWrapping;seaTex.repeat.set(500,500);sea.material.bumpMap=seaTex;sea.material.bumpScale=.35}
-  sea.rotation.x=-Math.PI/2;sea.position.y=-.3;scene.add(sea);seaMesh=sea;Env.build();SpaceEnv.build();Ocean.build(seaMesh,6000);SpaceObjects.build();try{const q=new URLSearchParams(location.search).get('space');if(q)setTimeout(()=>SpaceObjects.warp(q),3500)}catch(e){}WaterFX.build();
+  sea.rotation.x=-Math.PI/2;sea.position.y=-.3;scene.add(sea);seaMesh=sea;Env.build();SpaceEnv.build();Ocean.build(seaMesh,6000);SpaceObjects.build();WaterFX.build();
   rng=mulberry(hashSeed(code));
   if(AM.plant_bushLarge)AM.plant_bushLarge.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.material.side=THREE.DoubleSide;o.material.emissive=new THREE.Color('#2a6a30')}});
   const dist=(x,z)=>Math.hypot(x-TOWN.x,z-TOWN.z),P={};
@@ -850,7 +852,7 @@ function explore(dt,t){
     if(Math.hypot(S.x-o.x,S.z-o.z)<1.6&&Math.abs(S.y+1-o.y)<2.2)take(i,true)});
   Interaction.update();
   Expedition.update(typeof PlayerCombat!=='undefined'&&PlayerCombat.on(),t);   // activity-scoped: inside a Warden fight site only the audited systems below are skipped
-  raceTick(t);huntTick(dt,t);partnerTrack();if(!Expedition.skip('sea'))seaTick(dt,t);kartTick(t);ringTick(t);sharkRunTick(t);slalomTick(t);dashTick(t);Tag.tick(dt,t);if(!(Outlaw.idle()&&Expedition.skip('outlaw')))Outlaw.tick(dt,t);WardenIsles.tick(dt,t);Farm.tick(dt,t);WorldMap.tick();
+  raceTick(t);huntTick(dt,t);partnerTrack();spaceTrack();if(!Expedition.skip('sea'))seaTick(dt,t);kartTick(t);ringTick(t);sharkRunTick(t);slalomTick(t);dashTick(t);Tag.tick(dt,t);if(!(Outlaw.idle()&&Expedition.skip('outlaw')))Outlaw.tick(dt,t);WardenIsles.tick(dt,t);Farm.tick(dt,t);WorldMap.tick();
   if(!race.on&&!hunt.on&&!slalom.on&&mk)mk.style.display='none';
   if(pulse>0){pulse=Math.max(0,pulse-dt);pil.material.emissive.setRGB(pulse*.6,pulse*.45,pulse*.1)}
 }
@@ -1175,10 +1177,24 @@ const hunt={on:false,n:0,x:0,y:0,z:0,open:0,chest:null,beam:null};
 const _mv=new THREE.Vector3();
 function markToEl(el,x,y,z,label){
   if(!el)return;_mv.set(x,y,z).project(camera);let px=_mv.x,py=_mv.y;if(_mv.z>1){px=-px;py=-py}
-  const m=Math.max(Math.abs(px)/.85,Math.abs(py)/.72,1);px/=m;py/=m;
+  const m=Math.max(Math.abs(px)/.85,Math.abs(py)/.72,1);px/=m;py=Math.max(py/m,-.4);   // (kept out of the Boost / Jump corner)
   el.style.display='block';el.style.left=(px*.5+.5)*100+'%';el.style.top=(-py*.5+.5)*100+'%';el.lastChild.textContent=label;
 }
 function markTo(x,y,z,label){markToEl(mk,x,y,z,label)}
+// In space an arrow points at the next thing on the trail you have not found (SpaceObjects.next). It is projected by hand: these things are hundreds of km away, far beyond the
+// camera's far plane, so the usual world-to-screen helper (which reads 'beyond the far plane' as 'behind you') would flip the arrow.
+let smk=null;const _sv=new THREE.Vector3();
+function spaceTrack(){
+  if(!smk)smk=document.getElementById('smk');if(!smk)return;
+  const nx=Space.f.stars>.45&&typeof SpaceObjects!=='undefined'?SpaceObjects.next():null;
+  if(!nx||nx.dist<400){smk.style.display='none';return}
+  const o=nx.o;_sv.set(o.pos.x-camera.position.x,o.pos.y-camera.position.y,o.pos.z-camera.position.z).transformDirection(camera.matrixWorldInverse);
+  const t=Math.tan(camera.fov*Math.PI/360);let px,py;
+  if(_sv.z<-1e-4){px=_sv.x/(-_sv.z)/(t*camera.aspect);py=_sv.y/(-_sv.z)/t}else{px=_sv.x*1e3;py=_sv.y*1e3}     // behind you: just the side it is on, pushed to the edge
+  const m=Math.max(Math.abs(px)/.85,Math.abs(py)/.72,1);px/=m;py/=m;
+  const km=nx.dist>=10000?Math.round(nx.dist/1000)+' km':(nx.dist/1000).toFixed(1)+' km';
+  smk.style.display='block';smk.style.left=(px*.5+.5)*100+'%';smk.style.top=(-py*.5+.5)*100+'%';smk.lastChild.textContent=(o.def.icon||'')+' '+(o.def.mark||'Signal')+' · '+km;
+}
 function partnerTrack(){
   const o=others.size?others.values().next().value:null;
   if(!o){if(pmk)pmk.style.display='none';return}

@@ -49,7 +49,7 @@ const SpaceBelt=(()=>{
       if(d2<rad*rad){const d=Math.sqrt(d2)||1e-6,push=(rad-d)/d;P.x+=dx*push;P.y+=dy*push;P.z+=dz*push;n++}}
     return n}
   function update(o,dt,t){tumble(t);collide(S)}
-  SpaceObjects.register({id:'belt',name:'Asteroid field',pos:POS,r:R,icon:'☄️',build,update,
+  SpaceObjects.register({id:'belt',mark:'A light',name:'Asteroid field',pos:POS,r:R,icon:'☄️',build,update,
     found:{text:'Found an asteroid field far out, and something catching the light in the middle of it',banner:'Rock drifting in the dark. Something in the middle catches the light.'}});
   return {POS,R,CLEAR,N,layout,collide,get rocks(){return rocks},get meshes(){return meshes}};
 })();

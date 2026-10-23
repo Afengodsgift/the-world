@@ -29,7 +29,7 @@ ok(SpaceObjects.live[0].def.id==='satellite'&&['belt','gate','planet'].every(id=
 for(const [n,p] of [['belt',M.belt.pos],['planet',M.planet.pos]])ok(p[1]>SpaceFlight.OPEN_Y&&p[1]<SpaceFlight.CEIL&&Math.hypot(p[0],p[2])+(n==='planet'?M.planet.r:0)<SpaceFlight.bound(p[1]),n+' is in open space and inside the world limits ('+(Math.hypot(...p)/1000).toFixed(0)+' km from home)');
 ok(Math.abs(Math.hypot(...M.axis)-1)<1e-9,'the gate axis is a unit vector');
 {const d=Math.hypot(M.belt.pos[0]-M.sat[0],M.belt.pos[1]-M.sat[1],M.belt.pos[2]-M.sat[2]);ok(d>200000&&d<450000,'the belt is a long flight from the satellite ('+(d/1000).toFixed(0)+' km), not on top of it')}
-{const d=Math.hypot(M.planet.pos[0]-M.belt.pos[0],M.planet.pos[1]-M.belt.pos[1],M.planet.pos[2]-M.belt.pos[2]);ok(d>M.planet.r*3&&d<700000,'the planet is beyond the belt ('+(d/1000).toFixed(0)+' km), on the same side')}
+{const d=Math.hypot(M.planet.pos[0]-M.belt.pos[0],M.planet.pos[1]-M.belt.pos[1],M.planet.pos[2]-M.belt.pos[2]);ok(d>M.planet.r*2&&d<700000,'the planet is beyond the belt ('+(d/1000).toFixed(0)+' km), on the same side')}
 
 // 2) drift
 ok(SpaceFlight.drift(0)===1&&Math.abs(SpaceFlight.drift(1)-.12)<1e-9,'drift: no change below 40 km (x1), glide-out rate x0.12 in deep space');
@@ -47,7 +47,7 @@ ok(inside<1.5&&edge>farAssist*0+edge*.5&&farAssist>100,'object radius: inside th
 place(M.planet.pos[0]+M.planet.r+2500,M.planet.pos[1],M.planet.pos[2]);tick(.05);const nearP=SpaceFlight.moveMul(S.y);
 place(M.planet.pos[0]+M.planet.r+300000,M.planet.pos[1],M.planet.pos[2]);tick(.05);const farP=SpaceFlight.moveMul(S.y);
 ok(nearP<1.5&&farP>100,'per-object assist: 2.5 km above the planet is normal speed (x'+nearP.toFixed(2)+'), far from it fast');
-{let mono=true,pv=-1;for(let d=0;d<=200000;d+=500){const a=SpaceObjects.assistFor(d,4000,120000);if(a<pv-1e-12||a<0||a>1)mono=false;pv=a}ok(mono&&SpaceObjects.assistFor(3000,4000,120000)===0&&SpaceObjects.assistFor(130000,4000,120000)===1,'planet-scale assist is smooth: 0 within 4 km, 1 beyond 120 km')}
+{let mono=true,pv=-1;for(let d=0;d<=260000;d+=500){const a=SpaceObjects.assistFor(d,6000,200000);if(a<pv-1e-12||a<0||a>1)mono=false;pv=a}ok(mono&&SpaceObjects.assistFor(5000,6000,200000)===0&&SpaceObjects.assistFor(210000,6000,200000)===1,'planet-scale assist is smooth: 0 within 6 km, 1 beyond 200 km')}
 
 // 4) the belt
 {const a=SpaceBelt.layout(),b=SpaceBelt.layout();ok(a.length===SpaceBelt.N&&a.every((r,i)=>r.x===b[i].x&&r.y===b[i].y&&r.z===b[i].z&&r.sx===b[i].sx),'the belt has '+a.length+' rocks and is identical every time (both phones see the same field)');
@@ -72,8 +72,8 @@ place(M.belt.pos[0]-M.belt.r*.2,M.belt.pos[1],M.belt.pos[2]);{const r=SpaceBelt.
 
 // 5) the gate
 {const g=gate.group,zs=SpaceGate.zones;ok(zs.length===2,'two posts');
- const d=Math.hypot(zs[0].x-zs[1].x,zs[0].y-zs[1].y,zs[0].z-zs[1].z);ok(d>80&&d<100,'the posts are '+d.toFixed(0)+' m apart');
- const c=M.belt.pos;ok(zs.every(z=>Math.hypot(z.x-c[0],z.y-c[1],z.z-c[2])<60),'both posts stand inside the ring, in the clearing');
+ const d=Math.hypot(zs[0].x-zs[1].x,zs[0].y-zs[1].y,zs[0].z-zs[1].z);ok(d>110&&d<140,'the posts are '+d.toFixed(0)+' m apart');
+ const c=M.belt.pos;ok(zs.every(z=>Math.hypot(z.x-c[0],z.y-c[1],z.z-c[2])<85),'both posts stand inside the ring, in the clearing');
  const fwd=new T.Vector3(0,0,1).transformDirection(g.matrixWorld);ok(fwd.x*M.axis[0]+fwd.y*M.axis[1]+fwd.z*M.axis[2]>.9999,'the ring faces the planet: looking through it, you see the other world');
  ok(gate.def.r===SpaceGate.RING&&!SpaceGate.awake&&!SpaceGate.parts.beam.visible,'asleep at first: no column of light')}
 {// alone: a hint after a while, never wakes
@@ -83,7 +83,7 @@ place(M.belt.pos[0]-M.belt.r*.2,M.belt.pos[1],M.belt.pos[2]);{const r=SpaceBelt.
  const z=SpaceGate.zones;S.x=z[0].x;S.y=z[0].y;S.z=z[0].z;others.set('p',{group:{position:new T.Vector3(z[0].x,z[0].y,z[0].z)}});for(let i=0;i<60*6;i++)sys.link(1/60);ok(!SpaceGate.awake,'two people at the same post: nothing (each post needs its own person)');others.clear()}
 {// the real thing: one at each post for the hold time
  const z=SpaceGate.zones;S.x=z[0].x;S.y=z[0].y;S.z=z[0].z;others.set('p',{group:{position:new T.Vector3(z[1].x,z[1].y+10,z[1].z)}});
- let t=0;for(;t<60*2.5;t++)sys.link(1/60);ok(!SpaceGate.awake&&SpaceGate.parts.inlay.material.opacity>.5,'2.5 s of both holding: it is lighting up ('+SpaceGate.parts.inlay.material.opacity.toFixed(2)+') but not awake yet');
+ let t=0;for(;t<60*2.5;t++)sys.link(1/60);ok(!SpaceGate.awake&&SpaceGate.parts.inlay.material.opacity>.55,'2.5 s of both holding: it is lighting up ('+SpaceGate.parts.inlay.material.opacity.toFixed(2)+') but not awake yet');
  for(;t<60*3.4;t++)sys.link(1/60);ok(SpaceGate.awake&&SpaceGate.parts.beam.visible,'after the hold time it wakes and the column of light toward the planet appears');
  ok(SpaceEvents.isFound('gate_awake')&&ws.log.some(e=>e.key==='gate_awake')&&banners.some(b=>b.startsWith('THE RING: The ring wakes')),'it is recorded in the shared journal and announced');
  const n=banners.length;SpaceGate.wake();ok(banners.length===n,'waking again is idempotent: no second announcement')}
@@ -103,10 +103,10 @@ world();const pl=()=>by('planet');
 {const c=SpacePlanet.clouds(256,128);let cov=0;for(let i=3;i<c.length;i+=4)if(c[i]>128)cov++;const f=cov/(c.length/4);ok(f>.15&&f<.6,'clouds cover '+Math.round(f*100)+'% of the sky of the planet')}
 {const P=SpacePlanet.parts;ok(P&&!P.job.done&&!P.g.visible,'built without generating the textures up front (no stall at world load)');
  place(0,100,0);pl().def.update(pl(),1/60,0);ok(!P.job.done,'no work done while you are on the ground');
- place(0,7000,0);let frames=0;while(!P.job.done&&frames<400){SpaceObjects.update(1/60,frames/60);frames++}ok(P.job.done&&P.body.material.map&&P.cloud.material.map,'climbing past 6 km generates it over '+frames+' frames ('+(frames/60).toFixed(1)+' s of the climb), 4+2 rows per frame')}
+ place(0,7000,0);let frames=0;while(!P.job.done&&frames<400){SpaceObjects.update(1/60,frames/60);frames++}ok(P.job.done&&P.body.material.uniforms.map.value&&P.cloud.material.uniforms.map.value,'climbing past 6 km generates it over '+frames+' frames ('+(frames/60).toFixed(1)+' s of the climb), 4+2 rows per frame')}
 {place(0,30000,0);pl().def.update(pl(),1/60,0);ok(!SpacePlanet.parts.g.visible,'not visible from 30 km (the sky is still blue)');
- place(0,60000,0);camera.position.set(0,60000,0);camera.updateMatrixWorld(true);pl().def.update(pl(),1/60,0);{const o=SpacePlanet.parts.body.material.opacity;ok(SpacePlanet.parts.g.visible&&o>.2&&o<.9,'at 60 km it is fading in with the stars (opacity '+o.toFixed(2)+')')}
- place(0,130000,0);camera.position.set(0,130000,0);camera.updateMatrixWorld(true);pl().def.update(pl(),1/60,0);const P=SpacePlanet.parts;ok(P.g.visible&&P.body.material.opacity>.99,'from the edge of space it is there, fully');
+ place(0,60000,0);camera.position.set(0,60000,0);camera.updateMatrixWorld(true);pl().def.update(pl(),1/60,0);{const o=SpacePlanet.parts.body.material.uniforms.k.value;ok(SpacePlanet.parts.g.visible&&o>.2&&o<.9,'at 60 km it is fading in with the stars (opacity '+o.toFixed(2)+')')}
+ place(0,130000,0);camera.position.set(0,130000,0);camera.updateMatrixWorld(true);pl().def.update(pl(),1/60,0);const P=SpacePlanet.parts;ok(P.g.visible&&P.body.material.uniforms.k.value>.99,'from the edge of space it is there, fully');
  const dist=Math.hypot(P.body.position.x-camera.position.x,P.body.position.y-camera.position.y,P.body.position.z-camera.position.z);const D=Math.hypot(M.planet.pos[0]-0,M.planet.pos[1]-130000,M.planet.pos[2]);
  ok(dist<=SpacePlanet.IMP_D+1&&D>SpacePlanet.IMP_D,'beyond the depth range it is drawn as an impostor at '+(dist/1000).toFixed(0)+' km instead of its true '+(D/1000).toFixed(0)+' km');
  ok(Math.abs(Math.asin(P.body.scale.x/dist)-Math.asin(M.planet.r/D))<1e-6,'with exactly the same apparent size: '+(Math.asin(M.planet.r/D)*57.3).toFixed(1)+'° half-angle');
@@ -115,16 +115,23 @@ world();const pl=()=>by('planet');
 {const C=M.planet.pos,R=M.planet.r;const P={x:C[0]+R*.5,y:C[1],z:C[2]};ok(SpacePlanet.hold(P)&&Math.abs(Math.hypot(P.x-C[0],P.y-C[1],P.z-C[2])-(R+SpacePlanet.HOVER))<1e-3,'you cannot go inside the planet: held 600 m above the surface');
  const Q={x:C[0]+R+5000,y:C[1],z:C[2]};ok(!SpacePlanet.hold(Q)&&Q.x===C[0]+R+5000,'above that, untouched');const Z={x:C[0],y:C[1],z:C[2]};ok(SpacePlanet.hold(Z)&&Z.y>C[1]+R,'even from dead centre you are put outside')}
 {place(M.planet.pos[0]+M.planet.r+100000,M.planet.pos[1],M.planet.pos[2]);look(S,{x:M.planet.pos[0],y:M.planet.pos[1],z:M.planet.pos[2]});tick(2.5,1/30);
- ok(pl().found&&ws.log.some(e=>e.key==='planet')&&banners.some(b=>b.startsWith('Another world')||b.includes('Nobody has been here')),'found from 100 km, looking at it: "Another world. Nobody has been here."')}
+ ok(pl().found&&ws.log.some(e=>e.key==='planet')&&banners.some(b=>b.startsWith('Another world')||b.includes('Nobody has been here')),'found from 100 km above its surface, looking at it: "Another world. Nobody has been here."')}
 {place(M.planet.pos[0]+M.planet.r+100000,M.planet.pos[1],M.planet.pos[2]);look(S,{x:M.planet.pos[0]*-1,y:M.planet.pos[1],z:M.planet.pos[2]*-1});world();const pl=by('planet');place(M.planet.pos[0]+M.planet.r+100000,M.planet.pos[1],M.planet.pos[2]);look(S,{x:M.planet.pos[0]*-1,y:M.planet.pos[1],z:M.planet.pos[2]*-1});tick(4);ok(!pl.found,'looking the other way: not found')}
 {world();place(M.planet.pos[0]+M.planet.r+400000,M.planet.pos[1],M.planet.pos[2]);look(S,{x:M.planet.pos[0],y:M.planet.pos[1],z:M.planet.pos[2]});tick(4);ok(!by('planet').found,'too far (400 km): not found')}
 
-// 6b) the ?space= test hook: fly straight to each place, facing it
-{globalThis.me=null;for(const [id,min,max] of [['belt',M.belt.r+3000,M.belt.r+5000],['planet',M.planet.r+140000,M.planet.r+160000],['sat',2500,3500]]){world();const o=by(id==='sat'?'satellite':id);S.flying=false;ok(SpaceObjects.warp(id)&&S.flying,'warp('+id+') puts you in flight');
-  const d=Math.hypot(o.pos.x-S.x,o.pos.y-S.y,o.pos.z-S.z),f=Math.atan2(o.pos.x-S.x,o.pos.z-S.z);ok(d>min&&d<max&&Math.abs(Math.sin(S.yaw-f))<1e-9&&S.fvx===0&&S.vy===0,'  '+(d/1000).toFixed(1)+' km away, facing it, at rest')}
- world();SpaceObjects.warp('gate');{const c=M.belt.pos,d=Math.hypot(S.x-c[0],S.y-c[1],S.z-c[2]);ok(Math.abs(d-300)<1e-6&&!SpaceBelt.collide({...S}),'warp(gate): 300 m behind the ring, clear of every rock');
-  const v=new T.Vector3(c[0]-S.x,c[1]-S.y,c[2]-S.z).normalize();ok(v.x*M.axis[0]+v.y*M.axis[1]+v.z*M.axis[2]>.999999,'  looking through the ring down its axis toward the planet')}
- ok(!SpaceObjects.warp('nope'),'an unknown name does nothing')}
+// 6b) the trail and the HUD arrow: no URL tricks, it just points at the next thing you have not found
+{world();place(0,130000,0);let n=SpaceObjects.next();ok(n&&n.id==='satellite'&&n.dist>1000,'next on the trail: the satellite first ('+(n.dist/1000).toFixed(0)+' km)');
+ by('satellite').found=true;n=SpaceObjects.next();ok(n.id==='belt','once the satellite is found the arrow moves on to the belt');
+ by('belt').found=true;n=SpaceObjects.next();ok(n.id==='gate','then the ring');by('gate').found=true;n=SpaceObjects.next();ok(n.id==='planet'&&Math.abs(n.dist-(Math.hypot(M.planet.pos[0],M.planet.pos[1]-130000,M.planet.pos[2])-M.planet.r))<1,'then the planet (distance measured to its surface)');
+ by('planet').found=true;ok(SpaceObjects.next()===null,'and nothing once everything is found')}
+{const html=R('index.html');ok(/function spaceTrack\(\)/.test(html)&&/partnerTrack\(\);spaceTrack\(\)/.test(html)&&html.includes('id="smk"'),'the HUD arrow is wired into the frame loop');
+ ok(!/SpaceObjects\.warp|get\('space'\)/.test(html)&&!/SpaceObjects\.warp/.test(R('src/space/SpaceObjects.js')),'no URL hook: nothing needs a code in the address bar')}
+
+// 6c) the planet has its own sun and is big
+{const sun=M.sun,l=Math.hypot(...sun);ok(Math.abs(l-1)<1e-9,'the planet\'s sun is a unit vector');
+ const toViewer=[-M.axis[0],-M.axis[1],-M.axis[2]];const ph=sun[0]*toViewer[0]+sun[1]*toViewer[1]+sun[2]*toViewer[2];ok(ph>.55&&ph<.9,'seen from the belt it is a bright gibbous world (the sun is '+(Math.acos(ph)*57.3).toFixed(0)+'° off the line of sight: about '+Math.round((1+ph)/2*100)+'% of the face lit)');
+ world();const P=SpacePlanet.parts;ok(P.body.material.isShaderMaterial&&P.body.material.uniforms.sun.value.x===sun[0],'lit by its own shader with that sun, not by the home world\'s light (no time-of-day dependence)');
+ const D=Math.hypot(M.planet.pos[0],M.planet.pos[1]-130000,M.planet.pos[2]);ok(Math.asin(M.planet.r/D)*2*57.3>26,'from the edge of space it is '+(Math.asin(M.planet.r/D)*2*57.3).toFixed(0)+'° across: a big world, not a dot')}
 
 // 7) nothing on the ground is touched
 {world();place(2000,50,1500);const x0=S.x,y0=S.y,z0=S.z;const t0=performance.now();for(let i=0;i<3000;i++)SpaceObjects.update(1/60,i/60);ok(S.x===x0&&S.y===y0&&S.z===z0&&!SpacePlanet.parts.g.visible,'on the island everything is inert (position untouched, planet hidden), '+((performance.now()-t0)/3000).toFixed(3)+' ms per frame');

@@ -91,17 +91,10 @@ const SpaceObjects=(()=>{
         if(_d.dot(_c)>.55)o.look+=dt;else o.look=Math.max(0,o.look-dt*.5);
         if(o.look>FIND_T)discover(o)}}
     SpaceFlight.setAssist(amin);}
-  // dev/testing (index.html: ?space=sat|belt|gate|planet): fly straight there. In flight, a short way off, facing it, with no leftover velocity (the long flight is the point of the
-  // game, but nobody should have to repeat 300 km to look at a ring).  The gate is approached from behind, looking through it down its axis at the planet.
-  function warp(id){
-    const o=live.find(x=>x.def.id===id||(id==='sat'&&x.def.id==='satellite'));if(!o)return false;
-    const T=o.pos,r=o.def.r||0;let X,Y,Z;
-    if(o.def.id==='gate'&&typeof SpaceMap!=='undefined'){const A=SpaceMap.axis;X=T.x-A[0]*300;Y=T.y-A[1]*300;Z=T.z-A[2]*300}
-    else{const hl=Math.hypot(T.x,T.z)||1,gap=o.def.id==='planet'?r+150000:o.def.id==='belt'?r+4000:r+3000;X=T.x-T.x/hl*gap;Y=T.y;Z=T.z-T.z/hl*gap}
-    S.x=X;S.y=Y;S.z=Z;S.flying=true;S.fvx=S.fvz=0;S.vy=0;S.yaw=Math.atan2(T.x-X,T.z-Z);
-    if(typeof CameraRig!=='undefined'&&CameraRig.neutralPitch)S.pitch=CameraRig.neutralPitch();
-    if(typeof me!=='undefined'&&me){me.position.set(S.x,S.y,S.z);me.userData.pp=null;me.userData.v=0}
-    return true}
-  return {register,build,update,warp,assistFor,live,defs,FIND_R,FIND_T,MODEL_R};
+  // The trail, in the order you meet it. next() is the first thing in it you have not found yet (its object, and how far it is): the HUD points at it while you are in space,
+  // so a visit to space always has somewhere to go. Found things drop out, so the arrow moves on to the next one.
+  const TRAIL=['satellite','belt','gate','planet'];
+  function next(){for(const id of TRAIL){const o=live.find(x=>x.def.id===id);if(o&&!o.found){const d=o.def.r||0;return {o,id,dist:Math.max(0,Math.hypot(o.pos.x-S.x,o.pos.y-S.y,o.pos.z-S.z)-d)}}}return null}
+  return {register,build,update,next,TRAIL,assistFor,live,defs,FIND_R,FIND_T,MODEL_R};
 })();
 if(typeof module!=='undefined')module.exports=SpaceObjects;
