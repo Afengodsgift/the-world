@@ -58,7 +58,7 @@ const WardenIsles=(()=>{
     for(const s of WARDEN.sites){if(!s.fog&&!s.duel)continue;const g=new THREE.Mesh(new THREE.CylinderGeometry(s.R,s.R,s.duel?5:9,36,1,true),m.clone());if(s.duel)g.material.color.set('#ff9a5a');g.position.set(WRD.x+s.x,s.y+4.5,WRD.z+s.z);g.frustumCulled=false;G.add(g);fogs[s.id]={m:g,st:'idle'}}}
   function fog(id,st){const f=fogs[id];if(!f)return;f.st=st;f.m.visible=st!=='gone';f.m.material.opacity=st==='sealed'?.42:.16}
   // camp markers: a brazier at the heart of each soldier camp so you can spot them
-  function campMarks(){for(const s of WARDEN.sites)if(!s.fog&&!s.wall&&!s.safe)brazier(WRD.x+s.x,s.y+1.1,WRD.z+s.z)}
+  function campMarks(){for(const s of WARDEN.sites)if(!s.fog&&!s.wall&&!s.safe&&!s.dg)brazier(WRD.x+s.x,s.y+1.1,WRD.z+s.z)}
   function build(){
     if(!WRD.on||built)return;built=true;
     G=new THREE.Group();G.name='WardenIsles';scene.add(G);

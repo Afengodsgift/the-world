@@ -7,7 +7,7 @@ const WardenSfx=(()=>{
   // a flaky connection must not leave the fight silent for the rest of the session: every sample is retried (3 tries with growing gaps), and play() re-requests a sample that is still missing (at most once every 6 s per sample)
   const retryAt={};
   function get(n,left){const a=WAudio.get();if(!a)return;retryAt[n]=performance.now()+6000;
-    fetch('assets/warden/sfx/'+n+'.mp3').then(r=>{if(!r.ok)throw new Error('http '+r.status);return r.arrayBuffer()}).then(b=>new Promise((ok,no)=>a.decodeAudioData(b,ok,no))).then(d=>{buf[n]=d}).catch(()=>{if(left>0)setTimeout(()=>get(n,left-1),1500*(4-left))})}
+    fetch('assets/warden/sfx/'+n+'.mp3',left<3?{cache:'reload'}:undefined).then(r=>{if(!r.ok)throw new Error('http '+r.status);return r.arrayBuffer()}).then(b=>new Promise((ok,no)=>a.decodeAudioData(b,ok,no))).then(d=>{buf[n]=d}).catch(()=>{if(left>0)setTimeout(()=>get(n,left-1),1500*(4-left))})}
   function load(){if(started)return;started=true;if(!WAudio.get())return;for(const n of NAMES)get(n,3)}
   function again(n){if(started&&!buf[n]&&NAMES.indexOf(n)>=0&&performance.now()>(retryAt[n]||0))get(n,2)}
   function play(n,vol,rate,opt){const a=WAudio.get(),b=buf[n];if(a&&!b)again(n);if(!a||!b||a.state!=='running')return false;
