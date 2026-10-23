@@ -134,6 +134,12 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
 <button id="emobtn">😀</button><div id="emopanel"></div><button id="panbtn">🍳</button><button id="smack">Smack</button><div id="banner"></div><button id="use">Use</button>
 <div id="pmk"><div>▲</div><small style="font-size:12px"></small></div>
 
+<script>
+// offline cache (sw.js): assets are kept on the device after the first good download. ?sw=0 turns it off and clears it.
+(function(){try{if(!('serviceWorker' in navigator)||!/^https?:$/.test(location.protocol))return;
+if(/[?&]sw=0\b/.test(location.search)){navigator.serviceWorker.getRegistrations().then(r=>r.forEach(x=>x.unregister()));if(window.caches)caches.keys().then(k=>k.filter(n=>n.indexOf('world-')===0).forEach(n=>caches.delete(n)));return}
+addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}catch(e){}})();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/utils/SkeletonUtils.js"></script>
