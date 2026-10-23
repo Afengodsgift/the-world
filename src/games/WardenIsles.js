@@ -58,11 +58,11 @@ const WardenIsles=(()=>{
     for(const s of WARDEN.sites){if(!s.fog&&!s.duel)continue;const g=new THREE.Mesh(new THREE.CylinderGeometry(s.R,s.R,s.duel?5:9,36,1,true),m.clone());if(s.duel)g.material.color.set('#ff9a5a');g.position.set(WRD.x+s.x,s.y+4.5,WRD.z+s.z);g.frustumCulled=false;G.add(g);fogs[s.id]={m:g,st:'idle'}}}
   function fog(id,st){const f=fogs[id];if(!f)return;f.st=st;f.m.visible=st!=='gone';f.m.material.opacity=st==='sealed'?.42:.16}
   // camp markers: a brazier at the heart of each soldier camp so you can spot them
-  function campMarks(){for(const s of WARDEN.sites)if(!s.fog&&!s.wall)brazier(WRD.x+s.x,s.y+1.1,WRD.z+s.z)}
+  function campMarks(){for(const s of WARDEN.sites)if(!s.fog&&!s.wall&&!s.safe)brazier(WRD.x+s.x,s.y+1.1,WRD.z+s.z)}
   function build(){
     if(!WRD.on||built)return;built=true;
     G=new THREE.Group();G.name='WardenIsles';scene.add(G);
-    terrainMesh();dress();fogBuild();campMarks();
+    terrainMesh();dress();fogBuild();campMarks();if(typeof WardenCatacombs!=='undefined')WardenCatacombs.build();
     const sol=WardenSolids();wall(sol.filter(s=>s.wall));pillars();
     for(const s of sol){solids.push(s);added.push(s)}
     T.arena={x:WRD.x,z:WRD.z,R:WARDEN.arenaR};
@@ -92,9 +92,9 @@ const WardenIsles=(()=>{
   function tick(dt,t){
     if(!built)return;                                   // flag off => nothing runs
     const d=Math.hypot(S.x-WRD.x,S.z-WRD.z);
-    if(d>WRD.reach+200){PlayerCombat.leave();if(farOn)farCull(false,t);fishVis(true);return}
+    if(d>WRD.reach+200){PlayerCombat.leave();if(typeof WardenCatacombs!=='undefined')WardenCatacombs.away();if(farOn)farCull(false,t);fishVis(true);return}
     if(t-fc>300||!farOn){fc=t;farCull(true,t)}
-    inside=d<WARDEN.arenaR;fishVis(!inside);PlayerCombat.tick(dt,t);
+    inside=d<WARDEN.arenaR;fishVis(!inside);PlayerCombat.tick(dt,t);if(typeof WardenCatacombs!=='undefined')WardenCatacombs.tick(dt,t);
     const k=.75+.25*Math.sin(t/110)+.1*Math.sin(t/37);for(let i=0;i<fire.length;i++)fire[i].scale.setScalar(.9+.18*Math.sin(t/130+i*1.7)*k);
   }
   return{build,tick,fog,inArena:()=>inside,hidden:()=>hiddenN,arena:()=>T.arena,props:()=>({meshes:propsMesh.length,tris:propTris}),_t:()=>({built,added,fire,G})}})();

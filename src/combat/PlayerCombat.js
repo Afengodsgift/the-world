@@ -16,7 +16,7 @@ const PlayerCombat=(()=>{
   const pv={x:0,z:0,vf:0,vs:0,sp:0,init:false};
   const cur=WardenAnim.copy(WardenAnim.POSES.ready),tg=WardenAnim.copy(WardenAnim.POSES.ready);let stW=0,gT=0,msgT=0,lastTone=0;
   const GRIP={rx:0,ry:0,rz:0,len:.95,ox:0,oy:0,oz:0};
-  const rt=s=>RT[s.id]||(RT[s.id]={foes:[],cleared:false});
+  const rt=s=>RT[s.id]||(RT[s.id]={foes:[],cleared:!!(s.dg&&typeof WardenDungeon!=='undefined'&&WardenDungeon.isCleared(s.id))});   // catacomb rooms stay cleared for the whole cycle (WardenDungeon)
   const SITES=()=>WARDEN.sites;
   // ---------- audio (tiny WebAudio tones; silent if audio is unavailable) ----------
   function tone(f0,f1,dur,type,vol){try{const now=performance.now();if(now-lastTone<25)return;lastTone=now;const a=WAudio.get();if(!a)return;const o=a.createOscillator(),g=a.createGain();o.type=type||'triangle';
@@ -64,7 +64,7 @@ const PlayerCombat=(()=>{
     if(T.boss){got=['hp',rnd()<.5?'st':'mt'];}else if(rnd()<.22)got=['hp'];
     if(!got)return;const names=[];for(const k of got)if(flasks[k]<flaskCap(k)){flasks[k]++;names.push(FL[k].n)}if(names.length){saveFl();flaskUi();setTimeout(()=>msg('Found: '+names.join(' + '),2),900)}}
   // ---------- progression (WardenProg.js): Embers from every kill, permanent upgrades at the Ember Shrine, Ashen Cycles (New Game+) ----------
-  const PG=WardenProg;PG.setBosses(WARDEN.sites.filter(s=>s.fog).map(s=>s.id));
+  const PG=WardenProg;PG.setBosses(WARDEN.sites.filter(s=>s.fog&&s.boss!==false).map(s=>s.id));
   let baseDm=1,shrineEl=null,chipEl=null,chipKey='',mark=null,markT=0,toastEl=null,toastT=0;
   const flaskCap=k=>Math.min(9,FL[k].max+PG.stats().belt);
   let wst=WardenGear.stats();
@@ -125,6 +125,7 @@ const PlayerCombat=(()=>{
     const k=near+'|'+PG.S.embers+'|'+PG.S.cycle+'|'+(PG.S.lost?1:0);if(k===chipKey)return;chipKey=k;chipEl.style.display=near?'block':'none';
     chipEl.textContent='🔥 '+PG.S.embers+' · Cycle '+PG.S.cycle;if(!near&&shrineEl)shrineEl.classList.remove('on')}
   function cycleTurn(r){
+    try{WardenDungeon.reset(r.cycle);WardenCatacombs.refresh()}catch(e){}
     toast('THE ISLES STIR · CYCLE '+r.cycle+(r.twist?' · '+r.twist.toUpperCase():'')+' · +'+r.bonus+' Embers',5);
     for(const k in RT){const q=RT[k];if(q&&q.cleared&&!(on&&site&&site.id===k)){q.cleared=false;for(const F of q.foes||[])freeBody(F.body);q.foes=[];try{WardenIsles.fog(k,'idle')}catch(e){}}}}
   // ---------- co-op (see WardenNet.js): host runs the foes, each player is authoritative for themselves, the partner is a puppet fighter 'Q' in the local sim ----------
@@ -329,7 +330,7 @@ const PlayerCombat=(()=>{
       foes.push(F);byId[id]=F});
     rt(site).foes=foes}
   function startFight(){
-    fightN++;hurt=false;fightVo=false;try{WardenSfx.load()}catch(e){}const R=site.wall?site.R-.5:site.R+10,sol=WardenSolids().filter(s=>Math.hypot(s.x-WRD.x-site.x,s.z-WRD.z-site.z)<site.R+14);
+    fightN++;hurt=false;fightVo=false;try{WardenSfx.load()}catch(e){}const R=site.wall?site.R-.5:site.dg?site.R-.3:site.R+10,sol=WardenSolids().filter(s=>Math.hypot(s.x-WRD.x-site.x,s.z-WRD.z-site.z)<site.R+14);
     C=CombatCore.create({arena:{x:WRD.x+site.x,z:WRD.z+site.z,R},solids:sol});ST=CombatCore.stepper(C,6);t0=performance.now();
     if(site.duel&&DU.pair){const L=duelSide();S.x=WRD.x+site.x;S.z=WRD.z+site.z+9*L;S.rot=L>0?Math.PI:0;lx=S.x;lz=S.z}
     P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});applyStats();spawnFoes();WardenFx.clear();WardenVfx.clear();Q=null;spectate=false;netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
@@ -394,14 +395,14 @@ const PlayerCombat=(()=>{
     const k=Math.min(1,dt*10),vx=(x-v.x)/dt,vz=(z-v.z)/dt;v.x=x;v.z=z;const fx=Math.sin(face),fz=Math.cos(face),f=vx*fx+vz*fz,l=vx*fz-vz*fx;   // left = (cos, -sin)
     v.vf+=(f-v.vf)*k;v.vs+=(l-v.vs)*k;v.sp=Math.hypot(v.vf,v.vs)}
   // a cleared site keeps its corpses until you are well away, then it re-arms (fight it again whenever you like)
-  function rearm(wx,wz){for(const s of SITES()){const r=RT[s.id];if(!r||!r.cleared)continue;if(Math.hypot(wx-s.x,wz-s.z)>s.R+45){r.cleared=false;for(const F of r.foes)freeBody(F.body);r.foes=[];try{if(s.fog)WardenIsles.fog(s.id,'idle')}catch(e){}}}}
+  function rearm(wx,wz){for(const s of SITES()){const r=RT[s.id];if(!r||!r.cleared)continue;if(s.dg&&WardenDungeon.isCleared(s.id))continue;if(Math.hypot(wx-s.x,wz-s.z)>s.R+45){r.cleared=false;for(const F of r.foes)freeBody(F.body);r.foes=[];try{if(s.fog)WardenIsles.fog(s.id,'idle')}catch(e){}}}}
   function tick(dt,t){
     if(msgT>0&&el){msgT-=dt;if(msgT<=0)el.querySelector('#wmsg').classList.remove('on')}   // the banner times out even after the fight is over (it used to stay up until you left the isle)
     const wx=S.x-WRD.x,wz=S.z-WRD.z;chipTick(wx,wz);lostMark(t,dt);if(toastT>0){toastT-=dt;if(toastT<=0&&toastEl)toastEl.classList.remove('on')}
     if(!on){rearm(wx,wz);
       for(const k in RT)for(const F of RT[k].foes||[])if(F.f.act==='dead'&&Math.hypot(F.f.x-S.x,F.f.z-S.z)<70)foeTick(F,dt,0);   // corpses of cleared sites keep animating until they have finished falling
       if(S.flying||S.state==='swim'||!S.grounded||!me||!me.userData.nact)return;
-      const s=SITES().find(q=>!rt(q).cleared&&Math.hypot(wx-q.x,wz-q.z)<q.R-(q.wall?1.5:1));if(s)engage(s);if(!on)return}
+      const s=SITES().find(q=>!q.safe&&!rt(q).cleared&&Math.hypot(wx-q.x,wz-q.z)<q.R-(q.wall?1.5:1));if(s)engage(s);if(!on)return}
     const d=Math.hypot(wx-site.x,wz-site.z);
     if(S.flying||S.state==='swim'){leave(false);return}
     if(site.fog||site.duel&&DU.pair){if((state!=='won'||site.duel)&&d>site.R-.8){const k=(site.R-.8)/d;S.x=WRD.x+site.x+(wx-site.x)*k;S.z=WRD.z+site.z+(wz-site.z)*k}}      // the fog gate holds you in until the foe is felled
@@ -412,7 +413,7 @@ const PlayerCombat=(()=>{
     if(site.duel){if(DU.over&&performance.now()-DU.overT>4200){DU.over=false;if(DU.pair)duelBegin();else{startFight();msg('Again.',1.2)}}}
     else if(state==='lost'&&performance.now()-stateT>3200){startFight();msg('Again.',1.4)}
     else if(state==='won'&&performance.now()-stateT>(PC.loop?5000:4500)){
-      if(PC.loop){startFight();msg('Again.',1.4)}else{rt(site).cleared=true;felled++;const cr=site.fog?PG.felled(site.id):null;msg(site.n+' · cleared ('+felled+' felled)',2.4);leave(true);if(cr)cycleTurn(cr);return}}
+      if(PC.loop){startFight();msg('Again.',1.4)}else{rt(site).cleared=true;felled++;if(site.dg){try{WardenDungeon.clear(site.id);WardenCatacombs.onClear(site.id)}catch(e){}}const cr=site.fog?PG.felled(site.id):null;msg(site.n+' · cleared ('+felled+' felled)',2.4);leave(true);if(cr)cycleTurn(cr);return}}
     // one-time status toast so a missing animation set is visible instead of silent
     {const F0=foes[0],ka=(pAnim?pAnim.st:'none')+'/'+(F0&&F0.anim?F0.anim.st:'none');if(ka!==mxSaid&&pAnim&&F0&&F0.anim&&pAnim.st!=='none'&&F0.anim.st!=='none'){mxSaid=ka;msg(pAnim.st==='ready'&&F0.anim.st==='ready'?'Animations '+WardenMX.BUILD+' loaded':'Animation load FAILED ('+(pAnim.err||F0.anim.err||ka)+')',2.2)}}
     const TF=target();D=TF.f;
@@ -464,6 +465,9 @@ const PlayerCombat=(()=>{
     if(F.anim)F.anim.update(f,fr,loco,dt,true);
     if(b.T.body==='glb'&&b.u.mixer)b.u.mixer.update(dt);
     F.flash=Math.max(0,F.flash-dt*5);if((F.flash>0||b.flashOn)&&b.u.model){b.flashOn=F.flash>0;b.u.model.traverse(c=>{if(c.isSkinnedMesh&&c.material&&c.material.emissive)c.material.emissive.setRGB(F.flash*.7,F.flash*.25,F.flash*.1)})}}
-  return Object.assign(PC,{setSeq:v=>{if(pAnim)pAnim.variant=v},tick,speedMul,press,release,enter:()=>{},engage:id=>{const s=SITES().find(q=>q.id===id);if(s&&!on)engage(s)},leave:()=>leave(false),on:()=>on,site:()=>site,GRIP,setGrip:()=>{setGrip(sword);for(const F of foes)setGrip(F.body.sword)},newFight:()=>{if(on)startFight()},
+  return Object.assign(PC,{dgReward:(loot,label)=>{   // catacomb chest: embers + a weapon (a full pack sells it)
+      const n=Math.round(loot.embers*wst.gild);PG.earn(n);let line='+'+n+' Embers';const r=WardenGear.rng(Date.now()&0x7fffffff),it=WardenGear.make(r,loot.rar,null,'c');
+      if(WardenGear.full()){const v=WardenGear.sellValue(it);PG.earn(v);line+=' · pack full, sold a '+WardenGear.name(it)+' for '+v}else{WardenGear.add(it);line+=' · '+WardenGear.RAR[it.rar]+' '+WardenGear.name(it)}
+      toast((label||'Chest')+': '+line,4.2);return it},toast:(t,s)=>toast(t,s),setSeq:v=>{if(pAnim)pAnim.variant=v},tick,speedMul,press,release,enter:()=>{},engage:id=>{const s=SITES().find(q=>q.id===id);if(s&&!on)engage(s)},leave:()=>leave(false),on:()=>on,site:()=>site,GRIP,setGrip:()=>{setGrip(sword);for(const F of foes)setGrip(F.body.sword)},newFight:()=>{if(on)startFight()},
     _flow:v=>{if(v!==undefined)flow=v;return[flow,flowOn,flowN]},
     _t:()=>({DU,on,C,P,D,lock,sword,foes,site,AI:foes[0]&&foes[0].ai,state,cur,stW,down,pAnim,dAnim:foes[0]&&foes[0].anim,duel:foes[0]&&foes[0].body.g,dSword:foes[0]&&foes[0].body.sword,RT})})})();
