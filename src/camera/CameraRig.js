@@ -47,6 +47,7 @@ const CameraRig=(()=>{
     if(typeof solids!=='undefined')for(let i=0;i<solids.length&&_near.length<24;i++){const c=solids[i];     // thin trunks are ignored: only houses, rocks, props and the like
       if(c.r<1||c.noSide)continue;const dx=c.x-a.x,dz=c.z-a.z;if(dx*dx+dz*dz<(c.r+len+1)**2)_near.push(c)}
     _nb.length=0;for(let i=0;i<blockers.length;i++){const k=blockers[i],r=Math.hypot(k.hw,k.hd)+len+1,dx=k.x-a.x,dz=k.z-a.z;if(dx*dx+dz*dz<r*r)_nb.push(k)}
+    if(typeof Blocks!=='undefined'&&Blocks.boxes.length){const t=Blocks.segHit(a,b,.28);if(t<1)return Math.max(.1,t-.03)}   // real buildings: stay inside rooms, never poke through a wall or ceiling (src/world/Blocks.js)
     const N=_nb.length?20:12;
     for(let i=1;i<=N;i++){const t=i/N,x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t,z=a.z+(b.z-a.z)*t;
       if(y<ground(x,z,a.y)+.55)return Math.max(.15,t-1.5/N);
@@ -59,6 +60,7 @@ const CameraRig=(()=>{
 
   // how much of the shoulder offset (sx,sz from the head at height y) is free of buildings / props: the pivot must never be pushed into a wall by standing flush against it
   function sideFree(x,y,z,sx,sz){
+    if(typeof Blocks!=='undefined'&&Blocks.boxes.length){const t=Blocks.segHit({x,y,z},{x:x+sx,y,z:z+sz},.3);if(t<1)return Math.max(0,t-.1)}
     for(let k=0;k<blockers.length;k++){const b=blockers[k];for(let i=1;i<=4;i++){const t=i/4;if(inBox(b,x+sx*t,y,z+sz*t,.45))return Math.max(0,(i-1)/4-.05)}}
     if(typeof solids!=='undefined')for(let k=0;k<solids.length;k++){const c=solids[k];if(c.r<1||c.noSide)continue;const top=c.h!==undefined?c.h:H(c.x,c.z)+9;if(y>=top)continue;
       for(let i=1;i<=4;i++){const t=i/4,dx=x+sx*t-c.x,dz=z+sz*t-c.z;if(dx*dx+dz*dz<(c.r+.45)**2)return Math.max(0,(i-1)/4-.05)}}

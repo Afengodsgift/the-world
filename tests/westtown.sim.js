@@ -36,4 +36,9 @@ function D_front(){return P.D/2}
  const roof=P.roofPosts.find(p=>p.side==='f');const o3={x:roof.x,y:roof.y+1.5,z:roof.z};ok(!rayHit(o3,{x:0,y:-.2,z:.98},40),'a sniper standing at the roof edge sees the street');
  ok(!!rayHit({x:roof.x,y:roof.y+.5,z:roof.z},{x:0,y:0,z:1},10),'a crouched sniper is covered by the parapet');
  ok(!!rayHit({x:0,y:GY+1.5,z:0},{x:0,y:1,z:0},10)||true,'floors/roofs are slabs')}
+// 5. camera: the shoulder camera stays inside the room (segHit)
+{const d=P.door,head={x:d.lx,y:GY+WestTown.FT+1.6,z:-2},out={x:d.lx,y:GY+WestTown.FT+2.2,z:d.lz+9};   // standing inside, camera wants to sit 9 m behind: through the front wall
+ const t=Blocks.segHit(head,out,.28);ok(t<.95&&t>.05,'a camera arm that would leave through a wall is cut short (t='+t.toFixed(2)+')');
+ const fl={x:head.x,y:head.y,z:head.z},up={x:head.x,y:head.y+9,z:head.z};ok(Blocks.segHit(fl,up,.28)<1,'and one that would rise through the ceiling is too');
+ const cl={x:head.x+.5,y:head.y,z:head.z},cl2={x:head.x+2,y:head.y,z:head.z+1};ok(Blocks.segHit(cl,cl2,.28)===1,'free space inside is not blocked')}
 process.exit(fails?1:0);

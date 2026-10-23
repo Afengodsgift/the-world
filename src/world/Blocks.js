@@ -41,6 +41,12 @@ const Blocks=(()=>{
     step=step===undefined?STEP:step;let best=-Infinity;
     for(const f of near(gf,x,z,0))if(x>=f.x0&&x<=f.x1&&z>=f.z0&&z<=f.z1&&f.y<=y+step&&f.y>best)best=f.y;
     return best}
+  // every walkable surface height at (x,z) (ascending): floors, stair steps, roofs, balconies (used by the raiders' path grid, src/world/Nav.js)
+  function surfacesAt(x,z){const a=[];for(const f of near(gf,x,z,0))if(x>=f.x0&&x<=f.x1&&z>=f.z0&&z<=f.z1&&a.indexOf(f.y)<0)a.push(f.y);return a.sort((p,q)=>p-q)}
+  // the stair step (tag 'step') at (x,z) whose top is at y (+-5 cm), or null
+  function stepAt(x,z,y){for(const f of near(gf,x,z,0))if(f.tag==='step'&&Math.abs(f.y-y)<.05&&x>=f.x0&&x<=f.x1&&z>=f.z0&&z<=f.z1)return f;return null}
+  // true when a body of radius R standing at (x,z) with feet y fits there (no wall box in [y+STEP, y+HEAD] within R)
+  function fits(x,z,y,R){R=R||.38;for(const b of near(gb,x,z,R+.5)){if(y+HEAD<=b.y0||y+STEP>=b.y1)continue;const nx=Math.max(b.x0,Math.min(x,b.x1)),nz=Math.max(b.z0,Math.min(z,b.z1));if(Math.hypot(x-nx,z-nz)<R)return false}return true}
   // the lowest floor / roof right above (x,z) between y and y+h (rain shelter, ceilings), or Infinity
   function ceilAt(x,z,y,h){let best=Infinity;for(const f of near(gf,x,z,0))if(!f.step&&x>=f.x0&&x<=f.x1&&z>=f.z0&&z<=f.z1&&f.y>y+.3&&f.y<y+(h||3)&&f.y<best)best=f.y;return best}
   // segment (2D) vs a box footprint (used by the circle-based line-of-sight helpers); y ignored
@@ -55,5 +61,20 @@ const Blocks=(()=>{
     for(const [oo,dd,lo,hi] of [[o.x,d.x,b.x0,b.x1],[o.y,d.y,b.y0,b.y1],[o.z,d.z,b.z0,b.z1]]){
       if(Math.abs(dd)<1e-9){if(oo<lo||oo>hi)return null}else{let a=(lo-oo)/dd,c=(hi-oo)/dd;if(a>c){const t=a;a=c;c=t}if(a>t0)t0=a;if(c<t1)t1=c;if(t0>t1)return null}}
     return t0>1e-4?t0:null}
-  return {STEP,HEAD,clear,box,floor,push,floorAt,ceilAt,segBox,rayBox,get cover(){return cover},get boxes(){return boxes},get floors(){return floors}};
+  // camera / long-sight helper: first fraction t (0..1) at which the segment a->b (points {x,y,z}) enters a wall box or a floor / roof slab inflated by m, or 1. Lets the shoulder camera stay INSIDE a building.
+  function segHit(a,b,m){
+    m=m||0;const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,len=Math.hypot(dx,dy,dz);if(len<1e-6)return 1;
+    const cx=(a.x+b.x)/2,cz=(a.z+b.z)/2,rr=Math.hypot(dx,dz)/2+m+1;let best=1;
+    const test=o=>{
+      const inside=(k)=>a.x>=o.x0-k&&a.x<=o.x1+k&&a.y>=o.y0-k&&a.y<=o.y1+k&&a.z>=o.z0-k&&a.z<=o.z1+k;
+      if(inside(0))return;                       // the head is truly inside a solid: ignore it (never collapse the camera onto the head)
+      const k=inside(m)?0:m;                     // head hugging a wall: test the bare box so the camera can't pass through it
+      let t0=0,t1=1;
+      for(const [oo,dd,lo,hi] of [[a.x,dx,o.x0-k,o.x1+k],[a.y,dy,o.y0-k,o.y1+k],[a.z,dz,o.z0-k,o.z1+k]]){
+        if(Math.abs(dd)<1e-9){if(oo<lo||oo>hi)return}else{let u=(lo-oo)/dd,v=(hi-oo)/dd;if(u>v){const w=u;u=v;v=w}if(u>t0)t0=u;if(v<t1)t1=v;if(t0>t1)return}}
+      if(t0<best)best=t0};
+    for(const o of near(gb,cx,cz,rr))test(o);
+    for(const f of near(gf,cx,cz,rr))if(f.cover)test(f.cover);
+    return best}
+  return {STEP,HEAD,clear,fits,surfacesAt,stepAt,box,floor,segHit,push,floorAt,ceilAt,segBox,rayBox,get cover(){return cover},get boxes(){return boxes},get floors(){return floors}};
 })();

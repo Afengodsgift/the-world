@@ -82,7 +82,7 @@ const Outlaw=(()=>{
     const y=C.y,g=kind==='barrel'?new THREE.CylinderGeometry(.55,.55,1.2,10):new THREE.BoxGeometry(1.4,1.3,1.4);
     const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:kind==='barrel'?'#7a4a22':'#a9803f',roughness:.9}));m.position.set(x,y+.65,z);m.rotation.y=Math.random()*3;m.castShadow=true;scene.add(m);
     const c={x,z,r:.95,y:C.y-.05,h:kind==='barrel'?1.2:1.3};solids.push(c);cover.push(c)}
-  let town=null;
+  let town=null,sweepT=0;
   const ny=n=>n.y!==undefined?n.y:H(n.x,n.z);
   function build(){
     C={x:OUT.x,z:OUT.z,y:OUT.y+.05};cover.length=0; // dedicated Outlaw Isle (see data/islands.js)
@@ -96,7 +96,7 @@ const Outlaw=(()=>{
     const PROPS=()=>{[[-24,8],[24,6],[-4,18],[4,-18],[-28,-14],[28,-16],[-8,-24],[20,-30],[-30,18],[30,16],[0,28],[-18,22]].forEach(([dx,dz],i)=>{const x=C.x+dx,z=C.z+dz;if(typeof Blocks!=='undefined'&&(Blocks.floors.some(f=>x>f.x0-2&&x<f.x1+2&&z>f.z0-2&&z<f.z1+2)||solids.some(q=>Math.hypot(q.x-x,q.z-z)<q.r+1.6)))return;prop(x,z,i%2?'crate':'barrel')})};
     if(typeof WestTown!=='undefined'&&typeof WestKit!=='undefined'&&typeof Blocks!=='undefined'){
       bank.x=C.x+16;bank.z=C.z-10;bank.max=bank.hp=1500;
-      WestTown.buildTown({C,scene,cover,solids,Kit:WestKit,Blocks,tint:[1,.96,.9]}).then(T=>{town=T;PROPS()}).catch(e=>{console.warn('west town failed, legacy boxes',e);Blocks.clear();OLD();PROPS()});
+      WestTown.buildTown({C,scene,cover,solids,H,Kit:WestKit,Blocks,tint:[1,.96,.9]}).then(T=>{town=T;PROPS();if(typeof Nav!=='undefined'&&typeof Tactics!=='undefined'){Nav.setup(T.plans,{solids});Tactics.setup();Tactics.bind(()=>npcs.values())}}).catch(e=>{console.warn('west town failed, legacy boxes',e);Blocks.clear();OLD();PROPS()});
     }else{OLD();PROPS()}
     {const wy=C.y,mt=new THREE.MeshStandardMaterial({color:'#6b4a2a'}),tk=new THREE.Mesh(new THREE.CylinderGeometry(2.6,2.6,3,14),mt);tk.position.set(C.x+26,wy+9,C.z-24);tk.castShadow=true;scene.add(tk);
      const ro=new THREE.Mesh(new THREE.ConeGeometry(3,1.6,14),new THREE.MeshStandardMaterial({color:'#4a3320'}));ro.position.set(C.x+26,wy+11.3,C.z-24);scene.add(ro);
@@ -357,7 +357,7 @@ const Outlaw=(()=>{
   function addNpc(type,x,z){
     const T=TYPES[type],D=DIFF[diff],hv=T.hp*(1+wave*.08)*D.hp;
     const n={id:nid++,type,x,z,hp:hv,max:hv,dm:D.dmg*(1+wave*.03),r:0,st:'idle',cd:rnd(.5,1.5),react:T.react,t:0,ph:rnd(0,6),flank:Math.random()<.5?1:-1,role:EnemyAI.role(type,Math.random()),mode:'advance',dec:0,pt:0,peek:0,tid:null,aim:0,seen:false,dead:0,
-      raider:mode==='defend'&&(type<3||type===4||type===5)?Math.random()<.55:false};
+      postBias:Math.random()<.4,raider:mode==='defend'&&(type<3||type===4||type===5)?Math.random()<.55:false};
     n.group=null;npcs.set(n.id,n);spawnVisual(n);n.group.position.set(x,H(x,z),z)}
   function spawnPoint(type){if(type!==undefined)return OutlawArena.front(type);for(let i=0;i<20;i++){const a=Math.random()*6.283,x=C.x+Math.cos(a)*62,z=C.z+Math.sin(a)*62;if(H(x,z)>1)return [x,z]}return [C.x+30,C.z]}
   function startWave(){
@@ -409,6 +409,33 @@ const Outlaw=(()=>{
   function detour(n,t){ // nearest blocking cover on the line to the target -> a point beside it to walk around
     let best=null,bd=1e9;for(const c of cover){if(!segCircle(n.x,n.z,t.x,t.z,c))continue;const d=Math.hypot(c.x-n.x,c.z-n.z);if(d<bd){bd=d;best=c}}
     if(!best)return null;const ex=t.x-n.x,ez=t.z-n.z,l=Math.hypot(ex,ez)||1;return {x:best.x+(-ez/l)*n.flank*(best.r+3.5),z:best.z+(ex/l)*n.flank*(best.r+3.5)}}
+  // ---------- TACTICS: use the town (src/combat/Tactics.js + src/world/Nav.js) ----------
+  const TON=()=>typeof Nav!=='undefined'&&typeof Tactics!=='undefined'&&Nav.list.length>0;
+  function tacticsStep(n,t,tfy,seen,d,now0,dt,brave,role){
+    n.crouchHold=false;
+    if(n.post){
+      n.pr=(n.pr||0)-dt;n.postT=(n.postT||0)+dt;
+      if(n.pr<=0){n.pr=1;const far=Math.hypot(n.post.x-t.x,n.post.z-t.z)>TYPES[n.type].range+14,blind=n.pstage==='hold'&&!seen&&now0-(n.sawT||0)>9,lost=n.postT>45&&n.pstage!=='hold';
+        if(far||blind||lost||(brave&&n.pstage==='hold'&&!seen&&n.type!==2)){Tactics.release(n);n.postT=0;return null}}
+      const f=Tactics.follow(n,dt);if(f.done){n.postT=0;return null}
+      if(f.hold){n.crouchHold=!f.stand;return {mx:0,mz:0,stop:1,st:f.stand?(n.type===2?'aim':'idle'):'crouch',mode:'post'}}
+      return {mx:f.mx,mz:f.mz,st:'run',mode:'post'}}
+    n.ta=(n.ta||0)-dt;
+    // 1) the target is inside / on a building and we cannot just shoot them: stack up at the door and go in (dynamiters flush them out first)
+    const tb=Nav.at(t.x,t.z,tfy,2.4);
+    if(tb&&role!=='sniper'&&n.type!==2&&(!seen||d<10)){
+      if(n.type===4&&!seen&&d<32&&n.cd<=0){const fp=Tactics.flushPoint(tb);n.cd=TYPES[4].cd;throwDyn(n,{x:fp.x,z:fp.z,vx:0,vz:0})}
+      const br=Tactics.breach(n,t,now0);
+      if(br)return {mx:br.mx,mz:br.mz,stop:br.hold,st:br.hold?'idle':'run',mode:'breach'}}
+    else if(n.mode==='breach'){n.mode='advance';n.bw=0}
+    // 2) take a rooftop / window post with a view of the target
+    if(n.ta<=0&&!brave&&(n.type===2||(n.type===0&&n.postBias&&(role==='rifle'||role==='suppress'||role==='grunt')))){
+      n.ta=rnd(2.5,4.5);let holders=0,live=0;for(const o of npcs.values()){if(o.dead)continue;live++;if(o.post)holders++}
+      if(holders<=Math.ceil(live*.5)&&Tactics.posts.length){
+        const snip=n.type===2,e=Tactics.pickPost(n,t,{kind:snip?'roof':undefined,min:snip?20:10,max:snip?TYPES[2].range-4:TYPES[0].range-6,near:snip?120:70,
+          vis:(x,y,z)=>EnemyAI.sees(cover,x,y,z,'stand',t.x,tfy,t.z)>0});
+        if(e){Tactics.assign(n,e);n.postT=0;n.pr=1;return tacticsStep(n,t,tfy,seen,d,now0,0,brave,role)}}}
+    return null}
   function think(n,dt,pl){
     const T=TYPES[n.type],alive=pl.filter(p=>!p.down);if(!alive.length){n.st='idle';return}
     let t=null,bs=1e9;for(const p of alive){let load=0;for(const o of npcs.values())if(o!==n&&o.tid===p.id&&!o.dead)load++;
@@ -449,6 +476,8 @@ const Outlaw=(()=>{
         band=(role==='aggr'&&!pushNow)?[22,30]:EnemyAI.bandOf(role),tpd={x:tp.x,z:tp.z};
       n.rdmg=Math.max(0,(n.rdmg||0)-dt*T.hp*.08);
       if(brave&&n.mode==='cover')n.mode='advance';
+      const tov=(TON()&&!boss&&t.id!=='bank')?tacticsStep(n,t,tfy,seen,d,now0,dt,brave,role):null;
+      if(tov){mx=tov.mx;mz=tov.mz;if(tov.stop){sp=0}n.st=tov.st;n.mode=tov.mode;n.peekOut=true}else{
       if(n.dec<=0){n.dec=rnd(.5,.9);
         if(brave||n.hunt)n.mode='advance';
         else if(role==='sniper'){/* perches below */}
@@ -475,12 +504,13 @@ const Outlaw=(()=>{
       else{ // advance: straight toward where it believes you are (around cover), stopping to fight inside its band
         mx=(tp.x-n.x)/dp;mz=(tp.z-n.z)/dp;if(!seen){const dv=detour(n,tp);if(dv){const q=Math.hypot(dv.x-n.x,dv.z-n.z)||1;mx=(dv.x-n.x)/q;mz=(dv.z-n.z)/q}}
         if(seen&&dp<=band[1]&&role!=='rusher'&&!pushNow&&!brave)n.mode='fight'}
-      if(n.type===2&&!brave){ // MARKSMAN: climb to the nearest high ground (ridge top / mine mesa) and shoot from there
+      }
+      if(n.type===2&&!brave&&!tov){ // MARKSMAN: climb to the nearest high ground (ridge top / mine mesa) and shoot from there
         if(!n.perch){let bd=1e9;for(const q of OutlawArena.perches()){const dd=Math.hypot(q.x-n.x,q.z-n.z);if(dd<bd){bd=dd;n.perch=q}}}
         if(n.perch){const pd=Math.hypot(n.perch.x-n.x,n.perch.z-n.z);n.mode='fight';if(pd>3){mx=(n.perch.x-n.x)/pd;mz=(n.perch.z-n.z)/pd;sp=T.sp;n.st='run'}else{mx=mz=0;sp=0;n.st='idle'}}}
-      const peeking=n.mode!=='cover'||n.peekOut;
+      const peeking=(n.mode!=='cover'||n.peekOut)&&!n.crouchHold;
       if(peeking&&seen&&d<T.range&&n.react<=0){
-        if(n.type===2){n.aim+=dt;n.st='aim';sp=0;if(n.aim>=.9&&n.cd<=0){n.aim=0;n.cd=T.cd;enemyShoot(n,t,d,T)}}
+        if(n.type===2){if(tov&&!tov.stop){n.aim=0}else{n.aim+=dt;n.st='aim';sp=0}if(n.aim>=.9&&n.cd<=0){n.aim=0;n.cd=T.cd;enemyShoot(n,t,d,T)}}
         else if(n.cd<=0){n.cd=T.cd*rnd(.85,1.2);if(n.type===4)throwDyn(n,t);else{enemyShoot(n,t,d,T);if(n.type===7){n.bc=(n.bc||0)+1;n.cd=n.bc>=14?(n.bc=0,2.2):T.cd}}}
       }else if(role==='suppress'&&peeking&&!seen&&lkAge<7&&n.cd<=0&&n.mode!=='advance'&&n.mode!=='flank'){n.cd=rnd(.28,.45);suppressFire(n)}   // pins you down: fires where you were last seen
       else if(n.type===2)n.aim=0;
@@ -493,15 +523,15 @@ const Outlaw=(()=>{
     const ml=Math.hypot(mx,mz)||1;n.x+=mx/ml*sp*dt;
     // UNSTICK: a raider that is trying to move but has gone nowhere for ~6 s (wedged in scenery) is re-placed at one of the island's fronts
     n.sk=(n.sk||0)+dt;if(n.sk>=3){n.sk=0;const mvd=Math.hypot(n.x-(n.skx===undefined?n.x:n.skx),n.z-(n.skz===undefined?n.z:n.skz));
-      if(sp>0&&n.mode!=='cover'&&d>9&&mvd<.9){if((n.stuck=(n.stuck||0)+1)>=2){n.stuck=0;const [rx,rz]=OutlawArena.front(n.type);n.x=rx;n.z=rz}}else n.stuck=0;n.skx=n.x;n.skz=n.z}n.z+=mz/ml*sp*dt;
+      if(sp>0&&n.mode!=='cover'&&n.mode!=='post'&&n.mode!=='breach'&&d>9&&mvd<.9){if((n.stuck=(n.stuck||0)+1)>=2){n.stuck=0;const [rx,rz]=OutlawArena.front(n.type);n.x=rx;n.z=rz}}else n.stuck=0;n.skx=n.x;n.skz=n.z}n.z+=mz/ml*sp*dt;
     for(const c of solids){const ox=n.x-c.x,oz=n.z-c.z;if(Math.abs(ox)>c.r+1||Math.abs(oz)>c.r+1)continue;const od=Math.hypot(ox,oz),m=c.r+.45;if(od<m&&od>.001){n.x=c.x+ox/od*m;n.z=c.z+oz/od*m}}
-    if(typeof Blocks!=='undefined'&&Math.abs(n.x-C.x)<60&&Math.abs(n.z-C.z)<50){const o={x:n.x,z:n.z,y:ny(n)};Blocks.push(o,.45);n.x=o.x;n.z=o.z;const fy=Blocks.floorAt(n.x,n.z,o.y,.6),g0=H(n.x,n.z);n.y=Math.max(g0,fy)}else if(n.y!==undefined)n.y=undefined;   // town buildings: walls stop raiders, stairs / roofs lift them (src/world/Blocks.js)
+    if(typeof Blocks!=='undefined'&&Blocks.boxes.length){const o={x:n.x,z:n.z,y:ny(n)};Blocks.push(o,.45);n.x=o.x;n.z=o.z;const fy=Blocks.floorAt(n.x,n.z,o.y,.6),g0=H(n.x,n.z);n.y=Math.max(g0,fy)}else if(n.y!==undefined)n.y=undefined;   // town buildings: walls stop raiders, stairs / roofs lift them (src/world/Blocks.js)
     const lr=Math.hypot(n.x-C.x,n.z-C.z);if(lr>195){n.x=C.x+(n.x-C.x)/lr*195;n.z=C.z+(n.z-C.z)/lr*195}
     if(H(n.x,n.z)<.3){n.x+=(C.x-n.x)/lr*1.5;n.z+=(C.z-n.z)/lr*1.5} // stay on land (the arena is the whole island now)
     n.r=Math.atan2(ux,uz);if(sp===0&&n.st==='run')n.st='idle';
   }
   function hostTick(dt){
-    const pl=players();
+    const pl=players();if(typeof Tactics!=='undefined'&&(sweepT=(sweepT||0)-dt)<=0){sweepT=2;Tactics.sweep(npcs)}
     for(const n of npcs.values())if(!n.dead)think(n,dt,pl);
     spawnT-=dt;const live=[...npcs.values()].filter(n=>!n.dead).length;
     // HUNT: if the spawns are done and only a few raiders remain for a while (a sniper holding the ridge, one stuck behind scenery) they stop hiding and rush you, so a wave always ends
