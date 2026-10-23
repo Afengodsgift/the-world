@@ -283,7 +283,7 @@ const PlayerCombat=(()=>{
   function msg(t,sec){const m=el.querySelector('#wmsg');m.textContent=t;m.classList.add('on');msgT=sec||1.4}
   // ---------- bodies (avatars + models) and weapons ----------
   const pool={};     // foe type id -> [body]  (reused between fights; hidden when free)
-  let netT=0;function netWarn(){const t=performance.now();if(t-netT>20000&&el){netT=t;try{msg('Slow connection: models still loading',2.4)}catch(e){}}}
+  let netT=0;function netWarn(why){const t=performance.now();if(t-netT>20000&&el){netT=t;try{msg('Models failed to load ('+(why||'network')+') - retrying',3)}catch(e){}}}
   function attachSword(av,file,len,slot,fixed){
     const u=av&&av.userData;if(!u||!u.bones||!u.bones.RightHand||!THREE.GLTFLoader)return null;const st={ready:false,grip:null,hand:u.bones.RightHand,len:slot.len,want:len,av,fixed};
     const go=n=>new THREE.GLTFLoader().load('assets/'+(file.indexOf('/')>=0?file:'warden/'+file),g=>{if(st.dead)return;const grip=new THREE.Group(),m=g.scene;m.traverse(o=>{if(o.isMesh){o.castShadow=false;o.frustumCulled=false}});grip.add(m);st.hand.add(grip);st.grip=grip;st.ready=true;setGrip(st);grip.visible=on},()=>{},()=>{netWarn();if(!st.dead)setTimeout(()=>go(n+1),Math.min(8000,1500*(n+1)))});go(0);
@@ -305,11 +305,13 @@ const PlayerCombat=(()=>{
     if(T.body==='avatar'&&T.tint!==undefined&&T.tint!==1)b.u.model.traverse(c=>{if(c.isSkinnedMesh&&c.material&&c.material.color){c.material.userData.c0=c.material.color.clone();c.material.color.copy(c.material.userData.c0).multiply(new THREE.Color(T.tint,T.tint*(T.tint<1?.7:1),T.tint*(T.tint<1?.75:1)))}});
     if(T.sword&&!b.sword)b.sword=attachSword(b.g,T.sword.f,T.sword.len,{len:T.sword.l0,set tried(v){}},T.grip);
     if(T.shield&&!b.shield)attachShield(b)}
-  function glbLoad(b,T,n){n=n||0;   // a failed download is retried until it works (gaps grow to 8 s): a flaky connection must never leave a boss or guard invisible for the rest of the session
-    fetch('assets/warden/'+(b.file||T.file)+'.glb').then(r=>{if(!r.ok)throw new Error('http '+r.status);return r.arrayBuffer()}).then(buf=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(buf,'assets/warden/',res,rej))).then(gl=>{
+  function glbLoad(b,T,n){n=n||0;if(n===0)setTimeout(()=>{if(!b.ready)placeholder(b,T)},2500);   // a failed download is retried until it works (gaps grow to 8 s; retries bypass the HTTP cache so a bad cached copy cannot stick): a flaky connection must never leave a boss or guard invisible for the rest of the session
+    fetch('assets/warden/'+(b.file||T.file)+'.glb',n>0?{cache:'reload'}:undefined).then(r=>{if(!r.ok)throw new Error('http '+r.status);return r.arrayBuffer()}).then(buf=>{if(buf.byteLength<64||new Uint32Array(buf,0,1)[0]!==0x46546C67)throw new Error('not a glb ('+buf.byteLength+' B)');return new Promise((res,rej)=>new THREE.GLTFLoader().parse(buf,'assets/warden/',res,rej))}).then(gl=>{
       const m=new THREE.Group();m.scale.setScalar(.01);m.add(gl.scene);b.g.add(m);const bones={},seen=new Set();
       gl.scene.traverse(o=>{if(o.isBone)bones[o.name.replace('mixamorig','')]=o;if(o.isSkinnedMesh){o.frustumCulled=false;o.castShadow=true;for(const mt of [].concat(o.material))if(!seen.has(mt)){seen.add(mt);if(T.bright)mt.color.multiplyScalar(T.bright)}}});
-      b.u.mixer=new THREE.AnimationMixer(gl.scene);b.u.bones=bones;b.u.model=gl.scene;b.ready=true}).catch(e=>{b.err=String(e&&e.message||e);netWarn();setTimeout(()=>{if(!b.ready){b.err=null;glbLoad(b,T,n+1)}},Math.min(8000,1500*(n+1)))})}
+      b.u.mixer=new THREE.AnimationMixer(gl.scene);b.u.bones=bones;b.u.model=gl.scene;b.ready=true;if(b.fb)b.fb.visible=false}).catch(e=>{b.err=String(e&&e.message||e);netWarn(b.err);placeholder(b,T);setTimeout(()=>{if(!b.ready){b.err=null;glbLoad(b,T,n+1)}},Math.min(8000,1500*(n+1)))})}
+  // while a model is still downloading (or keeps failing) the foe is a plain capsule figure, so you can always see what you are fighting
+  function placeholder(b,T){if(b.fb||b.ready||typeof makeAvatar!=='function')return;try{const a=makeAvatar(T.name,T.boss?'#5a1c1c':'#6a3a2a');for(const c of a.children.slice())if(c.isSprite)a.remove(c);a.scale.setScalar(T.scale||1);b.fb=a;b.g.add(a)}catch(e){}}
   function body(T,v){
     const key=T.id+(T.files?':'+(v%T.files.length):''),L=pool[key]||(pool[key]=[]),f=L.find(b=>!b.used);if(f){f.used=true;f.g.visible=true;if(!f.ready&&f.T.body!=='avatar'&&!f.err)glbLoad(f,f.T,0);return f}
     const b={T,used:true,anims:{},sword:null,shield:null,styled:false,ready:false,flashOn:false,file:T.files?T.files[v%T.files.length]:T.file};
