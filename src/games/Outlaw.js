@@ -545,6 +545,18 @@ const Outlaw=(()=>{
     if(typeof Blocks!=='undefined'&&Blocks.boxes.length){const o={x:n.x,z:n.z,y:ny(n)};Blocks.push(o,.45);n.x=o.x;n.z=o.z;const fy=Blocks.floorAt(n.x,n.z,o.y,.6),g0=H(n.x,n.z);n.y=Math.max(g0,fy)}else if(n.y!==undefined)n.y=undefined;   // town buildings: walls stop raiders, stairs / roofs lift them (src/world/Blocks.js)
     const lr=Math.hypot(n.x-C.x,n.z-C.z);if(lr>195){n.x=C.x+(n.x-C.x)/lr*195;n.z=C.z+(n.z-C.z)/lr*195}
     if(H(n.x,n.z)<.3){n.x+=(C.x-n.x)/lr*1.5;n.z+=(C.z-n.z)/lr*1.5} // stay on land (the arena is the whole island now)
+    // SHERIFF / WARLORD attack overlays (BossBrain): while an attack runs it replaces movement + shooting; otherwise the gunman AI above is untouched
+    if(n.type===3||n.type===7){const bb=n.bb||(n.bb={});
+      if(n.type===3){const sv=Math.hypot(t.vx||0,t.vz||0);if(sv>3&&now0-(bb.dt||0)>.35){bb.dt=now0;const sd=Math.sign((t.vx||0)*(-uz)+(t.vz||0)*ux);if(sd){bb.dodges=(bb.dodges||[]).concat(sd).slice(-3)}}}   // which way you strafe
+      const o=BossBrain.step(n.type===3?'sheriff':'warlord',bb,{d,seen,hp:n.hp/n.max,range:T.range,ready:n.react<=0},dt);n.bv=o;n.inv=false;
+      for(const e of o.ev){if(e==='deputies'){queue.unshift(0,0,5);send({k:'bn',t:'The Sheriff calls his deputies!'});banner('The Sheriff calls his deputies!','OUTLAW TOWN')}
+        else if(e==='draw'){sfxAt('rev',n.x,n.z,.8)}
+        else if(e==='rev')sfxAt('rev',n.x,n.z,.9);
+        else if(e==='strike'){if(d<3.2)dealDmg(n,t,Math.round(T.dmg*3))}
+        else if(e==='phase2'||e==='phase3'){const m=n.type===3?(e==='phase3'?'The Sheriff goes for broke!':'The Sheriff narrows his eyes...'):(e==='phase3'?'The Warlord: LAST STAND!':'The Warlord lowers his head!');send({k:'bn',t:m});banner(m,'OUTLAW TOWN')}}
+      if(o.act){n.cd=Math.max(n.cd,.3);n.st=o.st;sp=T.sp*o.sp;mx=ux*o.go;mz=uz*o.go;
+        if(o.shoot){n.bcd=(n.bcd||0)-dt;if(n.bcd<=0){n.bcd=o.cd;const dm0=n.dm;n.dm=dm0*o.dmg;const t2=Object.assign({},t);if(o.aim){t2.x+=-uz*o.aim*2.4;t2.z+=ux*o.aim*2.4}enemyShoot(n,t2,d,T);n.dm=dm0}}}
+    }
     n.r=Math.atan2(ux,uz);if(sp===0&&n.st==='run')n.st='idle';
   }
   function hostTick(dt){

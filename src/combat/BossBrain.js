@@ -32,7 +32,26 @@ const BossBrain=(()=>{
       case 'recover':o.sp=0;o.st='vent';o.vuln=true;if(b.t<=0){b.s='stalk';b.t=ph===1?2.2:1.4}break;
       case 'feign':o.sp=0;o.st='crouch';o.inv=true;if(b.t<=0){b.s='stalk';b.t=.8;b.rage=1;o.ev.push('rise')}break}
     return o}
-  const brains={grady,jake};
+  // OVERLAY brains for the older bosses: they keep their gunman AI and only take over while an attack is running (o.act). The rest of the time o.act is false.
+  // SHERIFF: reads your last 3 dodge directions (b.dodges, fed by the game) and, on a quick-draw, fires a volley at where you are going to be. The tell is a 0.7 s stop + laser; the recover is a window.
+  function sheriff(b,i,dt){base(b);b.t-=dt;b.cool=(b.cool===undefined?4:b.cool)-dt;const o={act:false,go:0,side:0,sp:1,st:'aim',shoot:false,dmg:1,cd:.22,vuln:false,inv:false,aim:0,ev:[]},ph=phase(b,i,o);
+    if(ph===3&&!b.dep){b.dep=1;o.ev.push('deputies')}
+    const dd=b.dodges||[],sum=dd.reduce((a,c)=>a+c,0);o.aim=dd.length>=2?(sum>0?1:sum<0?-1:0):0;
+    switch(b.s){
+      case 'advance':if(b.cool<=0&&i.seen&&i.ready&&i.d>8&&i.d<i.range){b.s='tell';b.t=ph===1?.8:.6;o.ev.push('draw')}break;
+      case 'tell':o.act=true;o.sp=0;if(b.t<=0){b.s='volley';b.t=ph===1?.7:ph===2?.9:1.1;b.sw=0}break;
+      case 'volley':o.act=true;o.sp=.2;o.shoot=i.seen;o.dmg=1.2;if(b.t<=0){b.s='recover';b.t=.9}break;
+      case 'recover':o.act=true;o.sp=0;o.st='vent';o.vuln=true;if(b.t<=0){b.s='advance';b.cool=ph===1?7:ph===2?5:3.5}break}
+    return o}
+  // WARLORD: past 66% he adds a CHARGE (tell -> bull rush -> exposed recover); under 33% it is his LAST STAND: charges come faster and he stays on you.
+  function warlord(b,i,dt){base(b);b.t-=dt;b.cool=(b.cool===undefined?6:b.cool)-dt;const o={act:false,go:0,side:0,sp:1,st:'aim',shoot:false,dmg:1,cd:.12,vuln:false,inv:false,ev:[]},ph=phase(b,i,o);
+    switch(b.s){
+      case 'advance':if(ph>=2&&b.cool<=0&&i.seen&&i.ready&&i.d>7&&i.d<28){b.s='tell';b.t=.85;o.ev.push('rev')}break;
+      case 'tell':o.act=true;o.sp=0;if(b.t<=0){b.s='charge';b.t=.75;b.pn=0}break;
+      case 'charge':o.act=true;o.sp=3.1;o.go=1;o.st='run';if(i.d<2.8&&!b.pn){b.pn=1;o.ev.push('strike')}if(b.t<=0){b.s='recover';b.t=ph===3?1:1.5}break;
+      case 'recover':o.act=true;o.sp=0;o.st='vent';o.vuln=true;if(b.t<=0){b.s='advance';b.cool=ph===3?5:9}break}
+    return o}
+  const brains={grady,jake,sheriff,warlord};
   function step(kind,b,i,dt){return brains[kind](b,i,dt)}
   return {step,phaseOf,kinds:Object.keys(brains)};
 })();
