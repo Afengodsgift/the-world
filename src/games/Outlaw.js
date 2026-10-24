@@ -32,9 +32,12 @@ const Outlaw=(()=>{
     {n:'Dynamiter',skin:2,hp:55,sp:4.4,range:34,dmg:38,cd:3.4,acc:1,react:.6,sc:1},
     {n:'Shotgunner',skin:2,hp:90,sp:6.2,range:13,dmg:26,cd:1.5,acc:.62,react:.35,sc:1.05},
     {n:'Medic',skin:3,hp:70,sp:5,range:0,dmg:0,cd:2.2,acc:0,react:0,sc:.95},
-    {n:'Warlord',skin:3,hp:900,sp:4,range:40,dmg:9,cd:.12,acc:.55,react:.3,sc:1.9}];
-  const COL=['#c05030','#c05030','#8050c0','#ff3030','#e0a020','#c05030','#30c060','#ff3030'];
-  const COIN=[10,18,22,150,20,18,16,300];
+    {n:'Warlord',skin:3,hp:900,sp:4,range:40,dmg:9,cd:.12,acc:.55,react:.3,sc:1.9},
+    {n:'Gatling Grady',skin:3,hp:1100,sp:3.2,range:38,dmg:7,cd:.1,acc:.5,react:.4,sc:2},   // 8: anchors down, spins up, fires until he OVERHEATS (BossBrain)
+    {n:'Rattlesnake Jake',skin:2,hp:640,sp:5.2,range:30,dmg:20,cd:.9,acc:.7,react:.3,sc:1.15}];   // 9: cloaked stalker, rattles then pounces, decoys, fakes his death (BossBrain)
+  const BOSS=t=>t===3||t===7||t===8||t===9;
+  const COL=['#c05030','#c05030','#8050c0','#ff3030','#e0a020','#c05030','#30c060','#ff3030','#d4a020','#7a8a3a'];
+  const COIN=[10,18,22,150,20,18,16,300,450,400];
   const DIFF=[{n:'Normal',hp:1,dmg:1,cnt:1,coin:1},{n:'Hard',hp:1.4,dmg:1.25,cnt:1.3,coin:1.5},{n:'Outlaw',hp:2,dmg:1.6,cnt:1.7,coin:2.2}];
   const cover=[],npcs=new Map(),cache={};
   let wiped=false,clock=0,C=null,active=false,host=null,wave=0,kills=0,best=0,nextWave=0,queue=[],spawnT=0,nid=1,snapT=0;
@@ -111,7 +114,7 @@ const Outlaw=(()=>{
       hp:()=>hp,setHp:v=>{hp=Math.min(maxHp(),v)},maxHp,down:()=>down,setScope:o=>setScope(o),hurt:(d,x,z)=>hurt(d,x,z),
       cancelReload:()=>{reloading=false;updateHud()},ammoMissing:()=>reloading||WEAPONS.some((_,i)=>SAVE.own[i]&&am(i)<magOf(i)),
       refillAmmo:()=>{reloading=false;for(let i=0;i<WEAPONS.length;i++)if(SAVE.own[i])ammo[i]=magOf(i)},
-      aimPoint:aimGround,coverBetween,npcs:()=>npcs.values(),damageNpc:(id,d,z)=>damageNpc(id,d,z),isBoss:n=>n.type===3||n.type===7,blast:(x,z,r,d)=>OutlawArena.blast(x,z,r,d)});   // consumables (src/games/OutlawItems.js)
+      aimPoint:aimGround,coverBetween,npcs:()=>npcs.values(),damageNpc:(id,d,z)=>damageNpc(id,d,z),isBoss:n=>BOSS(n.type),blast:(x,z,r,d)=>OutlawArena.blast(x,z,r,d)});   // consumables (src/games/OutlawItems.js)
   }
 
   // ---------- portals: town <-> Outlaw Isle ----------
@@ -303,12 +306,12 @@ const Outlaw=(()=>{
     if(!lk){lockM.visible=false;return}
     const p=lk.group.position,sc=TYPES[lk.type].sc;lockM.visible=true;lockM.position.set(p.x,p.y+sc,p.z);lockM.scale.setScalar(sc);lockM.lookAt(camera.position)}
   const hitBuf={};let lastF=0,lastH=0;
-  const HS={1:.7,3:.6,7:.5}; // headshot multiplier scale per raider type: brutes and bosses are not one-tap-able
+  const HS={1:.7,3:.6,7:.5,8:.45,9:.6}; // headshot multiplier scale per raider type: brutes and bosses are not one-tap-able
   function reportHit(id,d,zone){if(isHost())damageNpc(id,d,zone);else{const b=hitBuf[id]||(hitBuf[id]={d:0,z:zone});b.d+=d;if(zone==='head')b.z='head'}} // client hits are batched (flushed in tick)
-  function damageNpc(id,d,zone){const n=npcs.get(id);if(!n||n.dead)return;n.hp-=d;n.flash=.12;n.lastZone=zone||'torso';n.lastHitAt=clock;n.rdmg=(n.rdmg||0)+d;n.stg=clock+(zone==='head'?520:260)*(HS[n.type]||1);if(n.type===1&&n.cd<.35)n.cd=.35;if(n.hp<=0)killNpc(n)}
+  function damageNpc(id,d,zone){const n=npcs.get(id);if(!n||n.dead)return;if(n.inv){popText(n.x,H(n.x,n.z)+2.6,n.z,'…','#888');return}if(n.bv&&n.bv.vuln)d=Math.round(d*1.5);n.hp-=d;n.flash=.12;n.lastZone=zone||'torso';n.lastHitAt=clock;n.rdmg=(n.rdmg||0)+d;n.stg=clock+(zone==='head'?520:260)*(HS[n.type]||1);if(n.type===1&&n.cd<.35)n.cd=.35;if(n.hp<=0)killNpc(n)}
   function earn(c){SAVE.coins+=c;save();sfx('coin');popText(S.x,S.y+2.6,S.z,'+'+c+' 🪙','#ffd24a');updateHud()}
-  function killNpc(n){n.dead=1;kills++;const c=Math.round(COIN[n.type]*DIFF[diff].coin*(1+wave*.03));send({k:'kill',c});earn(c);if(Math.random()<.16){const id=nid++;send({k:'dr',id,x:n.x,z:n.z});addDrop(id,n.x,n.z)}
-    const it=Consumables.rollDrop(Math.random,n.type===3||n.type===7);if(it){const id=nid++,ox=n.x+1.2;send({k:'dr',id,x:ox,z:n.z,t:it});addDrop(id,ox,n.z,it)}}   // supply crate (host decides what is in it)
+  function killNpc(n){n.dead=1;if(n.decoy)return;kills++;const c=Math.round(COIN[n.type]*DIFF[diff].coin*(1+wave*.03));send({k:'kill',c});earn(c);if(Math.random()<.16){const id=nid++;send({k:'dr',id,x:n.x,z:n.z});addDrop(id,n.x,n.z)}
+    const it=Consumables.rollDrop(Math.random,BOSS(n.type));if(it){const id=nid++,ox=n.x+1.2;send({k:'dr',id,x:ox,z:n.z,t:it});addDrop(id,ox,n.z,it)}}   // supply crate (host decides what is in it)
   function addDrop(id,x,z,t){const it=Consumables.isItem(t)?t:null,m=it?OutlawItems.crate(it):new THREE.Mesh(new THREE.BoxGeometry(.6,.6,.6),new THREE.MeshStandardMaterial({color:'#2ecc71',emissive:'#1e9e55',emissiveIntensity:.8}));m.position.set(x,H(x,z)+.6,z);scene.add(m);drops.push({id,m,x,z,t:it,born:clock})}
   function grantCrate(id,who){ // host only: remove the crate once, tell everyone who got it
     const i=drops.findIndex(d=>d.id===id&&d.t);if(i<0)return;const d=drops[i];if(who!==myId&&!(partner()&&partner()[0]===who))return;scene.remove(d.m);drops.splice(i,1);send({k:'pk',id,to:who,t:d.t});if(who===myId)OutlawItems.award(d.t)}
@@ -345,7 +348,7 @@ const Outlaw=(()=>{
     fg.position.z=.01;bar.add(bg,fg);bar.position.y=2.5;bar.renderOrder=9;g.add(bar);
     const laser=new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,1,6).rotateX(Math.PI/2),new THREE.MeshBasicMaterial({color:'#ff2020'}));laser.visible=false;scene.add(laser);
     n.group=g;n.bar=bar;n.fg=fg;n.laser=laser;
-    setGun(g,[0,14,5,3,-1,4,-1,3][n.type]); // bandit revolver, THE HEAVY a minigun, sniper rifle, boss assault rifle (dynamiter and medic stay bare-handed)
+    setGun(g,[0,14,5,3,-1,4,-1,3,14,0][n.type]); // bandit revolver, THE HEAVY a minigun, sniper rifle, boss assault rifle (dynamiter and medic stay bare-handed)
   }
   function removeVisual(n){if(n.group){scene.remove(n.group)}if(n.laser)scene.remove(n.laser)}
 
@@ -362,7 +365,7 @@ const Outlaw=(()=>{
   function spawnPoint(type){if(type!==undefined)return OutlawArena.front(type);for(let i=0;i<20;i++){const a=Math.random()*6.283,x=C.x+Math.cos(a)*62,z=C.z+Math.sin(a)*62;if(H(x,z)>1)return [x,z]}return [C.x+30,C.z]}
   function startWave(){
     wave++;const D=DIFF[diff],q=[],boss=wave%3===0;
-    if(boss)q.push(wave%6===3?3:7);
+    if(boss)q.push([3,8,9,7][(wave/3-1)%4|0]);
     const np=Math.max(1,players().length),pool=EnemyAI.wavePool(wave,np);
     const n=EnemyAI.waveSize(wave,np,D.cnt);for(let i=0;i<n;i++)q.push(pool[Math.random()*pool.length|0]);
     queue=q;banner('Wave '+wave+(boss?' · BOSS!':''),'OUTLAW TOWN');sfx('horn');send({k:'wv',n:wave});
@@ -382,6 +385,15 @@ const Outlaw=(()=>{
     tracer(M.x,M.y,M.z,x,gy+1,z,'#ff9a7a');sfxAt('enemy',n.x,n.z);spark(x,gy+.8,z);send({k:'f',m:[M.x,M.y,M.z],e:[x,gy+1,z],ai:1});
     for(const c of cover){if(c.brk!==undefined&&Math.hypot(c.x-x,c.z-z)<c.r+1.2){OutlawArena.hitCover(c,10);break}}
     if(Math.hypot(x-S.x,z-S.z)<3.2){dmgDir(n.x,n.z,'n');sfx('crack')}}
+  function bossEvent(n,e,t,d,tfy){const T=TYPES[n.type];
+    if(e==='rev'||e==='rattle')sfxAt('rev',n.x,n.z,.9);
+    else if(e==='vent')sfxAt('vent',n.x,n.z);
+    else if(e==='phase2'||e==='phase3'){const m=n.type===8?(e==='phase3'?'Gatling Grady: LAST STAND!':'Grady cranks the barrels!'):(e==='phase3'?'Rattlesnake Jake plays dead...':'Jake sends his shadows!');send({k:'bn',t:m});banner(m,'OUTLAW TOWN')}
+    else if(e==='strike'){if(EnemyAI.meleeReach(d,tfy-ny(n),2.6)||d<2.6)dealDmg(n,t,Math.round(T.dmg*1.6))}
+    else if(e==='lunge')sfxAt('shout',n.x,n.z);
+    else if(e==='feign'){n.hp=Math.max(1,n.hp)}
+    else if(e==='rise'){n.hp=Math.max(n.hp,n.max*.3);n.flash=.4;send({k:'bn',t:'Jake rises!'});banner('Jake rises!','OUTLAW TOWN')}
+    else if(e==='decoy'&&isHost()){for(let k=0;k<2;k++){const a=Math.random()*6.283,x=n.x+Math.cos(a)*5,z=n.z+Math.sin(a)*5;addNpc(9,x,z);const q=[...npcs.values()].pop();q.decoy=1;q.hp=q.max=12;q.dm=0;q.bb={s:'stalk',t:rnd(.5,1.5),heat:0,ph:3,side:1,sw:0,fed:1,dec:1}}}}
   function dealDmg(n,t,d){d=Math.round(d*n.dm);if(t.id==='bank'){bank.hp=Math.max(0,bank.hp-d);return}if(t.id===myId)hurt(d,n.x,n.z);else send({k:'hurt',to:t.id,d,x:n.x,z:n.z})}
   function healBeam(a,b){tracer(a.x,H(a.x,a.z)+1.3,a.z,b.x,H(b.x,b.z)+1.3,b.z,'#5dff8a');popText(b.x,H(b.x,b.z)+2.6,b.z,'+','#5dff8a');sfx('heal')}
   function throwDyn(n,t){const p={k:'dy',x0:n.x,z0:n.z,x1:t.x+t.vx*1.2,z1:t.z+t.vz*1.2,d:Math.round(TYPES[4].dmg*n.dm)};send(p);addDyn(p)}
@@ -459,6 +471,11 @@ const Outlaw=(()=>{
       let a=null,r=1;for(const o of npcs.values()){if(o===n||o.dead||o.type===6)continue;const q=o.hp/o.max;if(q<r&&Math.hypot(o.x-n.x,o.z-n.z)<26){r=q;a=o}}
       if(a&&r<.9){const ax=a.x-n.x,az=a.z-n.z,ad=Math.hypot(ax,az)||1;if(ad>8){mx=ax/ad;mz=az/ad}else{sp=0;n.st='idle';if(n.cd<=0){n.cd=T.cd;a.hp=Math.min(a.max,a.hp+a.max*.3);send({k:'hl',a:n.id,b:a.id});healBeam(n,a)}}}
       else if(d<20){mx=-ux;mz=-uz}else{sp=0;n.st='idle'}
+    }else if(n.type===8||n.type===9){ // BOSSES with a phase state machine (src/combat/BossBrain.js)
+      const bb=n.bb||(n.bb={}),o=BossBrain.step(n.type===8?'grady':'jake',bb,{d,seen,hp:n.hp/n.max,range:T.range,ready:n.react<=0},dt),hx=tpK.x-n.x,hz=tpK.z-n.z,hd=Math.hypot(hx,hz)||1;
+      n.bv=o;n.inv=o.inv;n.st=o.st;sp=T.sp*o.sp;mx=(hx/hd)*o.go+(-hz/hd)*o.side;mz=(hz/hd)*o.go+(hx/hd)*o.side;
+      for(const e of o.ev)bossEvent(n,e,t,d,tfy);
+      if(o.shoot&&seen){n.cd-=0;n.bcd=(n.bcd||0)-dt;if(n.bcd<=0){n.bcd=o.cd;const dm0=n.dm;n.dm=dm0*o.dmg;enemyShoot(n,t,d,T);n.dm=dm0}}
     }else if(n.type===1){ // THE HEAVY: slow and deliberate. Wind-up (rev + laser) -> 2 s burst -> VENT (vulnerable). Plated front, weak rear. Melee only if you stand next to it.
       n.hs=n.hs||'advance';n.hst=(n.hst||0)-dt;sp=T.sp;const hx=tpK.x-n.x,hz=tpK.z-n.z,hd=Math.hypot(hx,hz)||1;
       if(n.hs==='advance'){mx=hx/hd;mz=hz/hd;
@@ -585,7 +602,8 @@ const Outlaw=(()=>{
       if(n.hp<n.lhp-.5){const drop=n.lhp-n.hp;if(clock-(n.reactAt||-1e9)>450){n.reactAt=clock;const q=g.userData;q.hitReq=1;if(drop>=.3*n.max||n.lastZone==='head')q.hitHead=1}}
       n.lhp=n.hp;
       if(n.st==='run'){const dd=Math.hypot(n.x-S.x,n.z-S.z);if(dd<20){n.stepT=(n.stepT||0)-dt;if(n.stepT<=0){n.stepT=.32;sfxAt('step',n.x,n.z,.9)}}}   // you can hear them coming (and which side)
-      animate(g,dt,n.st==='aim'||n.st==='vent'?'idle':n.st);   // 'crouch' (behind cover) is handled by animateClips
+      if(n.type===9){const near=Math.hypot(n.x-S.x,n.z-S.z)<6||n.flash>0;g.visible=n.st!=='cloak'||near||(clock/140|0)%11===0;if(n.bar)n.bar.visible=g.visible}   // Jake's cloak: a flicker and a shimmer at distance, plain sight up close or when hit
+      animate(g,dt,n.st==='cloak'?'run':n.st==='aim'||n.st==='vent'?'idle':n.st);   // 'crouch' (behind cover) is handled by animateClips
       n.fg.scale.x=Math.max(.001,n.hp/n.max);n.fg.position.x=-(1-n.fg.scale.x)*.6;n.bar.lookAt(camera.position);
       if(n.st==='aim'){const t=[...others.values()].map(o=>o.group.position).concat([{x:S.x,y:S.y,z:S.z}]).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];
         const dx=t.x-p.x,dz=t.z-p.z,L=Math.hypot(dx,dz);n.laser.visible=true;n.laser.scale.set(1,1,L);n.laser.position.set(p.x+dx/2,p.y+1.2,p.z+dz/2);n.laser.lookAt(t.x,p.y+1.2,t.z)}
