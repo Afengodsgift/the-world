@@ -51,7 +51,23 @@ const BossBrain=(()=>{
       case 'charge':o.act=true;o.sp=3.1;o.go=1;o.st='run';if(i.d<2.8&&!b.pn){b.pn=1;o.ev.push('strike')}if(b.t<=0){b.s='recover';b.t=ph===3?1:1.5}break;
       case 'recover':o.act=true;o.sp=0;o.st='vent';o.vuln=true;if(b.t<=0){b.s='advance';b.cool=ph===3?5:9}break}
     return o}
-  const brains={grady,jake,sheriff,warlord};
+  // CYCLE bosses (Undertaker, Madame Vulture, Railroad Baron, The Stranger): the gunman AI runs between attacks; every cool[phase] seconds, when d is in [dmin,dmax], one attack runs
+  // advance -> TELL (rooted, st aim) -> ACT (slam / dash / charge / snap shot) -> RECOVER (vulnerable). Phase 2 and 3 each call reinforcements once (summon) and shorten the cooldown.
+  const CY={
+    undertaker:{tell:.95,act:.2,rec:1.7,cool:[6,4.5,3],dmin:0,dmax:8,tellEv:'rev',actEv:'slam',actSp:0,go:0,sum:{2:'summon',3:'summon'}},
+    vulture:{tell:.5,act:.6,rec:1.0,cool:[5,3.5,2.5],dmin:6,dmax:26,tellEv:'rattle',actSp:3.2,go:1,contact:1,sum:{2:'summon'}},
+    baron:{tell:1.05,act:1.0,rec:1.9,cool:[8,6,4.5],dmin:8,dmax:32,tellEv:'rev',actSp:2.6,go:1,contact:1,sum:{2:'summon'},tellEv3:'barrage'},
+    stranger:{tell:.9,act:.14,rec:.75,cool:[4.2,3,2.1],dmin:8,dmax:38,tellEv:'draw',actSp:0,go:0,shoot:1,dmgK:[2.6,3,3.4],blink:[0,1,1],sum:{3:'summon'}}};
+  function cycle(kind,b,i,dt){const c=CY[kind];base(b);b.t-=dt;b.cool=(b.cool===undefined?c.cool[0]*.7:b.cool)-dt;
+    const o={act:false,go:0,side:0,sp:1,st:'aim',shoot:false,dmg:1,cd:.1,vuln:false,inv:false,ev:[]},ph=phase(b,i,o);if(o.ev.length&&c.sum[ph])o.ev.push(c.sum[ph]);
+    switch(b.s){
+      case 'advance':if(b.cool<=0&&i.seen&&i.ready&&i.d>=c.dmin&&i.d<=c.dmax){b.s='tell';b.t=c.tell*(ph===3?.8:1);o.ev.push(ph===3&&c.tellEv3?c.tellEv3:c.tellEv)}break;
+      case 'tell':o.act=true;o.sp=0;if(b.t<=0){b.s='act';b.t=c.act*(c.shoot&&ph===3?2:1);b.pn=0;if(c.actEv)o.ev.push(c.actEv)}break;
+      case 'act':o.act=true;o.sp=c.actSp;o.go=c.go;o.st=c.go?'run':'aim';if(c.shoot){o.shoot=i.seen;o.dmg=c.dmgK[ph-1]}
+        if(c.contact&&i.d<2.8&&!b.pn){b.pn=1;o.ev.push('strike')}if(b.t<=0){b.s='recover';b.t=c.rec;if(c.blink&&c.blink[ph-1])o.ev.push('blink')}break;
+      case 'recover':o.act=true;o.sp=0;o.st='vent';o.vuln=true;if(b.t<=0){b.s='advance';b.cool=c.cool[ph-1]}break}
+    return o}
+  const brains={grady,jake,sheriff,warlord,undertaker:(b,i,d)=>cycle('undertaker',b,i,d),vulture:(b,i,d)=>cycle('vulture',b,i,d),baron:(b,i,d)=>cycle('baron',b,i,d),stranger:(b,i,d)=>cycle('stranger',b,i,d)};
   function step(kind,b,i,dt){return brains[kind](b,i,dt)}
   return {step,phaseOf,kinds:Object.keys(brains)};
 })();

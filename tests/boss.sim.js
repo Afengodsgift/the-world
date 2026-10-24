@@ -35,4 +35,11 @@ r=run('jake',t=>t<4?1:.2,16,{d:30});ok(r.ev.includes('feign')&&r.ev.includes('ri
  ok(['tell','charge','recover'].every(x=>seen.has(x)),'Warlord charges in phase 2');
  const f={};let ch=0;for(let t=0;t<40;t+=.05){BossBrain.step('warlord',f,{d:15,seen:true,hp:1,range:40,ready:true},.05);if(f.s==='charge')ch++}ok(ch===0,'Warlord does not charge in phase 1');
  const g={};let n3=0,n2=0;for(let t=0;t<40;t+=.05){BossBrain.step('warlord',g,{d:15,seen:true,hp:.2,range:40,ready:true},.05);if(g.s==='charge'&&g.t>.7)n3++}for(let t=0;t<40;t+=.05){BossBrain.step('warlord',b,{d:15,seen:true,hp:.5,range:40,ready:true},.05);if(b.s==='charge'&&b.t>.7)n2++}ok(n3>=n2,'Last Stand charges at least as often')}
+
+// cycle bosses
+for(const [k,ev] of [['undertaker','slam'],['vulture','strike'],['baron','strike'],['stranger','blink']]){
+  const b={},seen=new Set(),evs=[],vul=[];for(let t=0;t<60;t+=.05){const hp=t<15?1:t<30?.5:.2;const o=BossBrain.step(k,b,{d:(b.s==='act'&&k!=='undertaker'&&k!=='stranger')?1.5:6+ (k==='undertaker'?0:10),seen:true,hp,range:30,ready:true},.05);seen.add(b.s);evs.push(...o.ev);if(o.vuln)vul.push(t)}
+  ok(['advance','tell','act','recover'].every(x=>seen.has(x)),k+' runs tell -> act -> recover');ok(evs.includes(ev),k+' emits '+ev);ok(vul.length>10,k+' is exposed in recover');ok(evs.includes('phase2')&&evs.includes('phase3'),k+' changes phase');}
+{const b={},o=[];for(let t=0;t<30;t+=.05){const was=b.s,x=BossBrain.step('stranger',b,{d:20,seen:true,hp:1,range:40,ready:true},.05);if(was==='tell'||was==='advance')o.push(x.shoot)}ok(o.every(v=>!v),'The Stranger never shoots during the tell')}
+{const b={},e=[];for(let t=0;t<30;t+=.05)e.push(...BossBrain.step('undertaker',b,{d:6,seen:true,hp:t<5?1:.5,range:22,ready:true},.05).ev);ok(e.filter(x=>x==='summon').length===1,'Undertaker summons once at phase 2')}
 process.exit(fails?1:0);
