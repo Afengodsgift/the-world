@@ -189,7 +189,15 @@ const Outlaw=(()=>{
   function tracer(ax,ay,az,bx,by,bz,col){
     const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(ax,ay,az),new THREE.Vector3(bx,by,bz)]);
     const l=new THREE.Line(g,new THREE.LineBasicMaterial({color:col||'#ffe9a0',transparent:true}));scene.add(l);fx.push({l,t:.09});
-    const f=new THREE.Mesh(new THREE.SphereGeometry(.16,6,6),new THREE.MeshBasicMaterial({color:'#fff2b0'}));f.position.set(ax,ay,az);scene.add(f);fx.push({l:f,t:.05})}
+    muzzleFlash(ax,ay,az,bx,by,bz)}
+  // muzzle flash: two crossed additive planes of the Binbun flash textures along the barrel, 1 of 4 frames, ~60 ms (shotgun pellets share one)
+  const MF={tex:null,geo:null,last:0,lx:0,lz:0};
+  function muzzleFlash(ax,ay,az,bx,by,bz){
+    if(!MF.tex){MF.tex=[1,2,3,4].map(i=>new THREE.MeshBasicMaterial({map:new THREE.TextureLoader().load('assets/vfx/mf_long_'+i+'.png'),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,color:'#ffd9a0'}));MF.geo=new THREE.PlaneGeometry(1,.5).translate(.5,0,0)}
+    const now=performance.now();if(now-MF.last<35&&Math.hypot(ax-MF.lx,az-MF.lz)<.4)return;MF.last=now;MF.lx=ax;MF.lz=az;
+    const dx=bx-ax,dy=by-ay,dz=bz-az,L=Math.hypot(dx,dy,dz)||1,g=new THREE.Group(),m=MF.tex[Math.random()*4|0];
+    const a=new THREE.Mesh(MF.geo,m),b=new THREE.Mesh(MF.geo,m);b.rotation.x=Math.PI/2;g.add(a,b);g.position.set(ax,ay,az);g.quaternion.setFromUnitVectors(new THREE.Vector3(1,0,0),new THREE.Vector3(dx/L,dy/L,dz/L));
+    g.scale.setScalar(rnd(.9,1.3)*(Math.hypot(ax-camera.position.x,ay-camera.position.y,az-camera.position.z)<3?.45:1.1));g.renderOrder=12;scene.add(g);fx.push({l:g,t:.06})}
   function popText(x,y,z,txt,col,sz){const c=document.createElement('canvas');c.width=160;c.height=64;const g=c.getContext('2d');g.font='bold 40px sans-serif';g.textAlign='center';g.lineWidth=6;g.strokeStyle='#000';g.fillStyle=col||'#fff';g.strokeText(txt,80,44);g.fillText(txt,80,44);
     const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false}));sp.scale.set(1.9*(sz||1),.76*(sz||1),1);sp.position.set(x,y,z);sp.renderOrder=11;scene.add(sp);fx.push({sp,t:.9,v:[0,1.6,0]})}
   function spark(x,y,z,col){for(let i=0;i<5;i++){const m=new THREE.Mesh(new THREE.SphereGeometry(.07,5,5),new THREE.MeshBasicMaterial({color:col||'#ffd24a'}));m.position.set(x,y,z);scene.add(m);fx.push({l:m,t:.3,v:[rnd(-3,3),rnd(1,4),rnd(-3,3)]})}}
@@ -784,5 +792,5 @@ const Outlaw=(()=>{
   function moveMul(){if(down)return 0;const im=OutlawItems.moveMul();if(wi<0||!C||S.flying||S.dv||S.state==='swim')return im;return (Math.hypot(S.x-C.x,S.z-C.z)<OUT.R?ARMED_SPEED:1)*im}
   Interaction.register('ow-start','Start Showdown',()=>C&&!active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>missionPanel());
   Interaction.register('ow-end','End Showdown',()=>C&&active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>{send({k:'end'});onMsg({k:'end'})});
-  return {earn,build,tick,idle:()=>!active&&!huntOn,onMsg,equip,fire,setGun,lockTarget,poseGun,loadGun,moveMul,ARMED_SPEED,_t:()=>({get lastShot(){return lastShot},dmgDir,get hp(){return hp},get huntOn(){return huntOn},WEAPONS,get wave(){return wave},get queueLen(){return queue.length},get nextWave(){return nextWave},damageNpc,cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
+  return {earn,build,tick,idle:()=>!active&&!huntOn,onMsg,equip,fire,setGun,lockTarget,poseGun,loadGun,moveMul,ARMED_SPEED,_t:()=>({tracer,get lastShot(){return lastShot},dmgDir,get hp(){return hp},get huntOn(){return huntOn},WEAPONS,get wave(){return wave},get queueLen(){return queue.length},get nextWave(){return nextWave},damageNpc,cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
 })();
