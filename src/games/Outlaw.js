@@ -189,11 +189,11 @@ const Outlaw=(()=>{
   function tracer(ax,ay,az,bx,by,bz,col){
     const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(ax,ay,az),new THREE.Vector3(bx,by,bz)]);
     const l=new THREE.Line(g,new THREE.LineBasicMaterial({color:col||'#ffe9a0',transparent:true}));scene.add(l);fx.push({l,t:.09});
-    muzzleFlash(ax,ay,az,bx,by,bz)}
+    try{muzzleFlash(ax,ay,az,bx,by,bz)}catch(e){MF.off=1}}
   // muzzle flash: two crossed additive planes of the Binbun flash textures along the barrel, 1 of 4 frames, ~60 ms (shotgun pellets share one)
   const MF={tex:null,geo:null,last:0,lx:0,lz:0};
   function muzzleFlash(ax,ay,az,bx,by,bz){
-    if(!MF.tex){MF.tex=[1,2,3,4].map(i=>new THREE.MeshBasicMaterial({map:new THREE.TextureLoader().load('assets/vfx/mf_long_'+i+'.png'),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,color:'#ffd9a0'}));MF.geo=new THREE.PlaneGeometry(1,.5).translate(.5,0,0)}
+    if(MF.off)return;if(!MF.tex){MF.tex=[1,2,3,4].map(i=>new THREE.MeshBasicMaterial({map:new THREE.TextureLoader().load('assets/vfx/mf_long_'+i+'.png'),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,color:'#ffd9a0'}));MF.geo=new THREE.PlaneGeometry(1,.5).translate(.5,0,0)}
     const now=performance.now();if(now-MF.last<35&&Math.hypot(ax-MF.lx,az-MF.lz)<.4)return;MF.last=now;MF.lx=ax;MF.lz=az;
     const dx=bx-ax,dy=by-ay,dz=bz-az,L=Math.hypot(dx,dy,dz)||1,g=new THREE.Group(),m=MF.tex[Math.random()*4|0];
     const a=new THREE.Mesh(MF.geo,m),b=new THREE.Mesh(MF.geo,m);b.rotation.x=Math.PI/2;g.add(a,b);g.position.set(ax,ay,az);g.quaternion.setFromUnitVectors(new THREE.Vector3(1,0,0),new THREE.Vector3(dx/L,dy/L,dz/L));
