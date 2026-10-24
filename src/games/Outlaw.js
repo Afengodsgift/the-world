@@ -345,8 +345,12 @@ const Outlaw=(()=>{
   // DODGE ROLL: a quick burst along your move direction (or backwards if you stand still) with ~0.3 s of invulnerability; 1.1 s cooldown. Button next to Jump, or C.
   let rollT=0,rollCd=0,rollBtn=null;
   function roll(){if(!active||down||rollCd>0||S.flying)return;
-    let vx=prev.vx||0,vz=prev.vz||0,l=Math.hypot(vx,vz);if(l<1.2){vx=Math.sin(S.yaw);vz=Math.cos(S.yaw);l=1}
-    S.kx=(S.kx||0)+vx/l*21;S.kz=(S.kz||0)+vz/l*21;rollT=.32;rollCd=1.1;sfx('step');spark(S.x,S.y+.2,S.z,'#d9c9a0');if(navigator.vibrate)navigator.vibrate(12)}
+    let vx=prev.vx||0,vz=prev.vz||0,l=Math.hypot(vx,vz);const back=l<1.2;if(back){vx=Math.sin(S.yaw);vz=Math.cos(S.yaw);l=1}
+    S.kx=(S.kx||0)+vx/l*21;S.kz=(S.kz||0)+vz/l*21;rollT=.32;rollCd=1.1;sfx('step');rollAnim(back?'flipb':'roll',vx/l,vz/l,back);spark(S.x,S.y+.2,S.z,'#d9c9a0');if(navigator.vibrate)navigator.vibrate(12)}
+  // the Warden Isle's roll / back-flip clips (assets/emotes.json): roll TOWARD your move direction, flip away when standing still; the partner sees it too
+  function rollAnim(clip,dx,dz,back){if(typeof loadEmotes!=='function'||typeof me==='undefined'||!me||!me.userData.nact)return;
+    if(!back){S.rot=Math.atan2(dx,dz);me.rotation.y=S.rot}
+    loadEmotes().then(()=>{me.userData.hold=null;me.userData.emoteReq=clip;if(typeof chan!=='undefined'&&chan)chan.send({type:'broadcast',event:'em',payload:{from:myId,e:clip}})}).catch(()=>{})}
   function rollTick(dt){rollT=Math.max(0,rollT-dt);rollCd=Math.max(0,rollCd-dt);if(rollBtn){rollBtn.style.display=active&&!down?'block':'none';rollBtn.style.opacity=rollCd>0?.45:1}}
   function hurt(d,fx_,fz_){
     if(down)return;if(rollT>0){popText(S.x,S.y+2.4,S.z,'dodged','#9fe8ff');return}if(fx_!==undefined)dmgDir(fx_,fz_);const raw=d;d=OutlawItems.absorb(d);hp-=d;S.hurt=d>0?.35:.12;sfx(d<raw?'armor':'hurt');   // armor soaks 70% of the hit first (src/combat/Consumables.js)
