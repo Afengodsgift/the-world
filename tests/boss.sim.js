@@ -42,4 +42,7 @@ for(const [k,ev] of [['undertaker','slam'],['vulture','strike'],['baron','strike
   ok(['advance','tell','act','recover'].every(x=>seen.has(x)),k+' runs tell -> act -> recover');ok(evs.includes(ev),k+' emits '+ev);ok(vul.length>10,k+' is exposed in recover');ok(evs.includes('phase2')&&evs.includes('phase3'),k+' changes phase');}
 {const b={},o=[];for(let t=0;t<30;t+=.05){const was=b.s,x=BossBrain.step('stranger',b,{d:20,seen:true,hp:1,range:40,ready:true},.05);if(was==='tell'||was==='advance')o.push(x.shoot)}ok(o.every(v=>!v),'The Stranger never shoots during the tell')}
 {const b={},e=[];for(let t=0;t<30;t+=.05)e.push(...BossBrain.step('undertaker',b,{d:6,seen:true,hp:t<5?1:.5,range:22,ready:true},.05).ev);ok(e.filter(x=>x==='summon').length===1,'Undertaker summons once at phase 2')}
+
+for(const k of ['duelist','bruiser']){const b={},seen=new Set(),evs=[];for(let t=0;t<30;t+=.05){const o=BossBrain.step(k,b,{d:(b.s==='act'&&k==='bruiser')?1.5:12,seen:true,hp:1,range:30,ready:true},.05);seen.add(b.s);evs.push(...o.ev)}
+  ok(['tell','act','recover'].every(x=>seen.has(x)),k+' tell -> act -> recover');ok(k==='duelist'?evs.includes('draw'):evs.includes('strike'),k+' signature move')}
 process.exit(fails?1:0);

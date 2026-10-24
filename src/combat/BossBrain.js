@@ -57,6 +57,8 @@ const BossBrain=(()=>{
     undertaker:{tell:.95,act:.2,rec:1.7,cool:[6,4.5,3],dmin:0,dmax:8,tellEv:'rev',actEv:'slam',actSp:0,go:0,sum:{2:'summon',3:'summon'}},
     vulture:{tell:.5,act:.6,rec:1.0,cool:[5,3.5,2.5],dmin:6,dmax:26,tellEv:'rattle',actSp:3.2,go:1,contact:1,sum:{2:'summon'}},
     baron:{tell:1.05,act:1.0,rec:1.9,cool:[8,6,4.5],dmin:8,dmax:32,tellEv:'rev',actSp:2.6,go:1,contact:1,sum:{2:'summon'},tellEv3:'barrage'},
+    duelist:{tell:.6,act:.12,rec:.7,cool:[3.6,3.6,3.6],dmin:7,dmax:30,tellEv:'draw',actSp:0,go:0,shoot:1,dmgK:[2.2,2.2,2.2],blink:[0,0,0],sum:{}},
+    bruiser:{tell:.55,act:.7,rec:1.3,cool:[4,4,4],dmin:4,dmax:18,tellEv:'rev',actSp:2.4,go:1,contact:1,sum:{}},
     stranger:{tell:.9,act:.14,rec:.75,cool:[4.2,3,2.1],dmin:8,dmax:38,tellEv:'draw',actSp:0,go:0,shoot:1,dmgK:[2.6,3,3.4],blink:[0,1,1],sum:{3:'summon'}}};
   function cycle(kind,b,i,dt){const c=CY[kind];base(b);b.t-=dt;b.cool=(b.cool===undefined?c.cool[0]*.7:b.cool)-dt;
     const o={act:false,go:0,side:0,sp:1,st:'aim',shoot:false,dmg:1,cd:.1,vuln:false,inv:false,ev:[]},ph=phase(b,i,o);if(o.ev.length&&c.sum[ph])o.ev.push(c.sum[ph]);
@@ -67,7 +69,7 @@ const BossBrain=(()=>{
         if(c.contact&&i.d<2.8&&!b.pn){b.pn=1;o.ev.push('strike')}if(b.t<=0){b.s='recover';b.t=c.rec;if(c.blink&&c.blink[ph-1])o.ev.push('blink')}break;
       case 'recover':o.act=true;o.sp=0;o.st='vent';o.vuln=true;if(b.t<=0){b.s='advance';b.cool=c.cool[ph-1]}break}
     return o}
-  const brains={grady,jake,sheriff,warlord,undertaker:(b,i,d)=>cycle('undertaker',b,i,d),vulture:(b,i,d)=>cycle('vulture',b,i,d),baron:(b,i,d)=>cycle('baron',b,i,d),stranger:(b,i,d)=>cycle('stranger',b,i,d)};
+  const brains={grady,jake,sheriff,warlord,undertaker:(b,i,d)=>cycle('undertaker',b,i,d),vulture:(b,i,d)=>cycle('vulture',b,i,d),baron:(b,i,d)=>cycle('baron',b,i,d),stranger:(b,i,d)=>cycle('stranger',b,i,d),duelist:(b,i,d)=>cycle('duelist',b,i,d),bruiser:(b,i,d)=>cycle('bruiser',b,i,d)};
   function step(kind,b,i,dt){return brains[kind](b,i,dt)}
   return {step,phaseOf,kinds:Object.keys(brains)};
 })();

@@ -38,11 +38,14 @@ const Outlaw=(()=>{
     {n:'The Undertaker',skin:3,hp:1000,sp:3.4,range:22,dmg:26,cd:1.1,acc:.6,react:.35,sc:1.8},   // 10: coffin slam (AoE), raises the dead (BossBrain)
     {n:'Madame Vulture',skin:2,hp:700,sp:5,range:36,dmg:18,cd:.7,acc:.68,react:.3,sc:1.2},   // 11: kites, dive-bomb dash, calls her hawks
     {n:'Railroad Baron',skin:3,hp:1300,sp:3,range:40,dmg:14,cd:.45,acc:.55,react:.4,sc:1.9},   // 12: freight charge, dynamite barrage, hired guns
-    {n:'The Stranger',skin:3,hp:760,sp:4.8,range:42,dmg:30,cd:.8,acc:.8,react:.25,sc:1.15}];   // 13: slow tell, one deadly shot, blinks behind you
+    {n:'The Stranger',skin:3,hp:760,sp:4.8,range:42,dmg:30,cd:.8,acc:.8,react:.25,sc:1.15},
+    {n:'Duelist',skin:3,hp:80,sp:5,range:30,dmg:14,cd:1,acc:.75,react:.3,sc:1.05},   // 14: stops, squares up, one fast hard shot (BossBrain cycle)
+    {n:'Bruiser',skin:2,hp:170,sp:4.4,range:12,dmg:20,cd:1.2,acc:.6,react:.4,sc:1.3}];   // 15: bull-rushes you, then is winded (BossBrain cycle)
+  // 13: slow tell, one deadly shot, blinks behind you
   // 9: cloaked stalker, rattles then pounces, decoys, fakes his death (BossBrain)
-  const BOSS=t=>t===3||t===7||t===8||t===9||(t>=10&&t<=13),OVL={3:'sheriff',7:'warlord',10:'undertaker',11:'vulture',12:'baron',13:'stranger'};
-  const COL=['#c05030','#c05030','#8050c0','#ff3030','#e0a020','#c05030','#30c060','#ff3030','#d4a020','#7a8a3a','#5a5a6a','#a040c0','#2a6a8a','#303030'];
-  const COIN=[10,18,22,150,20,18,16,300,450,400,500,450,550,600];
+  const BOSS=t=>t===3||t===7||t===8||t===9||(t>=10&&t<=13),OVL={3:'sheriff',7:'warlord',10:'undertaker',11:'vulture',12:'baron',13:'stranger',14:'duelist',15:'bruiser'};
+  const COL=['#c05030','#c05030','#8050c0','#ff3030','#e0a020','#c05030','#30c060','#ff3030','#d4a020','#7a8a3a','#5a5a6a','#a040c0','#2a6a8a','#303030','#c0c0d0','#a06030'];
+  const COIN=[10,18,22,150,20,18,16,300,450,400,500,450,550,600,45,40];
   const DIFF=[{n:'Normal',hp:1,dmg:1,cnt:1,coin:1},{n:'Hard',hp:1.4,dmg:1.25,cnt:1.3,coin:1.5},{n:'Outlaw',hp:2,dmg:1.6,cnt:1.7,coin:2.2}];
   const cover=[],npcs=new Map(),cache={};
   let wiped=false,clock=0,C=null,active=false,host=null,wave=0,kills=0,best=0,nextWave=0,queue=[],spawnT=0,nid=1,snapT=0;
@@ -371,7 +374,7 @@ const Outlaw=(()=>{
     fg.position.z=.01;bar.add(bg,fg);bar.position.y=2.5;bar.renderOrder=9;g.add(bar);
     const laser=new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,1,6).rotateX(Math.PI/2),new THREE.MeshBasicMaterial({color:'#ff2020'}));laser.visible=false;scene.add(laser);
     n.group=g;n.bar=bar;n.fg=fg;n.laser=laser;
-    setGun(g,[0,14,5,3,-1,4,-1,3,14,0,4,5,3,0][n.type]); // bandit revolver, THE HEAVY a minigun, sniper rifle, boss assault rifle (dynamiter and medic stay bare-handed)
+    setGun(g,[0,14,5,3,-1,4,-1,3,14,0,4,5,3,0,0,-1][n.type]); // bandit revolver, THE HEAVY a minigun, sniper rifle, boss assault rifle (dynamiter and medic stay bare-handed)
   }
   function removeVisual(n){if(n.group){scene.remove(n.group)}if(n.laser)scene.remove(n.laser)}
 
@@ -580,7 +583,7 @@ const Outlaw=(()=>{
         else if(e==='draw'){sfxAt('rev',n.x,n.z,.8)}
         else if(e==='rev')sfxAt('rev',n.x,n.z,.9);
         else if(e==='strike'){if(d<3.2)dealDmg(n,t,Math.round(T.dmg*(n.type>=10?1.6:3)))}
-        else if(n.type>=10)bossEvent(n,e,t,d,tfy);
+        else if(n.type>=10&&(BOSS(n.type)||(e!=='phase2'&&e!=='phase3')))bossEvent(n,e,t,d,tfy);
         else if(e==='phase2'||e==='phase3'){const m=n.type===3?(e==='phase3'?'The Sheriff goes for broke!':'The Sheriff narrows his eyes...'):(e==='phase3'?'The Warlord: LAST STAND!':'The Warlord lowers his head!');send({k:'bn',t:m});banner(m,'OUTLAW TOWN')}}
       if(o.act){n.cd=Math.max(n.cd,.3);n.st=o.st;sp=T.sp*o.sp;mx=ux*o.go;mz=uz*o.go;
         if(o.shoot){n.bcd=(n.bcd||0)-dt;if(n.bcd<=0){n.bcd=o.cd;const dm0=n.dm;n.dm=dm0*o.dmg;const t2=Object.assign({},t);if(o.aim){t2.x+=-uz*o.aim*2.4;t2.z+=ux*o.aim*2.4}enemyShoot(n,t2,d,T);n.dm=dm0}}}
