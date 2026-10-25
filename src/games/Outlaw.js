@@ -96,6 +96,7 @@ const Outlaw=(()=>{
   let town=null,sweepT=0;
   const ny=n=>n.y!==undefined?n.y:H(n.x,n.z);
   function build(){
+    try{BattleFX.init({scene,fx,H,rnd})}catch(e){}
     C={x:OUT.x,z:OUT.z,y:OUT.y+.05};cover.length=0; // dedicated Outlaw Isle (see data/islands.js)
     const ground=new THREE.Mesh(new THREE.CircleGeometry(46,40),new THREE.MeshStandardMaterial({color:'#b79a68',roughness:1}));ground.rotation.x=-Math.PI/2;ground.position.set(C.x,C.y+.04,C.z);ground.receiveShadow=true;scene.add(ground);
     const OLD=()=>{    building(C.x-14,C.z-8,11,7,6,'#8a5a30','SALOON',0);building(C.x+14,C.z-8,11,7,5.4,'#7d6a52','BANK',0);
@@ -192,7 +193,8 @@ const Outlaw=(()=>{
   function tracer(ax,ay,az,bx,by,bz,col){
     const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(ax,ay,az),new THREE.Vector3(bx,by,bz)]);
     const l=new THREE.Line(g,new THREE.LineBasicMaterial({color:col||'#ffe9a0',transparent:true}));scene.add(l);fx.push({l,t:.09});
-    try{muzzleFlash(ax,ay,az,bx,by,bz)}catch(e){MF.off=1}}
+    try{muzzleFlash(ax,ay,az,bx,by,bz)}catch(e){MF.off=1}
+    try{const l=Math.hypot(bx-ax,by-ay,bz-az)||1;BattleFX.shot(ax,ay,az,(bx-ax)/l,(by-ay)/l,(bz-az)/l,col==='#ff2020'||false);if(l>2.5&&by<H(bx,bz)+.45)BattleFX.impact(bx,H(bx,bz)+.05,bz,'dirt')}catch(e){}}
   // muzzle flash: two crossed additive planes of the Binbun flash textures along the barrel, 1 of 4 frames, ~60 ms (shotgun pellets share one)
   const MF={tex:null,geo:null,last:0,lx:0,lz:0};
   function muzzleFlash(ax,ay,az,bx,by,bz){
@@ -204,7 +206,7 @@ const Outlaw=(()=>{
   function popText(x,y,z,txt,col,sz){const c=document.createElement('canvas');c.width=160;c.height=64;const g=c.getContext('2d');g.font='bold 40px sans-serif';g.textAlign='center';g.lineWidth=6;g.strokeStyle='#000';g.fillStyle=col||'#fff';g.strokeText(txt,80,44);g.fillText(txt,80,44);
     const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false}));sp.scale.set(1.9*(sz||1),.76*(sz||1),1);sp.position.set(x,y,z);sp.renderOrder=11;scene.add(sp);fx.push({sp,t:.9,v:[0,1.6,0]})}
   function spark(x,y,z,col){for(let i=0;i<5;i++){const m=new THREE.Mesh(new THREE.SphereGeometry(.07,5,5),new THREE.MeshBasicMaterial({color:col||'#ffd24a'}));m.position.set(x,y,z);scene.add(m);fx.push({l:m,t:.3,v:[rnd(-3,3),rnd(1,4),rnd(-3,3)]})}}
-  function boom(x,z,r){const y=H(x,z)+.5,m=new THREE.Mesh(new THREE.SphereGeometry(1,14,12),new THREE.MeshBasicMaterial({color:'#ff9a2e',transparent:true,opacity:.85}));m.position.set(x,y,z);scene.add(m);fx.push({l:m,t:.4,grow:r});sfx('boom');spark(x,y,z,'#ff7a1a')}
+  function boom(x,z,r){const y=H(x,z)+.5,m=new THREE.Mesh(new THREE.SphereGeometry(1,14,12),new THREE.MeshBasicMaterial({color:'#ff9a2e',transparent:true,opacity:.85}));m.position.set(x,y,z);scene.add(m);fx.push({l:m,t:.4,grow:r});sfx('boom');spark(x,y,z,'#ff7a1a');try{const dd=Math.hypot(S.x-x,S.z-z);if(dd<28)CameraRig.shake(Math.min(1,(1-dd/28)*(r>=5?1.1:.7)))}catch(e){}}
   const _mv=new THREE.Vector3();
   const muzzle=(group,i)=>{const u=group.userData,gi=u.gunI>=0?u.gunI:(i>=0?i:0),L=WEAPONS[gi].len;
     if(u.gun&&u.gun.userData.ok){u.gun.updateWorldMatrix(true,false);_mv.set(0,0,L*.55);u.gun.localToWorld(_mv);return {x:_mv.x,y:_mv.y,z:_mv.z}}
@@ -274,6 +276,8 @@ const Outlaw=(()=>{
       endp=[E.x,E.y,E.z];
       if(p===0)lastShot={M:[+M.x.toFixed(2),+M.y.toFixed(2),+M.z.toFixed(2)],P:[+E.x.toFixed(2),+E.y.toFixed(2),+E.z.toFixed(2)],tn:+tn.toFixed(2),wall:+wall.toFixed(1),zone,hit:!!hit,spr:+spr.toFixed(4)};
       if(!hit&&wc&&tn===wall&&!W.rocket&&wc.brk!==undefined){OutlawArena.hitCover(wc,dmgOf(wi));spark(endp[0],endp[1],endp[2],'#d8b45a');anyHit=true}
+      if(!hit&&!pirate&&wc&&tn===wall&&!W.rocket)try{BattleFX.impact(E.x,E.y,E.z,wc.brk!==undefined?'wood':'spark')}catch(e){}
+      if(hit)try{BattleFX.hit(E.x,E.y,E.z)}catch(e){}
       if(W.rocket){aoe(endp,dmgOf(wi),W.rad||6);tracer(M.x,M.y,M.z,endp[0],endp[1],endp[2],'#ff9a2e');anyHit=true;continue}
       if(hit){const am=hit.type===1||hit.type===12?EnemyAI.heavyArmor(hit.group.rotation.y,S.x-hit.x,S.z-hit.z,hit.type===1&&hit.st==='vent'):1   /* the Baron's front plating works like the Heavy's; his recover window is the host's 1.5x */,crit=zone==='head',kill=crit&&am>=1&&HitZones.headKills(W.snd,HS[hit.type]),dmg=kill?9999:Math.max(1,Math.round(dmgOf(wi)*HitZones.zoneMult(zone,W.snd,HS[hit.type],SAVE.crit)*am));if(am<.5)popText(endp[0],endp[1]+.9,endp[2],'ARMOR','#9fb0bd',.9);anyHit=true;if(crit)anyCrit=true;reportHit(hit.id,dmg,zone);spark(endp[0],endp[1],endp[2],crit?'#ffd24a':undefined);
         if(p<3)popText(endp[0],endp[1]+.7,endp[2],(kill?'💥 HEADSHOT':crit?'💥'+dmg:dmg),crit?'#ffd24a':zone==='torso'?'#fff':'#b8c4cc',crit?1.35:zone==='torso'?1:.85)}
@@ -353,10 +357,10 @@ const Outlaw=(()=>{
   // the Warden Isle's roll / back-flip clips (assets/emotes.json): roll TOWARD your move direction, flip away when standing still; the partner sees it too
   function rollAnim(clip,dx,dz,back){if(typeof loadEmotes!=='function'||typeof me==='undefined'||!me||!me.userData.nact)return;
     if(!back){S.rot=Math.atan2(dx,dz);me.rotation.y=S.rot}
-    loadEmotes().then(()=>{me.userData.hold=null;me.userData.emoteReq=clip;if(typeof chan!=='undefined'&&chan)chan.send({type:'broadcast',event:'em',payload:{from:myId,e:clip}})}).catch(()=>{})}
+    loadEmotes().then(()=>{me.userData.hold=null;me.userData.emote=clip;if(typeof chan!=='undefined'&&chan)chan.send({type:'broadcast',event:'em',payload:{from:myId,e:clip}})}).catch(()=>{})}
   function rollTick(dt){rollT=Math.max(0,rollT-dt);rollCd=Math.max(0,rollCd-dt);if(rollBtn){rollBtn.style.display=active&&!down?'block':'none';rollBtn.style.opacity=rollCd>0?.45:1}}
   function hurt(d,fx_,fz_){
-    if(down)return;if(rollT>0){popText(S.x,S.y+2.4,S.z,'dodged','#9fe8ff');return}if(fx_!==undefined)dmgDir(fx_,fz_);const raw=d;d=OutlawItems.absorb(d);hp-=d;S.hurt=d>0?.35:.12;sfx(d<raw?'armor':'hurt');   // armor soaks 70% of the hit first (src/combat/Consumables.js)
+    if(down)return;if(rollT>0){popText(S.x,S.y+2.4,S.z,'dodged','#9fe8ff');return}try{CameraRig.shake(Math.min(.9,.2+d/40))}catch(e){}if(fx_!==undefined)dmgDir(fx_,fz_);const raw=d;d=OutlawItems.absorb(d);hp-=d;S.hurt=d>0?.35:.12;sfx(d<raw?'armor':'hurt');   // armor soaks 70% of the hit first (src/combat/Consumables.js)
     if(fx_!==undefined){const l=Math.hypot(S.x-fx_,S.z-fz_)||1;S.kx+=(S.x-fx_)/l*4;S.kz+=(S.z-fz_)/l*4}
     if(navigator.vibrate)navigator.vibrate(30);
     if(hp<=0){hp=0;down=true;downT=6;if(scoped)setScope(false);OutlawItems.reset();
@@ -410,7 +414,7 @@ const Outlaw=(()=>{
     const L=n.lk;if(!L)return;const gy=H(L.x,L.z),x=L.x+rnd(-1.2,1.2),z=L.z+rnd(-1.2,1.2),M=muzzle(n.group,-1);n.group.userData.recoil=1;
     tracer(M.x,M.y,M.z,x,gy+1,z,'#ff9a7a');sfxAt('enemy',n.x,n.z);spark(x,gy+.8,z);send({k:'f',m:[M.x,M.y,M.z],e:[x,gy+1,z],ai:1});
     for(const c of cover){if(c.brk!==undefined&&Math.hypot(c.x-x,c.z-z)<c.r+1.2){OutlawArena.hitCover(c,10);break}}
-    if(Math.hypot(x-S.x,z-S.z)<3.2){dmgDir(n.x,n.z,'n');sfx('crack')}}
+    if(Math.hypot(x-S.x,z-S.z)<3.2){dmgDir(n.x,n.z,'n');sfx('crack');try{CameraRig.shake(.12)}catch(e){}}}
   function bossEvent(n,e,t,d,tfy){const T=TYPES[n.type];
     if(e==='rev'||e==='rattle')sfxAt('rev',n.x,n.z,.9);
     else if(e==='vent')sfxAt('vent',n.x,n.z);
@@ -444,8 +448,8 @@ const Outlaw=(()=>{
     let ex=lx+j,ey=ty,ez=lz+j;
     if(t.id!=='bank'){ // cover has a height: a shot at a head over a crate can hit, one at a chest behind it hits the crate (and damages it)
       const o={x:M.x,y:M.y,z:M.z},dx=ex-o.x,dy=ey-o.y,dz=ez-o.z,L=Math.hypot(dx,dy,dz)||1,r=HitZones.coverT(o,{x:dx/L,y:dy/L,z:dz/L},L,cover);
-      if(r.c){hitIt=false;ex=o.x+dx/L*r.t;ey=o.y+dy/L*r.t;ez=o.z+dz/L*r.t;if(r.c.brk!==undefined&&isHost())OutlawArena.hitCover(r.c,T.dmg*n.dm*.8)}}
-    tracer(M.x,M.y,M.z,ex,ey,ez,'#ff9a7a');sfxAt('enemy',n.x,n.z);if(t.id===myId&&!hitIt&&Math.hypot(ex-S.x,ez-S.z)<3.2){dmgDir(n.x,n.z,'n');sfx('crack')}
+      if(r.c){hitIt=false;ex=o.x+dx/L*r.t;ey=o.y+dy/L*r.t;ez=o.z+dz/L*r.t;try{BattleFX.impact(ex,ey,ez,r.c.brk!==undefined?'wood':'spark')}catch(e){}if(r.c.brk!==undefined&&isHost())OutlawArena.hitCover(r.c,T.dmg*n.dm*.8)}}
+    tracer(M.x,M.y,M.z,ex,ey,ez,'#ff9a7a');sfxAt('enemy',n.x,n.z);if(t.id===myId&&!hitIt&&Math.hypot(ex-S.x,ez-S.z)<3.2){dmgDir(n.x,n.z,'n');sfx('crack');try{CameraRig.shake(.12)}catch(e){}}
     send({k:'f',m:[M.x,M.y,M.z],e:[ex,ey,ez],ai:1});
     if(hitIt){dealDmg(n,t,T.dmg)}}
   function detour(n,t){ // nearest blocking cover on the line to the target -> a point beside it to walk around
@@ -625,6 +629,7 @@ const Outlaw=(()=>{
   function visuals(dt){
     for(const n of [...npcs.values()]){
       const g=n.group;if(!g)continue;const p=g.position;
+      if(!n.dead){if(n._hp!==undefined&&n.hp<n._hp-.5){const ty=TYPES[n.type];try{BattleFX.hit(p.x,p.y+1.1*ty.sc,p.z)}catch(e){}if(!BOSS(n.type)&&n.type!==1&&clock-(n._fl||0)>450){n._fl=clock;g.userData.hitReq=1}}n._hp=n.hp}
       if(n.dead){
         n.dt=(n.dt||0)+dt;const q=g.userData;
         // DEATH STATE: stop fighting/moving, play the baked fall (Death01), lie there a few seconds, sink into the ground, then clean up. Falls back to the old tilt if the clip is missing.
@@ -774,7 +779,7 @@ const Outlaw=(()=>{
     if(on!==_isle){_isle=on;b.toggle('ow-isle',on)}
     if(sc!==_scp){_scp=sc;b.toggle('ow-scope',sc)}
   }
-  function tick(dt,t){rollTick(dt);
+  function tick(dt,t){rollTick(dt);try{BattleFX.tick(dt)}catch(e){}
     if(!C||!me)return;ui();hudMode();clock+=dt*1000;OutlawArena.tick(dt);if(dbgOn)zoneDebug();
     if(scoped){if(down||wi<0||S.flying)setScope(false);else if(scopeLens()&&(scopeT-=dt)<=0){scopeT=.12;camera.getWorldDirection(camDir);const P=aimPoint(WEAPONS[wi].rng),r=Math.hypot(P.x-camera.position.x,P.y-camera.position.y,P.z-camera.position.z);scopeRng.textContent=r>=WEAPONS[wi].rng-.5?'-- m':Math.round(r)+' m';scopeEl.querySelector('em').textContent=scopeEl.dataset.z||''}}
     prev.vx=(S.x-prev.x)/Math.max(dt,.001);prev.vz=(S.z-prev.z)/Math.max(dt,.001);prev.x=S.x;prev.z=S.z;

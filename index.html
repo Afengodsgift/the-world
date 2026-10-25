@@ -191,6 +191,7 @@ addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').ca
 <script src="src/world/Nav.js"></script>
 <script src="src/combat/Tactics.js"></script>
 <script src="src/combat/BossBrain.js"></script>
+<script src="src/combat/BattleFX.js"></script>
 <script src="src/games/OutlawArena.js"></script>
 <script src="src/games/OutlawItems.js"></script>
 <script src="src/games/Outlaw.js"></script>
@@ -358,7 +359,7 @@ async function enter(code){
   chan.on('broadcast',{event:'sls'},()=>startSlalom(false));
   chan.on('broadcast',{event:'ds'},()=>startDash(false));
   chan.on('broadcast',{event:'fc'},({payload})=>Fishing.onCatch(payload));
-  chan.on('broadcast',{event:'em'},({payload})=>{const o=others.get(payload.from);if(o)loadEmotes().then(()=>{o.group.userData.emoteReq=payload.e}).catch(()=>{})});
+  chan.on('broadcast',{event:'em'},({payload})=>{const o=others.get(payload.from);if(o)loadEmotes().then(()=>{if(payload.e==='roll'||payload.e==='flipb')o.group.userData.emote=payload.e;else o.group.userData.emoteReq=payload.e}).catch(()=>{})});
   chan.on('broadcast',{event:'df'},({payload})=>{if(dash.on)banner('Partner finished in '+fmt(payload.ms),'OBSTACLE DASH')});
   chan.on('broadcast',{event:'slp'},({payload})=>{slalom.pi=payload.i});
   chan.on('broadcast',{event:'slf'},({payload})=>{if(slalom.on)banner('Partner finished in '+fmt(payload.ms),'SKY SLALOM')});
