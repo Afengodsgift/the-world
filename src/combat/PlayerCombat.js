@@ -23,10 +23,10 @@ const PlayerCombat=(()=>{
     o.frequency.setValueAtTime(f0,a.currentTime);o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),a.currentTime+dur);o.connect(g);g.connect(WAudio.out());
     g.gain.setValueAtTime(vol||.12,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+dur);o.start();o.stop(a.currentTime+dur+.02)}catch(e){}}
   // ---------- targets ----------
-  const alive=()=>foes.filter(F=>F.f.act!=='dead');
-  function nearest(){let b=null,bd=1e9;const anyAw=foes.some(F=>F.f.act!=='dead'&&F.awake);for(const F of foes){if(F.f.act==='dead'||(anyAw&&!F.awake))continue;const d=Math.hypot(F.f.x-S.x,F.f.z-S.z);if(d<bd){bd=d;b=F}}return b}
+  const alive=()=>foes.filter(F=>F.f.act!=='dead'&&!F.ghost);
+  function nearest(){let b=null,bd=1e9;const anyAw=foes.some(F=>F.f.act!=='dead'&&F.awake);for(const F of foes){if(F.f.act==='dead'||F.ghost||(anyAw&&!F.awake))continue;const d=Math.hypot(F.f.x-S.x,F.f.z-S.z);if(d<bd){bd=d;b=F}}return b}
   function target(){const L=lock&&foes[lockI];if(L&&L.f.act!=='dead')return L;return nearest()||foes[0]}
-  const now=()=>performance.now()-t0;
+  let vt=0,vl=0,tsc=1,ult=null;const now=()=>vt;   // sim clock in ms: runs at tsc x real time (bullet time in the Phantom Barrage)
   function heading(){const dx=D.x-S.x,dz=D.z-S.z;return Math.atan2(dx,dz)}
   function stickDir(){   // world-space direction of the current stick/keys input, or null
     let ix=typeof stickV!=='undefined'?stickV.x:0,iy=typeof stickV!=='undefined'?stickV.y:0;
@@ -221,7 +221,7 @@ const PlayerCombat=(()=>{
       const b=el.querySelector('#wFlow');b.style.setProperty('--fl',(flow/100*360)+'deg');b.classList.toggle('full',full);b.classList.toggle('on',flowOn);b.textContent=flowOn?(flowN%2?'Meia':'Armada'):'Flow';
       setBar('.p .fl',flow/100);const fb=el.querySelector('.p .fl');fb.classList.toggle('full',full);fb.classList.toggle('on',flowOn)}}
   function press(name,tms){
-    if(!on||P.act==='dead'||DU.cd>0||CineCam.busy()&&CineCam.isActive())return false;const t=tms===undefined?now():tms;
+    if(!on||P.act==='dead'||DU.cd>0||CineCam.busy()&&CineCam.isActive()&&!ult)return false;const t=tms===undefined?now():tms;
     switch(name){
       case'light':{assist();reject();const c={t:'light',e:C.tick},d=stickDir(),fa=pendFace!==null?pendFace:S.rot;if(d&&d[0]*Math.sin(fa)+d[1]*Math.cos(fa)>.6)c.adv=true;if(D&&D.act!=='dead'&&Math.hypot(D.x-P.x,D.z-P.z)>4.5)c.far=true;ST.input('P',c,t);break}
       case'heavy':if(down.heavy)return true;assist();reject();down.heavy=true;ST.input('P',{t:'heavyDown',e:C.tick},t);break;
@@ -333,7 +333,7 @@ const PlayerCombat=(()=>{
     rt(site).foes=foes}
   function startFight(){
     fightN++;hurt=false;fightVo=false;try{WardenSfx.load()}catch(e){}const R=site.wall?site.R-.5:site.dg?site.R-.3:site.R+10,sol=WardenSolids().filter(s=>Math.hypot(s.x-WRD.x-site.x,s.z-WRD.z-site.z)<site.R+14);
-    C=CombatCore.create({arena:{x:WRD.x+site.x,z:WRD.z+site.z,R},solids:sol});try{CameraRig.setArena({x:WRD.x+site.x,z:WRD.z+site.z,R:site.wall||site.dg?R:site.R,sol:sol.filter(q=>!q.wall)})}catch(e){}ST=CombatCore.stepper(C,6);t0=performance.now();
+    C=CombatCore.create({arena:{x:WRD.x+site.x,z:WRD.z+site.z,R},solids:sol});try{CameraRig.setArena({x:WRD.x+site.x,z:WRD.z+site.z,R:site.wall||site.dg?R:site.R,sol:sol.filter(q=>!q.wall)})}catch(e){}ST=CombatCore.stepper(C,6);t0=performance.now();vt=0;vl=0;tsc=1;ult=null;
     if(site.duel&&DU.pair){const L=duelSide();S.x=WRD.x+site.x;S.z=WRD.z+site.z+9*L;S.rot=L>0?Math.PI:0;lx=S.x;lz=S.z}
     P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});applyStats();spawnFoes();WardenFx.clear();WardenVfx.clear();Q=null;spectate=false;netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
     flow=0;flowOn=false;flowN=0;fq=null;skillCD=0;bars.fl=-1;healLeft=0;mightT=0;itemLock=0;state='fight';stateT=0;lock=site.fog||site.duel||foes.some(F=>F.T.boss);lockI=0;lastEv=[];pv.init=false;down.guard=down.heavy=false;stW=0;gT=0;
@@ -380,7 +380,7 @@ const PlayerCombat=(()=>{
   // Camera framing: with 2+ awake foes and no lock, ease the camera yaw so both stay in view (unless you are dragging the camera yourself).
   function frameFoes(dt){
     try{const D0=target().f,fd=Math.hypot(D0.x-S.x,D0.z-S.z);CameraRig.setFocus(!lock&&P.act!=='dead'&&alive().some(F=>F.awake)&&fd>2?{x:D0.x,z:D0.z,k:.34}:null)}catch(e){}   // look a third of the way toward the foe: you stay low in the frame, the opponent sits in the middle
-    if(lock||P.act==='dead')return;const al=alive().filter(F=>F.awake);if(!al.length||performance.now()-(S._lk||0)<1500)return;
+    if(ult)return;if(lock||P.act==='dead')return;const al=alive().filter(F=>F.awake);if(!al.length||performance.now()-(S._lk||0)<1500)return;
     let worst=0,sum=0;for(const F of al){const r=wrapA(Math.atan2(-(F.f.x-S.x),-(F.f.z-S.z))-S.yaw);worst=Math.max(worst,Math.abs(r));sum+=r}
     if(worst<(al.length>1?.9:.45))return;S.yaw+=sum/al.length*Math.min(1,dt*2.2)}
   // ---- telegraphs (rules from the telegraph research: an animation cue + a flash on the weapon + a sound at the start, a second glint right before the blow lands; heavy / committed attacks are bigger and red) ----
@@ -389,8 +389,76 @@ const PlayerCombat=(()=>{
     const fl=()=>{if(!on||q.act==='dead')return;WardenVfx.spawn(q.x+Math.sin(q.face)*.8,H(q.x,q.z)+1.5*sc,q.z+Math.cos(q.face)*.8,heavy?3:0,3,(heavy?2.6:1.5)*Math.min(1.6,sc),Math.random()*6.28,34)};
     fl();setTimeout(fl,Math.max(90,tell/60*1000-120));
     try{if(heavy)tone(120,360,.24,'sawtooth',.08);else tone(1100,1600,.05,'square',.035)}catch(e){}}
+  // ================= PHANTOM BARRAGE (boss set piece; see Barrage.js) =================
+  // The boss pulls you to the arena centre, two phantom copies appear, all three lunge at once in bullet time and a ring counts down to the dodge. Perfect = all three whiff and the boss reels; miss = all three land (~half your health).
+  // Everything runs on the REAL sim (the phantoms are fighters that die when it ends), so the dodge i-frames, hit events, animations and telegraphs are the normal ones. Solo only (the phantoms are not networked).
+  let barEl=null;
+  function barUI(){
+    if(barEl)return barEl;
+    try{const c=document.createElement('style');c.textContent='#wbarr{position:fixed;inset:0;z-index:44;pointer-events:none;display:none}#wbarr .vg{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(20,0,40,0) 30%,rgba(34,0,70,.8) 100%);opacity:0;transition:opacity .5s}#wbarr.on .vg{opacity:1}#wbarr .tx{position:absolute;left:0;right:0;top:19%;text-align:center;font:900 8.5vmin/1 system-ui;color:#fff;letter-spacing:.08em;text-shadow:0 0 22px #a050ff,0 0 5px #000;opacity:0;transition:opacity .2s}#wbarr .tx.on{opacity:1}#wbarr .rg{position:absolute;left:50%;top:60%;border-radius:50%;transform:translate(-50%,-50%);box-sizing:border-box;opacity:0}#wbarr .rt{border:.9vmin solid rgba(255,255,255,.85);width:14vmin;height:14vmin}#wbarr .rs{border:1.2vmin solid #ffd25a;box-shadow:0 0 3vmin #ffd25a}#wbarr .rs.go{border-color:#5aff9a;box-shadow:0 0 4vmin #5aff9a}#wbarr .rr{position:absolute;left:0;right:0;top:34%;text-align:center;font:900 11vmin/1 system-ui;text-shadow:0 0 26px currentColor,0 0 5px #000;opacity:0;transition:opacity .15s}#wbarr .rr.on{opacity:1}#wDodge.pulse{animation:wdp .22s infinite alternate;box-shadow:0 0 0 1vmin #ffd25a,0 0 6vmin #ffd25a !important}@keyframes wdp{to{transform:scale(1.14)}}';document.head.appendChild(c);
+      barEl=document.createElement('div');barEl.id='wbarr';barEl.innerHTML='<div class="vg"></div><div class="tx">TAP DODGE ➜</div><div class="rg rt"></div><div class="rg rs"></div><div class="rr"></div>';document.body.appendChild(barEl)}catch(e){}
+    return barEl}
+  const bq=s=>barEl&&barEl.querySelector(s);
+  function addGhost(B,k,x,z){
+    const T=Object.assign({},B.T,{boss:false,ghost:true,name:'Phantom',ph2:'',sa:false,aggro:undefined,barrage:false}),id=k?'y':'x';
+    const f=C.F[id]=CombatCore.mkFighter(id,{x,z,face:0,hp:99999,team:'e',dm:1,rm:T.rm||1,pg:0});if(!C.order.includes(id))C.order.push(id);f.r=T.r;f.spd=T.spd||1.3;
+    const b=body(T,k+1);b.g.scale.setScalar(T.scale);b.g.position.set(x,H(x,z),z);
+    const F={i:foes.length,id,T,f,body:b,human:false,ai:DuelistAI.create(77+k,{foe:T.ai,intro:0}),loco:{x:0,z:0,vf:0,vs:0,sp:0,init:false},flash:0,awake:true,late:false,dorm:null,dormSync:null,wakeT:0,ph2:false,home:{x,z},ghost:true,script:true,gt:0};
+    foes.push(F);byId[id]=F;return F}
+  function rmGhost(F){delete C.F[F.id];const k=C.order.indexOf(F.id);if(k>=0)C.order.splice(k,1);freeBody(F.body);const j=foes.indexOf(F);if(j>=0)foes.splice(j,1);delete byId[F.id];foes.forEach((q,n)=>{q.i=n})}
+  function ghostLook(F){   // violet, see-through: cloned materials so the real boss is untouched
+    if(F.gt>2||!F.body.g)return;F.gt+=.01;let n=0;F.body.g.traverse(o=>{if(o.isMesh&&o.material&&!o.userData.gh){o.userData.gh=1;n++;const m=[].concat(o.material).map(q=>{const c=q.clone();c.transparent=true;c.opacity=.58;c.depthWrite=false;if(c.color)c.color.lerp(new THREE.Color(0x7a3cff),.55);if(c.emissive)c.emissive.setHex(0x3a1088);return c});o.material=Array.isArray(o.material)?m:m[0]}});if(n)F.gt=3}
+  function startBarrage(B){
+    const A=C.arena,ring=Math.min(2.9,A.R*.3),a0=Math.atan2(B.f.x-S.x,B.f.z-S.z);
+    ult={B,t:0,ph:'pop',hits:0,dodged:0,T0:0,all:[B],t2:0,res:null};
+    S.x=P.x=A.x;S.z=P.z=A.z;lx=S.x;lz=S.z;S.rot=P.face=a0;pendFace=null;lock=false;try{el.querySelector('#wLock').classList.remove('on')}catch(e){}
+    const put=(F,a)=>{F.f.x=A.x+Math.sin(a)*ring;F.f.z=A.z+Math.cos(a)*ring;F.f.face=Math.atan2(A.x-F.f.x,A.z-F.f.z);F.f.vx=F.f.vz=0};
+    put(B,a0);ult.all.push(addGhost(B,0,0,0),addGhost(B,1,0,0));put(ult.all[1],a0+.95);put(ult.all[2],a0-.95);
+    for(const F of ult.all){F.script=true;F.body.g.position.set(F.f.x,H(F.f.x,F.f.z),F.f.z)}
+    tsc=.5;barUI().style.display='block';barEl.classList.add('on');bq('.tx').classList.remove('on');
+    try{const a=a0+Math.PI,PR=CineCam.PRESETS;PR.barrage={dur:12,freeze:false,noskip:true,shots:[{t0:0,t1:1.5,a0:a-.5,a1:a,d0:8.6,d1:6.4,h0:.8,h1:.95,f0:66,f1:58,l0:.42,l1:.5},{t0:1.5,t1:12,a0:a,a1:a+.45,d0:6.4,d1:5.4,h0:.95,h1:.8,f0:58,f1:52,l0:.5,l1:.5}]};
+      CineCam.play('barrage',{x:()=>S.x,z:()=>S.z,h:2.4,sc:1},{force:true})}catch(e){}
+    try{tone(70,38,1.0,'sawtooth',.14);WardenSfx.play('vo_sudden_death',.7,.8,{nojit:1})}catch(e){}
+    msg('PHANTOM BARRAGE',1.4)}
+  function endBarrage(){
+    if(!ult)return;const U=ult;ult=null;tsc=1;
+    for(const F of U.all){if(F.ghost){try{WardenVfx.burst(F.f.x,H(F.f.x,F.f.z)+1.2,F.f.z,1)}catch(e){}rmGhost(F)}else{F.script=false;F.ai.cool=Math.max(F.ai.cool||0,70)}}
+    try{CineCam.skip()}catch(e){}
+    if(barEl){barEl.classList.remove('on');barEl.style.display='none';bq('.tx').classList.remove('on');bq('.rr').classList.remove('on');for(const q of barEl.querySelectorAll('.rg'))q.style.opacity=0}
+    try{el.querySelector('#wDodge').classList.remove('pulse')}catch(e){}}
+  function barrageTick(dt){
+    if(!ult){
+      if(!on||state!=='fight'||P.act!=='free'||P.hp<25||NET.mode==='guest'||Q||CineCam.busy())return;
+      for(const F of foes){if(!F.T.barrage||F.ghost||!F.awake||F.f.act!=='free'||F.f.inv>0)continue;const s=Barrage.stage(F.f.hp/F.f.hpMax);if(s>(F.bar||0)){F.bar=s;startBarrage(F);return}}
+      return}
+    const U=ult,rdt=dt/Math.max(.05,tsc);U.t+=rdt;
+    for(const F of U.all)if(F.ghost)ghostLook(F);
+    if(U.ph==='pop'){
+      if(U.t>.45&&!U.fx){U.fx=1;for(const F of U.all)if(F.ghost){try{WardenVfx.burst(F.f.x,H(F.f.x,F.f.z)+1.3,F.f.z,1);WardenVfx.spawn(F.f.x,H(F.f.x,F.f.z)+1.2,F.f.z,1,3,3.4,0,24)}catch(e){}}flash(.5,'rgba(170,110,255,.8)')}
+      if(U.t>Barrage.POP-.35)bq('.tx').classList.add('on');
+      if(U.t>=Barrage.POP){   // strike
+        P.st=P.stMax;const dm=Barrage.dmFor(P.hpMax,P.hp,Moves[Barrage.MOVE].dmg,U.all.length);
+        for(const F of U.all){F.f.dm=dm;ST.input(F.id,{t:'atk',m:Barrage.MOVE},now())}
+        U.T0=C.tick+1;U.ph='wind';tsc=1;try{tone(220,60,.5,'sawtooth',.12)}catch(e){}
+        try{el.querySelector('#wDodge').classList.add('pulse')}catch(e){}}
+      return}
+    if(U.ph==='wind'){
+      const tk=C.tick-U.T0;tsc=Barrage.speed(tk,0);
+      const r=Barrage.ring(tk),rs=bq('.rs');rs.style.opacity=tk>4?1:0;const sz=14+30*Math.max(0,1-r);rs.style.width=rs.style.height=sz+'vmin';rs.classList.toggle('go',Barrage.inWindow(tk));bq('.rt').style.opacity=tk>4?1:0;
+      const fin=tk>40||(tk>14&&U.all.every(F=>F.f.act==='free'));
+      if(fin){U.ph='out';U.t2=0;U.res=U.hits===0?'perfect':'hit';
+        for(const q of barEl.querySelectorAll('.rg'))q.style.opacity=0;bq('.tx').classList.remove('on');try{el.querySelector('#wDodge').classList.remove('pulse')}catch(e){}
+        const rr=bq('.rr');rr.classList.add('on');
+        if(U.res==='perfect'){rr.textContent='PERFECT DODGE';rr.style.color='#ffe27a';flash(.8,'rgba(255,236,150,.9)');try{CameraRig.shake(.7);tone(900,1800,.35,'triangle',.14);tone(1300,2200,.3,'sine',.1)}catch(e){}
+          const B=U.B;B.f.hp=Math.max(1,B.f.hp-B.f.hpMax*.1);B.f.po=Math.min(B.f.poMax*.97,B.f.po+B.f.poMax*.6);flowAdd(60);P.st=P.stMax;
+          for(const F of U.all){try{WardenVfx.clash(F.f.x,H(F.f.x,F.f.z)+1.3,F.f.z,true)}catch(e){}}}
+        else{rr.textContent='OVERWHELMED';rr.style.color='#ff5a4a';flash(.9,'rgba(255,60,40,.85)');try{CameraRig.shake(.9)}catch(e){}}}
+      return}
+    // 'out': ease back to normal speed, then clean up
+    tsc=Barrage.speed(0,Math.max(.001,Math.min(1,U.t2/.9)));U.t2+=rdt;
+    if(U.t2>1.0){endBarrage()}}
   function leave(hold){   // hold: keep the corpses of a cleared site in the world
-    if(!on)return;netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;pendFace=null;
+    if(!on)return;if(ult)endBarrage();netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;pendFace=null;
     if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
     try{if(site&&site.fog)WardenIsles.fog(site.id,rt(site).cleared?'gone':'idle')}catch(e){}}
@@ -413,6 +481,7 @@ const PlayerCombat=(()=>{
     else if(e.t==='dodge'&&e.a==='P'){WardenVfx.spawn(P.x,H(P.x,P.z)+1,P.z,2,4,2.8,-P.face+Math.PI/2,30)}}
   function vfxAt(e,f){const y=H(f.x,f.z)+1.3;if(e.t==='hit')WardenVfx.hit(f.x,y,f.z,e.crit,e.dmg>=20);else if(e.t==='block')WardenVfx.clash(f.x,y,f.z);else if(e.t==='deflect')WardenVfx.clash(f.x,y,f.z,true);else WardenVfx.burst(f.x,y,f.z,e.t==='posturebreak'?0:3)}
   function events(evs){
+    if(ult)for(const e of evs){if(e.t==='hit'&&e.d==='P')ult.hits++;else if(e.t==='dodged'&&e.d==='P')ult.dodged++}
     if(PC._log)for(const e of evs)if(e.t!=='hitstop')PC._log.push(e);
     for(const e of evs){
       const A=byId[e.a],T=byId[e.d];
@@ -455,6 +524,7 @@ const PlayerCombat=(()=>{
     if(S.flying||S.state==='swim'){leave(false);return}
     if(site.fog||site.duel&&DU.pair){if((state!=='won'||site.duel)&&d>site.R-.8){const k=(site.R-.8)/d;S.x=WRD.x+site.x+(wx-site.x)*k;S.z=WRD.z+site.z+(wz-site.z)*k}}      // the fog gate holds you in until the foe is felled
     else if(d>site.R+(site.wall?1.5:4)){leave(false);return}
+    {const rn=performance.now();if(!vl)vl=rn;vt+=Math.min(100,rn-vl)*tsc;vl=rn;dt*=tsc}
     ensureAvatars();duelNet(dt);
     // end-of-fight handling
     if(spectate&&(!Q||Q.act==='dead')){spectate=false;state='lost';stateT=performance.now()}
@@ -464,7 +534,7 @@ const PlayerCombat=(()=>{
       if(PC.loop){startFight();msg('Again.',1.4)}else{rt(site).cleared=true;felled++;if(site.dg){try{WardenDungeon.clear(site.id);WardenCatacombs.onClear(site.id)}catch(e){}}const cr=site.fog?PG.felled(site.id):null;msg(site.n+' · cleared ('+felled+' felled)',2.4);leave(true);if(cr)cycleTurn(cr);return}}
     // one-time status toast so a missing animation set is visible instead of silent
     {const F0=foes[0],ka=(pAnim?pAnim.st:'none')+'/'+(F0&&F0.anim?F0.anim.st:'none');if(ka!==mxSaid&&pAnim&&F0&&F0.anim&&pAnim.st!=='none'&&F0.anim.st!=='none'){mxSaid=ka;msg(pAnim.st==='ready'&&F0.anim.st==='ready'?'Animations '+WardenMX.BUILD+' loaded':'Animation load FAILED ('+(pAnim.err||F0.anim.err||ka)+')',2.2)}}
-    const TF=target();D=TF.f;try{markers(TF,performance.now()/1000);threatArrows();frameFoes(dt)}catch(e){}
+    const TF=target();D=TF.f;try{markers(TF,performance.now()/1000);threatArrows();frameFoes(dt);barrageTick(dt)}catch(e){}
     // camera: pull back for a big foe, when he is far, and when there are several
     try{let sc=1;for(const F of foes)if(F.f.act!=='dead'&&F.awake)sc=Math.max(sc,F.T.scale);const fd=Math.hypot(S.x-D.x,S.z-D.z);CameraRig.setBias(-2.8+(sc-1)*3.4+Math.min(3.5,Math.max(0,fd-5))*.45+(alive().length>1?1:0))}catch(e){}
     for(const F of foes)if(F.ai.ph2&&!F.ph2&&state==='fight'){F.ph2=true;if(F.T.boss){msg(F.T.ph2,2);sfx('heavy',.7,.6,()=>tone(120,60,.4,'sawtooth',.12));WardenSfx.play('vo_sudden_death',.8,1,{nojit:1})}if(F.body.shield)F.body.shield.visible=false}
@@ -481,6 +551,7 @@ const PlayerCombat=(()=>{
       // a LATE foe (second of a pair) holds back until the first is at half health or felled, then joins with its own entrance
       for(const F of foes)if(F.late&&!F.awake&&F.dorm==='sleep'&&F.f.act!=='dead'&&foes.filter(o=>!o.late).every(o=>o.f.act==='dead'||o.f.hp<=o.f.hpMax*.5))rouse(F);
       for(const F of foes){const q=F.f;
+        if(F.script){h[F.id]={face:Math.atan2(S.x-q.x,S.z-q.z),mx:0,mz:0,list:[]};continue}
         if(F.f.act==='dead'){h[F.id]={face:q.face,mx:0,mz:0};continue}
         if(!F.awake&&F.dorm!=='wake'&&Math.hypot(S.x-q.x,S.z-q.z)<F.T.aggro)wake(F);
         if(F.human){h[F.id]={face:q.face,mx:0,mz:0,list:[]};continue}
@@ -526,4 +597,4 @@ const PlayerCombat=(()=>{
       if(WardenGear.full()){const v=WardenGear.sellValue(it);PG.earn(v);line+=' · pack full, sold a '+WardenGear.name(it)+' for '+v}else{WardenGear.add(it);line+=' · '+WardenGear.RAR[it.rar]+' '+WardenGear.name(it)}
       toast((label||'Chest')+': '+line,4.2);return it},toast:(t,s)=>toast(t,s),setSeq:v=>{if(pAnim)pAnim.variant=v},tick,speedMul,press,release,enter:()=>{},engage:id=>{const s=SITES().find(q=>q.id===id);if(s&&!on)engage(s)},leave:()=>leave(false),on:()=>on,site:()=>site,GRIP,setGrip:()=>{setGrip(sword);for(const F of foes)setGrip(F.body.sword)},newFight:()=>{if(on)startFight()},
     _flow:v=>{if(v!==undefined)flow=v;return[flow,flowOn,flowN]},
-    _foes:()=>foes,_t:()=>({DU,on,C,P,D,lock,sword,foes,site,AI:foes[0]&&foes[0].ai,state,cur,stW,down,pAnim,dAnim:foes[0]&&foes[0].anim,duel:foes[0]&&foes[0].body.g,dSword:foes[0]&&foes[0].body.sword,RT})})})();
+    _foes:()=>foes,_ult:()=>ult?{tk:C.tick-ult.T0,ph:ult.ph,t:+ult.t.toFixed(2),hits:ult.hits,dodged:ult.dodged,res:ult.res,tsc}:null,_t:()=>({DU,on,C,P,D,lock,sword,foes,site,AI:foes[0]&&foes[0].ai,state,cur,stW,down,pAnim,dAnim:foes[0]&&foes[0].anim,duel:foes[0]&&foes[0].body.g,dSword:foes[0]&&foes[0].body.sword,RT})})})();

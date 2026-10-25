@@ -19,9 +19,9 @@ const CineCam=(()=>{
     bar.style.cssText='position:fixed;inset:0;z-index:45;pointer-events:none;display:none';
     bar.innerHTML='<div style="position:absolute;left:0;right:0;top:0;height:0;background:#000;transition:height .35s"></div><div style="position:absolute;left:0;right:0;bottom:0;height:0;background:#000;transition:height .35s"></div><div id="cineHint" style="position:absolute;right:14px;bottom:10px;color:#fff9;font:600 11px system-ui,sans-serif;letter-spacing:.1em;opacity:0">TAP TO SKIP</div>';
     document.body.appendChild(bar);hint=bar.querySelector('#cineHint');
-    const skip=e=>{if(st==='playing'){e.stopPropagation&&e.stopPropagation();end()}};
-    addEventListener('pointerdown',skip,true);addEventListener('keydown',e=>{if(st==='playing'&&(e.code==='Space'||e.code==='Enter'||e.code==='Escape'))end()},true)}
-  function bars(on){dom();bar.style.display=on||st!=='idle'?'block':'none';const h=on?Math.round(innerHeight*.11)+'px':'0';bar.children[0].style.height=h;bar.children[1].style.height=h;hint.style.opacity=on?1:0}
+    const skip=e=>{if(st==='playing'&&!(pre&&pre.noskip)){e.stopPropagation&&e.stopPropagation();end()}};
+    addEventListener('pointerdown',skip,true);addEventListener('keydown',e=>{if(st==='playing'&&!(pre&&pre.noskip)&&(e.code==='Space'||e.code==='Enter'||e.code==='Escape'))end()},true)}
+  function bars(on){dom();bar.style.display=on||st!=='idle'?'block':'none';const h=on?Math.round(innerHeight*.11)+'px':'0';bar.children[0].style.height=h;bar.children[1].style.height=h;hint.style.opacity=on&&!(pre&&pre.noskip)?1:0}
   function play(kind,subject,o){
     o=o||{};const p=PRE[kind];if(!p||st!=='idle')return false;
     const key=kind+':'+(o.id||'');if(kind==='intro'&&o.id&&seen[key]&&!o.force)return false;   // seen it: no repeat
