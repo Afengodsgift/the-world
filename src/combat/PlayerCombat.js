@@ -333,7 +333,7 @@ const PlayerCombat=(()=>{
     rt(site).foes=foes}
   function startFight(){
     fightN++;hurt=false;fightVo=false;try{WardenSfx.load()}catch(e){}const R=site.wall?site.R-.5:site.dg?site.R-.3:site.R+10,sol=WardenSolids().filter(s=>Math.hypot(s.x-WRD.x-site.x,s.z-WRD.z-site.z)<site.R+14);
-    C=CombatCore.create({arena:{x:WRD.x+site.x,z:WRD.z+site.z,R},solids:sol});ST=CombatCore.stepper(C,6);t0=performance.now();
+    C=CombatCore.create({arena:{x:WRD.x+site.x,z:WRD.z+site.z,R},solids:sol});try{CameraRig.setArena({x:WRD.x+site.x,z:WRD.z+site.z,R:site.wall||site.dg?R:site.R,sol:sol.filter(q=>!q.wall)})}catch(e){}ST=CombatCore.stepper(C,6);t0=performance.now();
     if(site.duel&&DU.pair){const L=duelSide();S.x=WRD.x+site.x;S.z=WRD.z+site.z+9*L;S.rot=L>0?Math.PI:0;lx=S.x;lz=S.z}
     P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});applyStats();spawnFoes();WardenFx.clear();WardenVfx.clear();Q=null;spectate=false;netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
     flow=0;flowOn=false;flowN=0;fq=null;skillCD=0;bars.fl=-1;healLeft=0;mightT=0;itemLock=0;state='fight';stateT=0;lock=site.fog||site.duel||foes.some(F=>F.T.boss);lockI=0;lastEv=[];pv.init=false;down.guard=down.heavy=false;stW=0;gT=0;
@@ -354,9 +354,22 @@ const PlayerCombat=(()=>{
     lx=S.x;lz=S.z;on=true;document.body.classList.add('warden-fight');ensureAvatars();if(sword&&sword.grip)sword.grip.visible=true;
     for(const F of foes)for(const k of['sword','shield'])if(F.body[k]){const o=F.body[k].grip||F.body[k];if(o)o.visible=true}
     arenaRes(true);msg(s.n,2.2);try{if(s.fog)WardenIsles.fog(s.id,'sealed')}catch(e){}}
+  // Who am I fighting? With 2+ foes alive a ring + chevron marks the one your swings go to (red while it winds up an attack), and any OTHER foe that is mid-attack gets a small red ring at its feet.
+  let tmk=null;const thr=[];
+  function mkMat(c){return new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:.85,depthTest:false,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide})}
+  function markers(TF,t){
+    const multi=on&&state==='fight'&&alive().length>1;
+    if(!tmk&&multi){const g=new THREE.Group(),m=mkMat(0xffd25a);const r=new THREE.Mesh(new THREE.RingGeometry(.62,.8,28),m);r.rotation.x=-Math.PI/2;r.renderOrder=998;g.add(r);
+      const c=new THREE.Mesh(new THREE.ConeGeometry(.26,.5,4),m);c.rotation.x=Math.PI;c.renderOrder=998;g.add(c);g.userData={r,c,m};scene.add(g);tmk=g}
+    if(tmk){tmk.visible=!!multi;if(multi){const f=TF.f,sc=TF.T.scale||1,u=tmk.userData;tmk.position.set(f.x,H(f.x,f.z)+.08,f.z);const pu=1+.06*Math.sin(t*6);u.r.scale.setScalar(sc*pu);u.c.position.y=2.35*sc+.18*Math.sin(t*6);
+      u.m.color.setHex(f.act==='attack'?0xff4a3a:0xffd25a)}}
+    let n=0;
+    if(multi)for(const F of foes){if(F===TF||F.f.act!=='attack')continue;let g=thr[n];if(!g){g=new THREE.Mesh(new THREE.RingGeometry(.5,.66,24),mkMat(0xff3a2a));g.rotation.x=-Math.PI/2;g.renderOrder=997;scene.add(g);thr[n]=g}
+      g.visible=true;g.position.set(F.f.x,H(F.f.x,F.f.z)+.07,F.f.z);g.scale.setScalar((F.T.scale||1)*(1+.1*Math.sin(t*14)));n++}
+    for(let i=n;i<thr.length;i++)thr[i].visible=false}
   function leave(hold){   // hold: keep the corpses of a cleared site in the world
     if(!on)return;netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;pendFace=null;
-    if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0)}catch(e){}WardenFx.clear();WardenVfx.clear();
+    if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.setArena(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
     try{if(site&&site.fog)WardenIsles.fog(site.id,rt(site).cleared?'gone':'idle')}catch(e){}}
   // ---------- per frame ----------
@@ -418,7 +431,7 @@ const PlayerCombat=(()=>{
       if(PC.loop){startFight();msg('Again.',1.4)}else{rt(site).cleared=true;felled++;if(site.dg){try{WardenDungeon.clear(site.id);WardenCatacombs.onClear(site.id)}catch(e){}}const cr=site.fog?PG.felled(site.id):null;msg(site.n+' · cleared ('+felled+' felled)',2.4);leave(true);if(cr)cycleTurn(cr);return}}
     // one-time status toast so a missing animation set is visible instead of silent
     {const F0=foes[0],ka=(pAnim?pAnim.st:'none')+'/'+(F0&&F0.anim?F0.anim.st:'none');if(ka!==mxSaid&&pAnim&&F0&&F0.anim&&pAnim.st!=='none'&&F0.anim.st!=='none'){mxSaid=ka;msg(pAnim.st==='ready'&&F0.anim.st==='ready'?'Animations '+WardenMX.BUILD+' loaded':'Animation load FAILED ('+(pAnim.err||F0.anim.err||ka)+')',2.2)}}
-    const TF=target();D=TF.f;
+    const TF=target();D=TF.f;try{markers(TF,performance.now()/1000)}catch(e){}
     // camera: pull back for a big foe, when he is far, and when there are several
     try{let sc=1;for(const F of foes)if(F.f.act!=='dead'&&F.awake)sc=Math.max(sc,F.T.scale);const fd=Math.hypot(S.x-D.x,S.z-D.z);CameraRig.setBias(-2.4+(sc-1)*3.4+Math.min(3.5,Math.max(0,fd-5))*.45+(alive().length>1?1:0))}catch(e){}
     for(const F of foes)if(F.ai.ph2&&!F.ph2&&state==='fight'){F.ph2=true;if(F.T.boss){msg(F.T.ph2,2);sfx('heavy',.7,.6,()=>tone(120,60,.4,'sawtooth',.12));WardenSfx.play('vo_sudden_death',.8,1,{nojit:1})}if(F.body.shield)F.body.shield.visible=false}

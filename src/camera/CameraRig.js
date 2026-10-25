@@ -138,6 +138,10 @@ const CameraRig=(()=>{
     // obstruction: pull the camera in so it never ends up inside a house/rock or under the ground; snaps in fast, eases back out slowly
     let free=st.fpsK<.01?armFree(_l,_p):1;free+=(1-free)*Math.min(1,sk*1.6)*(st.ship&&st.ship.block?0:1);st.arm+=(free-st.arm)*(free<st.arm?1:1-Math.exp(-(2.4+2.2*st.tpsK)*dt));
     if(st.arm<.999)_p.lerpVectors(_l,_p,st.arm);
+    // Warden arena: the camera never leaves the fighting circle and never sits inside a pillar (it slides along the wall instead of passing through it)
+    if(st.arena&&st.fpsK<.01){const A=st.arena,m=Math.max(A.R-.9,Math.hypot(S.x-A.x,S.z-A.z)+1.5);let dx,dz,d;
+      for(let it=0;it<2;it++){dx=_p.x-A.x;dz=_p.z-A.z;d=Math.hypot(dx,dz);if(d>m){_p.x=A.x+dx/d*m;_p.z=A.z+dz/d*m}
+        for(let k=0;k<A.sol.length;k++){const c=A.sol[k],rr=c.r+.9;dx=_p.x-c.x;dz=_p.z-c.z;d=Math.hypot(dx,dz);if(d<rr){if(d<1e-3){dx=_p.x-A.x;dz=_p.z-A.z;d=Math.hypot(dx,dz)||1}_p.x=c.x+dx/d*rr;_p.z=c.z+dz/d*rr}}}}
 
     // ---- first-person: blend position to the eye, look straight along the view direction ----
     if(st.fpsK>.001){
@@ -171,6 +175,7 @@ const CameraRig=(()=>{
     update,
     shake(a){st.shakeA=Math.min(1.6,Math.max(st.shakeA||0,a||0))},          // 0..1.6: a short camera shudder that dies away (ship hits, cannon recoil)
     addBlocker(b){const k={x:b.x,z:b.z,hw:b.hw,hd:b.hd,y0:b.y0,top:b.top,c:Math.cos(b.ry||0),s:Math.sin(b.ry||0)};blockers.push(k);return k},clearBlockers(){blockers.length=0},blockerCount:()=>blockers.length,inBox,
+    setArena(a){st.arena=a||null},
     setShooter(b){st.shooter=!!b},                      // a weapon is out: use the shooter view (fps or tps)
     setBias(m){st.biasT=m||0},
     setShip(o){st.ship=o||null},                            // {x,y,z,d,pk}: swing the orbit camera around a ship (pivot blend pk 0..1, boom length d); null = back to the avatar
