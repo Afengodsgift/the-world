@@ -49,7 +49,7 @@ const Outlaw=(()=>{
   const DIFF=[{n:'Normal',hp:1,dmg:1,cnt:1,coin:1},{n:'Hard',hp:1.4,dmg:1.25,cnt:1.3,coin:1.5},{n:'Outlaw',hp:2,dmg:1.6,cnt:1.7,coin:2.2}];
   const cover=[],npcs=new Map(),cache={};
   let wiped=false,clock=0,C=null,active=false,host=null,wave=0,kills=0,best=0,nextWave=0,queue=[],spawnT=0,nid=1,snapT=0;
-  let wi=-1,hp=100,down=false,downT=0,cdT=0,firing=false,pdown=false,pw=-1,hudEl,hpEl,xh,fireBtn,fireBtn2,gunBtn,hitT=0,xSp=0,bloom=0,critT=0,huntT=0,huntOn=false,scoped=false,dirEl,lastNoise=null,lastShout=0,scopeEl,scopeBtn,scopeRng,scopeT=0,fx=[];
+  let supp=0,suppEl=null,flushT=0,barkT=0,wi=-1,hp=100,down=false,downT=0,cdT=0,firing=false,pdown=false,pw=-1,hudEl,hpEl,xh,fireBtn,fireBtn2,gunBtn,hitT=0,xSp=0,bloom=0,critT=0,huntT=0,huntOn=false,scoped=false,dirEl,lastNoise=null,lastShout=0,scopeEl,scopeBtn,scopeRng,scopeT=0,fx=[];
   const prev={x:0,z:0,vx:0,vz:0},pprev={x:0,z:0,vx:0,vz:0};
   let diff=1,mode='survive',bank={x:0,z:0,hp:1500,max:1500},ammo=[],reloadT=0,reloading=false,dyn=[],drops=[],reloadBtn,shopEl,pick={m:'survive',d:1};
   let SAVE={coins:0,own:WEAPONS.map((_,i)=>FREE.includes(i)?1:0),lv:WEAPONS.map(()=>0),hp:0,mag:0,rl:0,crit:0,v:0};
@@ -328,9 +328,9 @@ const Outlaw=(()=>{
   const hitBuf={};let lastF=0,lastH=0;
   const HS={1:.7,3:.6,7:.5,8:.45,9:.6,10:.5,11:.6,12:.4,13:.7}; // headshot multiplier scale per raider type: brutes and bosses are not one-tap-able
   function reportHit(id,d,zone){if(isHost())damageNpc(id,d,zone);else{const b=hitBuf[id]||(hitBuf[id]={d:0,z:zone});b.d+=d;if(zone==='head')b.z='head'}} // client hits are batched (flushed in tick)
-  function damageNpc(id,d,zone){const n=npcs.get(id);if(!n||n.dead)return;if(n.inv){popText(n.x,H(n.x,n.z)+2.6,n.z,'…','#888');return}if(n.bv&&n.bv.vuln)d=Math.round(d*1.5);n.hp-=d;n.flash=.12;n.lastZone=zone||'torso';n.lastHitAt=clock;n.rdmg=(n.rdmg||0)+d;n.stg=clock+(zone==='head'?520:260)*(HS[n.type]||1);if(n.type===1&&n.cd<.35)n.cd=.35;if(n.hp<=0)killNpc(n)}
+  function damageNpc(id,d,zone){const n=npcs.get(id);if(!n||n.dead)return;if(n.type===0&&!n._hb&&n.hp-d<n.max*.5&&n.hp-d>0){n._hb=1;bark(n,'hit')}if(n.inv){popText(n.x,H(n.x,n.z)+2.6,n.z,'…','#888');return}if(n.bv&&n.bv.vuln)d=Math.round(d*1.5);n.hp-=d;n.flash=.12;n.lastZone=zone||'torso';n.lastHitAt=clock;n.rdmg=(n.rdmg||0)+d;n.stg=clock+(zone==='head'?520:260)*(HS[n.type]||1);if(n.type===1&&n.cd<.35)n.cd=.35;if(n.hp<=0)killNpc(n)}
   function earn(c){SAVE.coins+=c;save();sfx('coin');popText(S.x,S.y+2.6,S.z,'+'+c+' 🪙','#ffd24a');updateHud()}
-  function killNpc(n){n.dead=1;if(n.decoy)return;kills++;const c=Math.round(COIN[n.type]*DIFF[diff].coin*(1+wave*.03));send({k:'kill',c});earn(c);if(Math.random()<.16){const id=nid++;send({k:'dr',id,x:n.x,z:n.z});addDrop(id,n.x,n.z)}
+  function killNpc(n){n.dead=1;if(n.decoy)return;kills++;if(isHost()){let a=null,b=1e9;for(const o of npcs.values()){if(o===n||o.dead||o.type>=3&&o.type!==5&&o.type!==0)continue;const dd=Math.hypot(o.x-n.x,o.z-n.z);if(dd<20&&dd<b){b=dd;a=o}}if(a)bark(a,'down')}const c=Math.round(COIN[n.type]*DIFF[diff].coin*(1+wave*.03));send({k:'kill',c});earn(c);if(Math.random()<.16){const id=nid++;send({k:'dr',id,x:n.x,z:n.z});addDrop(id,n.x,n.z)}
     const it=Consumables.rollDrop(Math.random,BOSS(n.type));if(it){const id=nid++,ox=n.x+1.2;send({k:'dr',id,x:ox,z:n.z,t:it});addDrop(id,ox,n.z,it)}}   // supply crate (host decides what is in it)
   function addDrop(id,x,z,t){const it=Consumables.isItem(t)?t:null,m=it?OutlawItems.crate(it):new THREE.Mesh(new THREE.BoxGeometry(.6,.6,.6),new THREE.MeshStandardMaterial({color:'#2ecc71',emissive:'#1e9e55',emissiveIntensity:.8}));m.position.set(x,H(x,z)+.6,z);scene.add(m);drops.push({id,m,x,z,t:it,born:clock})}
   function grantCrate(id,who){ // host only: remove the crate once, tell everyone who got it
@@ -358,7 +358,7 @@ const Outlaw=(()=>{
   function rollAnim(clip,dx,dz,back){if(typeof loadEmotes!=='function'||typeof me==='undefined'||!me||!me.userData.nact)return;
     if(!back){S.rot=Math.atan2(dx,dz);me.rotation.y=S.rot}
     loadEmotes().then(()=>{me.userData.hold=null;me.userData.emote=clip;if(typeof chan!=='undefined'&&chan)chan.send({type:'broadcast',event:'em',payload:{from:myId,e:clip}})}).catch(()=>{})}
-  function rollTick(dt){rollT=Math.max(0,rollT-dt);rollCd=Math.max(0,rollCd-dt);if(rollBtn){rollBtn.style.display=active&&!down?'block':'none';rollBtn.style.opacity=rollCd>0?.45:1}}
+  function rollTick(dt){supp=active&&!down?Math.max(0,supp-dt*.45):0;if(suppEl)suppEl.style.opacity=Math.min(.85,supp*.9).toFixed(2);if(supp>.25)bloom=Math.max(bloom,supp*.5);rollT=Math.max(0,rollT-dt);rollCd=Math.max(0,rollCd-dt);if(rollBtn){rollBtn.style.display=active&&!down?'block':'none';rollBtn.style.opacity=rollCd>0?.45:1}}
   function hurt(d,fx_,fz_){
     if(down)return;if(rollT>0){popText(S.x,S.y+2.4,S.z,'dodged','#9fe8ff');return}try{CameraRig.shake(Math.min(.9,.2+d/40))}catch(e){}if(fx_!==undefined)dmgDir(fx_,fz_);const raw=d;d=OutlawItems.absorb(d);hp-=d;S.hurt=d>0?.35:.12;sfx(d<raw?'armor':'hurt');   // armor soaks 70% of the hit first (src/combat/Consumables.js)
     if(fx_!==undefined){const l=Math.hypot(S.x-fx_,S.z-fz_)||1;S.kx+=(S.x-fx_)/l*4;S.kz+=(S.z-fz_)/l*4}
@@ -430,7 +430,7 @@ const Outlaw=(()=>{
     else if(e==='decoy'&&isHost()){for(let k=0;k<2;k++){const a=Math.random()*6.283,x=n.x+Math.cos(a)*5,z=n.z+Math.sin(a)*5;addNpc(9,x,z);const q=[...npcs.values()].pop();q.decoy=1;q.hp=q.max=12;q.dm=0;q.bb={s:'stalk',t:rnd(.5,1.5),heat:0,ph:3,side:1,sw:0,fed:1,dec:1}}}}
   function dealDmg(n,t,d){d=Math.round(d*n.dm);if(t.id==='bank'){bank.hp=Math.max(0,bank.hp-d);return}if(t.id===myId)hurt(d,n.x,n.z);else send({k:'hurt',to:t.id,d,x:n.x,z:n.z})}
   function healBeam(a,b){tracer(a.x,H(a.x,a.z)+1.3,a.z,b.x,H(b.x,b.z)+1.3,b.z,'#5dff8a');popText(b.x,H(b.x,b.z)+2.6,b.z,'+','#5dff8a');sfx('heal')}
-  function throwDyn(n,t){const p={k:'dy',x0:n.x,z0:n.z,x1:t.x+t.vx*1.2,z1:t.z+t.vz*1.2,d:Math.round(TYPES[4].dmg*n.dm)};send(p);addDyn(p)}
+  function throwDyn(n,t,k){ST.dyn++;const p={k:'dy',x0:n.x,z0:n.z,x1:t.x+t.vx*1.2,z1:t.z+t.vz*1.2,d:Math.round(TYPES[4].dmg*n.dm*(k||1))};send(p);addDyn(p)}
   function addDyn(p){
     const m=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.5,8),new THREE.MeshStandardMaterial({color:'#d33',emissive:'#a00'}));scene.add(m);
     const r=new THREE.Mesh(new THREE.RingGeometry(4.2,5.2,32),new THREE.MeshBasicMaterial({color:'#ff3030',transparent:true,opacity:.55,side:THREE.DoubleSide}));r.rotation.x=-Math.PI/2;r.position.set(p.x1,H(p.x1,p.z1)+.15,p.z1);scene.add(r);
@@ -441,15 +441,22 @@ const Outlaw=(()=>{
       if(e.t>=e.fuse){scene.remove(e.m);scene.remove(e.r);dyn.splice(i,1);boom(p.x1,p.z1,5);if(isHost())OutlawArena.blast(p.x1,p.z1,5,p.d*2);
         const dd=Math.hypot(S.x-p.x1,S.z-p.z1);if(!down&&dd<5.2)hurt(Math.max(1,Math.round(p.d*(1-dd/6.5))),p.x1,p.z1);
         if(isHost()&&mode==='defend'&&Math.hypot(bank.x-p.x1,bank.z-p.z1)<9)bank.hp=Math.max(0,bank.hp-p.d*2)}}}
+  // SUPPRESSION: bullets cracking past your head pin you down: the screen edges darken, your aim blooms, the camera flinches. It fades when the shooting stops.
+  function addSupp(v){supp=Math.min(1,supp+v)}
+  // CALLOUTS: raiders talk to each other (and you hear it): short floating lines, same on both screens
+  const BARKS={contact:['Contact!','There he is!','Got eyes on him!'],flank:['Flanking!','Going around!','On his left!'],push:['He\'s reloading, push!','Go go go!','Rush him!'],cover:['Cover me!','Moving up!','Falling back!'],supp:['Covering fire!','Keep his head down!','Pin him!'],gren:['Grenade out!','Fire in the hole!','Dynamite!'],down:['Man down!','They got Jed!','Damn it!'],hit:['I\'m hit!','Argh!','He got me!'],flush:['Smoke him out!','Flush him out!','Dig him out!'],kill:['He\'s down!','Got him!','That\'s one!']};
+  const ST={dyn:0,flush:0,barks:0};
+  function bark(n,k,force){if(!isHost()||!BARKS[k]||!n.group)return;const now=clock/1000;if(!force&&(now-barkT<.9||now-(n.bkT||0)<5))return;barkT=now;n.bkT=now;ST.barks++;const L=BARKS[k],txt=L[Math.random()*L.length|0];send({k:'bk',id:n.id,t:txt});showBark(n,txt)}
+  function showBark(n,txt){if(!n||n.dead||!n.group)return;const p=n.group.position,sc=TYPES[n.type].sc;if(Math.hypot(p.x-S.x,p.z-S.z)<70){popText(p.x,p.y+2.6*sc,p.z,txt,'#ffe9b0',.8);sfxAt('shout',p.x,p.z,.6)}}
   function enemyShoot(n,t,d,T){
-    const mv=Math.hypot(t.vx,t.vz),p=Math.max(.08,Math.min(.85,T.acc+wave*.012-d*.006-(mv>2?.18:0)));
+    const mv=Math.hypot(t.vx,t.vz),bi=n.bn||0,p=Math.max(.08,Math.min(.9,(T.acc+wave*.012-d*.006-(mv>2?.18:0)+(mv<1?.08:0)+Math.min(.18,(n.sightT||0)*.03))*(n.type===0?(bi===0?.7:bi===1?.95:1.15):1)));   // a burst WALKS onto you: first round brackets, the rest converge; staying in sight and standing still make it worse
     n.group.userData.recoil=1;const M=muzzle(n.group,-1);let hitIt=Math.random()<p;
-    const lx=t.x+t.vx*d/60,lz=t.z+t.vz*d/60,j=hitIt?0:rnd(-2,2),ty=(t.y===undefined?C.y:t.y)+(Math.random()<.35?1.55:1.0);
+    const lx=t.x+t.vx*d/60,lz=t.z+t.vz*d/60,j=hitIt?0:rnd(-1.5,1.5),ty=(t.y===undefined?C.y:t.y)+(Math.random()<.35?1.55:1.0);
     let ex=lx+j,ey=ty,ez=lz+j;
     if(t.id!=='bank'){ // cover has a height: a shot at a head over a crate can hit, one at a chest behind it hits the crate (and damages it)
       const o={x:M.x,y:M.y,z:M.z},dx=ex-o.x,dy=ey-o.y,dz=ez-o.z,L=Math.hypot(dx,dy,dz)||1,r=HitZones.coverT(o,{x:dx/L,y:dy/L,z:dz/L},L,cover);
       if(r.c){hitIt=false;ex=o.x+dx/L*r.t;ey=o.y+dy/L*r.t;ez=o.z+dz/L*r.t;try{BattleFX.impact(ex,ey,ez,r.c.brk!==undefined?'wood':'spark')}catch(e){}if(r.c.brk!==undefined&&isHost())OutlawArena.hitCover(r.c,T.dmg*n.dm*.8)}}
-    tracer(M.x,M.y,M.z,ex,ey,ez,'#ff9a7a');sfxAt('enemy',n.x,n.z);if(t.id===myId&&!hitIt&&Math.hypot(ex-S.x,ez-S.z)<3.2){dmgDir(n.x,n.z,'n');sfx('crack');try{CameraRig.shake(.12)}catch(e){}}
+    tracer(M.x,M.y,M.z,ex,ey,ez,'#ff9a7a');sfxAt('enemy',n.x,n.z);if(t.id===myId&&!hitIt&&Math.hypot(ex-S.x,ez-S.z)<3.2){dmgDir(n.x,n.z,'n');sfx('crack');addSupp(.2);try{CameraRig.shake(.12)}catch(e){}}
     send({k:'f',m:[M.x,M.y,M.z],e:[ex,ey,ez],ai:1});
     if(hitIt){dealDmg(n,t,T.dmg)}}
   function detour(n,t){ // nearest blocking cover on the line to the target -> a point beside it to walk around
@@ -490,7 +497,9 @@ const Outlaw=(()=>{
     if(n.raider&&bank.hp>0&&!alive.some(p=>Math.hypot(p.x-n.x,p.z-n.z)<14))t={id:'bank',x:bank.x,z:bank.z+7,vx:0,vz:0,down:false}; // raiders hit the vault unless a player is close
     let dx=t.x-n.x,dz=t.z-n.z;const d=Math.hypot(dx,dz)||1,ux=dx/d,uz=dz/d,tfy=t.y===undefined?C.y:t.y,seen=t.id==='bank'?los(n.x,n.z,t.x,t.z):EnemyAI.sees(cover,n.x,ny(n),n.z,n.st==='crouch'?'crouch':'stand',t.x,tfy,t.z)>0;
     let gx=ux,gz=uz;if(!seen){const dv=detour(n,t);if(dv){const q=Math.hypot(dv.x-n.x,dv.z-n.z)||1;gx=(dv.x-n.x)/q;gz=(dv.z-n.z)/q}}
-    if(seen&&!n.seen)n.react=T.react*Math.max(.35,1-wave*.06);n.seen=seen;if(n.react>0)n.react-=dt;
+    // the reaction delay is for a NEW contact; popping out of cover again costs only a flinch
+    if(!seen)n.unseenT=(n.unseenT||0)+dt;if(seen&&!n.seen){if((n.unseenT||0)>1.8||n.unseenT===undefined){n.react=T.react*Math.max(.35,1-wave*.06);if(n.type===0&&Math.random()<.45)bark(n,'contact')}else n.react=Math.min(n.react,.12);n.unseenT=0}
+    n.sightT=seen?(n.sightT||0)+dt:Math.max(0,(n.sightT||0)-dt*2);n.seen=seen;if(n.react>0)n.react-=dt;
     // AWARENESS: a raider only knows where you were last SEEN (or heard shooting). Whoever sees you tells squad mates within 55 m; everyone else works from that, which goes stale.
     const now0=clock/1000;
     if(seen&&t.id!=='bank'){if(!n.sawT||now0-n.sawT>4){if(now0-lastShout>.9&&d<70){lastShout=now0;sfxAt('shout',n.x,n.z)}}n.sawT=now0;n.lk={x:t.x,z:t.z};n.lkT=now0;
@@ -533,9 +542,9 @@ const Outlaw=(()=>{
         if(brave||n.hunt)n.mode='advance';
         else if(role==='sniper'){/* perches below */}
         else if(n.mode==='flank'){if(!n.route||now0>n.routeT||Math.hypot(n.route.x-n.x,n.route.z-n.z)<5){n.mode='advance';n.route=null;n.flanked=true}}
-        else if(role==='flanker'&&!n.flanked&&squadEngaged(n,now0)){n.route=EnemyAI.flankPoint(tp,n,n.flank,Math.max(24,Math.min(40,dp*.7)),(x,z)=>H(x,z)>.8&&Math.hypot(x-C.x,z-C.z)<190);if(n.route){n.mode='flank';n.routeT=now0+16}else n.flanked=true}
+        else if(role==='flanker'&&!n.flanked&&squadEngaged(n,now0)){n.route=EnemyAI.flankPoint(tp,n,n.flank,Math.max(24,Math.min(40,dp*.7)),(x,z)=>H(x,z)>.8&&Math.hypot(x-C.x,z-C.z)<190);if(n.route){n.mode='flank';n.routeT=now0+16;bark(n,'flank')}else n.flanked=true}
         else if(EnemyAI.relocateNeeded(n.rdmg||0,T.hp,dp,band[0])){const c=pickCover(n,tpd,{avoid:n.cp,band});n.rdmg=0;if(c){n.cp=c;n.mode='cover';n.pt=rnd(3,5)}else n.mode='advance'}
-        else if(pushNow)n.mode='advance';
+        else if(pushNow){if(n.mode!=='advance')bark(n,'push');n.mode='advance'}
         else if(n.mode==='cover'&&n.cp&&n.pt>0){/* hold */}
         else if(dp>band[1]+3){const c=pickCover(n,tpd,{fwd:true,band});if(c){n.cp=c;n.mode='cover';n.pt=role==='rusher'?rnd(.7,1.3):rnd(1.4,2.6)}else n.mode='advance'}
         else if(dp<band[0]*.7&&role!=='flanker'&&role!=='rusher'&&role!=='aggr'){const c=pickCover(n,tpd,{back:true,band});if(c){n.cp=c;n.mode='cover';n.pt=rnd(2,4)}else{n.mode='backoff';n.bo=1.4}}
@@ -544,14 +553,16 @@ const Outlaw=(()=>{
         n.pt-=dt;n.peek-=dt;const cx=n.cp.x-n.x,cz=n.cp.z-n.z,cd=Math.hypot(cx,cz);
         if(cd>1){mx=cx/cd;mz=cz/cd;n.peekOut=false}
         else{ // at cover: crouch (hidden), then stand up to shoot. Low cover: stand in place; tall cover: a short step out.
-          if(n.peek<=0){n.peekOut=!n.peekOut;n.peek=n.peekOut?rnd(.9,1.4):rnd(.8,1.5);if(n.type===2)n.aim=0}
+          if(n.peek<=0){n.peekOut=!n.peekOut;n.peek=n.peekOut?rnd(1.3,2.1):rnd(.5,1.1);if(n.type===2)n.aim=0}
           const low=n.cp.c&&n.cp.c.h!==undefined&&n.cp.c.h<=1.45;sp=0;n.st=n.peekOut?'idle':'crouch';
           if(n.peekOut&&!low){mx=-uz*n.flank;mz=ux*n.flank;sp=T.sp*.35;n.st='run'}}
         if(n.pt<=0)n.mode='fight';
       }else if(n.mode==='flank'&&n.route){const rx=n.route.x-n.x,rz=n.route.z-n.z,rd=Math.hypot(rx,rz)||1;mx=rx/rd;mz=rz/rd}
       else if(n.mode==='backoff'){mx=-(tp.x-n.x)/dp;mz=-(tp.z-n.z)/dp;n.bo=(n.bo||1)-dt;if(n.bo<=0)n.mode='fight'}
       else if(n.mode==='fight'){ // hold ground: stand and shoot (no weaving). If it has lost you for a couple of seconds it moves up.
-        sp=0;n.st='idle';if(!seen){n.nsT=(n.nsT||0)+dt;if(n.nsT>2.2){n.mode='advance';n.nsT=0}}else n.nsT=0}
+        sp=0;n.st='idle';if(!seen){n.nsT=(n.nsT||0)+dt;if(n.nsT>2.2){n.mode='advance';n.nsT=0}}else{n.nsT=0;   // between bursts it side-steps (never while the next round is about to fire), then squares up again
+          n.sdT=(n.sdT||0)-dt;if(n.sdT<=0){n.sdT=rnd(1.3,2.6);n.sdDir=Math.random()<.5?1:-1;n.sdLeft=rnd(.35,.7)}
+          if(n.sdLeft>0&&n.cd>.2&&role!=='sniper'&&n.type!==2){n.sdLeft-=dt;mx=-uz*n.sdDir;mz=ux*n.sdDir;sp=T.sp*.8;n.st='run'}}}
       else{ // advance: straight toward where it believes you are (around cover), stopping to fight inside its band
         mx=(tp.x-n.x)/dp;mz=(tp.z-n.z)/dp;if(!seen){const dv=detour(n,tp);if(dv){const q=Math.hypot(dv.x-n.x,dv.z-n.z)||1;mx=(dv.x-n.x)/q;mz=(dv.z-n.z)/q}}
         if(seen&&dp<=band[1]&&role!=='rusher'&&!pushNow&&!brave)n.mode='fight'}
@@ -560,10 +571,13 @@ const Outlaw=(()=>{
         if(!n.perch){let bd=1e9;for(const q of OutlawArena.perches()){const dd=Math.hypot(q.x-n.x,q.z-n.z);if(dd<bd){bd=dd;n.perch=q}}}
         if(n.perch){const pd=Math.hypot(n.perch.x-n.x,n.perch.z-n.z);n.mode='fight';if(pd>3){mx=(n.perch.x-n.x)/pd;mz=(n.perch.z-n.z)/pd;sp=T.sp;n.st='run'}else{mx=mz=0;sp=0;n.st='idle'}}}
       const peeking=(n.mode!=='cover'||n.peekOut)&&!n.crouchHold;
+      // FLUSH: you sit still behind cover and they cannot see you: somebody throws dynamite onto your last known spot (one every ~7-11 s for the whole squad), the rest watch for you to break cover
+      if(n.type===0&&!seen&&t.id!=='bank'&&wave>=2&&now0>flushT&&now0-(n.fgT||0)>12&&lkAge<6&&dp>9&&dp<32&&Math.hypot(t.vx||0,t.vz||0)<1.3&&peeking&&n.mode!=='flank'&&n.mode!=='post'&&n.mode!=='breach'&&(role==='grunt'||role==='aggr'||role==='rifle')){
+        flushT=now0+rnd(7,11);n.fgT=now0;bark(n,'gren',true);ST.flush++;throwDyn(n,{x:n.lk.x,z:n.lk.z,vx:0,vz:0},.7)}
       if(peeking&&seen&&d<T.range&&n.react<=0){
         if(n.type===2){if(tov&&!tov.stop){n.aim=0}else{n.aim+=dt;n.st='aim';sp=0}if(n.aim>=.9&&n.cd<=0){n.aim=0;n.cd=T.cd;enemyShoot(n,t,d,T)}}
-        else if(n.cd<=0){n.cd=T.cd*rnd(.85,1.2);if(n.type===4)throwDyn(n,t);else{enemyShoot(n,t,d,T);if(n.type===7){n.bc=(n.bc||0)+1;n.cd=n.bc>=14?(n.bc=0,2.2):T.cd}}}
-      }else if(role==='suppress'&&peeking&&!seen&&lkAge<7&&n.cd<=0&&n.mode!=='advance'&&n.mode!=='flank'){n.cd=rnd(.28,.45);suppressFire(n)}   // pins you down: fires where you were last seen
+        else if(n.cd<=0){n.cd=T.cd*rnd(.85,1.2);if(n.type===4)throwDyn(n,t);else{enemyShoot(n,t,d,T);if(n.type===0){n.bn=(n.bn||0)+1;if(n.bn>=(n.bsz||3)){n.bn=0;n.bsz=wave>=4&&Math.random()<.5?4:3;n.cd=T.cd*rnd(.55,1)}else n.cd=.11}if(n.type===7){n.bc=(n.bc||0)+1;n.cd=n.bc>=14?(n.bc=0,2.2):T.cd}}}
+      }else if(role==='suppress'&&peeking&&!seen&&lkAge<7&&n.cd<=0&&n.mode!=='advance'&&n.mode!=='flank'){n.cd=rnd(.28,.45);suppressFire(n);if(Math.random()<.06)bark(n,'supp')}   // pins you down: fires where you were last seen
       else if(n.type===2)n.aim=0;
     }
     // separation from other NPCs
@@ -720,6 +734,7 @@ const Outlaw=(()=>{
     viewBtn.addEventListener('pointerdown',e=>{const v=CameraRig.toggleView();banner(v==='fps'?'First-person view':'Third-person view','CAMERA');e.preventDefault()});
     const shopBtn=document.createElement('button');shopBtn.id='owshop';shopBtn.className='owb';shopBtn.textContent='🛒';document.body.appendChild(shopBtn);shopBtn.addEventListener('pointerdown',e=>{shopPanel();e.preventDefault()});
     rollBtn=document.createElement('button');rollBtn.id='owroll';rollBtn.className='owb';rollBtn.textContent='🌀';document.body.appendChild(rollBtn);rollBtn.addEventListener('pointerdown',e=>{roll();e.preventDefault()});
+    suppEl=document.createElement('div');suppEl.id='owsupp';suppEl.style.cssText='position:fixed;inset:0;z-index:4;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 42%,rgba(20,8,0,.78) 100%)';document.body.appendChild(suppEl);
     dirEl=document.createElement('div');dirEl.id='owdir';document.body.appendChild(dirEl);
     scopeBtn=document.createElement('button');scopeBtn.id='owscope';scopeBtn.className='owb';scopeBtn.textContent='🔭';document.body.appendChild(scopeBtn);scopeBtn.addEventListener('pointerdown',e=>{setScope(!scoped);e.preventDefault()});
     scopeEl=document.createElement('div');scopeEl.id='owsc';scopeEl.innerHTML='<i></i><b></b><em></em>';document.body.appendChild(scopeEl);scopeRng=scopeEl.querySelector('b');
@@ -758,6 +773,7 @@ const Outlaw=(()=>{
       case 'dn':{pdown=!!p.v;const pr=partner();if(pr)pr[1].group.userData.gdn=p.v&&typeof p.c==='string'&&/^d_[a-z_]{2,12}$/.test(p.c)?p.c:null;break}   // the partner falls / gets up (only known clip names are used)
       case 'wv':if(p.n>0){banner('Wave '+p.n+(p.n%3===0?' · BOSS!':''),'OUTLAW TOWN');sfx('horn')}else if(p.n===-1&&!isHost())banner('Wiped out! Retrying…','OUTLAW TOWN');break;
       case 'bn':banner(p.t,'OUTLAW TOWN');break;
+      case 'bk':showBark(npcs.get(p.id),p.t);break;
       case 'wg':pw=p.i;break;
       case 'rl':{const pr=partner();if(pr&&p.d>0){const u=pr[1].group.userData;u.rlD=u.rlT=Math.min(4,p.d)}break}   // partner reload (visual only)
       case 'kill':earn(p.c);break;
@@ -767,7 +783,7 @@ const Outlaw=(()=>{
       case 'pkq':if(isHost())grantCrate(p.id,p.w);break;
       case 'dy':addDyn(p);break;
       case 'hl':{const a=npcs.get(p.a),b=npcs.get(p.b);if(a&&b)healBeam(a,b);break}
-      case 'f':{const e=p.e||[0,0,0];if(!p.ai&&WEAPONS[p.w]&&WEAPONS[p.w].rocket)boom(e[0],e[2],5);if(!p.ai){const pr=partner();if(pr)pr[1].group.userData.recoil=1}tracer(p.m[0],p.m[1],p.m[2],e[0],e[1],e[2],p.ai?'#ff9a7a':'#ffe9a0');if(p.ai)sfxAt('enemy',p.m[0],p.m[2]);else{lastNoise={x:p.m[0],z:p.m[2],t:clock/1000};sfx((WEAPONS[p.w]||WEAPONS[0]).snd)}break}
+      case 'f':{const e=p.e||[0,0,0];if(!p.ai&&WEAPONS[p.w]&&WEAPONS[p.w].rocket)boom(e[0],e[2],5);if(!p.ai){const pr=partner();if(pr)pr[1].group.userData.recoil=1}tracer(p.m[0],p.m[1],p.m[2],e[0],e[1],e[2],p.ai?'#ff9a7a':'#ffe9a0');if(p.ai){sfxAt('enemy',p.m[0],p.m[2]);if(!isHost()&&!down&&Math.hypot(e[0]-S.x,e[2]-S.z)<3.2&&Math.hypot(p.m[0]-S.x,p.m[2]-S.z)>4){sfx('crack');addSupp(.2);try{CameraRig.shake(.12);dmgDir(p.m[0],p.m[2],'n')}catch(er){}}}else{lastNoise={x:p.m[0],z:p.m[2],t:clock/1000};sfx((WEAPONS[p.w]||WEAPONS[0]).snd)}break}
     }
   }
 
@@ -811,5 +827,5 @@ const Outlaw=(()=>{
   function moveMul(){if(down)return 0;const im=OutlawItems.moveMul();if(wi<0||!C||S.flying||S.dv||S.state==='swim')return im;return (Math.hypot(S.x-C.x,S.z-C.z)<OUT.R?ARMED_SPEED:1)*im}
   Interaction.register('ow-start','Start Showdown',()=>C&&!active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>missionPanel());
   Interaction.register('ow-end','End Showdown',()=>C&&active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>{send({k:'end'});onMsg({k:'end'})});
-  return {earn,build,tick,idle:()=>!active&&!huntOn,onMsg,equip,fire,setGun,lockTarget,poseGun,loadGun,moveMul,ARMED_SPEED,_t:()=>({tracer,get lastShot(){return lastShot},dmgDir,get hp(){return hp},get huntOn(){return huntOn},WEAPONS,get wave(){return wave},get queueLen(){return queue.length},get nextWave(){return nextWave},damageNpc,cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
+  return {earn,build,tick,idle:()=>!active&&!huntOn,onMsg,equip,fire,setGun,lockTarget,poseGun,loadGun,moveMul,ARMED_SPEED,_t:()=>({ST,cover,tracer,get lastShot(){return lastShot},dmgDir,get hp(){return hp},set hp(v){hp=v},get huntOn(){return huntOn},WEAPONS,get wave(){return wave},set wave(v){wave=v},get queueLen(){return queue.length},get nextWave(){return nextWave},damageNpc,cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
 })();
