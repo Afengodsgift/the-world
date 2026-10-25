@@ -156,6 +156,7 @@ addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').ca
 <script src="src/core/Perf.js"></script>
 <script src="src/core/Expedition.js"></script>
 <script src="src/data/islands.js"></script>
+<script src="src/data/surf.js"></script>
 <script src="src/world/AssetLoader.js"></script>
 <script src="src/input/InputManager.js"></script>
 <script src="src/input/Locomotion.js"></script>
@@ -216,6 +217,8 @@ addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').ca
 <script src="src/character/FlightPose.js"></script>
 <script src="src/fx/FlightFX.js"></script>
 <script src="src/fx/WaterFX.js"></script>
+<script src="src/surf/SurfCore.js"></script>
+<script src="src/surf/Surf.js"></script>
 <script src="src/input/Dive.js"></script>
 <script src="src/camera/CameraRig.js"></script>
 <script src="src/combat/Viewmodel.js"></script>
@@ -337,6 +340,7 @@ async function enter(code){
   chan.on('presence',{event:'sync'},syncPresence);
   chan.on('broadcast',{event:'c'},({payload})=>take(payload.i,false));
   chan.on('broadcast',{event:'wd'},({payload})=>{try{WardenNet.onMsg(payload)}catch(e){}});
+  chan.on('broadcast',{event:'sv'},({payload})=>{try{Surf.onNet(payload)}catch(e){}});
   chan.on('broadcast',{event:'u'},()=>{pulse=1.5;chime()});
   chan.on('broadcast',{event:'rs'},()=>startRace(false));
   chan.on('broadcast',{event:'ks'},()=>startKartRace(false));
@@ -731,7 +735,7 @@ function buildWorld(code){
   while(pts.length<40){const a=rng()*6.283,r=12+rng()*195,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<40&&dist(x,z)>45)pts.push([x,z])}
   for(const I of ISL)for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
-  buildRace();buildHunt();buildSeaLife();buildKartTrack();Tag.build();Outlaw.build();WardenIsles.build();Farm.build();Soccer.build();Ship.build();Fleet.build();LockOn.build();Crew.build();Deckhands.build();Monster.build();Leviathan.build();Bowsprit.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
+  buildRace();buildHunt();buildSeaLife();buildKartTrack();Tag.build();Outlaw.build();WardenIsles.build();Surf.build();Farm.build();Soccer.build();Ship.build();Fleet.build();LockOn.build();Crew.build();Deckhands.build();Monster.build();Leviathan.build();Bowsprit.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
 }
 const S={x:0,y:0,z:0,vy:0,rot:0,yaw:0,pitch:.35,grounded:true,state:'idle',flying:false,kx:0,kz:0,hurt:0,iframe:0};
 
@@ -782,12 +786,12 @@ function onState(p){
   if(!scene||!me)return;
   let o=others.get(p.id);
   if(!o){const m=(chan.presenceState()[p.id]||[{}])[0];addOther(p.id,m.name,m.color,m.skin);o=others.get(p.id);if(!o)return;o.group.position.set(p.x,p.y,p.z)}
-  RemoteSmooth.snap(o,p,performance.now());if(o.group.userData.pan)o.group.userData.pan.visible=!!p.pn;
+  RemoteSmooth.snap(o,p,performance.now());o.sf=p.sf;if(o.group.userData.pan)o.group.userData.pan.visible=!!p.pn;
   if(o.st==='fall'&&p.st!=='fall'&&p.st!=='jump')o.group.userData.land=.15;o.st=p.st||'idle';o.group.userData.bc=+p.bc||0;
 }
 function send(){
   if(!chan||!entered)return;
-  chan.send({type:'broadcast',event:'s',payload:{id:myId,x:+S.x.toFixed(2),y:+S.y.toFixed(2),z:+S.z.toFixed(2),r:+S.rot.toFixed(2),st:S.state,pn:+panOn,bc:+Boost.view.charge.toFixed(2)}});
+  chan.send({type:'broadcast',event:'s',payload:{id:myId,x:+S.x.toFixed(2),y:+S.y.toFixed(2),z:+S.z.toFixed(2),r:+S.rot.toFixed(2),st:S.state,pn:+panOn,bc:+Boost.view.charge.toFixed(2),sf:(typeof Surf!=='undefined'?Surf.pack():undefined)}});
 }
 
 // ---------- exploration ----------
@@ -1264,6 +1268,7 @@ function tickFrame(t){
   if(keys.KeyW||keys.ArrowUp)iy-=1;if(keys.KeyS||keys.ArrowDown)iy+=1;
   if(typeof Ship!=='undefined'&&Ship.locked()){Ship.setInput(ix,iy);ix=0;iy=0}              // seated at the helm: the stick steers the ship
   if(typeof Rally!=='undefined'&&Rally.locked()){Rally.setInput(ix,iy);ix=0;iy=0;jumpQ=false}   // Skybreak Rally: the stick drives / flies the race car
+  if(typeof Surf!=='undefined'&&Surf.on()){Surf.setInput(ix,iy,jumpQ);ix=0;iy=0;jumpQ=false}   // Surfing (src/surf/): the board takes over the stick and Jump
   if(S.flying&&Boost.driving()&&Math.hypot(ix,iy)<.05)iy=-1;                // the burst drives you forward even if the stick is idle (steering still works)
   const len=Math.hypot(ix,iy);if(len>1){ix/=len;iy/=len}
   const sprint=keys.ShiftLeft||len>.9;
@@ -1301,6 +1306,7 @@ function tickFrame(t){
   if(dvOn){S.grounded=true}else if(S.y<=gY||(wasG&&S.vy<=0&&S.y-gY<.35)){S.y=gY;S.vy=0;S.grounded=true;if(!wasG&&imp>5){me.userData.land=Math.min(.18,imp*.014);if(CameraRig.land)CameraRig.land(imp);if(typeof Ambience!=='undefined')Ambience.land(imp,{x:S.x,z:S.z,H})}}else S.grounded=false;
   S.state=S.flying?'fly':!S.grounded?(S.vy>0?'jump':'fall'):wat?'swim':len>.05?(sprint?'run':'walk'):'idle';
   if(S.state==='swim'&&_pst!=='swim'&&!S.dv)WaterFX.splash(S.x,S.z,imp/9);else if(_pst==='swim'&&S.state!=='swim')WaterFX.splash(S.x,S.z,.35);_pst=S.state;   // entry / exit rings + spray
+  if(typeof Surf!=='undefined'){Surf.idle(dt);if(Surf.on())Surf.frame(dt,t)}   // surf: Surf button + remote boards every frame, board physics while riding
   me.position.set(S.x,S.y,S.z);me.rotation.y=S.rot;animate(me,dt,S.state);explore(dt,t);
   if(typeof Ambience!=='undefined'){const es=Env.state,gs=Math.hypot(S.gvx||0,S.gvz||0);   // world sound: ocean/wind/birds/steps... (src/audio/Ambience.js); wind follows flight + fall speed
     Ambience.update(dt,{x:S.x,y:S.y,z:S.z,gy:gY,H,st:S.state,grounded:S.grounded,under:S.under||0,dayF:es.dayF,rain:es.wx.rain,storm:es.wx.storm,cloud:es.inCloud,sea:Ocean.state.sea,aboard:Ship.onDeck(),shipV:Ship.speed(),
@@ -1319,7 +1325,7 @@ function tickFrame(t){
   if(sun){Perf.snapSun(sun,S.x,S.y,S.z);sky.position.copy(camera.position);if(seaTex){seaTex.offset.x+=dt*.0006;seaTex.offset.y+=dt*.0004}
     if(sun.castShadow&&Perf.shadowTooSlow()){sun.castShadow=false;scene.traverse(o=>{if(o.material)o.material.needsUpdate=true})}}
   S.burst=Math.max(0,(S.burst||0)-dt);S.gboost=Math.max(0,(S.gboost||0)-dt);if(!S.flying)S.boost=false;
-  const bsw=S.flying||S.state==='swim';                                                    // the Boost button is the Dive button while swimming
+  const bsw=(S.flying||S.state==='swim')&&!(typeof Surf!=='undefined'&&Surf.on());                                                    // the Boost button is the Dive button while swimming
   if(S.state==='swim'&&!S.flying){const dl=!!(S.diveHeld||keys.KeyC),tx=dl?'Diving':'Dive';if($('boost').textContent!==tx){$('boost').textContent=tx;$('boost').style.opacity=dl?1:.85}}
   if(bsw!==bvis){bvis=bsw;$('boost').style.display=bvis?'block':'none';if(!bvis){$('boost').textContent='Boost';$('boost').style.opacity=.75}
     $('smack').style.display=(PAN_ENABLED&&panOn&&!bvis)?'block':'none'}

@@ -6,7 +6,7 @@ const DEPS={ // file -> files that must come first
   'world/Environment.js':['core/Audio.js'],
   'space/SpaceManager.js':['space/SpaceFlight.js'],
   'movement/Boost.js':[],
-  'world/Ocean.js':[],
+  'world/Ocean.js':[],'data/surf.js':[],'surf/SurfCore.js':[],'surf/Surf.js':['data/surf.js','surf/SurfCore.js','world/Ocean.js','fx/WaterFX.js'],
   'space/SpaceEnvironment.js':['space/SpaceManager.js','world/Environment.js','world/Ocean.js'],
   'space/SpaceEvents.js':['core/Net.js','core/WorldState.js'],
   'space/SpaceObjects.js':['space/SpaceEvents.js','space/SpaceManager.js','space/SpaceFlight.js','core/Audio.js'],
