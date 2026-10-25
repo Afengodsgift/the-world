@@ -62,4 +62,8 @@ ok(Object.keys(M).filter(k=>M[k]&&M[k].who==='D').length===18,'foe move count (1
 {const a=mk(),b=mk({P:{}});b.P.sm=.5;a.P.sm=1;step(a.C,1,L());step(b.C,1,L());ok(b.P.st>a.P.st,'stamina cost multiplier (sm .5 spends less)')}
 {const {C,P,D}=mk({P:{sa:1},D:{z:1.6,hp:1e5}});P.pm=2;D.sa=0;C.start('P','light');for(let i=0;i<30&&D.po===0;i++)step(C,1);const p2=D.po;
  const o=mk({P:{sa:1},D:{z:1.6,hp:1e5}});o.C.start('P','light');for(let i=0;i<30&&o.D.po===0;i++)step(o.C,1);ok(p2>1.9*o.D.po&&o.D.po>0,'posture multiplier (pm 2 doubles posture damage: '+p2.toFixed(1)+' vs '+o.D.po.toFixed(1)+')')}
+// ---- Rush: Light with a foe more than 4.5 m away dashes in ----
+ok(CB.light({from:null,far:true,chain:0,sinceDodge:99})==='rush'&&CB.light({from:'rush',chain:1,sinceDodge:99})==='light2'&&CB.heavy({from:'rush'})==='rising','far Light = Rush, and it chains on like a normal cut');
+{const {C,P}=mk({D:{z:9,face:Math.PI}});const z0=P.z;step(C,1,L({far:true}));step(C,14);ok(P.z-z0>3.5,'Rush covers the gap fast: '+(P.z-z0).toFixed(1)+' m inside 15 ticks')}
+
 process.exit(bad?1:0);

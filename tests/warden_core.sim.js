@@ -20,7 +20,7 @@ ok(Math.abs(M.dodgeRoot.reduce((a,b)=>a+b,0)-3.2)<1e-9,'dodge root motion sums t
 // ---------- B. tick / phase timing ----------
 function actTick(id,P){const{C,P:p}=duel({D:{x:0,z:50},P:{face:0}});const f=P?p:C.F.D;let first=0;
   C.step(P?{P:{list:[{t:id}]}}:{D:{list:[{t:'atk',m:id,hold:0}]}});let n=1;while(f.act!=='free'&&n<400){C.step({});n++}return n}
-ok(actTick('light',true)===22,'player light: acts again after exactly 22 ticks (7+4+11, tempo-scaled)');
+ok(actTick('light',true)===20,'player light: acts again after exactly 20 ticks (6+4+10, tempo-scaled)');
 ok(actTick('cut',false)===44,'Duelist cut: acts again after exactly 44 ticks (20+4+20)');
 ok(actTick('riposte',false)===48&&actTick('thrust',false)===68,'riposte 48, thrust 68');
 {const{C,P}=duel({D:{x:0,z:50}});C.step({P:{list:[{t:'dodge',dx:1,dz:0}]}});let n=1;while(P.act!=='free'&&n<100){C.step({});n++}ok(n===22,'dodge: acts again after exactly 22 ticks')}

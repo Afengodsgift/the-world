@@ -11,6 +11,7 @@ const Moves={
   light2:{id:'light2',who:'P',chain:2,stam:12,dmg:14,pdmg:12,hs:4,stun:18,kb:.5,reach:2.4,w:.12,phases:[ph('startup',10),ph('active',4,{seg:0,a0:-.8,a1:.8}),ph('recovery',16)],cancel:{light:6,dodge:8,guard:8,heavy:8}},
   light3:{id:'light3',who:'P',chain:3,stam:16,dmg:20,pdmg:18,hs:6,stun:24,kb:.9,reach:2.5,w:.13,phases:[ph('startup',12),ph('active',4,{seg:0,a0:.9,a1:-.9}),ph('recovery',24)],cancel:{dodge:12,heavy:8}},
   advance:{id:'advance',who:'P',chain:1,stam:14,dmg:16,pdmg:14,hs:4,stun:20,kb:.7,reach:2.5,w:.12,phases:[ph('startup',9,{move:1.3}),ph('active',4,{seg:0,a0:.6,a1:-.6}),ph('recovery',18)],cancel:{light:8,dodge:8,heavy:10}},
+  rush:{id:'rush',who:'P',chain:1,stam:14,dmg:16,pdmg:14,hs:4,stun:20,kb:.7,reach:2.6,w:.12,phases:[ph('startup',7,{move:4.6}),ph('active',4,{seg:0,a0:.7,a1:-.7}),ph('recovery',20)],cancel:{light:8,dodge:8,heavy:10}},   // gap-closer: Light with a foe more than 4.5 m away dashes in and cuts
   evade:{id:'evade',who:'P',chain:1,stam:12,dmg:16,pdmg:14,hs:4,stun:18,kb:.5,reach:2.4,w:.12,phases:[ph('startup',6),ph('active',4,{seg:0,a0:.8,a1:-.8}),ph('recovery',18)],cancel:{light:8,dodge:8}},
   rising:{id:'rising',who:'P',chain:0,stam:22,dmg:28,pdmg:38,hs:6,stun:26,kb:1.0,reach:2.6,w:.13,phases:[ph('startup',14,{move:.6}),ph('active',5,{seg:0,a0:.5,a1:-.5}),ph('recovery',28)],cancel:{dodge:14}},
   heavy:{id:'heavy',who:'P',stam:25,dmg:34,pdmg:30,hs:7,stun:28,kb:1.2,reach:2.6,w:.12,chargeMin:18,chargeMax:45,phases:[ph('startup',14,{move:.8}),ph('active',5,{seg:0,a0:.6,a1:-.6}),ph('recovery',30)]},
@@ -52,7 +53,7 @@ const Moves={
 };
 // TEMPO: player strikes are ~30% quicker than the base table (Sekiro-like cadence): shorter start-ups, shorter recoveries, and a small step-in on the light chain so a swing closes the gap.
 // Foe tables are untouched, so every fairness rule above (tells, recoveries) still holds for them.
-const TEMPO={start:.7,rec:.68,minStart:4,minRec:7,step:{light:.55,light2:.55,light3:.65,evade:.5}};
+const TEMPO={start:.62,rec:.6,minStart:4,minRec:6,step:{light:.55,light2:.55,light3:.65,evade:.5}};
 for(const k of Object.keys(Moves)){const m=Moves[k];if(!m||m.who!=='P'||!m.phases)continue;
   m.phases=m.phases.map(p=>{if(p.k==='startup'){const q=Object.assign({},p,{n:Math.max(TEMPO.minStart,Math.round(p.n*TEMPO.start))});if(TEMPO.step[k]&&!q.move)q.move=TEMPO.step[k];return q}
     if(p.k==='recovery')return Object.assign({},p,{n:Math.max(TEMPO.minRec,Math.round(p.n*TEMPO.rec))});return p})}

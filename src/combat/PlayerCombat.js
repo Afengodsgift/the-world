@@ -24,7 +24,7 @@ const PlayerCombat=(()=>{
     g.gain.setValueAtTime(vol||.12,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+dur);o.start();o.stop(a.currentTime+dur+.02)}catch(e){}}
   // ---------- targets ----------
   const alive=()=>foes.filter(F=>F.f.act!=='dead');
-  function nearest(){let b=null,bd=1e9;for(const F of foes){if(F.f.act==='dead')continue;const d=Math.hypot(F.f.x-S.x,F.f.z-S.z);if(d<bd){bd=d;b=F}}return b}
+  function nearest(){let b=null,bd=1e9;const anyAw=foes.some(F=>F.f.act!=='dead'&&F.awake);for(const F of foes){if(F.f.act==='dead'||(anyAw&&!F.awake))continue;const d=Math.hypot(F.f.x-S.x,F.f.z-S.z);if(d<bd){bd=d;b=F}}return b}
   function target(){const L=lock&&foes[lockI];if(L&&L.f.act!=='dead')return L;return nearest()||foes[0]}
   const now=()=>performance.now()-t0;
   function heading(){const dx=D.x-S.x,dz=D.z-S.z;return Math.atan2(dx,dz)}
@@ -223,7 +223,7 @@ const PlayerCombat=(()=>{
   function press(name,tms){
     if(!on||P.act==='dead'||DU.cd>0||CineCam.busy()&&CineCam.isActive())return false;const t=tms===undefined?now():tms;
     switch(name){
-      case'light':{assist();reject();const c={t:'light',e:C.tick},d=stickDir(),fa=pendFace!==null?pendFace:S.rot;if(d&&d[0]*Math.sin(fa)+d[1]*Math.cos(fa)>.6)c.adv=true;ST.input('P',c,t);break}
+      case'light':{assist();reject();const c={t:'light',e:C.tick},d=stickDir(),fa=pendFace!==null?pendFace:S.rot;if(d&&d[0]*Math.sin(fa)+d[1]*Math.cos(fa)>.6)c.adv=true;if(D&&D.act!=='dead'&&Math.hypot(D.x-P.x,D.z-P.z)>4.5)c.far=true;ST.input('P',c,t);break}
       case'heavy':if(down.heavy)return true;assist();reject();down.heavy=true;ST.input('P',{t:'heavyDown',e:C.tick},t);break;
       case'guard':if(down.guard)return true;down.guard=true;ST.input('P',{t:'guardDown',e:C.tick},t);break;
       case'dodge':{const d=stickDir();const c={t:'dodge',e:C.tick};if(d){c.dx=d[0];c.dz=d[1]}ST.input('P',c,t);break}
@@ -270,7 +270,7 @@ const PlayerCombat=(()=>{
   let nameKey='';
   let emK='';
   function hud(){const du=site&&site.duel,dd=PG.S.duel,ek=du?'d'+dd.rating+'|'+dd.w+'|'+dd.l+'|'+dd.streak+(DU.pair?DU.pair.n:''):PG.S.embers+'|'+PG.S.cycle;if(ek!==emK){emK=ek;el.querySelector('#wem').textContent=du?'\u2694 '+PG.rank()+' '+dd.rating+'  \u00b7  W'+dd.w+' L'+dd.l+(dd.streak>1?'  \u00b7  streak '+dd.streak:''):'\ud83d\udd25 '+PG.S.embers+(PG.S.cycle>1?'  \u00b7  Cycle '+PG.S.cycle:'')}setBar('.p .hp',P.hp/P.hpMax);setBar('.p .st',P.st/P.stMax);
-    const F=target(),n=alive().length,nk=F?F.T.name+(n>1?' ×'+n:''):'';if(nk!==nameKey){nameKey=nk;el.querySelector('.wb.d span').textContent=nk}
+    const F=target(),n=alive().filter(o=>o.awake).length,nk=F?F.T.name+(n>1?' ×'+n:''):'';if(nk!==nameKey){nameKey=nk;el.querySelector('.wb.d span').textContent=nk}
     if(F){setBar('.d .hp',F.f.hp/F.f.hpMax);setBar('.d .po',F.f.po/F.f.poMax);const brk=F.f.act==='stun'&&F.f.sk==='stagger';if(bars.brk!==brk){bars.brk=brk;el.querySelector('.wb.d').classList.toggle('brk',brk)}}
     const c=P.act==='charge'?Math.min(1,P.c/Moves.heavy.chargeMax)*360:0,r=Math.round(c/6);if(bars.chg!==r){bars.chg=r;el.querySelector('#wHeavy').style.setProperty('--chg',r*6+'deg')}}
   let hdT=0;
@@ -328,7 +328,7 @@ const PlayerCombat=(()=>{
       if(!C.order.includes(id))C.order.push(id);f.r=T.r;f.spd=(T.spd||1.3)*WardenProg.cycleMul().spd;
       const b=body(T,i);b.g.scale.setScalar(T.scale);b.g.position.set(f.x,H(f.x,f.z),f.z);b.g.rotation.y=f.face;
       if(b.u.mixer&&typeof emoStop==='function'&&T.body==='avatar')emoStop(b.u);
-      const F={i,id,T,f,body:b,human:hum,ai:DuelistAI.create(fightN*7919+i*131+1,{foe:T.ai,intro:T.pack?25:75}),loco:{x:0,z:0,vf:0,vs:0,sp:0,init:false},flash:0,awake:!T.aggro,dorm:T.aggro?'sleep':null,dormSync:null,wakeT:0,ph2:false,home:{x:f.x,z:f.z}};
+      const F={i,id,T,f,body:b,human:hum,ai:DuelistAI.create(fightN*7919+i*131+1,{foe:T.ai,intro:T.pack?25:75}),loco:{x:0,z:0,vf:0,vs:0,sp:0,init:false},flash:0,awake:!T.aggro&&!def.late,late:!!def.late,dorm:T.aggro||def.late?'sleep':null,dormSync:null,wakeT:0,ph2:false,home:{x:f.x,z:f.z}};
       foes.push(F);byId[id]=F});
     rt(site).foes=foes}
   function startFight(){
@@ -358,7 +358,7 @@ const PlayerCombat=(()=>{
   let tmk=null;const thr=[];
   function mkMat(c){return new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:.85,depthTest:false,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide})}
   function markers(TF,t){
-    const multi=on&&state==='fight'&&alive().length>1;
+    const multi=on&&state==='fight'&&alive().filter(o=>o.awake).length>1;
     if(!tmk&&multi){const g=new THREE.Group(),m=mkMat(0xffd25a);const r=new THREE.Mesh(new THREE.RingGeometry(.62,.8,28),m);r.rotation.x=-Math.PI/2;r.renderOrder=998;g.add(r);
       const c=new THREE.Mesh(new THREE.ConeGeometry(.26,.5,4),m);c.rotation.x=Math.PI;c.renderOrder=998;g.add(c);g.userData={r,c,m};scene.add(g);tmk=g}
     if(tmk){tmk.visible=!!multi;if(multi){const f=TF.f,sc=TF.T.scale||1,u=tmk.userData;tmk.position.set(f.x,H(f.x,f.z)+.08,f.z);const pu=1+.06*Math.sin(t*6);u.r.scale.setScalar(sc*pu);u.c.position.y=2.35*sc+.18*Math.sin(t*6);
@@ -379,12 +379,19 @@ const PlayerCombat=(()=>{
     for(let i=n;i<thA.length;i++)thA[i].style.display='none'}
   // Camera framing: with 2+ awake foes and no lock, ease the camera yaw so both stay in view (unless you are dragging the camera yourself).
   function frameFoes(dt){
-    if(lock||P.act==='dead')return;const al=alive().filter(F=>F.awake);if(al.length<2||performance.now()-(S._lk||0)<1500)return;
+    try{const D0=target().f,fd=Math.hypot(D0.x-S.x,D0.z-S.z);CameraRig.setFocus(!lock&&P.act!=='dead'&&alive().some(F=>F.awake)&&fd>2?{x:D0.x,z:D0.z,k:.34}:null)}catch(e){}   // look a third of the way toward the foe: you stay low in the frame, the opponent sits in the middle
+    if(lock||P.act==='dead')return;const al=alive().filter(F=>F.awake);if(!al.length||performance.now()-(S._lk||0)<1500)return;
     let worst=0,sum=0;for(const F of al){const r=wrapA(Math.atan2(-(F.f.x-S.x),-(F.f.z-S.z))-S.yaw);worst=Math.max(worst,Math.abs(r));sum+=r}
-    if(worst<1.1)return;S.yaw+=sum/al.length*Math.min(1,dt*1.6)}
+    if(worst<(al.length>1?.9:.45))return;S.yaw+=sum/al.length*Math.min(1,dt*2.2)}
+  // ---- telegraphs (rules from the telegraph research: an animation cue + a flash on the weapon + a sound at the start, a second glint right before the blow lands; heavy / committed attacks are bigger and red) ----
+  function telegraph(A,mv){
+    const m=Moves[mv];if(!m||!A||!A.f)return;const q=A.f,heavy=(m.dmg||0)>=22||!!m.gb||/fall|slam|leap|quake|bash|rain/.test(mv),tell=(Moves.tells(mv,0)[0]||20),sc=A.T.scale||1;
+    const fl=()=>{if(!on||q.act==='dead')return;WardenVfx.spawn(q.x+Math.sin(q.face)*.8,H(q.x,q.z)+1.5*sc,q.z+Math.cos(q.face)*.8,heavy?3:0,3,(heavy?2.6:1.5)*Math.min(1.6,sc),Math.random()*6.28,34)};
+    fl();setTimeout(fl,Math.max(90,tell/60*1000-120));
+    try{if(heavy)tone(120,360,.24,'sawtooth',.08);else tone(1100,1600,.05,'square',.035)}catch(e){}}
   function leave(hold){   // hold: keep the corpses of a cleared site in the world
     if(!on)return;netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;pendFace=null;
-    if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.setArena(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
+    if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
     try{if(site&&site.fog)WardenIsles.fog(site.id,rt(site).cleared?'gone':'idle')}catch(e){}}
   // ---------- per frame ----------
@@ -413,7 +420,7 @@ const PlayerCombat=(()=>{
       flowEv(e,T);
       if(e.t==='fx'||e.t==='fxburst'||e.t==='fxend')WardenFx.event(e);
       {const fp=e.t==='hit'||e.t==='block'||e.t==='deflect'||e.t==='posturebreak'||e.t==='guardbreak'?(T?T.f:(e.d==='P'?P:null)):null;if(fp){vfxAt(e,fp);punch(e,fp)}else if(e.t==='dodge')punch(e,P)}
-      if(e.t==='start'){if(e.a==='P'||A&&e.move&&A.f){const q=e.a==='P'?P:A.f;if(q&&(e.a==='P'||/atk|cut|slam|sweep|swipe|heavy|light/.test(e.move)))WardenVfx.slash(q.x,H(q.x,q.z)+1.2,q.z,q.face,/heavy|slam/.test(e.move),e.a==='P'?0:1)}if(e.a==='P'){if(e.move==='light'&&pAnim)pAnim.nextLight(performance.now()/1000);sfx('whoosh',.4,e.move==='heavy'?.75:1.1,()=>tone(e.move==='heavy'?220:380,e.move==='heavy'?90:150,e.move==='heavy'?.18:.1,'triangle',.1))}else{if(A&&A.anim&&A.anim.pickAlt)A.anim.pickAlt(e.move,Math.random());sfx('whoosh',.35,.8,()=>tone(160,70,.16,'sawtooth',.07))}}
+      if(e.t==='start'){if(e.a==='P'||A&&e.move&&A.f){const q=e.a==='P'?P:A.f;if(q&&(e.a==='P'||/atk|cut|slam|sweep|swipe|heavy|light/.test(e.move)))WardenVfx.slash(q.x,H(q.x,q.z)+1.2,q.z,q.face,/heavy|slam/.test(e.move),e.a==='P'?0:1)}if(e.a==='P'){if(e.move==='rush'){WardenVfx.spawn(P.x,H(P.x,P.z)+1,P.z,2,4,3.4,-P.face+Math.PI/2,32);flash(.22,'rgba(200,225,255,.7)')}if(e.move==='light'&&pAnim)pAnim.nextLight(performance.now()/1000);sfx('whoosh',.4,e.move==='heavy'?.75:1.1,()=>tone(e.move==='heavy'?220:380,e.move==='heavy'?90:150,e.move==='heavy'?.18:.1,'triangle',.1))}else{try{telegraph(A,e.move)}catch(x){}if(A&&A.anim&&A.anim.pickAlt)A.anim.pickAlt(e.move,Math.random());sfx('whoosh',.35,.8,()=>tone(160,70,.16,'sawtooth',.07))}}
       else if(e.t==='dodge'&&e.a==='P')tone(200,80,.14,'sine',.08);
       else if(e.t==='hit'){if(T&&e.a==='P'){if(wst.bleed&&T.f.act!=='dead')T.bleed={t:4,dps:wst.bleed};if(wst.vamp&&P.hp>0)P.hp=Math.min(P.hpMax,P.hp+e.dmg*wst.vamp)}if(T){T.flash=1;T.lh=performance.now();wake(T,true);sfx(e.dmg>=20||e.crit?'heavy':'strike',.8,e.crit?.85:1,()=>tone(140,50,.14,'square',.14));if(e.crit)msg('CRITICAL');if(T.body.T.body==='avatar')T.body.u.hitReq=1}else{sfx(e.dmg>=20?'heavy':'strike',.9,.9,()=>tone(110,40,.18,'square',.16));if(e.d==='P'&&P.hp>0){hurt=true;msg('',0);hitFrom(A,e.move)}}}
       else if(e.t==='block')sfx('clash',.36,.9,()=>tone(420,260,.1,'square',.06));
@@ -459,12 +466,20 @@ const PlayerCombat=(()=>{
     {const F0=foes[0],ka=(pAnim?pAnim.st:'none')+'/'+(F0&&F0.anim?F0.anim.st:'none');if(ka!==mxSaid&&pAnim&&F0&&F0.anim&&pAnim.st!=='none'&&F0.anim.st!=='none'){mxSaid=ka;msg(pAnim.st==='ready'&&F0.anim.st==='ready'?'Animations '+WardenMX.BUILD+' loaded':'Animation load FAILED ('+(pAnim.err||F0.anim.err||ka)+')',2.2)}}
     const TF=target();D=TF.f;try{markers(TF,performance.now()/1000);threatArrows();frameFoes(dt)}catch(e){}
     // camera: pull back for a big foe, when he is far, and when there are several
-    try{let sc=1;for(const F of foes)if(F.f.act!=='dead'&&F.awake)sc=Math.max(sc,F.T.scale);const fd=Math.hypot(S.x-D.x,S.z-D.z);CameraRig.setBias(-2.4+(sc-1)*3.4+Math.min(3.5,Math.max(0,fd-5))*.45+(alive().length>1?1:0))}catch(e){}
+    try{let sc=1;for(const F of foes)if(F.f.act!=='dead'&&F.awake)sc=Math.max(sc,F.T.scale);const fd=Math.hypot(S.x-D.x,S.z-D.z);CameraRig.setBias(-2.8+(sc-1)*3.4+Math.min(3.5,Math.max(0,fd-5))*.45+(alive().length>1?1:0))}catch(e){}
     for(const F of foes)if(F.ai.ph2&&!F.ph2&&state==='fight'){F.ph2=true;if(F.T.boss){msg(F.T.ph2,2);sfx('heavy',.7,.6,()=>tone(120,60,.4,'sawtooth',.12));WardenSfx.play('vo_sudden_death',.8,1,{nojit:1})}if(F.body.shield)F.body.shield.visible=false}
     // 1) hand the sim the player's current position, run the due ticks, apply the forced motion back to S
-    P.x=S.x;P.z=S.z;lx=S.x;lz=S.z;netApply();
+    P.x=S.x;P.z=S.z;
+    // bodies are solid: free walking used to pass through foes (only sim-driven moves collided). A foe that is attacking / stunned / asleep holds its ground, otherwise you share the push.
+    if(P.act!=='dead')for(const F of foes){const f=F.f;if(f.act==='dead')continue;const ex=P.x-f.x,ez=P.z-f.z,d=Math.hypot(ex,ez),m=P.r+f.r;if(d>=m)continue;
+      const nx=d<1e-4?Math.sin(S.rot):ex/d,nz=d<1e-4?Math.cos(S.rot):ez/d,pen=m-d,kf=(f.act==='attack'||f.act==='stun'||!F.awake)?0:.3;
+      P.x+=nx*pen*(1-kf);P.z+=nz*pen*(1-kf);f.x-=nx*pen*kf;f.z-=nz*pen*kf}
+    {const A=C.arena,ax=P.x-A.x,az=P.z-A.z,ad=Math.hypot(ax,az),lim=A.R-P.r;if(ad>lim){P.x=A.x+ax/ad*lim;P.z=A.z+az/ad*lim}}
+    S.x=P.x;S.z=P.z;lx=S.x;lz=S.z;netApply();
     const held=nt=>{const f=lock&&D.act!=='dead'?heading():pendT>0&&pendFace!==null?pendFace:S.rot;if(pendT>0)pendT--;
       const h={P:{face:f,mx:0,mz:0}};if(Q)h.Q={face:Q.face,mx:0,mz:0};let atk=0;for(const F of foes)if(F.f.act==='attack')atk++;
+      // a LATE foe (second of a pair) holds back until the first is at half health or felled, then joins with its own entrance
+      for(const F of foes)if(F.late&&!F.awake&&F.dorm==='sleep'&&F.f.act!=='dead'&&foes.filter(o=>!o.late).every(o=>o.f.act==='dead'||o.f.hp<=o.f.hpMax*.5))rouse(F);
       for(const F of foes){const q=F.f;
         if(F.f.act==='dead'){h[F.id]={face:q.face,mx:0,mz:0};continue}
         if(!F.awake&&F.dorm!=='wake'&&Math.hypot(S.x-q.x,S.z-q.z)<F.T.aggro)wake(F);
@@ -511,4 +526,4 @@ const PlayerCombat=(()=>{
       if(WardenGear.full()){const v=WardenGear.sellValue(it);PG.earn(v);line+=' · pack full, sold a '+WardenGear.name(it)+' for '+v}else{WardenGear.add(it);line+=' · '+WardenGear.RAR[it.rar]+' '+WardenGear.name(it)}
       toast((label||'Chest')+': '+line,4.2);return it},toast:(t,s)=>toast(t,s),setSeq:v=>{if(pAnim)pAnim.variant=v},tick,speedMul,press,release,enter:()=>{},engage:id=>{const s=SITES().find(q=>q.id===id);if(s&&!on)engage(s)},leave:()=>leave(false),on:()=>on,site:()=>site,GRIP,setGrip:()=>{setGrip(sword);for(const F of foes)setGrip(F.body.sword)},newFight:()=>{if(on)startFight()},
     _flow:v=>{if(v!==undefined)flow=v;return[flow,flowOn,flowN]},
-    _t:()=>({DU,on,C,P,D,lock,sword,foes,site,AI:foes[0]&&foes[0].ai,state,cur,stW,down,pAnim,dAnim:foes[0]&&foes[0].anim,duel:foes[0]&&foes[0].body.g,dSword:foes[0]&&foes[0].body.sword,RT})})})();
+    _foes:()=>foes,_t:()=>({DU,on,C,P,D,lock,sword,foes,site,AI:foes[0]&&foes[0].ai,state,cur,stW,down,pAnim,dAnim:foes[0]&&foes[0].anim,duel:foes[0]&&foes[0].body.g,dSword:foes[0]&&foes[0].body.sword,RT})})})();

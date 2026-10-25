@@ -9,7 +9,7 @@
 // Other systems talk to it only through the API at the bottom (setShooter, kick, pitchRange, neutralPitch ...).
 // Globals used at runtime: S, camera, me, H, THREE, sstep.
 const CameraRig=(()=>{
-  const st={bias:0,biasT:0,sInit:false,sy:0,sp:0,arm:1,dip:{x:0,v:0},view:'tps',shooter:false,zoom:1,zk:1,scopeFps:false,fpsK:0,tpsK:0,ay:0,init:false,px:0,pz:0,vx:0,vz:0,spd:0,hd:0,turn:0,
+  const st={fk:0,fkT:0,focus:null,bias:0,biasT:0,sInit:false,sy:0,sp:0,arm:1,dip:{x:0,v:0},view:'tps',shooter:false,zoom:1,zk:1,scopeFps:false,fpsK:0,tpsK:0,ay:0,init:false,px:0,pz:0,vx:0,vz:0,spd:0,hd:0,turn:0,
             roll:{x:0,v:0},kp:{x:0,v:0},ky:{x:0,v:0},t:0,bob:0,eye:new THREE.Vector3(),eInit:false,prevFps:false,cruise:0,boost:0,fw:0,py:0,vyn:0,prevTps:false,camD:9,shk:1,ship:null,shipK:0,eyeK:0,eyeV:new THREE.Vector3(),pr:null};
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),TPS_P=[-.95,1.25];
   const _u=new THREE.Vector3(),_f=new THREE.Vector3(),_p=new THREE.Vector3(),_l=new THREE.Vector3(),_h=new THREE.Vector3(),_a=new THREE.Vector3(),_b=new THREE.Vector3();
@@ -66,7 +66,7 @@ const CameraRig=(()=>{
       for(let i=1;i<=4;i++){const t=i/4,dx=x+sx*t-c.x,dz=z+sz*t-c.z;if(dx*dx+dz*dz<(c.r+.45)**2)return Math.max(0,(i-1)/4-.05)}}
     return 1}
   function update(dt){
-    st.t+=dt;
+    st.t+=dt;st.fk+=((st.fkT||0)-st.fk)*(1-Math.exp(-3*dt));
     if(!st.init){st.ay=S.y;st.py=S.y;st.px=S.x;st.pz=S.z;st.init=true}
     st.fw+=((S.flying?1:0)-st.fw)*(1-Math.exp(-8*dt));                    // 0 on the ground .. 1 flying: every flight-camera change below is blended by this
     const rr0=Math.hypot(S.x,S.z),ymm=typeof SpaceFlight!=='undefined'?SpaceFlight.moveMul(S.y,rr0):1;
@@ -127,6 +127,7 @@ const CameraRig=(()=>{
     const ay=st.ay+1.6+.4*st.tpsK;
     _p.set(S.x+lx-_f.x*d+shx,ay-_f.y*d,S.z+lz-_f.z*d+shz);
     _l.set(S.x+shx,st.ay+1.4+.2*st.tpsK+st.dip.x*.6,S.z+shz);
+    if(st.fk>.001){_l.x+=(st.focus.x-S.x)*st.fk;_l.z+=(st.focus.z-S.z)*st.fk}   // fight focus: aim a little toward the opponent
     if(sk>.001){const qx=(sh0.x-S.x)*mix,qz=(sh0.z-S.z)*mix,qy=(sh0.y-st.ay)*mix;_l.x+=qx;_l.z+=qz;_l.y+=qy;_p.x+=qx-_f.x*(dd-d);_p.z+=qz-_f.z*(dd-d);_p.y+=qy-_f.y*(dd-d)+(sh0.lift===undefined?3:sh0.lift)*sk}   // pivot toward the ship, boom longer, a little higher
     if(fe>.001){
       if(sp3>.5){const kk=-lag*fe/sp3;_p.x+=st.vx*kk;_p.y+=st.vyn*kk;_p.z+=st.vz*kk}               // flight trail along the 3D velocity
@@ -176,6 +177,7 @@ const CameraRig=(()=>{
     shake(a){st.shakeA=Math.min(1.6,Math.max(st.shakeA||0,a||0))},          // 0..1.6: a short camera shudder that dies away (ship hits, cannon recoil)
     addBlocker(b){const k={x:b.x,z:b.z,hw:b.hw,hd:b.hd,y0:b.y0,top:b.top,c:Math.cos(b.ry||0),s:Math.sin(b.ry||0)};blockers.push(k);return k},clearBlockers(){blockers.length=0},blockerCount:()=>blockers.length,inBox,
     setArena(a){st.arena=a||null},
+    setFocus(f){if(f){st.focus=f;st.fkT=f.k}else st.fkT=0},
     setShooter(b){st.shooter=!!b},                      // a weapon is out: use the shooter view (fps or tps)
     setBias(m){st.biasT=m||0},
     setShip(o){st.ship=o||null},                            // {x,y,z,d,pk}: swing the orbit camera around a ship (pivot blend pk 0..1, boom length d); null = back to the avatar
