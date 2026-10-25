@@ -367,9 +367,24 @@ const PlayerCombat=(()=>{
     if(multi)for(const F of foes){if(F===TF||F.f.act!=='attack')continue;let g=thr[n];if(!g){g=new THREE.Mesh(new THREE.RingGeometry(.5,.66,24),mkMat(0xff3a2a));g.rotation.x=-Math.PI/2;g.renderOrder=997;scene.add(g);thr[n]=g}
       g.visible=true;g.position.set(F.f.x,H(F.f.x,F.f.z)+.07,F.f.z);g.scale.setScalar((F.T.scale||1)*(1+.1*Math.sin(t*14)));n++}
     for(let i=n;i<thr.length;i++)thr[i].visible=false}
+  // Off-screen warning (from how other action games keep crowds fair): a red arrow on the screen edge for any foe that is winding up an attack but is outside your view.
+  const thA=[];let thCss=false;
+  const wrapA=a=>Math.atan2(Math.sin(a),Math.cos(a));
+  function threatArrows(){
+    if(!thCss){thCss=true;try{const c=document.createElement('style');c.textContent='.wthr{position:fixed;left:50%;top:50%;width:0;height:0;z-index:6;pointer-events:none;display:none}.wthr i{position:absolute;left:-14px;top:-40vh;border-left:14px solid transparent;border-right:14px solid transparent;border-bottom:26px solid #ff3a2a;filter:drop-shadow(0 0 6px #f00);animation:wthp .35s infinite alternate}@keyframes wthp{to{opacity:.45}}';document.head.appendChild(c)}catch(e){}}
+    let n=0;
+    if(on&&state==='fight')for(const F of foes){if(F.f.act!=='attack')continue;const dx=F.f.x-S.x,dz=F.f.z-S.z,rel=wrapA(Math.atan2(-dx,-dz)-S.yaw);if(Math.abs(rel)<.75)continue;   // inside the view cone: the red ring already shows it
+      let a=thA[n];if(!a){a=document.createElement('div');a.className='wthr';a.innerHTML='<i></i>';document.body.appendChild(a);thA[n]=a}
+      a.style.display='block';a.style.transform='rotate('+(rel*57.3)+'deg)';n++}
+    for(let i=n;i<thA.length;i++)thA[i].style.display='none'}
+  // Camera framing: with 2+ awake foes and no lock, ease the camera yaw so both stay in view (unless you are dragging the camera yourself).
+  function frameFoes(dt){
+    if(lock||P.act==='dead')return;const al=alive().filter(F=>F.awake);if(al.length<2||performance.now()-(S._lk||0)<1500)return;
+    let worst=0,sum=0;for(const F of al){const r=wrapA(Math.atan2(-(F.f.x-S.x),-(F.f.z-S.z))-S.yaw);worst=Math.max(worst,Math.abs(r));sum+=r}
+    if(worst<1.1)return;S.yaw+=sum/al.length*Math.min(1,dt*1.6)}
   function leave(hold){   // hold: keep the corpses of a cleared site in the world
     if(!on)return;netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;pendFace=null;
-    if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.setArena(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;WardenFx.clear();WardenVfx.clear();
+    if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.setArena(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
     try{if(site&&site.fog)WardenIsles.fog(site.id,rt(site).cleared?'gone':'idle')}catch(e){}}
   // ---------- per frame ----------
@@ -431,7 +446,7 @@ const PlayerCombat=(()=>{
       if(PC.loop){startFight();msg('Again.',1.4)}else{rt(site).cleared=true;felled++;if(site.dg){try{WardenDungeon.clear(site.id);WardenCatacombs.onClear(site.id)}catch(e){}}const cr=site.fog?PG.felled(site.id):null;msg(site.n+' · cleared ('+felled+' felled)',2.4);leave(true);if(cr)cycleTurn(cr);return}}
     // one-time status toast so a missing animation set is visible instead of silent
     {const F0=foes[0],ka=(pAnim?pAnim.st:'none')+'/'+(F0&&F0.anim?F0.anim.st:'none');if(ka!==mxSaid&&pAnim&&F0&&F0.anim&&pAnim.st!=='none'&&F0.anim.st!=='none'){mxSaid=ka;msg(pAnim.st==='ready'&&F0.anim.st==='ready'?'Animations '+WardenMX.BUILD+' loaded':'Animation load FAILED ('+(pAnim.err||F0.anim.err||ka)+')',2.2)}}
-    const TF=target();D=TF.f;try{markers(TF,performance.now()/1000)}catch(e){}
+    const TF=target();D=TF.f;try{markers(TF,performance.now()/1000);threatArrows();frameFoes(dt)}catch(e){}
     // camera: pull back for a big foe, when he is far, and when there are several
     try{let sc=1;for(const F of foes)if(F.f.act!=='dead'&&F.awake)sc=Math.max(sc,F.T.scale);const fd=Math.hypot(S.x-D.x,S.z-D.z);CameraRig.setBias(-2.4+(sc-1)*3.4+Math.min(3.5,Math.max(0,fd-5))*.45+(alive().length>1?1:0))}catch(e){}
     for(const F of foes)if(F.ai.ph2&&!F.ph2&&state==='fight'){F.ph2=true;if(F.T.boss){msg(F.T.ph2,2);sfx('heavy',.7,.6,()=>tone(120,60,.4,'sawtooth',.12));WardenSfx.play('vo_sudden_death',.8,1,{nojit:1})}if(F.body.shield)F.body.shield.visible=false}
