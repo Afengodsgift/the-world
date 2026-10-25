@@ -744,7 +744,7 @@ async function startGame(){
   if(startGameRan)return;startGameRan=true;
   $('lobby').style.display='none';
   ['hud','stick'].forEach(i=>$(i).style.display=i==='hud'?'flex':'block');$('jump').style.display='block';$('panbtn').style.display=PAN_ENABLED?'block':'none';$('emobtn').style.display='block';
-  renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer=new THREE.WebGLRenderer({antialias:!Perf.state.saver,powerPreference:Perf.state.saver?'default':'high-performance'});renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   Perf.init(renderer);renderer.setSize(innerWidth,innerHeight);
   document.body.appendChild(renderer.domElement);
   camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,4200);
@@ -1252,12 +1252,18 @@ let last=performance.now(),fpsA=.016,fpsN=0;
 let lastErrMsg='',lastErrAt=0,_pst='idle',_nf=0;
 const overSea=(x,z)=>H(x,z)<-.5;
 function tick(t){
+  if(Perf.skip(t)){requestAnimationFrame(tick);return}   // battery saver: 30 fps
   try{tickFrame(t)}
   catch(e){const m=String(e&&e.stack||e).slice(0,600),n=performance.now();
     if(m!==lastErrMsg||n-lastErrAt>5000){lastErrMsg=m;lastErrAt=n;showErr(e);try{localStorage.setItem('w4lasterr',new Date().toISOString()+'\n'+m)}catch(_){}}   // keep the last error so we can read it after a refresh
     try{last=t}catch(_){}}
   requestAnimationFrame(tick);
 }
+(function(){   // 🔋 battery saver toggle (top bar, left of the menu button)
+  const b=document.createElement('div');b.id='wsaverbtn';b.style.cssText='position:fixed;top:14px;right:150px;z-index:9;width:38px;height:38px;border-radius:50%;background:rgba(20,28,44,.75);color:#fff;font:18px/38px system-ui;text-align:center;border:1px solid rgba(255,255,255,.25);touch-action:manipulation;user-select:none';
+  const paint=()=>{b.textContent=Perf.saver()?'🔋':'⚡';b.style.opacity=Perf.saver()?1:.7;b.title=Perf.saver()?'Battery saver ON (30 fps, cooler)':'Battery saver OFF (60 fps, hotter)'};paint();
+  b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();const on=Perf.setSaver(!Perf.saver());paint();try{banner(on?'Battery saver ON':'Battery saver OFF',on?'30 fps · cooler · reload for sharper edges':'60 fps · full quality · reload for sharper edges')}catch(x){}});
+  document.addEventListener('DOMContentLoaded',()=>document.body.appendChild(b));if(document.body)document.body.appendChild(b)})();
 function tickFrame(t){
   // once the world is built and has run ~60 frames: freeze every object that exists (tripwire thaws any that code later moves) and the scene root
   if(entered&&_nf<70&&++_nf===60)StaticBatch.autoFreeze(scene);   // freezes everything that exists now; anything that is later moved by code thaws itself (see StaticBatch.js)

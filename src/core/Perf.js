@@ -8,7 +8,15 @@
 const Perf=(()=>{
   const q=location.search.match(/[?&]dpr=([\d.]+)/),lv=location.search.match(/[?&]perf=(\d)/);
   const st={r:null,cap:2,min:1.5,dpr:2,ema:16.7,n:0,t0:performance.now(),slowT:0,probe:null,locked:false,lastChange:0,ov:null,ovT:0,lvl:lv?+lv[1]:0,fixed:q?parseFloat(q[1]):0,census:''};
-  function init(r){st.r=r;st.cap=Math.min(window.devicePixelRatio||1,2);st.dpr=st.fixed?Math.min(st.fixed,st.cap):st.cap;r.setPixelRatio(st.dpr);if(st.lvl)overlay()}
+  // BATTERY SAVER (phones run hot when the game renders every frame at full resolution): 30 fps cap + render scale <= 1.25 + no antialiasing (the AA flag is read when the renderer is created).
+  // Default ON for touch devices reporting <= 4 GB; the 🔋 button toggles it (saved in localStorage 'wsaver'); ?save=0/1 forces it.
+  const sv=location.search.match(/[?&]save=(\d)/);let pref=null;try{pref=localStorage.getItem('wsaver')}catch(e){}
+  const touch=('ontouchstart' in window)||(navigator.maxTouchPoints>0),lowMem=(navigator.deviceMemory||8)<=4;
+  st.saver=sv?sv[1]==='1':pref!==null?pref==='1':(touch&&lowMem);st.lt=0;st.SAVE_DPR=1.25;
+  function init(r){st.r=r;st.cap=Math.min(window.devicePixelRatio||1,2);if(st.saver)st.cap=Math.min(st.cap,st.SAVE_DPR);st.dpr=st.fixed?Math.min(st.fixed,st.cap):st.cap;r.setPixelRatio(st.dpr);if(st.lvl)overlay()}
+  function skip(t){if(!st.saver)return false;if(t-st.lt<29)return true;st.lt=t;return false}   // true = leave this rAF frame out (30 fps)
+  function setSaver(v){st.saver=!!v;try{localStorage.setItem('wsaver',v?'1':'0')}catch(e){}
+    if(st.r){st.cap=Math.min(window.devicePixelRatio||1,2);if(st.saver)st.cap=Math.min(st.cap,st.SAVE_DPR);if(!st.fixed){st.dpr=-1;setDpr(st.cap)}}return st.saver}
   function setDpr(v){v=Math.max(st.min,Math.min(st.cap,v));if(Math.abs(v-st.dpr)<.01)return false;st.dpr=v;st.r.setPixelRatio(v);return true} // also resizes the canvas
   // ms = raw time since the previous frame
   function frame(ms){
@@ -51,5 +59,5 @@ const Perf=(()=>{
     const now=performance.now();if(now-st.ovT<500)return;st.ovT=now;const i=st.r.info.render;
     if(st.lvl>1&&(st.n%4===0||!st.census))takeCensus();
     st.ov.textContent=Math.round(1000/st.ema)+' fps  '+st.ema.toFixed(1)+' ms\ncalls '+i.calls+'  tris '+(i.triangles/1000|0)+'k\ndpr '+st.dpr.toFixed(2)+'/'+st.cap.toFixed(2)+(st.locked?' (locked)':'')+'  shadow '+(window.sun&&sun.castShadow?'on':'off')+(st.lvl>1?'\n'+st.census:'')}
-  return {init,frame,snapSun,shadowTooSlow,state:st};
+  return {init,frame,snapSun,shadowTooSlow,skip,setSaver,saver:()=>st.saver,state:st};
 })();
