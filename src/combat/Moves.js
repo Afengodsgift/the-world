@@ -50,6 +50,13 @@ const Moves={
   lowsweep:{id:'lowsweep',who:'D',dmg:16,pdmg:14,hs:4,stun:22,kb:.6,reach:3.0,w:.14,phases:[ph('startup',24),ph('active',6,{seg:0,a0:1.2,a1:-1.2}),ph('recovery',38)]},
   riposte:{id:'riposte',who:'D',dmg:16,pdmg:14,hs:5,stun:20,kb:.6,reach:2.4,w:.12,phases:[ph('startup',20),ph('active',4,{seg:0,a0:.5,a1:-.5}),ph('recovery',24)]},
 };
+// TEMPO: player strikes are ~30% quicker than the base table (Sekiro-like cadence): shorter start-ups, shorter recoveries, and a small step-in on the light chain so a swing closes the gap.
+// Foe tables are untouched, so every fairness rule above (tells, recoveries) still holds for them.
+const TEMPO={start:.7,rec:.68,minStart:4,minRec:7,step:{light:.55,light2:.55,light3:.65,evade:.5}};
+for(const k of Object.keys(Moves)){const m=Moves[k];if(!m||m.who!=='P'||!m.phases)continue;
+  m.phases=m.phases.map(p=>{if(p.k==='startup'){const q=Object.assign({},p,{n:Math.max(TEMPO.minStart,Math.round(p.n*TEMPO.start))});if(TEMPO.step[k]&&!q.move)q.move=TEMPO.step[k];return q}
+    if(p.k==='recovery')return Object.assign({},p,{n:Math.max(TEMPO.minRec,Math.round(p.n*TEMPO.rec))});return p})}
+Moves.TEMPO=TEMPO;
 // expand a move into concrete phases (hold ticks decided at start, clamped to HOLD_MAX)
 Moves.expand=(id,hold)=>{const m=Moves[id];return m.phases.map(p=>p.k==='hold'?Object.assign({},p,{n:Math.max(0,Math.min(HOLD_MAX,hold|0))}):p)};
 Moves.total=(id,hold)=>Moves.expand(id,hold).reduce((a,p)=>a+p.n,0);

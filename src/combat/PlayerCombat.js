@@ -393,6 +393,17 @@ const PlayerCombat=(()=>{
     if(state==='fight'&&!foes.some(F=>F.awake&&F.f.act!=='dead'))return 1;      // nobody is after you: explore at normal speed
     if(P.act==='free')return(P.guard?GSPD:SPD)/base;if(P.act==='charge')return CSPD/base;return 0}
   const sfx=(n,v,r,fb)=>{if(!WardenSfx.play(n,v,r)&&fb)fb()};let hurt=false,fightVo=false;
+  // ---- impact juice (Sekiro-style): a white-orange flash, extra sparks and a camera punch when YOUR sword lands; a streak when you dodge ----
+  let flEl=null,flT=0;
+  function flash(k,col){
+    if(!flEl){try{const c=document.createElement('style');c.textContent='#wflash{position:fixed;inset:0;z-index:5;pointer-events:none;opacity:0;background:radial-gradient(circle at 50% 58%,rgba(255,244,214,.85) 0%,rgba(255,150,60,.45) 28%,rgba(255,90,20,0) 62%);mix-blend-mode:screen}';document.head.appendChild(c);flEl=document.createElement('div');flEl.id='wflash';document.body.appendChild(flEl)}catch(e){return}}
+    flEl.style.background='radial-gradient(circle at 50% 58%,'+(col||'rgba(255,244,214,.85)')+' 0%,rgba(255,150,60,.45) 28%,rgba(255,90,20,0) 62%)';flEl.style.transition='none';flEl.style.opacity=String(Math.min(.8,k));void flEl.offsetWidth;flEl.style.transition='opacity .22s ease-out';flEl.style.opacity='0'}
+  function punch(e,f){
+    if(e.t==='hit'&&e.a==='P'){const big=e.dmg>=20||e.crit;const y=H(f.x,f.z)+1.3;
+      WardenVfx.spawn(f.x,y,f.z,3,3,big?3.2:2.2,Math.random()*6.28,30);if(big)WardenVfx.spawn(f.x,y,f.z,0,3,3.8,Math.random()*6.28,26);
+      flash(big?.55:.26);try{CameraRig.shake(big?.5:.22)}catch(x){}}
+    else if(e.t==='deflect'&&e.d==='P'){flash(.4,'rgba(190,225,255,.85)');try{CameraRig.shake(.3)}catch(x){}}
+    else if(e.t==='dodge'&&e.a==='P'){WardenVfx.spawn(P.x,H(P.x,P.z)+1,P.z,2,4,2.8,-P.face+Math.PI/2,30)}}
   function vfxAt(e,f){const y=H(f.x,f.z)+1.3;if(e.t==='hit')WardenVfx.hit(f.x,y,f.z,e.crit,e.dmg>=20);else if(e.t==='block')WardenVfx.clash(f.x,y,f.z);else if(e.t==='deflect')WardenVfx.clash(f.x,y,f.z,true);else WardenVfx.burst(f.x,y,f.z,e.t==='posturebreak'?0:3)}
   function events(evs){
     if(PC._log)for(const e of evs)if(e.t!=='hitstop')PC._log.push(e);
@@ -401,7 +412,7 @@ const PlayerCombat=(()=>{
       if(e.t==='dead'&&T&&T.human&&!e._rep){T.f.act='free';T.f.hp=Math.max(1,T.f.hp);T.f.mv=null;T.f.ph=null;continue}
       flowEv(e,T);
       if(e.t==='fx'||e.t==='fxburst'||e.t==='fxend')WardenFx.event(e);
-      {const fp=e.t==='hit'||e.t==='block'||e.t==='deflect'||e.t==='posturebreak'||e.t==='guardbreak'?(T?T.f:(e.d==='P'?P:null)):null;if(fp)vfxAt(e,fp)}
+      {const fp=e.t==='hit'||e.t==='block'||e.t==='deflect'||e.t==='posturebreak'||e.t==='guardbreak'?(T?T.f:(e.d==='P'?P:null)):null;if(fp){vfxAt(e,fp);punch(e,fp)}else if(e.t==='dodge')punch(e,P)}
       if(e.t==='start'){if(e.a==='P'||A&&e.move&&A.f){const q=e.a==='P'?P:A.f;if(q&&(e.a==='P'||/atk|cut|slam|sweep|swipe|heavy|light/.test(e.move)))WardenVfx.slash(q.x,H(q.x,q.z)+1.2,q.z,q.face,/heavy|slam/.test(e.move),e.a==='P'?0:1)}if(e.a==='P'){if(e.move==='light'&&pAnim)pAnim.nextLight(performance.now()/1000);sfx('whoosh',.4,e.move==='heavy'?.75:1.1,()=>tone(e.move==='heavy'?220:380,e.move==='heavy'?90:150,e.move==='heavy'?.18:.1,'triangle',.1))}else{if(A&&A.anim&&A.anim.pickAlt)A.anim.pickAlt(e.move,Math.random());sfx('whoosh',.35,.8,()=>tone(160,70,.16,'sawtooth',.07))}}
       else if(e.t==='dodge'&&e.a==='P')tone(200,80,.14,'sine',.08);
       else if(e.t==='hit'){if(T&&e.a==='P'){if(wst.bleed&&T.f.act!=='dead')T.bleed={t:4,dps:wst.bleed};if(wst.vamp&&P.hp>0)P.hp=Math.min(P.hpMax,P.hp+e.dmg*wst.vamp)}if(T){T.flash=1;T.lh=performance.now();wake(T,true);sfx(e.dmg>=20||e.crit?'heavy':'strike',.8,e.crit?.85:1,()=>tone(140,50,.14,'square',.14));if(e.crit)msg('CRITICAL');if(T.body.T.body==='avatar')T.body.u.hitReq=1}else{sfx(e.dmg>=20?'heavy':'strike',.9,.9,()=>tone(110,40,.18,'square',.16));if(e.d==='P'&&P.hp>0){hurt=true;msg('',0);hitFrom(A,e.move)}}}
