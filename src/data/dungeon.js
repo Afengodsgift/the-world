@@ -10,10 +10,10 @@ const DUNGEON=(()=>{
   // rooms. R = arena radius (the fight circle). mouths = directions (local du,dv) of the corridor openings. need = a door at the +u mouth opens when this room is cleared.
   const ROOMS=[
     {id:'dg_guard',n:'The Guardroom',u:27,v:0,R:11,fog:false,boss:false,mouths:[[-1,0],[1,0]],foes:S1},
-    {id:'dg_ossuary',n:'The Ossuary',u:66,v:0,R:12,fog:true,boss:false,mouths:[[-1,0],[1,0]],foes:[{t:'shade',dx:-3,dz:-3},{t:'shade',dx:3,dz:-3}]},
+    {id:'dg_ossuary',n:'The Ossuary',u:66,v:0,R:12,fog:true,boss:false,mouths:[[-1,0],[1,0]],foes:[{t:'shade',dx:-3,dz:-3},{t:'shade',dx:3,dz:-3,late:true}]},
     {id:'dg_vault',n:'The Vault',u:88,v:-33,R:9,fog:true,boss:false,mouths:[[0,1]],foes:[{t:'vaultwarden',dx:0,dz:-4}]},
     {id:'dg_gaol',n:"The Gaoler's Hall",u:111,v:0,R:13,fog:true,boss:false,mini:true,mouths:[[-1,0],[1,0]],foes:[{t:'gaoler',dx:0,dz:-6}]},
-    {id:'dg_court',n:'The Hollow Court',u:158,v:0,R:17,fog:true,boss:true,mouths:[[-1,0],[1,0]],foes:[{t:'ganfauld',dx:-6,dz:-7},{t:'darkknightd',dx:6,dz:-7}]},
+    {id:'dg_court',n:'The Hollow Court',u:158,v:0,R:17,fog:true,boss:true,mouths:[[-1,0],[1,0]],foes:[{t:'ganfauld',dx:-6,dz:-7},{t:'darkknightd',dx:6,dz:-7,late:true}]},
     {id:'dg_treasury',n:'The Ash Treasury',u:200,v:0,R:9,safe:true,mouths:[[-1,0]]}];
   const room=id=>ROOMS.find(r=>r.id===id);
   // corridors: [from room, to room] along the line between their centres (or from the gate), with optional wall gaps (junction for the vault branch) given in metres along the corridor
