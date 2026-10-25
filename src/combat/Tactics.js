@@ -46,7 +46,7 @@ const Tactics=(()=>{
       else{if(arrive(n,w)){n.pi++;if(n.pi>=n.path.length){n.pstage='hold';n.hold=0}}
         const w2=n.path[Math.min(n.pi,n.path.length-1)];const [mx,mz]=dir(w2.x,w2.z);if(n.pstage==='path')return {mx,mz,hold:false}}}
     // hold: stand up to shoot for a while, duck behind the parapet / wall in between (roof posts are behind a 1.1 m parapet: crouched you are hidden)
-    n.hold=(n.hold||0)+dt;const roof=n.pk==='roof',up=roof?(n.hold%3.6)<1.6:true;
+    n.hold=(n.hold||0)+dt;const roof=n.pk==='roof',up=n.type===5?!!n.ambUp:roof?(n.hold%3.6)<1.6:true;
     return {mx:0,mz:0,hold:true,stand:up}}
   // the target is inside or on a building: stack up at the door, then go in after them.  Returns {mx,mz,hold,wait} or null when there is no way in
   function breach(n,t,now){

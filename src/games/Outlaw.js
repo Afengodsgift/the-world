@@ -480,6 +480,7 @@ const Outlaw=(()=>{
       n.pr=(n.pr||0)-dt;n.postT=(n.postT||0)+dt;
       if(n.pr<=0){n.pr=1;const far=Math.hypot(n.post.x-t.x,n.post.z-t.z)>TYPES[n.type].range+14,blind=n.pstage==='hold'&&!seen&&now0-(n.sawT||0)>9,lost=n.postT>45&&n.pstage!=='hold';
         if(far||blind||lost||(brave&&n.pstage==='hold'&&!seen&&n.type!==2)){Tactics.release(n);n.postT=0;return null}}
+      n.ambUp=seen&&d<TYPES[5].range;   // a shotgunner at a window AMBUSHES: crouched out of sight until you are in its range
       const f=Tactics.follow(n,dt);if(f.done){n.postT=0;return null}
       if(f.hold){n.crouchHold=!f.stand;return {mx:0,mz:0,stop:1,st:f.stand?(n.type===2?'aim':'idle'):'crouch',mode:'post'}}
       return {mx:f.mx,mz:f.mz,st:'run',mode:'post'}}
@@ -492,11 +493,11 @@ const Outlaw=(()=>{
       if(br)return {mx:br.mx,mz:br.mz,stop:br.hold,st:br.hold?'idle':'run',mode:'breach'}}
     else if(n.mode==='breach'){n.mode='advance';n.bw=0}
     // 2) take a rooftop / window post with a view of the target
-    if(n.ta<=0&&!brave&&(n.type===2||(n.type===0&&n.postBias&&(role==='rifle'||role==='suppress'||role==='grunt')))){
+    if(n.ta<=0&&!brave&&(n.type===2||(n.type===5&&n.postBias)||(n.type===0&&n.postBias&&(role==='rifle'||role==='suppress'||role==='grunt')))){
       n.ta=rnd(2.5,4.5);let holders=0,live=0;for(const o of npcs.values()){if(o.dead)continue;live++;if(o.post)holders++}
       if(holders<=Math.ceil(live*.5)&&Tactics.posts.length){
-        const snip=n.type===2,e=Tactics.pickPost(n,t,{kind:snip?'roof':undefined,min:snip?20:10,max:snip?TYPES[2].range-4:TYPES[0].range-6,near:snip?120:70,
-          vis:(x,y,z)=>EnemyAI.sees(cover,x,y,z,'stand',t.x,tfy,t.z)>0});
+        const snip=n.type===2,amb=n.type===5,e=Tactics.pickPost(n,t,{kind:snip?'roof':amb?'win':undefined,min:snip?20:amb?4:10,max:snip?TYPES[2].range-4:amb?24:TYPES[0].range-6,near:snip?120:amb?60:70,
+          vis:amb?null:(x,y,z)=>EnemyAI.sees(cover,x,y,z,'stand',t.x,tfy,t.z)>0});   // an ambusher does not need a view yet: it waits in the dark for you to walk past
         if(e){Tactics.assign(n,e);n.postT=0;n.pr=1;return tacticsStep(n,t,tfy,seen,d,now0,0,brave,role)}}}
     return null}
   function think(n,dt,pl){
