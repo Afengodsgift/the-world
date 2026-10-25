@@ -49,7 +49,7 @@ const Outlaw=(()=>{
   const DIFF=[{n:'Normal',hp:1,dmg:1,cnt:1,coin:1},{n:'Hard',hp:1.4,dmg:1.25,cnt:1.3,coin:1.5},{n:'Outlaw',hp:2,dmg:1.6,cnt:1.7,coin:2.2}];
   const cover=[],npcs=new Map(),cache={};
   let wiped=false,clock=0,C=null,active=false,host=null,wave=0,kills=0,best=0,nextWave=0,queue=[],spawnT=0,nid=1,snapT=0;
-  let supp=0,suppEl=null,flushT=0,barkT=0,wi=-1,hp=100,down=false,downT=0,cdT=0,firing=false,pdown=false,pw=-1,hudEl,hpEl,xh,fireBtn,fireBtn2,gunBtn,hitT=0,xSp=0,bloom=0,critT=0,huntT=0,huntOn=false,scoped=false,dirEl,lastNoise=null,lastShout=0,scopeEl,scopeBtn,scopeRng,scopeT=0,fx=[];
+  let revT=0,revEl=null,supp=0,suppEl=null,flushT=0,barkT=0,wi=-1,hp=100,down=false,downT=0,cdT=0,firing=false,pdown=false,pw=-1,hudEl,hpEl,xh,fireBtn,fireBtn2,gunBtn,hitT=0,xSp=0,bloom=0,critT=0,huntT=0,huntOn=false,scoped=false,dirEl,lastNoise=null,lastShout=0,scopeEl,scopeBtn,scopeRng,scopeT=0,fx=[];
   const prev={x:0,z:0,vx:0,vz:0},pprev={x:0,z:0,vx:0,vz:0};
   let diff=1,mode='survive',bank={x:0,z:0,hp:1500,max:1500},ammo=[],reloadT=0,reloading=false,dyn=[],drops=[],reloadBtn,shopEl,pick={m:'survive',d:1};
   let SAVE={coins:0,own:WEAPONS.map((_,i)=>FREE.includes(i)?1:0),lv:WEAPONS.map(()=>0),hp:0,mag:0,rl:0,crit:0,v:0};
@@ -363,11 +363,21 @@ const Outlaw=(()=>{
     if(down)return;if(rollT>0){popText(S.x,S.y+2.4,S.z,'dodged','#9fe8ff');return}try{CameraRig.shake(Math.min(.9,.2+d/40))}catch(e){}if(fx_!==undefined)dmgDir(fx_,fz_);const raw=d;d=OutlawItems.absorb(d);hp-=d;S.hurt=d>0?.35:.12;sfx(d<raw?'armor':'hurt');   // armor soaks 70% of the hit first (src/combat/Consumables.js)
     if(fx_!==undefined){const l=Math.hypot(S.x-fx_,S.z-fz_)||1;S.kx+=(S.x-fx_)/l*4;S.kz+=(S.z-fz_)/l*4}
     if(navigator.vibrate)navigator.vibrate(30);
-    if(hp<=0){hp=0;down=true;downT=6;if(scoped)setScope(false);OutlawItems.reset();
+    if(hp<=0){hp=0;down=true;downT=(partner()&&!pdown)?18:6;revT=0;if(scoped)setScope(false);OutlawItems.reset();
       const c=GunLoco.ready()?GunLoco.deathClip(fx_!==undefined?GunLoco.wrap(Math.atan2(fx_-S.x,fz_-S.z)-S.rot):0,false,false):null;me.userData.gdn=c;   // fall away from whatever hit you (see GunLoco.deathClip)
-      send({k:'dn',v:1,c});banner('You are down! Respawning…','OUTLAW TOWN')}
+      send({k:'dn',v:1,c});banner(downT>10?'You are down! Hold on - your partner can revive you':'You are down! Respawning…','OUTLAW TOWN')}
     updateHud();
   }
+  // REVIVE (co-op): a downed player bleeds out for 18 s; the partner stands next to them for ~2.4 s to bring them back at 45% health. Raiders go for exactly that spot.
+  function reviveTick(dt){
+    const pr=partner(),show=(t)=>{if(revEl){revEl.style.display=t?'block':'none';if(t)revEl.innerHTML=t}};
+    if(!active){show('');return}
+    if(down){show(pr&&!pdown?'🩸 Bleeding out '+Math.max(0,Math.ceil(downT))+'s — your partner can revive you'+(revT>0?' ('+Math.round(revT*100)+'%)':''):'');return}
+    if(pr&&pdown){const g=pr[1].group.position,near=Math.hypot(g.x-S.x,g.z-S.z)<2.6;
+      if(near){revT+=dt/2.4;show('Reviving '+Math.round(Math.min(1,revT)*100)+'% — stay with them');if(revT>=1){revT=0;send({k:'rv',to:pr[0]});pdown=false;popText(g.x,g.y+2.4,g.z,'REVIVED','#5dff8a',1.2);sfx('heal')}}
+      else{revT=Math.max(0,revT-dt*.8);show('🩸 Partner down — get to them ('+Math.round(Math.hypot(g.x-S.x,g.z-S.z))+' m)')}}
+    else{revT=0;show('')}}
+  function revived(){if(!down)return;hp=Math.round(maxHp()*.45);down=false;revT=0;OutlawItems.reset();me.userData.gdn=null;S.vy=0;send({k:'dn',v:0});sfx('heal');banner('Revived!','OUTLAW TOWN');updateHud()}
   function respawn(){hp=maxHp();down=false;OutlawItems.reset();me.userData.gdn=null;S.x=C.x+(Math.random()-.5)*4;S.z=C.z+14;S.y=H(S.x,S.z)+.1;S.vy=0;send({k:'dn',v:0});updateHud()}
 
   // ---------- NPC visuals ----------
@@ -505,6 +515,7 @@ const Outlaw=(()=>{
     if(seen&&t.id!=='bank'){if(!n.sawT||now0-n.sawT>4){if(now0-lastShout>.9&&d<70){lastShout=now0;sfxAt('shout',n.x,n.z)}}n.sawT=now0;n.lk={x:t.x,z:t.z};n.lkT=now0;
       for(const o of npcs.values()){if(o===n||o.dead)continue;if(Math.hypot(o.x-n.x,o.z-n.z)<55&&(!o.lkT||now0-o.lkT>1.5)){o.lk={x:t.x,z:t.z};o.lkT=now0-.8}}}
     if(!n.lk){n.lk={x:t.x,z:t.z};n.lkT=now0-30}
+    {const dnp=pl.find(p=>p.down);if(dnp&&n.type!==2&&n.id%5<2&&!seen&&t.id!=='bank'){n.lk={x:dnp.x,z:dnp.z};n.lkT=now0-.4;if(!n._fh&&Math.hypot(dnp.x-n.x,dnp.z-n.z)<45){n._fh=1;bark(n,'kill')}}else if(!dnp)n._fh=0}   // two of every five go for the downed player's spot: whoever comes to revive walks into them
     if(!seen&&lastNoise&&now0-lastNoise.t<5&&now0-n.lkT>1.2&&Math.hypot(lastNoise.x-n.x,lastNoise.z-n.z)<95){n.lk={x:lastNoise.x+rnd(-4,4),z:lastNoise.z+rnd(-4,4)};n.lkT=now0-1.5}   // gunfire draws them
     if(!seen&&Math.hypot(n.lk.x-n.x,n.lk.z-n.z)<5&&now0-n.lkT>3){n.lk={x:t.x+rnd(-22,22),z:t.z+rnd(-22,22)};n.lkT=now0-8}   // reached the stale spot: search the area you probably are in
     const tpK=(seen||t.id==='bank')?t:n.lk;
@@ -735,6 +746,7 @@ const Outlaw=(()=>{
     const shopBtn=document.createElement('button');shopBtn.id='owshop';shopBtn.className='owb';shopBtn.textContent='🛒';document.body.appendChild(shopBtn);shopBtn.addEventListener('pointerdown',e=>{shopPanel();e.preventDefault()});
     rollBtn=document.createElement('button');rollBtn.id='owroll';rollBtn.className='owb';rollBtn.textContent='🌀';document.body.appendChild(rollBtn);rollBtn.addEventListener('pointerdown',e=>{roll();e.preventDefault()});
     suppEl=document.createElement('div');suppEl.id='owsupp';suppEl.style.cssText='position:fixed;inset:0;z-index:4;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 42%,rgba(20,8,0,.78) 100%)';document.body.appendChild(suppEl);
+    revEl=document.createElement('div');revEl.id='owrev';revEl.style.cssText='position:fixed;left:50%;bottom:34%;transform:translateX(-50%);z-index:6;pointer-events:none;display:none;padding:8px 16px;border-radius:12px;background:#000a;color:#fff;font:700 15px system-ui;text-align:center;min-width:190px';document.body.appendChild(revEl);
     dirEl=document.createElement('div');dirEl.id='owdir';document.body.appendChild(dirEl);
     scopeBtn=document.createElement('button');scopeBtn.id='owscope';scopeBtn.className='owb';scopeBtn.textContent='🔭';document.body.appendChild(scopeBtn);scopeBtn.addEventListener('pointerdown',e=>{setScope(!scoped);e.preventDefault()});
     scopeEl=document.createElement('div');scopeEl.id='owsc';scopeEl.innerHTML='<i></i><b></b><em></em>';document.body.appendChild(scopeEl);scopeRng=scopeEl.querySelector('b');
@@ -773,6 +785,7 @@ const Outlaw=(()=>{
       case 'dn':{pdown=!!p.v;const pr=partner();if(pr)pr[1].group.userData.gdn=p.v&&typeof p.c==='string'&&/^d_[a-z_]{2,12}$/.test(p.c)?p.c:null;break}   // the partner falls / gets up (only known clip names are used)
       case 'wv':if(p.n>0){banner('Wave '+p.n+(p.n%3===0?' · BOSS!':''),'OUTLAW TOWN');sfx('horn')}else if(p.n===-1&&!isHost())banner('Wiped out! Retrying…','OUTLAW TOWN');break;
       case 'bn':banner(p.t,'OUTLAW TOWN');break;
+      case 'rv':if(p.to===myId)revived();break;
       case 'bk':showBark(npcs.get(p.id),p.t);break;
       case 'wg':pw=p.i;break;
       case 'rl':{const pr=partner();if(pr&&p.d>0){const u=pr[1].group.userData;u.rlD=u.rlT=Math.min(4,p.d)}break}   // partner reload (visual only)
@@ -816,6 +829,7 @@ const Outlaw=(()=>{
     me.userData.rl=reloading&&wi>=0?1-Math.max(0,reloadT)/(WEAPONS[wi].rl*(1-.12*SAVE.rl)):OutlawItems.useProgress();   // using an item reuses the reload arm dip
     if(p){const u=p[1].group.userData;if(u.rlT>0){u.rlT-=dt;u.rl=1-Math.max(0,u.rlT)/u.rlD}else u.rl=-1}
     dropTick(dt,t);dynTick(dt);
+    reviveTick(dt);
     if(down){downT-=dt;if(downT<=0)respawn()}
     if(active){if(isHost())hostTick(dt)}
     visuals(dt);
