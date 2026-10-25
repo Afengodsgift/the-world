@@ -33,7 +33,7 @@ for(const [gap,want] of [[12,'light2'],[45,'light']]){const {C,P}=mk();step(C,1,
 {const {C,P}=mk({D:{z:9}});const z0=P.z;const s=starts(step(C,1,L({adv:true})));step(C,9);ok(s[0]==='advance'&&P.z-z0>1.2&&P.z-z0<1.45,'forward Light = Advancing Cut and closes '+(P.z-z0).toFixed(2)+' m')}
 // Evasive Punish: Light within the gap after a dodge ends; startup is only 6 ticks
 {const {C,P}=mk({D:{z:9}});step(C,1,{P:{list:[{t:'dodge',e:0,dx:1,dz:0}],face:0}});while(P.act==='dodge')step(C,1);step(C,5);const s=starts(step(C,1,L()));ok(s[0]==='evade','Light 5 ticks after a dodge = Evasive Punish');
-  let t=0;while(P.pi<1&&t<20){step(C,1);t++}ok(M.evade.phases[0].n===6,'Evasive Punish startup is 6 ticks (faster than a normal Light, 10)')}
+  let t=0;while(P.pi<1&&t<20){step(C,1);t++}ok(M.evade.phases[0].n===4&&M.evade.phases[0].n<M.light.phases[0].n,'Evasive Punish startup is 4 ticks (faster than a normal Light, 7)')}
 // Rising Slash
 {const {C,P,D}=mk();step(C,1,L());step(C,19);let got=null;for(let i=0;i<8&&!got;i++){const s=starts(step(C,1,i===0?{P:{list:[{t:'heavyDown',e:C.tick+1}],face:0}}:null));if(s.length)got=s[0]}
   ok(got==='rising','Heavy tapped in the Light cancel window = Rising Slash');ok(M.rising.pdmg>M.light.pdmg*2.5,'Rising Slash pressures posture ('+M.rising.pdmg+' vs '+M.light.pdmg+')')}
