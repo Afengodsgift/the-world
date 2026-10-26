@@ -19,5 +19,12 @@ const Barrage=(()=>{
   // vt (where the sim is as of the last frame) + the real time since that frame x the current speed. Stamping with raw real time put every tap in the sim's future during slow motion, so it sat in
   // the queue and fired when the clock caught up (and, as the lag never closes, every later tap was late too).
   function stamp(ts,vl,vt,tsc){if(!vl||typeof ts!=='number')return vt;let d=ts-vl;if(!(d>-1000&&d<1000))d=0;return Math.max(0,vt+Math.max(-120,Math.min(40,d))*(tsc>0?tsc:1))}
-  return{stamp,MOVE,SWEET,SCALE,POP,THRESH,dmFor,speed,stage,ring,inWindow}})();
+  // ---- co-op ----
+  // Solo: the boss + 2 phantoms all strike YOU. Co-op: the boss + 3 phantoms, two for each player (host 'h' / guest 'g'); the players stand side by side so the lunges are not the same line.
+  // Each client judges ONLY its own player (the same rule as the rest of the co-op model); the boss reward is shared and the host applies it.
+  const plan=co=>co?{off:[0,.7,-.7,1.5],roles:'hggh'}:{off:[0,.95,-.95],roles:'hhh'};
+  const slot=(role,a0,co)=>{const o=co?(role==='h'?-1.5:1.5):0;return{dx:Math.cos(a0)*o,dz:-Math.sin(a0)*o}};
+  const count=(roles,r)=>roles.split('').filter(c=>c===r).length;
+  const reward=co=>co?.5:1;     // share of the boss reward ONE perfect dodge earns (two perfect dodges in co-op = the full solo reward)
+  return{plan,slot,count,reward,stamp,MOVE,SWEET,SCALE,POP,THRESH,dmFor,speed,stage,ring,inWindow}})();
 if(typeof module!=='undefined')module.exports=Barrage;

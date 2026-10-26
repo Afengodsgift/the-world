@@ -140,6 +140,7 @@ const PlayerCombat=(()=>{
     if(p&&(p.k==='dh'||p.k==='dr'||p.k==='dl')){duelMsg(p);return}
     if(!on||!site)return;
     if(p.k==='dc'){remoteDecoy(p);return}
+    if(p.k==='sp'){spMsg(p);return}
     if(p.k==='j'&&NET.mode==='host'&&p.s===site.id){netAddQ();msg('Your partner joins the fight',1.6)}
     else if(p.k==='l'&&p.s===NET.site){if(NET.mode==='host'){netDropQ();NET.joined=false;msg('Your partner left the fight',1.6)}else if(NET.mode==='guest'){netDropQ();netHost();msg('The host left: you lead the fight',1.8)}}
     else if(p.k==='h'&&NET.mode==='host'&&p.s===site.id&&(p.t0<NET.t0||p.t0===NET.t0&&p.from<(typeof myId!=='undefined'?myId:''))){netJoin()}}   // two hosts at once: the earlier fight wins, the other becomes its guest
@@ -150,6 +151,7 @@ const PlayerCombat=(()=>{
       for(const st of sn.st||[]){const F=byId[st.id];if(F&&F.f.act!=='dead')C.start(st.id,st.m,st.h)}
       for(const o of sn.f||[]){const F=byId[o.id];if(!F)continue;const f=F.f;
         if(o.act==='dead'){if(f.act!=='dead'){f.hp=0;f.act='dead';f.ph=null;f.mv=null;events([{t:'dead',a:'P',d:o.id}])}continue}
+        if(ult&&ult.all.includes(F)){if(!F.ghost)F.f.hp=o.hp;continue}   // barrage actors run the same scripted timeline here; only the boss's health follows the host
         const keep=F.lh&&performance.now()-F.lh<500&&o.hp>f.hp?f.hp:o.hp;WardenNet.apply(f,o,Moves,.5);f.hp=keep;F.nin={mx:o.mx||0,mz:o.mz||0};
         if(o.aw&&!F.awake)rouse(F,F.dorm!=='wake');F.ai.ph2=!!o.p2}
       if(Q&&sn.p)WardenNet.apply(Q,sn.p,Moves,1)}}
@@ -408,7 +410,7 @@ const PlayerCombat=(()=>{
     return barEl}
   const bq=s=>barEl&&barEl.querySelector(s);
   function addGhost(B,k,x,z){
-    const T=Object.assign({},B.T,{id:B.T.id+'~ph',boss:false,ghost:true,name:'Phantom',ph2:'',sa:false,aggro:undefined,barrage:false}),id=k?'y':'x';   // own pool key: the tinted bodies never come back as a real foe
+    const T=Object.assign({},B.T,{id:B.T.id+'~ph',boss:false,ghost:true,name:'Phantom',ph2:'',sa:false,aggro:undefined,barrage:false}),id=['x','y','w'][k];   // own pool key: the tinted bodies never come back as a real foe
     const f=C.F[id]=CombatCore.mkFighter(id,{x,z,face:0,hp:99999,team:'e',dm:1,rm:T.rm||1,pg:0});if(!C.order.includes(id))C.order.push(id);f.r=T.r;f.spd=T.spd||1.3;
     const b=body(T,k+1,B.body);b.g.scale.setScalar(T.scale);b.g.position.set(x,H(x,z),z);
     const F={i:foes.length,id,T,f,body:b,human:false,ai:DuelistAI.create(77+k,{foe:T.ai,intro:0}),loco:{x:0,z:0,vf:0,vs:0,sp:0,init:false},flash:0,awake:true,late:false,dorm:null,dormSync:null,wakeT:0,ph2:false,home:{x,z},ghost:true,script:true,gt:0};
@@ -424,12 +426,12 @@ const PlayerCombat=(()=>{
   function barLanes(on){   // three ground strips from each attacker to you: the attack directions, red-hot when the dodge window opens
     if(!on){if(lanes){for(const l of lanes)scene.remove(l);lanes.forEach(l=>{l.material.dispose()});lanes=null}return}
     if(lanes)return;if(!THREE.PlaneGeometry)return;const geo=barLanes.g||(barLanes.g=new THREE.PlaneGeometry(1,1));lanes=[];
-    for(let k=0;k<3;k++){const m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:0xc08aff,transparent:true,opacity:0,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,fog:false,side:THREE.DoubleSide}));m.rotation.order='YXZ';m.renderOrder=7;m.frustumCulled=false;m.visible=false;scene.add(m);lanes.push(m)}}
+    for(let k=0;k<4;k++){const m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:0xc08aff,transparent:true,opacity:0,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,fog:false,side:THREE.DoubleSide}));m.rotation.order='YXZ';m.renderOrder=7;m.frustumCulled=false;m.visible=false;scene.add(m);lanes.push(m)}}
   function lanesTick(tk,ph){
     if(!lanes||!ult)return;const n=ult.all.length;
-    for(let k=0;k<3;k++){const l=lanes[k],F=ult.all[k];if(!F||k>=n||ph==='out'){l.visible=false;continue}
-      const dx=S.x-F.f.x,dz=S.z-F.f.z,L=Math.hypot(dx,dz);if(L<.3){l.visible=false;continue}
-      l.visible=true;l.position.set(F.f.x+dx/2,H(S.x,S.z)+.14,F.f.z+dz/2);l.rotation.set(-Math.PI/2,0,0);l.rotation.y=Math.atan2(dx,dz);l.scale.set(.75,L,1);
+    for(let k=0;k<4;k++){const l=lanes[k],F=ult.all[k];if(!F||k>=n||ph==='out'){l.visible=false;continue}
+      const T=ult.sl[ult.roles[k]],dx=T.x-F.f.x,dz=T.z-F.f.z,L=Math.hypot(dx,dz);if(L<.3){l.visible=false;continue}
+      l.visible=true;l.position.set(F.f.x+dx/2,H(T.x,T.z)+.14,F.f.z+dz/2);l.rotation.set(-Math.PI/2,0,0);l.rotation.y=Math.atan2(dx,dz);l.scale.set(.75,L,1);
       const hot=cl((tk-4)/18,0,1),go=Barrage.inWindow(tk);l.material.color.setHex(go?0xffe27a:hot>.6?0xff3a3a:0xc08aff);l.material.opacity=ph==='pop'?.5:(.35+.3*hot)*(go?1:.85+.15*Math.sin(performance.now()/60))}}
   function barCam(){
     const U=ult,rn=performance.now();
@@ -444,7 +446,7 @@ const PlayerCombat=(()=>{
       else{const u=cl(U.t2/.9,0,1);d=mixn(5.6,7.4,u);h=mixn(2.5,3.0,u);side=mixn(.5,.4,u);look=.45;fov=mixn(54,62,u);kp=4}
       if(U.res&&bc.res!==U.res){bc.res=U.res;bc.sh=U.res==='perfect'?.55:1}
       const tk2=tk;try{lanesTick(tk2,U.ph)}catch(e){}
-      cx=mixn(px,ax,look);cz=mixn(pz,az,look);
+      const mx=U.co&&Q?(S.x+Q.x)/2:px,mz=U.co&&Q?(S.z+Q.z)/2:pz;cx=mixn(mx,ax,look);cz=mixn(mz,az,look);
       // behind you, along the line from the attackers through you, swung a little to one side
       const aw=Math.atan2(px-ax,pz-az)+side;px=S.x+Math.sin(aw)*d;pz=S.z+Math.cos(aw)*d}
     else{px=bc.p.x;pz=bc.p.z;kp=0;kl=0}   // barrage over, shot held while CineCam blends back to the rig
@@ -455,13 +457,17 @@ const PlayerCombat=(()=>{
     bc.l.x+=(cx-bc.l.x)*kL;bc.l.y+=(H(cx,cz)+ly-bc.l.y)*kL;bc.l.z+=(cz-bc.l.z)*kL;bc.fov+=(fov-bc.fov)*(1-Math.exp(-dt*5));
     bc.sh*=Math.exp(-dt*5);const q=bc.sh*.22,tt=rn/1000;
     return{px:bc.p.x+Math.sin(tt*61)*q,py:bc.p.y+Math.sin(tt*47+1)*q,pz:bc.p.z+Math.cos(tt*53)*q,lx:bc.l.x,ly:bc.l.y,lz:bc.l.z,fov:bc.fov}}
-  function startBarrage(B){
-    const A=C.arena,ring=Math.min(2.9,A.R*.3),a0=Math.atan2(B.f.x-S.x,B.f.z-S.z);
+  function startBarrage(B,opt){
+    const A=C.arena,co=opt?!!opt.co:!!(Q&&NET.mode==='host'),ring=Math.min(2.9,A.R*.3),a0=opt&&opt.a0!==undefined?opt.a0:Math.atan2(B.f.x-S.x,B.f.z-S.z);
     killDecoy(true);   // an afterimage would pull the phantoms' aim and clutter the shot
-    ult={B,t:0,ph:'pop',hits:0,dodged:0,T0:0,all:[B],t2:0,res:null};
-    S.x=P.x=A.x;S.z=P.z=A.z;lx=S.x;lz=S.z;S.rot=P.face=a0;pendFace=null;lock=false;try{el.querySelector('#wLock').classList.remove('on')}catch(e){}
-    const put=(F,a)=>{F.f.x=A.x+Math.sin(a)*ring;F.f.z=A.z+Math.cos(a)*ring;F.f.face=Math.atan2(A.x-F.f.x,A.z-F.f.z);F.f.vx=F.f.vz=0};
-    put(B,a0);ult.all.push(addGhost(B,0,0,0),addGhost(B,1,0,0));put(ult.all[1],a0+.95);put(ult.all[2],a0-.95);
+    const pl=Barrage.plan(co),role=NET.mode==='guest'?'g':'h',sl=r=>{const o=Barrage.slot(r,a0,co);return{x:A.x+o.dx,z:A.z+o.dz}},SL={h:sl('h'),g:sl('g')};
+    ult={B,t:0,ph:'pop',hits:0,dodged:0,T0:0,all:[B],t2:0,res:null,co,role,roles:pl.roles,sl:SL,mine:new Set()};
+    const me0=SL[role];S.x=P.x=me0.x;S.z=P.z=me0.z;lx=S.x;lz=S.z;S.rot=P.face=a0;pendFace=null;lock=false;try{el.querySelector('#wLock').classList.remove('on')}catch(e){}
+    if(co&&Q){const o=SL[role==='h'?'g':'h'];Q.x=o.x;Q.z=o.z}
+    const put=(F,a,r)=>{F.f.x=A.x+Math.sin(a)*ring;F.f.z=A.z+Math.cos(a)*ring;F.f.face=Math.atan2(SL[r].x-F.f.x,SL[r].z-F.f.z);F.f.vx=F.f.vz=0};
+    put(B,a0+pl.off[0],pl.roles[0]);for(let k=1;k<pl.off.length;k++){const G=addGhost(B,k-1,0,0);ult.all.push(G);put(G,a0+pl.off[k],pl.roles[k])}
+    ult.all.forEach((F,k)=>{if(pl.roles[k]===role)ult.mine.add(F.id)});
+    if(co&&NET.mode==='host')try{WardenNet.send({k:'sp',t:'bs',s:site.id,b:B.id,a:+a0.toFixed(4)})}catch(e){}
     for(const F of ult.all){F.script=true;F.body.g.position.set(F.f.x,H(F.f.x,F.f.z),F.f.z)}
     tsc=.5;barUI().style.display='block';barEl.classList.add('on');bq('.tx').classList.remove('on');
     try{CineCam.PRESETS.barrage={dur:14,freeze:false,noskip:true,shots:[]};bc=null;barLanes(true);
@@ -475,9 +481,14 @@ const PlayerCombat=(()=>{
     barLanes(false);
     if(barEl){barEl.classList.remove('on');barEl.style.display='none';bq('.tx').classList.remove('on');bq('.rr').classList.remove('on');for(const q of barEl.querySelectorAll('.rg'))q.style.opacity=0}
     try{el.querySelector('#wDodge').classList.remove('pulse')}catch(e){}}
+  function bossReel(B,rw){if(!B||B.f.act==='dead')return;B.f.hp=Math.max(1,B.f.hp-B.f.hpMax*.1*rw);B.f.po=Math.min(B.f.poMax*.97,B.f.po+B.f.poMax*.6*rw)}   // host / solo only: the boss is the host's
+  function spMsg(p){
+    if(!on||!site||p.s!==site.id)return;
+    if(p.t==='bs'&&NET.mode==='guest'&&!ult&&state==='fight'&&P.act!=='dead'&&!CineCam.busy()){const B=byId[p.b];if(B&&B.f.act!=='dead')startBarrage(B,{a0:p.a,co:true})}
+    else if(p.t==='r'&&NET.mode==='host'&&p.ok){const B=ult?ult.B:foes.find(F=>F.T.barrage);bossReel(B,Barrage.reward(true))}}
   function barrageTick(dt){
     if(!ult){
-      if(!on||state!=='fight'||P.act!=='free'||P.hp<25||NET.mode==='guest'||Q||CineCam.busy())return;
+      if(!on||state!=='fight'||P.act!=='free'||P.hp<25||NET.mode==='guest'||Q&&Q.act==='dead'||CineCam.busy())return;
       for(const F of foes){if(!F.T.barrage||F.ghost||!F.awake||F.f.act!=='free'||F.f.inv>0)continue;const s=Barrage.stage(F.f.hp/F.f.hpMax);if(s>(F.bar||0)){F.bar=s;startBarrage(F);return}}
       return}
     const U=ult,rdt=dt/Math.max(.05,tsc);U.t+=rdt;
@@ -486,8 +497,8 @@ const PlayerCombat=(()=>{
       if(U.t>.45&&!U.fx){U.fx=1;for(const F of U.all)if(F.ghost){try{WardenVfx.burst(F.f.x,H(F.f.x,F.f.z)+1.3,F.f.z,1);WardenVfx.spawn(F.f.x,H(F.f.x,F.f.z)+1.2,F.f.z,1,3,3.4,0,24)}catch(e){}}flash(.5,'rgba(170,110,255,.8)')}
       if(U.t>Barrage.POP-.35)bq('.tx').classList.add('on');
       if(U.t>=Barrage.POP){   // strike
-        P.st=P.stMax;const dm=Barrage.dmFor(P.hpMax,P.hp,Moves[Barrage.MOVE].dmg,U.all.length);
-        for(const F of U.all){F.f.dm=dm;ST.input(F.id,{t:'atk',m:Barrage.MOVE},now())}
+        P.st=P.stMax;const dm=Barrage.dmFor(P.hpMax,P.hp,Moves[Barrage.MOVE].dmg,Barrage.count(U.roles,U.role));
+        U.all.forEach((F,k)=>{const mine=U.roles[k]===U.role;if(!mine&&!(U.co&&Q))return;F.f.dm=mine?dm:.001;ST.input(F.id,{t:'atk',m:Barrage.MOVE},now())})   // the partner's attackers lunge at the partner's puppet: shown, never damaging you
         U.T0=C.tick+1;U.ph='wind';tsc=1;try{tone(220,60,.5,'sawtooth',.12)}catch(e){}
         try{el.querySelector('#wDodge').classList.add('pulse')}catch(e){}}
       return}
@@ -499,7 +510,7 @@ const PlayerCombat=(()=>{
         for(const q of barEl.querySelectorAll('.rg'))q.style.opacity=0;bq('.tx').classList.remove('on');try{el.querySelector('#wDodge').classList.remove('pulse')}catch(e){}
         const rr=bq('.rr');rr.classList.add('on');
         if(U.res==='perfect'){rr.textContent='PERFECT DODGE';rr.style.color='#ffe27a';flash(.8,'rgba(255,236,150,.9)');try{CameraRig.shake(.7);tone(900,1800,.35,'triangle',.14);tone(1300,2200,.3,'sine',.1)}catch(e){}
-          const B=U.B;B.f.hp=Math.max(1,B.f.hp-B.f.hpMax*.1);B.f.po=Math.min(B.f.poMax*.97,B.f.po+B.f.poMax*.6);flowAdd(60);P.st=P.stMax;
+          const B=U.B,rw=Barrage.reward(U.co);if(NET.mode==='guest'){try{WardenNet.send({k:'sp',t:'r',s:site.id,ok:1})}catch(e){}}else bossReel(B,rw);flowAdd(60);P.st=P.stMax;
           for(const F of U.all){try{WardenVfx.clash(F.f.x,H(F.f.x,F.f.z)+1.3,F.f.z,true)}catch(e){}}}
         else{rr.textContent='OVERWHELMED';rr.style.color='#ff5a4a';flash(.9,'rgba(255,60,40,.85)');try{CameraRig.shake(.9)}catch(e){}}}
       return}
@@ -582,7 +593,7 @@ const PlayerCombat=(()=>{
     else if(e.t==='dodge'&&e.a==='P'){WardenVfx.spawn(P.x,H(P.x,P.z)+1,P.z,2,4,2.8,-P.face+Math.PI/2,30)}}
   function vfxAt(e,f){const y=H(f.x,f.z)+1.3;if(e.t==='hit')WardenVfx.hit(f.x,y,f.z,e.crit,e.dmg>=20);else if(e.t==='block')WardenVfx.clash(f.x,y,f.z);else if(e.t==='deflect')WardenVfx.clash(f.x,y,f.z,true);else WardenVfx.burst(f.x,y,f.z,e.t==='posturebreak'?0:3)}
   function events(evs){
-    if(ult)for(const e of evs){if(e.t==='hit'&&e.d==='P')ult.hits++;else if(e.t==='dodged'&&e.d==='P')ult.dodged++}
+    if(ult)for(const e of evs){if(e.t==='hit'&&e.d==='P'&&ult.mine.has(e.a))ult.hits++;else if(e.t==='dodged'&&e.d==='P'&&ult.mine.has(e.a))ult.dodged++}
     if(decoy||rdecoy)for(const e of evs){if(e.t==='hit'&&(e.d==='Z'||e.d==='Y')){const d=e.d==='Z'?decoy:rdecoy,Z=C.F[e.d];if(d)d.hits++;if(Z)try{WardenVfx.hit(Z.x,H(Z.x,Z.z)+1.2,Z.z,false,false)}catch(x){}}}
     if(PC._log)for(const e of evs)if(e.t!=='hitstop')PC._log.push(e);
     for(const e of evs){
