@@ -139,10 +139,11 @@ const PlayerCombat=(()=>{
   function netMsg(p){
     if(p&&(p.k==='dh'||p.k==='dr'||p.k==='dl')){duelMsg(p);return}
     if(!on||!site)return;
+    if(p.k==='dc'){remoteDecoy(p);return}
     if(p.k==='j'&&NET.mode==='host'&&p.s===site.id){netAddQ();msg('Your partner joins the fight',1.6)}
     else if(p.k==='l'&&p.s===NET.site){if(NET.mode==='host'){netDropQ();NET.joined=false;msg('Your partner left the fight',1.6)}else if(NET.mode==='guest'){netDropQ();netHost();msg('The host left: you lead the fight',1.8)}}
     else if(p.k==='h'&&NET.mode==='host'&&p.s===site.id&&(p.t0<NET.t0||p.t0===NET.t0&&p.from<(typeof myId!=='undefined'?myId:''))){netJoin()}}   // two hosts at once: the earlier fight wins, the other becomes its guest
-  const aiTarget=q=>{if(decoy&&decoy.t>0&&C.F.Z)return C.F.Z;if(!Q||Q.act==='dead')return P;if(P.act==='dead')return Q;const dp=Math.hypot(P.x-q.x,P.z-q.z),dq=Math.hypot(Q.x-q.x,Q.z-q.z),cur=q._tg==='Q'?Q:P;const o=cur===P?Q:P,dc=cur===P?dp:dq,dO=cur===P?dq:dp;const pick=dO<dc-2?o:cur;q._tg=pick.id;return pick};
+  const aiTarget=q=>{if(decoy&&decoy.t>0&&C.F.Z)return C.F.Z;if(rdecoy&&rdecoy.t>0&&C.F.Y)return C.F.Y;if(!Q||Q.act==='dead')return P;if(P.act==='dead')return Q;const dp=Math.hypot(P.x-q.x,P.z-q.z),dq=Math.hypot(Q.x-q.x,Q.z-q.z),cur=q._tg==='Q'?Q:P;const o=cur===P?Q:P,dc=cur===P?dp:dq,dO=cur===P?dq:dp;const pick=dO<dc-2?o:cur;q._tg=pick.id;return pick};
   function netApply(){   // consume the newest partner message (once)
     if(NET.mode==='host'&&NET.rep&&Q){const r=NET.rep;NET.rep=null;WardenNet.apply(Q,r.p,Moves,1)}
     else if(NET.mode==='guest'&&NET.snap){const sn=NET.snap;NET.snap=null;NET.gotSnap=performance.now();
@@ -462,32 +463,42 @@ const PlayerCombat=(()=>{
   // ================= FIGHT JUMP + AFTERIMAGE (Shadow) =================
   // Jump: the normal jump (index.html), now a button in the fight HUD. While you are high enough, ground attacks whiff (SwordHit's height band) - it costs stamina and has a short cooldown so it is a dodge, not a god mode.
   // Shadow: you blink away (+ a dodge's invulnerability) and leave an afterimage for a few seconds. Every foe aims at it, hits it, and it bursts after two hits or when time runs out.
-  let jumpCd=0,shCd=0,decoy=null,gBase=0;
+  let jumpCd=0,shCd=0,decoy=null,rdecoy=null,gBase=0;
   function fightJump(){
     if(!on||ult||P.act==='dead'||jumpCd>0||!S.grounded||S.flying||P.st<10)return false;
     if(P.act==='attack'||P.act==='stun'||P.act==='dodge')return false;P.st-=10;jumpCd=.9;jumpQ=true;return true}
-  function shadowStep(){
-    if(!on||ult||P.act==='dead'||shCd>0||P.st<20||P.act==='stun'||state!=='fight')return false;
-    const d=stickDir()||[-Math.sin(S.rot),-Math.cos(S.rot)],x0=P.x,z0=P.z,fc=S.rot;
-    killDecoy(true);
-    const Z=C.F.Z=CombatCore.mkFighter('Z',{x:x0,z:z0,face:fc,hp:99999,team:'p'});if(!C.order.includes('Z'))C.order.push('Z');Z.r=P.r;
+  // an afterimage: a team-'p' fighter (foes aim at it) + a translucent cyan avatar. id 'Z' = yours, 'Y' = your partner's (sent over the net so both of you see it and the foes hitting it)
+  function mkDecoy(id,x0,z0,fc,life){
+    const Z=C.F[id]=CombatCore.mkFighter(id,{x:x0,z:z0,face:fc,hp:99999,team:'p'});if(!C.order.includes(id))C.order.push(id);Z.r=.45;
     const g=makeAvatar('','#6fd6ff');for(const c of g.children.slice())if(c.isSprite)g.remove(c);scene.add(g);
     g.traverse(o=>{if(o.isMesh&&o.material){const m=[].concat(o.material).map(q=>{const c=q.clone();c.transparent=true;c.opacity=.72;c.depthWrite=false;if(c.color)c.color.lerp(new THREE.Color(0x6fd6ff),.8);if(c.emissive)c.emissive.setHex(0x2aa0ff);if('emissiveIntensity' in c)c.emissiveIntensity=1.4;return c});o.material=Array.isArray(o.material)?m:m[0]}});
     {const rm=new THREE.MeshBasicMaterial({color:0x6fd6ff,transparent:true,opacity:.9,depthTest:false,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide}),rg=new THREE.Mesh(new THREE.RingGeometry(.7,.9,28),rm);rg.rotation.x=-Math.PI/2;rg.position.y=.06;rg.renderOrder=996;g.add(rg)}
-    g.position.set(x0,H(x0,z0),z0);g.rotation.y=fc;decoy={t:4.5,g,hits:0};
+    g.position.set(x0,H(x0,z0),z0);g.rotation.y=fc;return{id,t:life,g,hits:0}}
+  function shadowStep(){
+    if(!on||ult||P.act==='dead'||shCd>0||P.st<20||P.act==='stun'||state!=='fight')return false;
+    const d=stickDir()||[-Math.sin(S.rot),-Math.cos(S.rot)],x0=P.x,z0=P.z,fc=S.rot;
+    killDecoy(true);decoy=mkDecoy('Z',x0,z0,fc,4.5);
     CombatCore.moveBy(C,P,d[0]*2.6,d[1]*2.6);S.x=P.x;S.z=P.z;lx=S.x;lz=S.z;
     ST.input('P',{t:'dodge',e:C.tick,dx:d[0],dz:d[1]},now());P.st-=20;shCd=9;
     try{WardenVfx.spawn(x0,H(x0,z0)+1,z0,2,4,3,-fc+Math.PI/2,30);WardenVfx.spawn(P.x,H(P.x,P.z)+1,P.z,2,4,3,-fc+Math.PI/2,30);flash(.25,'rgba(120,210,255,.8)');tone(500,1400,.18,'triangle',.1)}catch(e){}
+    try{if(NET.mode!=='solo')WardenNet.send({k:'dc',s:site.id,x:+x0.toFixed(2),z:+z0.toFixed(2),f:+fc.toFixed(2),t:4.5,sx:+P.x.toFixed(2),sz:+P.z.toFixed(2)})}catch(e){}   // partner: afterimage here (+ where I blinked to, for the streak)
     msg('AFTERIMAGE',.7);return true}
-  function killDecoy(quiet){
-    if(!decoy)return;const g=decoy.g;if(g&&g.parent)g.parent.remove(g);
-    if(C&&C.F.Z){if(!quiet)try{WardenVfx.burst(C.F.Z.x,H(C.F.Z.x,C.F.Z.z)+1.1,C.F.Z.z,2)}catch(e){}delete C.F.Z;const k=C.order.indexOf('Z');if(k>=0)C.order.splice(k,1)}
-    decoy=null}
+  function remoteDecoy(p){
+    if(!on||!C||!site||p.s!==site.id)return;killDecoy(true,'Y');rdecoy=mkDecoy('Y',p.x,p.z,p.f||0,p.t||4.5);
+    try{WardenVfx.spawn(p.x,H(p.x,p.z)+1,p.z,2,4,3,-(p.f||0)+Math.PI/2,30);if(p.sx!==undefined)WardenVfx.spawn(p.sx,H(p.sx,p.sz)+1,p.sz,2,4,3,-(p.f||0)+Math.PI/2,30)}catch(e){}}
+  function killDecoy(quiet,which){
+    for(const w of which?[which]:['Z','Y']){const d=w==='Z'?decoy:rdecoy;if(!d)continue;
+      if(d.g&&d.g.parent)d.g.parent.remove(d.g);
+      if(C&&C.F[w]){if(!quiet)try{WardenVfx.burst(C.F[w].x,H(C.F[w].x,C.F[w].z)+1.1,C.F[w].z,2)}catch(e){}delete C.F[w];const k=C.order.indexOf(w);if(k>=0)C.order.splice(k,1)}
+      if(w==='Z')decoy=null;else rdecoy=null}}
+  function decoyTick(d,w,dt){
+    if(!d)return;d.t-=dt;const Z=C.F[w];if(!Z||d.t<=0||d.hits>=2){killDecoy(false,w);return}
+    d.g.position.set(Z.x,H(Z.x,Z.z),Z.z);d.g.rotation.y=Z.face;d.g.visible=d.t>1.2||Math.floor(d.t*10)%2===0}
   function fightMoveTick(dt){
     if(jumpCd>0)jumpCd-=dt;if(shCd>0)shCd-=dt;
     // height above the floor you stand on (the baseline follows the ground; jumping raises P.y, which the hit test uses)
     if(S.grounded||S.state==='swim')gBase=S.y;P.y=Math.max(0,S.y-gBase);
-    if(decoy){decoy.t-=dt;const Z=C.F.Z;if(!Z||decoy.t<=0||decoy.hits>=2){killDecoy(false)}else{decoy.g.position.set(Z.x,H(Z.x,Z.z),Z.z);decoy.g.rotation.y=Z.face;decoy.g.visible=decoy.t>1.2||Math.floor(decoy.t*10)%2===0}}
+    decoyTick(decoy,'Z',dt);decoyTick(rdecoy,'Y',dt);
     const b=el&&el.querySelector('#wShadow');if(b){const t=shCd>0?Math.ceil(shCd):0;if(b._c!==t){b._c=t;b.textContent=t?'Shadow '+t:'Shadow';b.classList.toggle('cd',t>0)}}}
   function leave(hold){   // hold: keep the corpses of a cleared site in the world
     if(!on)return;if(ult)endBarrage();killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;pendFace=null;
@@ -514,7 +525,7 @@ const PlayerCombat=(()=>{
   function vfxAt(e,f){const y=H(f.x,f.z)+1.3;if(e.t==='hit')WardenVfx.hit(f.x,y,f.z,e.crit,e.dmg>=20);else if(e.t==='block')WardenVfx.clash(f.x,y,f.z);else if(e.t==='deflect')WardenVfx.clash(f.x,y,f.z,true);else WardenVfx.burst(f.x,y,f.z,e.t==='posturebreak'?0:3)}
   function events(evs){
     if(ult)for(const e of evs){if(e.t==='hit'&&e.d==='P')ult.hits++;else if(e.t==='dodged'&&e.d==='P')ult.dodged++}
-    if(decoy)for(const e of evs){if(e.d==='Z'&&e.t==='hit'){decoy.hits++;const Z=C.F.Z;if(Z)try{WardenVfx.hit(Z.x,H(Z.x,Z.z)+1.2,Z.z,false,false)}catch(x){}}}
+    if(decoy||rdecoy)for(const e of evs){if(e.t==='hit'&&(e.d==='Z'||e.d==='Y')){const d=e.d==='Z'?decoy:rdecoy,Z=C.F[e.d];if(d)d.hits++;if(Z)try{WardenVfx.hit(Z.x,H(Z.x,Z.z)+1.2,Z.z,false,false)}catch(x){}}}
     if(PC._log)for(const e of evs)if(e.t!=='hitstop')PC._log.push(e);
     for(const e of evs){
       const A=byId[e.a],T=byId[e.d];
@@ -630,4 +641,4 @@ const PlayerCombat=(()=>{
       if(WardenGear.full()){const v=WardenGear.sellValue(it);PG.earn(v);line+=' · pack full, sold a '+WardenGear.name(it)+' for '+v}else{WardenGear.add(it);line+=' · '+WardenGear.RAR[it.rar]+' '+WardenGear.name(it)}
       toast((label||'Chest')+': '+line,4.2);return it},toast:(t,s)=>toast(t,s),setSeq:v=>{if(pAnim)pAnim.variant=v},tick,speedMul,press,release,enter:()=>{},engage:id=>{const s=SITES().find(q=>q.id===id);if(s&&!on)engage(s)},leave:()=>leave(false),on:()=>on,site:()=>site,GRIP,setGrip:()=>{setGrip(sword);for(const F of foes)setGrip(F.body.sword)},newFight:()=>{if(on)startFight()},
     _flow:v=>{if(v!==undefined)flow=v;return[flow,flowOn,flowN]},
-    _foes:()=>foes,_decoy:()=>decoy?{t:+decoy.t.toFixed(1),hits:decoy.hits,vis:decoy.g.visible,par:!!decoy.g.parent,x:decoy.g.position.x,z:decoy.g.position.z,zf:C.F.Z?1:0,sc:decoy.g.scale.x,kids:decoy.g.children.length,meshes:(()=>{let n=0;decoy.g.traverse(o=>{if(o.isMesh)n++});return n})(),y:decoy.g.position.y}:null,_ult:()=>ult?{tk:C.tick-ult.T0,ph:ult.ph,t:+ult.t.toFixed(2),hits:ult.hits,dodged:ult.dodged,res:ult.res,tsc}:null,_t:()=>({DU,on,C,P,D,lock,sword,foes,site,AI:foes[0]&&foes[0].ai,state,cur,stW,down,pAnim,dAnim:foes[0]&&foes[0].anim,duel:foes[0]&&foes[0].body.g,dSword:foes[0]&&foes[0].body.sword,RT})})})();
+    _foes:()=>foes,_rdecoy:()=>rdecoy?{t:rdecoy.t,hits:rdecoy.hits}:null,_netMsg:p=>netMsg(p),_decoy:()=>decoy?{t:+decoy.t.toFixed(1),hits:decoy.hits,vis:decoy.g.visible,par:!!decoy.g.parent,x:decoy.g.position.x,z:decoy.g.position.z,zf:C.F.Z?1:0,sc:decoy.g.scale.x,kids:decoy.g.children.length,meshes:(()=>{let n=0;decoy.g.traverse(o=>{if(o.isMesh)n++});return n})(),y:decoy.g.position.y}:null,_ult:()=>ult?{tk:C.tick-ult.T0,ph:ult.ph,t:+ult.t.toFixed(2),hits:ult.hits,dodged:ult.dodged,res:ult.res,tsc}:null,_t:()=>({DU,on,C,P,D,lock,sword,foes,site,AI:foes[0]&&foes[0].ai,state,cur,stW,down,pAnim,dAnim:foes[0]&&foes[0].anim,duel:foes[0]&&foes[0].body.g,dSword:foes[0]&&foes[0].body.sword,RT})})})();
