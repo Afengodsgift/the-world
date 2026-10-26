@@ -69,3 +69,8 @@ body.warden-fight #wemb{display:none!important}
 #wshrine .su small.af{color:#9fd39f}
 #wshrine .su>.bt{flex:none;min-width:92px}
 #wshrine .su .bt button{width:100%!important}
+
+/* fight Jump + Shadow (afterimage) buttons: left of Dodge / Heavy */
+#wc #wJump{right:calc(var(--R0,24px) + (var(--J,88px) + var(--g,8px))*2);bottom:calc(var(--B0,52px) + 8px);width:var(--F,70px);height:var(--F,70px)}
+#wc #wShadow{right:calc(var(--R0,24px) + (var(--J,88px) + var(--g,8px))*2);bottom:calc(var(--B0,52px) + 8px + var(--F,70px) + var(--g,8px));width:var(--F,70px);height:var(--F,70px);font-size:12px;border-color:#6fd6ff;color:#bfeaff}
+#wc #wShadow.cd{opacity:.45}
