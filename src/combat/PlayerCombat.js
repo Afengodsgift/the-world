@@ -26,7 +26,7 @@ const PlayerCombat=(()=>{
   const alive=()=>foes.filter(F=>F.f.act!=='dead'&&!F.ghost);
   function nearest(){let b=null,bd=1e9;const anyAw=foes.some(F=>F.f.act!=='dead'&&F.awake);for(const F of foes){if(F.f.act==='dead'||F.ghost||(anyAw&&!F.awake))continue;const d=Math.hypot(F.f.x-S.x,F.f.z-S.z);if(d<bd){bd=d;b=F}}return b}
   function target(){const L=lock&&foes[lockI];if(L&&L.f.act!=='dead')return L;return nearest()||foes[0]}
-  let vt=0,vl=0,tsc=1,ult=null;const now=()=>vt;   // sim clock in ms: runs at tsc x real time (bullet time in the Phantom Barrage)
+  let vt=0,vl=0,tsc=1,ult=null;const now=()=>vt,stamp=ts=>Barrage.stamp(ts,vl,vt,tsc);   // sim clock in ms: runs at tsc x real time (bullet time in the Phantom Barrage)
   function heading(){const dx=D.x-S.x,dz=D.z-S.z;return Math.atan2(dx,dz)}
   function stickDir(){   // world-space direction of the current stick/keys input, or null
     let ix=typeof stickV!=='undefined'?stickV.x:0,iy=typeof stickV!=='undefined'?stickV.y:0;
@@ -250,12 +250,12 @@ const PlayerCombat=(()=>{
   const KEY={Digit1:'ihp',Digit2:'ist',Digit3:'imt',KeyE:'flow',KeyF:'light',KeyG:'heavy',KeyQ:'guard',Space:'dodge',Tab:'lock'};
   function onKey(e){
     if(!on||e.target&&e.target.tagName==='INPUT')return;const n=KEY[e.code];
-    if(e.type==='keydown'){if(n){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)press(n,e.timeStamp-t0)}else if(e.code==='KeyB'){e.stopImmediatePropagation()}}
-    else if(n){if(n==='heavy'||n==='guard')release(n,e.timeStamp-t0);e.stopImmediatePropagation()}}
+    if(e.type==='keydown'){if(n){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)press(n,stamp(e.timeStamp))}else if(e.code==='KeyB'){e.stopImmediatePropagation()}}
+    else if(n){if(n==='heavy'||n==='guard')release(n,stamp(e.timeStamp));e.stopImmediatePropagation()}}
   function bind(b,name){
     const holdy=name==='heavy'||name==='guard';
-    b.addEventListener('pointerdown',e=>{if(ptr[name]!==undefined)return;e.preventDefault();e.stopPropagation();ptr[name]=e.pointerId;try{b.setPointerCapture(e.pointerId)}catch(_){}b.classList.add('dn');press(name,e.timeStamp-t0)});
-    const up=e=>{if(ptr[name]!==e.pointerId)return;delete ptr[name];b.classList.remove('dn');if(holdy)release(name,e.timeStamp-t0);e.stopPropagation()};
+    b.addEventListener('pointerdown',e=>{if(ptr[name]!==undefined)return;e.preventDefault();e.stopPropagation();ptr[name]=e.pointerId;try{b.setPointerCapture(e.pointerId)}catch(_){}b.classList.add('dn');press(name,stamp(e.timeStamp))});
+    const up=e=>{if(ptr[name]!==e.pointerId)return;delete ptr[name];b.classList.remove('dn');if(holdy)release(name,stamp(e.timeStamp));e.stopPropagation()};
     b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('lostpointercapture',up);
     b.addEventListener('contextmenu',e=>e.preventDefault())}
   // ---------- DOM (built once) ----------
@@ -315,11 +315,16 @@ const PlayerCombat=(()=>{
       b.u.mixer=new THREE.AnimationMixer(gl.scene);b.u.bones=bones;b.u.model=gl.scene;b.ready=true;if(b.fb)b.fb.visible=false}).catch(e=>{b.err=String(e&&e.message||e);netWarn(b.err);placeholder(b,T);setTimeout(()=>{if(!b.ready){b.err=null;glbLoad(b,T,n+1)}},Math.min(8000,1500*(n+1)))})}
   // while a model is still downloading (or keeps failing) the foe is a plain capsule figure, so you can always see what you are fighting
   function placeholder(b,T){if(b.fb||b.ready||typeof makeAvatar!=='function')return;try{const a=makeAvatar(T.name,T.boss?'#5a1c1c':'#6a3a2a');for(const c of a.children.slice())if(c.isSprite)a.remove(c);a.scale.setScalar(T.scale||1);b.fb=a;b.g.add(a)}catch(e){}}
-  function body(T,v){
+  // a copy of an already-loaded model (Phantom Barrage clones): shares the geometry/textures, has its own skeleton + mixer, and needs no second download (that download was what left a capsule placeholder on them)
+  function cloneBody(b,from){
+    const cm=THREE.SkeletonUtils.clone(from.u.model),m=new THREE.Group(),bones={};m.scale.setScalar(.01);m.add(cm);b.g.add(m);
+    cm.traverse(o=>{if(o.isBone){bones[o.name.replace('mixamorig','')]=o;for(const c of o.children.slice())if(!c.isBone)o.remove(c)}if(o.isSkinnedMesh){o.frustumCulled=false;o.castShadow=true}});   // weapon/shield groups on the source's bones are dropped: styleBody attaches this body's own
+    b.u.mixer=new THREE.AnimationMixer(cm);b.u.bones=bones;b.u.model=cm;b.ready=true}
+  function body(T,v,from){
     const key=T.id+(T.files?':'+(v%T.files.length):''),L=pool[key]||(pool[key]=[]),f=L.find(b=>!b.used);if(f){f.used=true;f.g.visible=true;if(!f.ready&&f.T.body!=='avatar'&&!f.err)glbLoad(f,f.T,0);return f}
     const b={T,used:true,anims:{},sword:null,shield:null,styled:false,ready:false,flashOn:false,file:T.files?T.files[v%T.files.length]:T.file};
     if(T.body==='avatar'){const g=makeAvatar(T.name,'#3a2a2a');for(const c of g.children.slice())if(c.isSprite)g.remove(c);scene.add(g);dress(g,T.dress||0);b.g=g;b.u=g.userData;b.ready=true}
-    else{const g=new THREE.Group();g.name=T.name;scene.add(g);b.g=g;b.u=g.userData;b.u.mixer=null;b.u.bones={};glbLoad(b,T)}
+    else{const g=new THREE.Group();g.name=T.name;scene.add(g);b.g=g;b.u=g.userData;b.u.mixer=null;b.u.bones={};let ok=false;if(from&&from.ready&&from.u.model&&THREE.SkeletonUtils)try{cloneBody(b,from);ok=true}catch(e){}if(!ok)glbLoad(b,T)}
     L.push(b);return b}
   function freeBody(b){b.used=false;b.g.visible=false;if(b.anims)for(const k in b.anims)b.anims[k].off();for(const k of['sword','shield'])if(b[k]){const o=b[k].grip||b[k];if(o)o.visible=false}}
   // ---------- fight lifecycle ----------
@@ -403,30 +408,71 @@ const PlayerCombat=(()=>{
     return barEl}
   const bq=s=>barEl&&barEl.querySelector(s);
   function addGhost(B,k,x,z){
-    const T=Object.assign({},B.T,{boss:false,ghost:true,name:'Phantom',ph2:'',sa:false,aggro:undefined,barrage:false}),id=k?'y':'x';
+    const T=Object.assign({},B.T,{id:B.T.id+'~ph',boss:false,ghost:true,name:'Phantom',ph2:'',sa:false,aggro:undefined,barrage:false}),id=k?'y':'x';   // own pool key: the tinted bodies never come back as a real foe
     const f=C.F[id]=CombatCore.mkFighter(id,{x,z,face:0,hp:99999,team:'e',dm:1,rm:T.rm||1,pg:0});if(!C.order.includes(id))C.order.push(id);f.r=T.r;f.spd=T.spd||1.3;
-    const b=body(T,k+1);b.g.scale.setScalar(T.scale);b.g.position.set(x,H(x,z),z);
+    const b=body(T,k+1,B.body);b.g.scale.setScalar(T.scale);b.g.position.set(x,H(x,z),z);
     const F={i:foes.length,id,T,f,body:b,human:false,ai:DuelistAI.create(77+k,{foe:T.ai,intro:0}),loco:{x:0,z:0,vf:0,vs:0,sp:0,init:false},flash:0,awake:true,late:false,dorm:null,dormSync:null,wakeT:0,ph2:false,home:{x,z},ghost:true,script:true,gt:0};
     foes.push(F);byId[id]=F;return F}
   function rmGhost(F){delete C.F[F.id];const k=C.order.indexOf(F.id);if(k>=0)C.order.splice(k,1);freeBody(F.body);const j=foes.indexOf(F);if(j>=0)foes.splice(j,1);delete byId[F.id];foes.forEach((q,n)=>{q.i=n})}
   function ghostLook(F){   // violet, see-through: cloned materials so the real boss is untouched
     if(F.gt>2||!F.body.g)return;F.gt+=.01;let n=0;F.body.g.traverse(o=>{if(o.isMesh&&o.material&&!o.userData.gh){o.userData.gh=1;n++;const m=[].concat(o.material).map(q=>{const c=q.clone();c.transparent=true;c.opacity=.58;c.depthWrite=false;if(c.color)c.color.lerp(new THREE.Color(0x7a3cff),.55);if(c.emissive)c.emissive.setHex(0x3a1088);return c});o.material=Array.isArray(o.material)?m:m[0]}});if(n)F.gt=3}
+  // ---- Barrage camera: driven by the fight's phase, not a fixed timeline, so it always shows you + the boss + both clones, then hands back to the normal rig ----
+  // Behind-and-above you, looking along the lunge so the three attack lines converge on you; it eases in (from wherever the gameplay camera was), pushes in as the dodge window nears, shakes on impact,
+  // and pulls back at the end (CineCam then blends the last 0.5 s into the normal camera).
+  let bc=null,lanes=null;
+  const cl=(v,a,b)=>Math.max(a,Math.min(b,v)),mixn=(a,b,u)=>a+(b-a)*u;
+  function barLanes(on){   // three ground strips from each attacker to you: the attack directions, red-hot when the dodge window opens
+    if(!on){if(lanes){for(const l of lanes)scene.remove(l);lanes.forEach(l=>{l.material.dispose()});lanes=null}return}
+    if(lanes)return;if(!THREE.PlaneGeometry)return;const geo=barLanes.g||(barLanes.g=new THREE.PlaneGeometry(1,1));lanes=[];
+    for(let k=0;k<3;k++){const m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:0xc08aff,transparent:true,opacity:0,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,fog:false,side:THREE.DoubleSide}));m.rotation.order='YXZ';m.renderOrder=7;m.frustumCulled=false;m.visible=false;scene.add(m);lanes.push(m)}}
+  function lanesTick(tk,ph){
+    if(!lanes||!ult)return;const n=ult.all.length;
+    for(let k=0;k<3;k++){const l=lanes[k],F=ult.all[k];if(!F||k>=n||ph==='out'){l.visible=false;continue}
+      const dx=S.x-F.f.x,dz=S.z-F.f.z,L=Math.hypot(dx,dz);if(L<.3){l.visible=false;continue}
+      l.visible=true;l.position.set(F.f.x+dx/2,H(S.x,S.z)+.14,F.f.z+dz/2);l.rotation.set(-Math.PI/2,0,0);l.rotation.y=Math.atan2(dx,dz);l.scale.set(.75,L,1);
+      const hot=cl((tk-4)/18,0,1),go=Barrage.inWindow(tk);l.material.color.setHex(go?0xffe27a:hot>.6?0xff3a3a:0xc08aff);l.material.opacity=ph==='pop'?.5:(.35+.3*hot)*(go?1:.85+.15*Math.sin(performance.now()/60))}}
+  function barCam(){
+    const U=ult,rn=performance.now();
+    if(!bc){bc={t:rn,p:camera.position.clone(),l:camera.position.clone().add(new THREE.Vector3(0,0,-8).applyQuaternion(camera.quaternion)),fov:camera.fov,sh:0,hits:0,res:null,lastP:{x:S.x,z:S.z}}}
+    const dt=cl((rn-bc.t)/1000,0,.1);bc.t=rn;
+    let px=S.x,pz=S.z,cx=px,cz=pz,fov=bc.fov,d=6.2,h=2.8,side=.45,look=.45,ly=1.25,kp=5,kl=7;
+    if(U){
+      let ax=0,az=0;for(const F of U.all){ax+=F.f.x;az+=F.f.z}ax/=U.all.length;az/=U.all.length;bc.ax=ax;bc.az=az;
+      const tk=U.ph==='wind'?C.tick-U.T0:0;bc.hits=U.hits;
+      if(U.ph==='pop'){const u=cl(U.t/Barrage.POP,0,1);d=mixn(7.6,6.8,u);h=3.2;side=.7;look=.5;fov=mixn(64,60,u);kp=3.2;kl=5}
+      else if(U.ph==='wind'){const u=cl(tk/22,0,1),e=u*u*(3-2*u);d=mixn(6.8,5.6,e);h=mixn(3.2,2.5,e);side=mixn(.7,.5,e);look=mixn(.5,.3,e);ly=mixn(1.25,1.4,e);fov=mixn(60,54,e);kp=6;kl=9}
+      else{const u=cl(U.t2/.9,0,1);d=mixn(5.6,7.4,u);h=mixn(2.5,3.0,u);side=mixn(.5,.4,u);look=.45;fov=mixn(54,62,u);kp=4}
+      if(U.res&&bc.res!==U.res){bc.res=U.res;bc.sh=U.res==='perfect'?.55:1}
+      const tk2=tk;try{lanesTick(tk2,U.ph)}catch(e){}
+      cx=mixn(px,ax,look);cz=mixn(pz,az,look);
+      // behind you, along the line from the attackers through you, swung a little to one side
+      const aw=Math.atan2(px-ax,pz-az)+side;px=S.x+Math.sin(aw)*d;pz=S.z+Math.cos(aw)*d}
+    else{px=bc.p.x;pz=bc.p.z;kp=0;kl=0}   // barrage over, shot held while CineCam blends back to the rig
+    const A=C&&C.arena;if(A){const ex=px-A.x,ez=pz-A.z,r=Math.hypot(ex,ez),lim=A.R-.5;if(r>lim){px=A.x+ex/r*lim;pz=A.z+ez/r*lim}}   // never outside the ring / behind the walls
+    const gy=H(px,pz),py=Math.max(gy+h,gy+.7);
+    const kP=1-Math.exp(-dt*kp),kL=1-Math.exp(-dt*kl);
+    bc.p.x+=(px-bc.p.x)*kP;bc.p.y+=(py-bc.p.y)*kP;bc.p.z+=(pz-bc.p.z)*kP;
+    bc.l.x+=(cx-bc.l.x)*kL;bc.l.y+=(H(cx,cz)+ly-bc.l.y)*kL;bc.l.z+=(cz-bc.l.z)*kL;bc.fov+=(fov-bc.fov)*(1-Math.exp(-dt*5));
+    bc.sh*=Math.exp(-dt*5);const q=bc.sh*.22,tt=rn/1000;
+    return{px:bc.p.x+Math.sin(tt*61)*q,py:bc.p.y+Math.sin(tt*47+1)*q,pz:bc.p.z+Math.cos(tt*53)*q,lx:bc.l.x,ly:bc.l.y,lz:bc.l.z,fov:bc.fov}}
   function startBarrage(B){
     const A=C.arena,ring=Math.min(2.9,A.R*.3),a0=Math.atan2(B.f.x-S.x,B.f.z-S.z);
+    killDecoy(true);   // an afterimage would pull the phantoms' aim and clutter the shot
     ult={B,t:0,ph:'pop',hits:0,dodged:0,T0:0,all:[B],t2:0,res:null};
     S.x=P.x=A.x;S.z=P.z=A.z;lx=S.x;lz=S.z;S.rot=P.face=a0;pendFace=null;lock=false;try{el.querySelector('#wLock').classList.remove('on')}catch(e){}
     const put=(F,a)=>{F.f.x=A.x+Math.sin(a)*ring;F.f.z=A.z+Math.cos(a)*ring;F.f.face=Math.atan2(A.x-F.f.x,A.z-F.f.z);F.f.vx=F.f.vz=0};
     put(B,a0);ult.all.push(addGhost(B,0,0,0),addGhost(B,1,0,0));put(ult.all[1],a0+.95);put(ult.all[2],a0-.95);
     for(const F of ult.all){F.script=true;F.body.g.position.set(F.f.x,H(F.f.x,F.f.z),F.f.z)}
     tsc=.5;barUI().style.display='block';barEl.classList.add('on');bq('.tx').classList.remove('on');
-    try{const a=a0+Math.PI,PR=CineCam.PRESETS;PR.barrage={dur:12,freeze:false,noskip:true,shots:[{t0:0,t1:1.5,a0:a-.5,a1:a,d0:8.6,d1:6.4,h0:.8,h1:.95,f0:66,f1:58,l0:.42,l1:.5},{t0:1.5,t1:12,a0:a,a1:a+.45,d0:6.4,d1:5.4,h0:.95,h1:.8,f0:58,f1:52,l0:.5,l1:.5}]};
-      CineCam.play('barrage',{x:()=>S.x,z:()=>S.z,h:2.4,sc:1},{force:true})}catch(e){}
+    try{CineCam.PRESETS.barrage={dur:14,freeze:false,noskip:true,shots:[]};bc=null;barLanes(true);
+      CineCam.play('barrage',{x:()=>S.x,z:()=>S.z,h:2.4,sc:1,drive:barCam},{force:true})}catch(e){}
     try{tone(70,38,1.0,'sawtooth',.14);WardenSfx.play('vo_sudden_death',.7,.8,{nojit:1})}catch(e){}
     msg('PHANTOM BARRAGE',1.4)}
   function endBarrage(){
     if(!ult)return;const U=ult;ult=null;tsc=1;
     for(const F of U.all){if(F.ghost){try{WardenVfx.burst(F.f.x,H(F.f.x,F.f.z)+1.2,F.f.z,1)}catch(e){}rmGhost(F)}else{F.script=false;F.ai.cool=Math.max(F.ai.cool||0,70)}}
     try{CineCam.skip()}catch(e){}
+    barLanes(false);
     if(barEl){barEl.classList.remove('on');barEl.style.display='none';bq('.tx').classList.remove('on');bq('.rr').classList.remove('on');for(const q of barEl.querySelectorAll('.rg'))q.style.opacity=0}
     try{el.querySelector('#wDodge').classList.remove('pulse')}catch(e){}}
   function barrageTick(dt){
@@ -468,10 +514,22 @@ const PlayerCombat=(()=>{
     if(!on||ult||P.act==='dead'||jumpCd>0||!S.grounded||S.flying||P.st<10)return false;
     if(P.act==='attack'||P.act==='stun'||P.act==='dodge')return false;P.st-=10;jumpCd=.9;jumpQ=true;return true}
   // an afterimage: a team-'p' fighter (foes aim at it) + a translucent cyan avatar. id 'Z' = yours, 'Y' = your partner's (sent over the net so both of you see it and the foes hitting it)
+  // The afterimage is a copy of YOUR model (same skin and skeleton), frozen in an idle pose and tinted cyan. It used to be the generic capsule avatar (dress() never ran on it): that was the "placeholder" look.
+  // SkeletonUtils.clone shares the geometry, so it costs next to nothing; if the player model is not available the capsule is the fallback.
+  function tintGhost(root,hex,em,op){root.traverse(o=>{if(o.isMesh&&o.material&&!o.userData.gh){o.userData.gh=1;const m=[].concat(o.material).map(q=>{const c=q.clone();c.transparent=true;c.opacity=op;c.depthWrite=false;if(c.color)c.color.lerp(new THREE.Color(hex),.8);if(c.emissive)c.emissive.setHex(em);if('emissiveIntensity' in c)c.emissiveIntensity=1.4;return c});o.material=Array.isArray(o.material)?m:m[0]}})}
+  function decoyBody(){
+    const u=me&&me.userData;
+    if(u&&u.model&&THREE.SkeletonUtils)try{
+      const g=new THREE.Group(),cm=THREE.SkeletonUtils.clone(u.model);cm.traverse(o=>{if(o.isSkinnedMesh){o.frustumCulled=false;o.castShadow=false}});
+      cm.traverse(o=>{if(o.isBone)for(const c of o.children.slice())if(!c.isBone)o.remove(c)});   // sword/pan/rod groups hang off bones: not part of the afterimage
+      g.add(cm);tintGhost(g,0x6fd6ff,0x2aa0ff,.72);
+      const mx=new THREE.AnimationMixer(cm),src=((u.nact||u.act||{}).idle),clip=src&&src.getClip&&src.getClip();
+      if(clip){const a=mx.clipAction(clip);a.play();mx.update(.05)}
+      g.userData.mx=mx;return g}catch(e){}
+    const g=makeAvatar('','#6fd6ff');for(const c of g.children.slice())if(c.isSprite)g.remove(c);tintGhost(g,0x6fd6ff,0x2aa0ff,.72);return g}
   function mkDecoy(id,x0,z0,fc,life){
     const Z=C.F[id]=CombatCore.mkFighter(id,{x:x0,z:z0,face:fc,hp:99999,team:'p'});if(!C.order.includes(id))C.order.push(id);Z.r=.45;
-    const g=makeAvatar('','#6fd6ff');for(const c of g.children.slice())if(c.isSprite)g.remove(c);scene.add(g);
-    g.traverse(o=>{if(o.isMesh&&o.material){const m=[].concat(o.material).map(q=>{const c=q.clone();c.transparent=true;c.opacity=.72;c.depthWrite=false;if(c.color)c.color.lerp(new THREE.Color(0x6fd6ff),.8);if(c.emissive)c.emissive.setHex(0x2aa0ff);if('emissiveIntensity' in c)c.emissiveIntensity=1.4;return c});o.material=Array.isArray(o.material)?m:m[0]}});
+    const g=decoyBody();scene.add(g);
     {const rm=new THREE.MeshBasicMaterial({color:0x6fd6ff,transparent:true,opacity:.9,depthTest:false,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide}),rg=new THREE.Mesh(new THREE.RingGeometry(.7,.9,28),rm);rg.rotation.x=-Math.PI/2;rg.position.y=.06;rg.renderOrder=996;g.add(rg)}
     g.position.set(x0,H(x0,z0),z0);g.rotation.y=fc;return{id,t:life,g,hits:0}}
   function shadowStep(){
@@ -488,12 +546,12 @@ const PlayerCombat=(()=>{
     try{WardenVfx.spawn(p.x,H(p.x,p.z)+1,p.z,2,4,3,-(p.f||0)+Math.PI/2,30);if(p.sx!==undefined)WardenVfx.spawn(p.sx,H(p.sx,p.sz)+1,p.sz,2,4,3,-(p.f||0)+Math.PI/2,30)}catch(e){}}
   function killDecoy(quiet,which){
     for(const w of which?[which]:['Z','Y']){const d=w==='Z'?decoy:rdecoy;if(!d)continue;
-      if(d.g&&d.g.parent)d.g.parent.remove(d.g);
+      if(d.g&&d.g.parent)d.g.parent.remove(d.g);if(d.g)d.g.traverse(o=>{if(o.userData&&o.userData.gh&&o.material)for(const m of [].concat(o.material))m.dispose()});
       if(C&&C.F[w]){if(!quiet)try{WardenVfx.burst(C.F[w].x,H(C.F[w].x,C.F[w].z)+1.1,C.F[w].z,2)}catch(e){}delete C.F[w];const k=C.order.indexOf(w);if(k>=0)C.order.splice(k,1)}
       if(w==='Z')decoy=null;else rdecoy=null}}
   function decoyTick(d,w,dt){
     if(!d)return;d.t-=dt;const Z=C.F[w];if(!Z||d.t<=0||d.hits>=2){killDecoy(false,w);return}
-    d.g.position.set(Z.x,H(Z.x,Z.z),Z.z);d.g.rotation.y=Z.face;d.g.visible=d.t>1.2||Math.floor(d.t*10)%2===0}
+    if(d.g.userData.mx)d.g.userData.mx.update(dt);d.g.position.set(Z.x,H(Z.x,Z.z),Z.z);d.g.rotation.y=Z.face;d.g.visible=d.t>1.2||Math.floor(d.t*10)%2===0}
   function fightMoveTick(dt){
     if(jumpCd>0)jumpCd-=dt;if(shCd>0)shCd-=dt;
     // height above the floor you stand on (the baseline follows the ground; jumping raises P.y, which the hit test uses)
@@ -641,4 +699,4 @@ const PlayerCombat=(()=>{
       if(WardenGear.full()){const v=WardenGear.sellValue(it);PG.earn(v);line+=' · pack full, sold a '+WardenGear.name(it)+' for '+v}else{WardenGear.add(it);line+=' · '+WardenGear.RAR[it.rar]+' '+WardenGear.name(it)}
       toast((label||'Chest')+': '+line,4.2);return it},toast:(t,s)=>toast(t,s),setSeq:v=>{if(pAnim)pAnim.variant=v},tick,speedMul,press,release,enter:()=>{},engage:id=>{const s=SITES().find(q=>q.id===id);if(s&&!on)engage(s)},leave:()=>leave(false),on:()=>on,site:()=>site,GRIP,setGrip:()=>{setGrip(sword);for(const F of foes)setGrip(F.body.sword)},newFight:()=>{if(on)startFight()},
     _flow:v=>{if(v!==undefined)flow=v;return[flow,flowOn,flowN]},
-    _foes:()=>foes,_rdecoy:()=>rdecoy?{t:rdecoy.t,hits:rdecoy.hits}:null,_netMsg:p=>netMsg(p),_decoy:()=>decoy?{t:+decoy.t.toFixed(1),hits:decoy.hits,vis:decoy.g.visible,par:!!decoy.g.parent,x:decoy.g.position.x,z:decoy.g.position.z,zf:C.F.Z?1:0,sc:decoy.g.scale.x,kids:decoy.g.children.length,meshes:(()=>{let n=0;decoy.g.traverse(o=>{if(o.isMesh)n++});return n})(),y:decoy.g.position.y}:null,_ult:()=>ult?{tk:C.tick-ult.T0,ph:ult.ph,t:+ult.t.toFixed(2),hits:ult.hits,dodged:ult.dodged,res:ult.res,tsc}:null,_t:()=>({DU,on,C,P,D,lock,sword,foes,site,AI:foes[0]&&foes[0].ai,state,cur,stW,down,pAnim,dAnim:foes[0]&&foes[0].anim,duel:foes[0]&&foes[0].body.g,dSword:foes[0]&&foes[0].body.sword,RT})})})();
+    _lanes:()=>lanes&&lanes.map(l=>({v:l.visible,o:+l.material.opacity.toFixed(2),x:+l.position.x.toFixed(1),y:+l.position.y.toFixed(1),z:+l.position.z.toFixed(1),sy:+l.scale.y.toFixed(1),ry:+l.rotation.y.toFixed(2),inScene:!!l.parent})),_foes:()=>foes,_rdecoy:()=>rdecoy?{t:rdecoy.t,hits:rdecoy.hits}:null,_netMsg:p=>netMsg(p),_decoy:()=>decoy?{t:+decoy.t.toFixed(1),hits:decoy.hits,vis:decoy.g.visible,par:!!decoy.g.parent,x:decoy.g.position.x,z:decoy.g.position.z,zf:C.F.Z?1:0,sc:decoy.g.scale.x,kids:decoy.g.children.length,meshes:(()=>{let n=0;decoy.g.traverse(o=>{if(o.isMesh)n++});return n})(),y:decoy.g.position.y}:null,_ult:()=>ult?{tk:C.tick-ult.T0,ph:ult.ph,t:+ult.t.toFixed(2),hits:ult.hits,dodged:ult.dodged,res:ult.res,tsc}:null,_t:()=>({DU,on,C,P,D,lock,sword,foes,site,AI:foes[0]&&foes[0].ai,state,cur,stW,down,pAnim,dAnim:foes[0]&&foes[0].anim,duel:foes[0]&&foes[0].body.g,dSword:foes[0]&&foes[0].body.sword,RT})})})();
