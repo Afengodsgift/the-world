@@ -37,4 +37,13 @@ const oldI=bullet(false),newI=bullet(true);
 ok(oldI.lag>1000,'OLD stamping: a tap in bullet time waited '+oldI.lag.toFixed(0)+' ms (the bug: it fired after the slow motion)');
 ok(newI.lag<150,'NEW stamping: the same tap starts the dodge within '+newI.lag.toFixed(0)+' ms of real time');
 ok(B.stamp(5000,0,100,.25)===100&&B.stamp(5016,5000,100,1)===116&&Math.abs(B.stamp(5100,5000,100,.25)-110)<1e-9&&B.stamp(9e9,5000,100,1)===100,'Barrage.stamp: before first frame = sim now, scales by speed, clamps odd time bases');
+// ---- co-op rules ----
+{const s=B.plan(false),c=B.plan(true);
+ok(s.roles==='hhh'&&c.roles==='hggh'&&c.off.length===4,'solo: 3 attackers on you; co-op: 4 attackers, two aimed at each player');
+ok(B.count(c.roles,'h')===2&&B.count(c.roles,'g')===2&&B.count(s.roles,'h')===3,'each player faces their own share of attackers');
+const sh=B.slot('h',0.7,true),sg=B.slot('g',0.7,true),s0=B.slot('h',.7,false);
+ok(Math.abs(Math.hypot(sh.dx-sg.dx,sh.dz-sg.dz)-3)<1e-9&&s0.dx===0&&s0.dz===0,'co-op players stand 3 m apart, perpendicular to the lunge; solo stands at the centre');
+ok(B.reward(true)*2===B.reward(false),'two perfect co-op dodges earn the full solo boss reward; one earns half');
+// each player is judged alone: damage budget per player is the same as solo (half max health) however many attackers aim at them
+const per=B.dmFor(100,100,22,2)*22*2,solo=B.dmFor(100,100,22,3)*22*3;ok(Math.abs(per-solo)<1e-9&&Math.abs(per-50)<1e-9,'a miss costs half of YOUR health in solo and in co-op');}
 console.log(bad?bad+' FAILED':'all ok');process.exit(bad?1:0)
