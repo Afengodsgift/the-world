@@ -22,4 +22,19 @@ const miss=run(null),good=run(B.SWEET),early=run(2),late=run(40);
 ok(miss.hits===3&&miss.hp<=52&&miss.hp>=48,'standing still: all 3 hit, health 100 -> '+miss.hp.toFixed(0)+' (about half)');
 ok(good.hits===0&&good.dodged>=1&&good.hp===100,'dodging at the sweet tick: no hits, no damage (dodged '+good.dodged+')');
 ok(late.hits>0,'a dodge that comes too late still gets hit (late '+late.hits+'); an early one just backs you out of reach ('+early.hits+' hits) - generous on a phone');
+// ---- input timing in bullet time (the "dodge fires after the cinematic" bug) ----
+// Model of the fight loop: the sim clock vt advances at tsc x real time; a tap is stamped by the browser in real time. Old: stamp = real time since fight start. New: Barrage.stamp.
+function bullet(useNew){
+  const C=CC.create({arena:{x:0,z:0,R:30}});C.add('P',{x:0,z:0,face:0,hp:100});const ST=CC.stepper(C,6);
+  let real=1000,vt=0,vl=real,tsc=1,fired=null,tapReal=null;const t0=1000;
+  for(let fr=0;fr<400;fr++){
+    real+=16.7;tsc=real<3000?1:real<6000?.25:1;               // 1 s normal, 3 s bullet time, then normal
+    if(real>=4000&&tapReal===null){tapReal=real-5;const ts=tapReal;ST.input('P',{t:'dodge',e:C.tick,dx:0,dz:-1},useNew?B.stamp(ts,vl,vt,tsc):ts-t0)}   // a tap 5 ms before this frame
+    vt+=Math.min(100,real-vl)*tsc;vl=real;
+    ST.advance(vt,null,null);if(fired===null&&C.F.P.act==='dodge')fired=real}
+  return{lag:fired===null?Infinity:fired-tapReal,vt}}
+const oldI=bullet(false),newI=bullet(true);
+ok(oldI.lag>1000,'OLD stamping: a tap in bullet time waited '+oldI.lag.toFixed(0)+' ms (the bug: it fired after the slow motion)');
+ok(newI.lag<150,'NEW stamping: the same tap starts the dodge within '+newI.lag.toFixed(0)+' ms of real time');
+ok(B.stamp(5000,0,100,.25)===100&&B.stamp(5016,5000,100,1)===116&&Math.abs(B.stamp(5100,5000,100,.25)-110)<1e-9&&B.stamp(9e9,5000,100,1)===100,'Barrage.stamp: before first frame = sim now, scales by speed, clamps odd time bases');
 console.log(bad?bad+' FAILED':'all ok');process.exit(bad?1:0)

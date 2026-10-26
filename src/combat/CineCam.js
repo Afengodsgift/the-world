@@ -36,14 +36,17 @@ const CineCam=(()=>{
     else{blend-=dt/.5;if(blend<=0){st='idle';blend=0;bar.style.display='none';sub=null;return}}
     // the rig's own pose for this frame (to blend back into)
     RIG.p.copy(camera.position);RIG.q.copy(camera.quaternion);RIG.f=camera.fov;
+    let fovT;
+    if(sub.drive){const D=sub.drive(dt);TMP.set(D.px,D.py,D.pz);LA.set(D.lx,D.ly,D.lz);M.lookAt(TMP,LA,UP);Q1.setFromRotationMatrix(M);fovT=D.fov}
+    else{
     const s=shot(),u=ease(clamp((Math.min(t,pre.dur)-s.t0)/Math.max(.01,s.t1-s.t0),0,1));
     const sx=typeof sub.x==='function'?sub.x():sub.x,sz=typeof sub.z==='function'?sub.z():sub.z,sh=sub.h||2,gy=H(sx,sz);
     const px=typeof S!=='undefined'?S.x:sx,pz=typeof S!=='undefined'?S.z:sz,base=Math.atan2(px-sx,pz-sz),a=base+mix(s.a0,s.a1,u),d=mix(s.d0,s.d1,u)*(sub.sc||1);
     TMP.set(sx+Math.sin(a)*d,gy+sh*mix(s.h0,s.h1,u),sz+Math.cos(a)*d);
     const cg=H(TMP.x,TMP.z)+.6;if(TMP.y<cg)TMP.y=cg;
-    LA.set(sx,gy+sh*mix(s.l0,s.l1,u),sz);M.lookAt(TMP,LA,UP);Q1.setFromRotationMatrix(M);
+    LA.set(sx,gy+sh*mix(s.l0,s.l1,u),sz);M.lookAt(TMP,LA,UP);Q1.setFromRotationMatrix(M);fovT=mix(s.f0,s.f1,u)}
     const w=st==='playing'?1:ease(clamp(blend,0,1));
     camera.position.lerpVectors(RIG.p,TMP,w);camera.quaternion.slerpQuaternions(RIG.q,Q1,w);
-    const f=mix(RIG.f,mix(s.f0,s.f1,u),w);if(Math.abs(camera.fov-f)>.05){camera.fov=f;camera.updateProjectionMatrix()}}
+    const f=mix(RIG.f,fovT,w);if(Math.abs(camera.fov-f)>.05){camera.fov=f;camera.updateProjectionMatrix()}}
   return{play,apply,skip:end,isActive:()=>st==='playing',busy:()=>st!=='idle',frozen:()=>st==='playing'&&!!pre.freeze,PRESETS:PRE,_seen:seen}})();
 if(typeof module!=='undefined')module.exports=CineCam;

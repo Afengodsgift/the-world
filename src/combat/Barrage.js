@@ -15,5 +15,9 @@ const Barrage=(()=>{
   // ring progress for the prompt: 0 = just appeared (big), 1 = the sweet spot (small); result of a tap at a given tick
   const ring=tk=>Math.min(1.4,Math.max(0,tk/SWEET));
   const inWindow=tk=>tk>=SWEET-6&&tk<=SWEET+7;     // the ring turns green here (matches the invulnerability overlap with the active ticks 24..29)
-  return{MOVE,SWEET,SCALE,POP,THRESH,dmFor,speed,stage,ring,inWindow}})();
+  // Input time stamps. The fight runs on its own clock (vt) that crawls at `tsc` x real time in bullet time. A tap is stamped by the browser in REAL time, so it must be converted into that clock:
+  // vt (where the sim is as of the last frame) + the real time since that frame x the current speed. Stamping with raw real time put every tap in the sim's future during slow motion, so it sat in
+  // the queue and fired when the clock caught up (and, as the lag never closes, every later tap was late too).
+  function stamp(ts,vl,vt,tsc){if(!vl||typeof ts!=='number')return vt;let d=ts-vl;if(!(d>-1000&&d<1000))d=0;return Math.max(0,vt+Math.max(-120,Math.min(40,d))*(tsc>0?tsc:1))}
+  return{stamp,MOVE,SWEET,SCALE,POP,THRESH,dmFor,speed,stage,ring,inWindow}})();
 if(typeof module!=='undefined')module.exports=Barrage;
