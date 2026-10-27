@@ -28,6 +28,13 @@ const WARDEN={
 };
 // the Ashen Catacombs (data/dungeon.js): its rooms are ordinary fight sites; its corridors are terrain pads (flat ground, no fight)
 if(typeof DUNGEON!=='undefined'){const G=DUNGEON.build();for(const s of G.sites)WARDEN.sites.push(s);WARDEN.pads=G.pads;WARDEN.dungeon=G}else WARDEN.pads=[];
+// What kind of place a site is, in plain words (used by the world map and the "you are near..." label). Pure.
+function WardenKind(s){
+  if(s.duel)return{icon:'⚔️',tag:'PvP duel arena'};
+  if(s.dg)return{icon:'💀',tag:'Catacomb room'};
+  if(s.wall)return{icon:'🏛️',tag:'Training court'};
+  if(s.fog)return{icon:'👑',tag:'Boss fight'};
+  return{icon:'⛺',tag:'Camp ('+s.foes.length+' soldiers)'}}
 // terrain height of the isle (blended into H() by the WARDEN block in index.html)
 function WardenH(wx,wz){
   const d=Math.hypot(wx,wz),R=WRD.R,base=Math.max(-12,(1-(d/R)**2)*4-.6),t=1-sstep(40,58,d);
