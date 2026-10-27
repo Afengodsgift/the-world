@@ -43,6 +43,9 @@ const Outlaw=(()=>{
     {n:'Bruiser',skin:2,hp:170,sp:4.4,range:12,dmg:20,cd:1.2,acc:.6,react:.4,sc:1.3}];   // 15: bull-rushes you, then is winded (BossBrain cycle)
   // 13: slow tell, one deadly shot, blinks behind you
   // 9: cloaked stalker, rattles then pounces, decoys, fakes his death (BossBrain)
+  // NEW BODIES (not the town avatar): KayKit CC0 characters via src/character/KitNPC.js. pose = which aiming clip; gun = weapon model index
+  Object.assign(TYPES[10],{kit:'Skeleton_Warrior',pose:'2H',gun:4});Object.assign(TYPES[11],{kit:'Mage',pose:'2H',gun:5});Object.assign(TYPES[12],{kit:'Knight',pose:'2H',gun:3});
+  Object.assign(TYPES[13],{kit:'Rogue_Hooded',pose:'1H',gun:0});Object.assign(TYPES[14],{kit:'Rogue',pose:'1H',gun:0});Object.assign(TYPES[15],{kit:'Barbarian',pose:'2H',gun:5});
   const BOSS=t=>t===3||t===7||t===8||t===9||(t>=10&&t<=13),OVL={3:'sheriff',7:'warlord',10:'undertaker',11:'vulture',12:'baron',13:'stranger',14:'duelist',15:'bruiser'};
   const COL=['#c05030','#c05030','#8050c0','#ff3030','#e0a020','#c05030','#30c060','#ff3030','#d4a020','#7a8a3a','#5a5a6a','#a040c0','#2a6a8a','#303030','#c0c0d0','#a06030'];
   const COIN=[10,18,22,150,20,18,16,300,450,400,500,450,550,600,45,40];
@@ -381,8 +384,20 @@ const Outlaw=(()=>{
   function respawn(){hp=maxHp();down=false;OutlawItems.reset();me.userData.gdn=null;S.x=C.x+(Math.random()-.5)*4;S.z=C.z+14;S.y=H(S.x,S.z)+.1;S.vy=0;send({k:'dn',v:0});updateHud()}
 
   // ---------- NPC visuals ----------
+  function spawnKit(n,T){
+    const g=new THREE.Group();g.userData.nm=T.n;g.userData.isKit=true;g.userData.gunI=T.gun;g.scale.setScalar(T.sc);scene.add(g);
+    const bar=new THREE.Group(),bg=new THREE.Mesh(new THREE.PlaneGeometry(1.2,.14),new THREE.MeshBasicMaterial({color:'#000',depthTest:false,transparent:true,opacity:.6})),
+      fg=new THREE.Mesh(new THREE.PlaneGeometry(1.2,.14),new THREE.MeshBasicMaterial({color:'#ff4040',depthTest:false}));
+    fg.position.z=.01;bar.add(bg,fg);bar.position.y=2.5;bar.renderOrder=9;g.add(bar);
+    const laser=new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,1,6).rotateX(Math.PI/2),new THREE.MeshBasicMaterial({color:'#ff2020'}));laser.visible=false;scene.add(laser);
+    n.group=g;n.bar=bar;n.fg=fg;n.laser=laser;
+    KitNPC.make(T.kit,{h:1.8,pose:T.pose}).then(async inst=>{if(n.removed||!npcs.has(n.id))return;g.add(inst.root);g.userData.kit=inst;
+      const src=await loadGun(T.gun);if(src&&!n.removed){const piv=new THREE.Group(),m=src.clone(true);m.rotation.y=Math.PI;m.scale.setScalar(WEAPONS[T.gun].len*KITGUN.k/inst.root.scale.x);m.traverse(c=>{if(c.isMesh)c.castShadow=true});piv.add(m);
+        piv.rotation.set(KITGUN.rx,KITGUN.ry,KITGUN.rz);piv.position.set(KITGUN.x,KITGUN.y,KITGUN.z);piv.userData.ok=true;g.userData.gun=piv;g.userData.gunLen=WEAPONS[T.gun].len;KitNPC.attach(inst,piv)}}).catch(e=>console.warn('kit npc',e))}
+  const KITGUN={rx:0,ry:-Math.PI/2,rz:0,x:0,y:0,z:0,k:1.5};   // gun pivot pose inside the rig's right hand slot
   function spawnVisual(n){
-    const T=TYPES[n.type],g=makeAvatar(T.n,COL[n.type]);g.userData.nm=T.n;g.userData.noTwist=true;g.scale.setScalar(T.sc);scene.add(g);dress(g,T.skin);
+    const T=TYPES[n.type];if(T.kit)return spawnKit(n,T);
+    const g=makeAvatar(T.n,COL[n.type]);g.userData.nm=T.n;g.userData.noTwist=true;g.scale.setScalar(T.sc);scene.add(g);dress(g,T.skin);
     const bar=new THREE.Group(),bg=new THREE.Mesh(new THREE.PlaneGeometry(1.2,.14),new THREE.MeshBasicMaterial({color:'#000',depthTest:false,transparent:true,opacity:.6})),
       fg=new THREE.Mesh(new THREE.PlaneGeometry(1.2,.14),new THREE.MeshBasicMaterial({color:'#ff4040',depthTest:false}));
     fg.position.z=.01;bar.add(bg,fg);bar.position.y=2.5;bar.renderOrder=9;g.add(bar);
@@ -390,7 +405,7 @@ const Outlaw=(()=>{
     n.group=g;n.bar=bar;n.fg=fg;n.laser=laser;
     setGun(g,[0,14,5,3,-1,4,-1,3,14,0,4,5,3,0,0,-1][n.type]); // bandit revolver, THE HEAVY a minigun, sniper rifle, boss assault rifle (dynamiter and medic stay bare-handed)
   }
-  function removeVisual(n){if(n.group){scene.remove(n.group)}if(n.laser)scene.remove(n.laser)}
+  function removeVisual(n){n.removed=true;if(n.group){scene.remove(n.group)}if(n.laser)scene.remove(n.laser)}
 
   // ---------- HOST: AI ----------
   function players(){
@@ -658,6 +673,8 @@ const Outlaw=(()=>{
       if(!n.dead){if(n._hp!==undefined&&n.hp<n._hp-.5){const ty=TYPES[n.type];try{BattleFX.hit(p.x,p.y+1.1*ty.sc,p.z)}catch(e){}if(!BOSS(n.type)&&n.type!==1&&clock-(n._fl||0)>450){n._fl=clock;g.userData.hitReq=1}}n._hp=n.hp}
       if(n.dead){
         n.dt=(n.dt||0)+dt;const q=g.userData;
+        if(q.isKit){if(!n.dying){n.dying=1;if(q.kit)KitNPC.die(q.kit,n.lastZone==='head')}if(q.kit)KitNPC.update(q.kit,dt,'dead',q);if(n.laser)n.laser.visible=false;if(n.bar)n.bar.visible=false;
+          if(n.dt>3.6)p.y-=(n.dt-3.6)*dt*.9;if(n.dt>5){removeVisual(n);npcs.delete(n.id)}continue}
         // DEATH STATE: stop fighting/moving, play the baked fall (Death01), lie there a few seconds, sink into the ground, then clean up. Falls back to the old tilt if the clip is missing.
         if(!n.dying){n.dying=1;let a=null,ts=1.1;
           if(q.mixer&&GunLoco.ready()){const pl=nearestPlayer(n.x,n.z),att=pl?GunLoco.wrap(Math.atan2(pl.x-n.x,pl.z-n.z)-g.rotation.y):0;   // the shot most likely came from the nearest player: fall away from it
@@ -677,7 +694,7 @@ const Outlaw=(()=>{
       n.lhp=n.hp;
       if(n.st==='run'){const dd=Math.hypot(n.x-S.x,n.z-S.z);if(dd<20){n.stepT=(n.stepT||0)-dt;if(n.stepT<=0){n.stepT=.32;sfxAt('step',n.x,n.z,.9)}}}   // you can hear them coming (and which side)
       if(n.type===9){const near=Math.hypot(n.x-S.x,n.z-S.z)<6||n.flash>0;g.visible=n.st!=='cloak'||near||(clock/140|0)%11===0;if(n.bar)n.bar.visible=g.visible}   // Jake's cloak: a flicker and a shimmer at distance, plain sight up close or when hit
-      animate(g,dt,n.st==='cloak'?'run':n.st==='aim'||n.st==='vent'?'idle':n.st);   // 'crouch' (behind cover) is handled by animateClips
+      if(g.userData.isKit){if(g.userData.kit)KitNPC.update(g.userData.kit,dt,n.st,g.userData)}else animate(g,dt,n.st==='cloak'?'run':n.st==='aim'||n.st==='vent'?'idle':n.st);   // 'crouch' (behind cover) is handled by animateClips
       n.fg.scale.x=Math.max(.001,n.hp/n.max);n.fg.position.x=-(1-n.fg.scale.x)*.6;n.bar.lookAt(camera.position);
       if(n.st==='aim'){const t=[...others.values()].map(o=>o.group.position).concat([{x:S.x,y:S.y,z:S.z}]).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];
         const dx=t.x-p.x,dz=t.z-p.z,L=Math.hypot(dx,dz);n.laser.visible=true;n.laser.scale.set(1,1,L);n.laser.position.set(p.x+dx/2,p.y+1.2,p.z+dz/2);n.laser.lookAt(t.x,p.y+1.2,t.z)}
@@ -842,5 +859,5 @@ const Outlaw=(()=>{
   function moveMul(){if(down)return 0;const im=OutlawItems.moveMul();if(wi<0||!C||S.flying||S.dv||S.state==='swim')return im;return (Math.hypot(S.x-C.x,S.z-C.z)<OUT.R?ARMED_SPEED:1)*im}
   Interaction.register('ow-start','Start Showdown',()=>C&&!active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>missionPanel());
   Interaction.register('ow-end','End Showdown',()=>C&&active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>{send({k:'end'});onMsg({k:'end'})});
-  return {earn,build,tick,idle:()=>!active&&!huntOn,onMsg,equip,fire,setGun,lockTarget,poseGun,loadGun,moveMul,ARMED_SPEED,_t:()=>({ST,cover,tracer,get lastShot(){return lastShot},dmgDir,get hp(){return hp},set hp(v){hp=v},get huntOn(){return huntOn},WEAPONS,get wave(){return wave},set wave(v){wave=v},get queueLen(){return queue.length},get nextWave(){return nextWave},damageNpc,cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
+  return {earn,build,tick,idle:()=>!active&&!huntOn,onMsg,equip,fire,setGun,lockTarget,poseGun,loadGun,moveMul,ARMED_SPEED,_t:()=>({damageNpc,KITGUN,ST,cover,tracer,get lastShot(){return lastShot},dmgDir,get hp(){return hp},set hp(v){hp=v},get huntOn(){return huntOn},WEAPONS,get wave(){return wave},set wave(v){wave=v},get queueLen(){return queue.length},get nextWave(){return nextWave},damageNpc,cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
 })();
