@@ -68,7 +68,10 @@ const PlayerCombat=(()=>{
   let baseDm=1,shrineEl=null,chipEl=null,chipKey='',mark=null,markT=0,toastEl=null,toastT=0;
   const flaskCap=k=>Math.min(9,FL[k].max+PG.stats().belt);
   let wst=WardenGear.stats();
-  function applyStats(){const duel=site&&site.duel,st=duel?{hp:100,st:100,dm:1,belt:0}:PG.stats();wst=WardenGear.stats();const hp=Math.round(st.hp*wst.hp);P.hpMax=hp;P.hp=hp;P.stMax=st.st;P.st=st.st;baseDm=st.dm*wst.dm;P.dm=baseDm;P.rm=wst.rm;P.sm=wst.sm;P.pm=wst.pm;P.dfl=wst.dfl+(duel&&DU.pair?3:0)}
+  let myStyle=(()=>{try{const v=localStorage.getItem('wstyle');return WardenStyle.valid(v)?v:WardenStyle.DEFAULT}catch(e){return WardenStyle.DEFAULT}})(),pStyle=WardenStyle.DEFAULT,sty=WardenStyle.get(myStyle);
+  const styId=()=>site&&site.duel?WardenStyle.DEFAULT:myStyle;   // duels ignore styles
+  function setStyle(id){if(!WardenStyle.valid(id))return false;myStyle=id;sty=WardenStyle.get(id);try{localStorage.setItem('wstyle',id)}catch(e){}if(on&&P)applyStats();try{if(NET.mode!=='solo')WardenNet.send({k:'sty',s:NET.site,y:id})}catch(e){}return true}
+  function applyStats(){const duel=site&&site.duel,st=duel?{hp:100,st:100,dm:1,belt:0}:PG.stats();wst=WardenGear.stats();sty=WardenStyle.get(styId());const m=WardenStyle.mix(wst,styId());wst=Object.assign({},wst,{flow:m.flow});const hp=Math.round(st.hp*m.hp);P.hpMax=hp;P.hp=hp;P.stMax=Math.round(st.st*(sty.st||1));P.st=P.stMax;baseDm=st.dm*m.dm;P.dm=baseDm;P.rm=wst.rm;P.sm=m.sm;P.pm=m.pm;P.dfl=m.dfl+(duel&&DU.pair?3:0);P.bk=sty.back||0}
   const pRole=()=>WardenGear.TYPES[WardenGear.equipped().ty].role||'player';
   function swapModel(){if(pAnim){try{pAnim.off()}catch(e){}pAnim=null}if(sword){sword.dead=true;try{if(sword.grip&&sword.hand)sword.hand.remove(sword.grip)}catch(e){}}sword=null;swordTried=false}
   function toast(t,sec){if(!toastEl){toastEl=document.createElement('div');toastEl.id='wtoast';document.body.appendChild(toastEl)}toastEl.textContent=t;toastEl.classList.add('on');toastT=sec||2.4}
@@ -94,9 +97,11 @@ const PlayerCombat=(()=>{
   function shrineHtml(){const S0=PG.S,p=PG.progress(),tw=PG.twist(S0.cycle);let h='<div class="sh"><b>Ember Shrine</b><button id="wshx">&times;</button></div>'+
       '<div class="sc">Cycle '+S0.cycle+(tw?' · '+tw:'')+' <span>'+p.n+'/'+p.of+' bosses felled</span></div>'+
       '<div class="se">🔥 <b>'+S0.embers+'</b> Embers'+(S0.lost?' <span>('+S0.lost.n+' lie where you fell)</span>':'')+'</div>'+
-      '<div class="stb">'+[['up','Upgrades'],['arm','Armory'],['shop','Merchant']].map(([k,n])=>'<button data-a="tab" data-k="'+k+'"'+(shTab===k?' class="on"':'')+'>'+n+'</button>').join('')+'</div>';
+      '<div class="stb">'+[['up','Upgrades'],['arm','Armory'],['sty','Style'],['shop','Merchant']].map(([k,n])=>'<button data-a="tab" data-k="'+k+'"'+(shTab===k?' class="on"':'')+'>'+n+'</button>').join('')+'</div>';
     if(shTab==='up'){for(const [k,d] of ups){const lv=S0.ups[k],c=PG.cost(k),mx=lv>=PG.MAXL[k];h+='<div class="su"><div><b>'+PG.NAMES[k]+'</b> <i>Lv '+lv+'/'+PG.MAXL[k]+'</i><small>'+d+'</small></div><button data-a="up" data-k="'+k+'"'+(mx||S0.embers<c?' disabled':'')+'>'+(mx?'MAX':c)+'</button></div>'}
       h+='<div class="sf">Resting here refills your flasks. Felling every boss ends the cycle: the isles grow stronger (foes ×'+(PG.cycleMul(S0.cycle+1).hp).toFixed(2)+' health) and every kill pays more Embers.</div>'}
+    else if(shTab==='sty'){h+='<div class="sf" style="margin:0 0 4px">How you fight. Duels ignore styles. In co-op each of you picks your own, and your partner sees yours.</div>';
+      for(const id of WardenStyle.IDS){const q=WardenStyle.get(id);h+='<div class="su"><div><b>'+q.icon+' '+q.n+'</b> <i>'+q.tag+'</i><small>'+esc(q.d)+'</small></div><button data-a="sty" data-k="'+id+'"'+(myStyle===id?' disabled':'')+'>'+(myStyle===id?'Chosen':'Choose')+'</button></div>'}}
     else if(shTab==='arm'){h+='<div class="sf" style="margin:0 0 4px">Pack '+GR.S.inv.length+'/'+GR.CAP+'. Bosses always drop a weapon; foes sometimes do.</div>';
       for(const it of GR.all()){const eq=GR.S.eq===it.id;h+=itemHtml(it,'<button data-a="eq" data-k="'+it.id+'"'+(eq?' disabled':'')+'>'+(eq?'Equipped':'Equip')+'</button>'+(it.id==='start'?'':'<button data-a="sell" data-k="'+it.id+'">Sell '+GR.sellValue(it)+'</button>'))}}
     else{h+='<div class="sf" style="margin:0 0 4px">The Wandering Merchant. Stock changes whenever a boss falls.</div>';
@@ -107,6 +112,7 @@ const PlayerCombat=(()=>{
   function shrineAct(a,k){
     if(a==='tab'){shTab=k;return true}
     if(a==='up')return PG.buy(k);
+    if(a==='sty')return setStyle(k);
     if(a==='eq'){if(GR.equip(k)){swapModel();return true}return false}
     if(a==='sell'){const v=GR.sell(k);if(v){PG.earn(v);swapModel();return true}return false}
     if(a==='buyf'){const c=FLP[k]&&FLP[k][1];if(!c||flasks[k]>=flaskCap(k)||!PG.spend(c))return false;flasks[k]++;saveFl();flaskUi();return true}
@@ -119,8 +125,14 @@ const PlayerCombat=(()=>{
       shrineEl.addEventListener('pointerdown',e=>e.stopPropagation())}
     for(const k in FL)flasks[k]=Math.max(flasks[k],[3,2,1][['hp','st','mt'].indexOf(k)]+PG.stats().belt);saveFl();flaskUi();
     shrineEl.innerHTML=shrineHtml();shrineEl.classList.add('on')}
+  let siteEl=null,siteKey='';
+  function siteLabel(wx,wz,near){   // "you are near ..." pill while walking the isle: so you always know which place is which
+    let b=null,bd=1e9;if(near)for(const q of WARDEN.sites){if(q.dg)continue;const d=Math.hypot(wx-q.x,wz-q.z)-q.R;if(d<bd){bd=d;b=q}}
+    const k=b&&bd<22&&typeof WardenKind==='function'?b.id+(rt(b)&&rt(b).cleared?'c':''):'';if(k===siteKey)return;siteKey=k;
+    if(!siteEl){if(!k)return;siteEl=document.createElement('div');siteEl.id='wsite';document.body.appendChild(siteEl)}
+    if(!k){siteEl.style.display='none';return}const kd=WardenKind(b);siteEl.style.display='block';siteEl.innerHTML=kd.icon+' <b>'+b.n+'</b> <span>'+kd.tag+(rt(b)&&rt(b).cleared?' · cleared':'')+'</span>'}
   function chipTick(wx,wz){   // the Embers chip: only while you are out on the Warden Isles and not fighting
-    const near=!on&&Math.hypot(wx,wz)<(WARDEN.wallR||37)+230&&!S.flying&&S.state!=='swim';
+    const near=!on&&Math.hypot(wx,wz)<(WARDEN.wallR||37)+230&&!S.flying&&S.state!=='swim';try{siteLabel(wx,wz,near)}catch(e){}
     if(!chipEl){if(!near)return;chipEl=document.createElement('button');chipEl.id='wemb';document.body.appendChild(chipEl);chipEl.addEventListener('pointerdown',e=>{e.stopPropagation()});chipEl.addEventListener('click',()=>{if(shrineEl&&shrineEl.classList.contains('on'))shrineEl.classList.remove('on');else shrineShow()})}
     const k=near+'|'+PG.S.embers+'|'+PG.S.cycle+'|'+(PG.S.lost?1:0);if(k===chipKey)return;chipKey=k;chipEl.style.display=near?'block':'none';
     chipEl.textContent='🔥 '+PG.S.embers+' · Cycle '+PG.S.cycle;if(!near&&shrineEl)shrineEl.classList.remove('on')}
@@ -141,13 +153,15 @@ const PlayerCombat=(()=>{
     if(!on||!site)return;
     if(p.k==='dc'){remoteDecoy(p);return}
     if(p.k==='sp'){spMsg(p);return}
+    if(p.k==='sty'){partnerStyle(p.y);return}
     if(p.k==='j'&&NET.mode==='host'&&p.s===site.id){netAddQ();msg('Your partner joins the fight',1.6)}
     else if(p.k==='l'&&p.s===NET.site){if(NET.mode==='host'){netDropQ();NET.joined=false;msg('Your partner left the fight',1.6)}else if(NET.mode==='guest'){netDropQ();netHost();msg('The host left: you lead the fight',1.8)}}
     else if(p.k==='h'&&NET.mode==='host'&&p.s===site.id&&(p.t0<NET.t0||p.t0===NET.t0&&p.from<(typeof myId!=='undefined'?myId:''))){netJoin()}}   // two hosts at once: the earlier fight wins, the other becomes its guest
-  const aiTarget=q=>{if(decoy&&decoy.t>0&&C.F.Z)return C.F.Z;if(rdecoy&&rdecoy.t>0&&C.F.Y)return C.F.Y;if(!Q||Q.act==='dead')return P;if(P.act==='dead')return Q;const dp=Math.hypot(P.x-q.x,P.z-q.z),dq=Math.hypot(Q.x-q.x,Q.z-q.z),cur=q._tg==='Q'?Q:P;const o=cur===P?Q:P,dc=cur===P?dp:dq,dO=cur===P?dq:dp;const pick=dO<dc-2?o:cur;q._tg=pick.id;return pick};
+  const aiTarget=q=>{if(decoy&&decoy.t>0&&C.F.Z)return C.F.Z;if(rdecoy&&rdecoy.t>0&&C.F.Y)return C.F.Y;if(!Q||Q.act==='dead')return P;if(P.act==='dead')return Q;const dp=Math.hypot(P.x-q.x,P.z-q.z)-WardenStyle.taunt(styId()),dq=Math.hypot(Q.x-q.x,Q.z-q.z)-WardenStyle.taunt(pStyle),cur=q._tg==='Q'?Q:P;const o=cur===P?Q:P,dc=cur===P?dp:dq,dO=cur===P?dq:dp;const pick=dO<dc-2?o:cur;q._tg=pick.id;return pick};
+  function partnerStyle(y){if(!WardenStyle.valid(y)||y===pStyle)return;pStyle=y;try{msg('Partner: '+WardenStyle.get(y).icon+' '+WardenStyle.get(y).n,1.8)}catch(e){}}
   function netApply(){   // consume the newest partner message (once)
-    if(NET.mode==='host'&&NET.rep&&Q){const r=NET.rep;NET.rep=null;WardenNet.apply(Q,r.p,Moves,1)}
-    else if(NET.mode==='guest'&&NET.snap){const sn=NET.snap;NET.snap=null;NET.gotSnap=performance.now();
+    if(NET.mode==='host'&&NET.rep&&Q){const r=NET.rep;NET.rep=null;partnerStyle(r.y);WardenNet.apply(Q,r.p,Moves,1)}
+    else if(NET.mode==='guest'&&NET.snap){const sn=NET.snap;NET.snap=null;partnerStyle(sn.y);NET.gotSnap=performance.now();
       for(const st of sn.st||[]){const F=byId[st.id];if(F&&F.f.act!=='dead')C.start(st.id,st.m,st.h)}
       for(const o of sn.f||[]){const F=byId[o.id];if(!F)continue;const f=F.f;
         if(o.act==='dead'){if(f.act!=='dead'){f.hp=0;f.act='dead';f.ph=null;f.mv=null;events([{t:'dead',a:'P',d:o.id}])}continue}
@@ -159,8 +173,8 @@ const PlayerCombat=(()=>{
     if(NET.mode==='solo'||!on)return;const nw=performance.now();
     if(NET.mode==='host'&&nw-helloAt>=1000){helloAt=nw;WardenNet.send({k:'h',s:site.id,t0:NET.t0})}
     if(nw-netSendT<66)return;netSendT=nw;
-    if(NET.mode==='host'&&Q){const f=foes.map(F=>Object.assign(WardenNet.pack(F.f),{id:F.id,mx:F.nin?F.nin.mx:0,mz:F.nin?F.nin.mz:0,aw:F.awake?1:0,p2:F.ai.ph2?1:0}));WardenNet.send({k:'s',f,p:WardenNet.pack(P),st:netStarts});netStarts=[]}
-    else if(NET.mode==='guest')WardenNet.send({k:'g',p:WardenNet.pack(P)});
+    if(NET.mode==='host'&&Q){const f=foes.map(F=>Object.assign(WardenNet.pack(F.f),{id:F.id,mx:F.nin?F.nin.mx:0,mz:F.nin?F.nin.mz:0,aw:F.awake?1:0,p2:F.ai.ph2?1:0}));WardenNet.send({k:'s',f,p:WardenNet.pack(P),st:netStarts,y:styId()});netStarts=[]}
+    else if(NET.mode==='guest')WardenNet.send({k:'g',p:WardenNet.pack(P),y:styId()});
     if(NET.mode==='guest'&&performance.now()-NET.gotSnap>3500){netDropQ();netHost();msg('Lost the host: you lead the fight',1.8)}}
   // the partner's avatar (the world's normal remote avatar) plays a roll / block / swing while the puppet does
   let qAct='';
@@ -363,7 +377,7 @@ const PlayerCombat=(()=>{
     site=s;fightN=0;const hh=WardenNet.hostFor(s.id);NET.joined=false;startFight();if(s.duel){}else if(hh)netJoin();else netHost();for(const F of foes)WardenMX.fetch(F.T.role).catch(()=>{});
     lx=S.x;lz=S.z;on=true;document.body.classList.add('warden-fight');ensureAvatars();if(sword&&sword.grip)sword.grip.visible=true;
     for(const F of foes)for(const k of['sword','shield'])if(F.body[k]){const o=F.body[k].grip||F.body[k];if(o)o.visible=true}
-    arenaRes(true);msg(s.n,2.2);try{if(s.fog)WardenIsles.fog(s.id,'sealed')}catch(e){}}
+    arenaRes(true);msg(s.n+(typeof WardenKind==='function'?' · '+WardenKind(s).tag:''),2.2);try{if(s.fog)WardenIsles.fog(s.id,'sealed')}catch(e){}}
   // Who am I fighting? With 2+ foes alive a ring + chevron marks the one your swings go to (red while it winds up an attack), and any OTHER foe that is mid-attack gets a small red ring at its feet.
   let tmk=null;const thr=[];
   function mkMat(c){return new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:.85,depthTest:false,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide})}
@@ -546,11 +560,11 @@ const PlayerCombat=(()=>{
   function shadowStep(){
     if(!on||ult||P.act==='dead'||shCd>0||P.st<20||P.act==='stun'||state!=='fight')return false;
     const d=stickDir()||[-Math.sin(S.rot),-Math.cos(S.rot)],x0=P.x,z0=P.z,fc=S.rot;
-    killDecoy(true);decoy=mkDecoy('Z',x0,z0,fc,4.5);
+    killDecoy(true);decoy=mkDecoy('Z',x0,z0,fc,sty.shLife);
     CombatCore.moveBy(C,P,d[0]*2.6,d[1]*2.6);S.x=P.x;S.z=P.z;lx=S.x;lz=S.z;
-    ST.input('P',{t:'dodge',e:C.tick,dx:d[0],dz:d[1]},now());P.st-=20;shCd=9;
+    ST.input('P',{t:'dodge',e:C.tick,dx:d[0],dz:d[1]},now());P.st-=20;shCd=9*sty.shCd;
     try{WardenVfx.spawn(x0,H(x0,z0)+1,z0,2,4,3,-fc+Math.PI/2,30);WardenVfx.spawn(P.x,H(P.x,P.z)+1,P.z,2,4,3,-fc+Math.PI/2,30);flash(.25,'rgba(120,210,255,.8)');tone(500,1400,.18,'triangle',.1)}catch(e){}
-    try{if(NET.mode!=='solo')WardenNet.send({k:'dc',s:site.id,x:+x0.toFixed(2),z:+z0.toFixed(2),f:+fc.toFixed(2),t:4.5,sx:+P.x.toFixed(2),sz:+P.z.toFixed(2)})}catch(e){}   // partner: afterimage here (+ where I blinked to, for the streak)
+    try{if(NET.mode!=='solo')WardenNet.send({k:'dc',s:site.id,x:+x0.toFixed(2),z:+z0.toFixed(2),f:+fc.toFixed(2),t:sty.shLife,sx:+P.x.toFixed(2),sz:+P.z.toFixed(2)})}catch(e){}   // partner: afterimage here (+ where I blinked to, for the streak)
     msg('AFTERIMAGE',.7);return true}
   function remoteDecoy(p){
     if(!on||!C||!site||p.s!==site.id)return;killDecoy(true,'Y');rdecoy=mkDecoy('Y',p.x,p.z,p.f||0,p.t||4.5);
@@ -710,4 +724,4 @@ const PlayerCombat=(()=>{
       if(WardenGear.full()){const v=WardenGear.sellValue(it);PG.earn(v);line+=' · pack full, sold a '+WardenGear.name(it)+' for '+v}else{WardenGear.add(it);line+=' · '+WardenGear.RAR[it.rar]+' '+WardenGear.name(it)}
       toast((label||'Chest')+': '+line,4.2);return it},toast:(t,s)=>toast(t,s),setSeq:v=>{if(pAnim)pAnim.variant=v},tick,speedMul,press,release,enter:()=>{},engage:id=>{const s=SITES().find(q=>q.id===id);if(s&&!on)engage(s)},leave:()=>leave(false),on:()=>on,site:()=>site,GRIP,setGrip:()=>{setGrip(sword);for(const F of foes)setGrip(F.body.sword)},newFight:()=>{if(on)startFight()},
     _flow:v=>{if(v!==undefined)flow=v;return[flow,flowOn,flowN]},
-    _lanes:()=>lanes&&lanes.map(l=>({v:l.visible,o:+l.material.opacity.toFixed(2),x:+l.position.x.toFixed(1),y:+l.position.y.toFixed(1),z:+l.position.z.toFixed(1),sy:+l.scale.y.toFixed(1),ry:+l.rotation.y.toFixed(2),inScene:!!l.parent})),_foes:()=>foes,_rdecoy:()=>rdecoy?{t:rdecoy.t,hits:rdecoy.hits}:null,_netMsg:p=>netMsg(p),_decoy:()=>decoy?{t:+decoy.t.toFixed(1),hits:decoy.hits,vis:decoy.g.visible,par:!!decoy.g.parent,x:decoy.g.position.x,z:decoy.g.position.z,zf:C.F.Z?1:0,sc:decoy.g.scale.x,kids:decoy.g.children.length,meshes:(()=>{let n=0;decoy.g.traverse(o=>{if(o.isMesh)n++});return n})(),y:decoy.g.position.y}:null,_ult:()=>ult?{tk:C.tick-ult.T0,ph:ult.ph,t:+ult.t.toFixed(2),hits:ult.hits,dodged:ult.dodged,res:ult.res,tsc}:null,_t:()=>({DU,on,C,P,D,lock,sword,foes,site,AI:foes[0]&&foes[0].ai,state,cur,stW,down,pAnim,dAnim:foes[0]&&foes[0].anim,duel:foes[0]&&foes[0].body.g,dSword:foes[0]&&foes[0].body.sword,RT})})})();
+    _lanes:()=>lanes&&lanes.map(l=>({v:l.visible,o:+l.material.opacity.toFixed(2),x:+l.position.x.toFixed(1),y:+l.position.y.toFixed(1),z:+l.position.z.toFixed(1),sy:+l.scale.y.toFixed(1),ry:+l.rotation.y.toFixed(2),inScene:!!l.parent})),_style:()=>({my:myStyle,partner:pStyle,hpMax:P&&P.hpMax,dfl:P&&P.dfl,bk:P&&P.bk}),setStyle,_foes:()=>foes,_rdecoy:()=>rdecoy?{t:rdecoy.t,hits:rdecoy.hits}:null,_netMsg:p=>netMsg(p),_decoy:()=>decoy?{t:+decoy.t.toFixed(1),hits:decoy.hits,vis:decoy.g.visible,par:!!decoy.g.parent,x:decoy.g.position.x,z:decoy.g.position.z,zf:C.F.Z?1:0,sc:decoy.g.scale.x,kids:decoy.g.children.length,meshes:(()=>{let n=0;decoy.g.traverse(o=>{if(o.isMesh)n++});return n})(),y:decoy.g.position.y}:null,_ult:()=>ult?{tk:C.tick-ult.T0,ph:ult.ph,t:+ult.t.toFixed(2),hits:ult.hits,dodged:ult.dodged,res:ult.res,tsc}:null,_t:()=>({DU,on,C,P,D,lock,sword,foes,site,AI:foes[0]&&foes[0].ai,state,cur,stW,down,pAnim,dAnim:foes[0]&&foes[0].anim,duel:foes[0]&&foes[0].body.g,dSword:foes[0]&&foes[0].body.sword,RT})})})();

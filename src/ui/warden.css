@@ -74,3 +74,5 @@ body.warden-fight #wemb{display:none!important}
 #wc #wJump{right:calc(var(--R0,24px) + (var(--J,88px) + var(--g,8px))*2);bottom:calc(var(--B0,52px) + 8px);width:var(--F,70px);height:var(--F,70px)}
 #wc #wShadow{right:calc(var(--R0,24px) + (var(--J,88px) + var(--g,8px))*2);bottom:calc(var(--B0,52px) + 8px + var(--F,70px) + var(--g,8px));width:var(--F,70px);height:var(--F,70px);font-size:12px;border-color:#6fd6ff;color:#bfeaff}
 #wc #wShadow.cd{opacity:.45}
+
+#wsite{display:none;position:fixed;z-index:7;left:50%;transform:translateX(-50%);top:calc(var(--st,env(safe-area-inset-top,0px)) + 10px);padding:5px 12px;border-radius:14px;border:1px solid #ffffff44;background:#0b1020cc;color:#fff;font:600 12px system-ui;pointer-events:none;white-space:nowrap}#wsite span{opacity:.75;font-weight:500}body.warden-fight #wsite{display:none!important}

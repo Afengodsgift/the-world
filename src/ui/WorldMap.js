@@ -10,6 +10,10 @@ const WorldMap=(()=>{
     const isl=new Set(ISL.map(i=>i.n).concat(['The Floating Island']));if(WRD.on)isl.add('The Warden Isles');   // WARDEN:
     const l=LOCS.map(L=>({n:L.n,x:L.x,z:L.z,y:L.y,r:L.r,big:isl.has(L.n)}));
     l.push({n:'Tag Arena',x:Tag.pos.x,z:Tag.pos.z,r:5,icon:'🏃'},{n:'Gunsmith',x:OUT.x+12,z:OUT.z+23,r:5,icon:'🔫'},{n:'Outlaw Portal',x:PORTAL.x,z:PORTAL.z,r:5,icon:'🌀'},{n:'Bonk Ring',x:RING.x,z:RING.z,r:RING.R,icon:'🍳'},{n:'Treasure Hunt',x:BOARD.x,z:BOARD.z,r:5,icon:'🧰'},{n:'Sky Race',x:WP[0][0],z:WP[0][1],r:7,icon:'✈️'},{n:'Sky Slalom',x:slalom.start.x,z:slalom.start.z,y:slalom.start.y,r:5,icon:'🎯'});
+    if(WRD.on&&typeof WARDEN!=='undefined'&&typeof WardenKind==='function')try{   // every Warden fight site, labelled by what it is (the catacomb rooms are one entry)
+      for(const q of WARDEN.sites){if(q.dg)continue;const k=WardenKind(q);l.push({n:q.n,x:WRD.x+q.x,z:WRD.z+q.z,y:q.y,r:5,icon:k.icon,tag:k.tag,dyn:true})}
+      if(typeof DUNGEON!=='undefined')l.push({n:DUNGEON.D.n,x:WRD.x+DUNGEON.D.ox,z:WRD.z+DUNGEON.D.oz,y:DUNGEON.D.y,r:5,icon:'💀',tag:'Dungeon · rooms of foes, then a boss',dyn:true})}catch(e){}
+    if(typeof OUT!=='undefined')l.push({n:'Outlaw Wave Arena',x:OUT.x,z:OUT.z,y:OUT.y,r:5,icon:'🌊',tag:'Raider waves (co-op)',dyn:true});
     if(dash.start)l.push({n:'Obstacle Dash',x:dash.start.x,z:dash.start.z,r:5,icon:'🧗'});
     if(srun.start)l.push({n:'Shark Run',x:srun.start.x,z:srun.start.z,r:5,icon:'🦈'});
     if(typeof Verbs!=='undefined')try{l.push(...Verbs.places())}catch(e){} // discovered camps (systems add only what you have found)
@@ -53,7 +57,7 @@ const WorldMap=(()=>{
       if(s||hot){ctx.beginPath();ctx.arc(x,y,s?20:17+Math.sin(Date.now()/250)*3,0,6.283);ctx.strokeStyle=s?'#fff':'#ff5a3d';ctx.lineWidth=3;ctx.stroke()}
       ctx.font=(p.big?'22px':'16px')+' sans-serif';ctx.globalAlpha=found||p.icon?1:.75;ctx.fillText(icon(p),x,y);ctx.globalAlpha=1;
       if(p.big||zoomed||s){ctx.font='bold 12px sans-serif';ctx.lineWidth=3;ctx.strokeStyle='#000b';ctx.fillStyle='#fff';
-        const label=p.n+(found?' ✓':'');ctx.strokeText(label,x,y+(p.big?20:15));ctx.fillText(label,x,y+(p.big?20:15))}
+        const label=p.n+(p.tag?' · '+p.tag:'')+(found?' ✓':'');ctx.strokeText(label,x,y+(p.big?20:15));ctx.fillText(label,x,y+(p.big?20:15))}
     }
     // waypoint line
     if(wp){ctx.setLineDash([6,6]);ctx.strokeStyle='#ffd24a';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(sx(S.x),sy(S.z));ctx.lineTo(sx(wp.x),sy(wp.z));ctx.stroke();ctx.setLineDash([])}
@@ -101,7 +105,7 @@ const WorldMap=(()=>{
   function select(p){
     sel=p;if(!p){card.style.display='none';return}
     const found=disc.has(p.n),tracking=wp&&wp.n===p.n,canGo=true;
-    card.innerHTML='<b style="font-size:17px">'+icon(p)+' '+p.n+'</b> <small style="opacity:.7">'+(found||p.icon?(found?'discovered ✓':''):'not discovered yet')+'</small><br>'
+    card.innerHTML='<b style="font-size:17px">'+icon(p)+' '+p.n+'</b> <small style="opacity:.7">'+(found||p.icon?(found?'discovered ✓':''):'not discovered yet')+'</small>'+(p.tag?'<br><span style="opacity:.9">'+p.tag+'</span>':'')+'<br>'
       +'<span style="opacity:.85">'+fmt(dist(p))+' away'+(p.n==='The Floating Island'?' · up in the clouds':'')+'</span><div style="display:flex;gap:8px;margin-top:10px">'
       +'<button id="wmTrack" class="btn'+(tracking?'':' gold')+'" style="flex:1;margin:0">'+(tracking?'Stop tracking':'📍 Track')+'</button>'
       +(canGo?'<button id="wmGo" class="btn go" style="flex:1;margin:0">🚀 Travel</button>':'')+'</div>';
