@@ -40,15 +40,20 @@ const Outlaw=(()=>{
     {n:'Railroad Baron',skin:3,hp:1300,sp:3,range:40,dmg:14,cd:.45,acc:.55,react:.4,sc:1.9},   // 12: freight charge, dynamite barrage, hired guns
     {n:'The Stranger',skin:3,hp:760,sp:4.8,range:42,dmg:30,cd:.8,acc:.8,react:.25,sc:1.15},
     {n:'Duelist',skin:3,hp:80,sp:5,range:30,dmg:14,cd:1,acc:.75,react:.3,sc:1.05},   // 14: stops, squares up, one fast hard shot (BossBrain cycle)
-    {n:'Bruiser',skin:2,hp:170,sp:4.4,range:12,dmg:20,cd:1.2,acc:.6,react:.4,sc:1.3}];   // 15: bull-rushes you, then is winded (BossBrain cycle)
+    {n:'Bruiser',skin:2,hp:170,sp:4.4,range:12,dmg:20,cd:1.2,acc:.6,react:.4,sc:1.3},
+    {n:'Risen',skin:2,hp:40,sp:6.6,range:9,dmg:9,cd:.9,acc:.6,react:.3,sc:1},   // 16: skeleton the Undertaker raises: fast, frail, shoots from point blank
+    {n:'Ghost',skin:3,hp:75,sp:5.8,range:26,dmg:14,cd:1.3,acc:.6,react:.35,sc:1.05},   // 17: half-seen flanker: nearly invisible while it runs, solid when it fires
+    {n:'Alchemist',skin:2,hp:70,sp:4,range:30,dmg:10,cd:3,acc:1,react:.5,sc:1.05}];   // 18: lobs poison flasks that leave a lingering cloud, forcing you out of cover
+  //15: bull-rushes you, then is winded (BossBrain cycle)
   // 13: slow tell, one deadly shot, blinks behind you
   // 9: cloaked stalker, rattles then pounces, decoys, fakes his death (BossBrain)
   // NEW BODIES (not the town avatar): KayKit CC0 characters via src/character/KitNPC.js. pose = which aiming clip; gun = weapon model index
   Object.assign(TYPES[10],{kit:'Skeleton_Warrior',pose:'2H',gun:4});Object.assign(TYPES[11],{kit:'Mage',pose:'2H',gun:5});Object.assign(TYPES[12],{kit:'Knight',pose:'2H',gun:3});
   Object.assign(TYPES[13],{kit:'Rogue_Hooded',pose:'1H',gun:0});Object.assign(TYPES[14],{kit:'Rogue',pose:'1H',gun:0});Object.assign(TYPES[15],{kit:'Barbarian',pose:'2H',gun:5});
+  Object.assign(TYPES[16],{kit:'Skeleton_Minion',pose:'1H',gun:0});Object.assign(TYPES[17],{kit:'Skeleton_Rogue',pose:'1H',gun:0});Object.assign(TYPES[18],{kit:'Skeleton_Mage',pose:'2H',gun:0});
   const BOSS=t=>t===3||t===7||t===8||t===9||(t>=10&&t<=13),OVL={3:'sheriff',7:'warlord',10:'undertaker',11:'vulture',12:'baron',13:'stranger',14:'duelist',15:'bruiser'};
-  const COL=['#c05030','#c05030','#8050c0','#ff3030','#e0a020','#c05030','#30c060','#ff3030','#d4a020','#7a8a3a','#5a5a6a','#a040c0','#2a6a8a','#303030','#c0c0d0','#a06030'];
-  const COIN=[10,18,22,150,20,18,16,300,450,400,500,450,550,600,45,40];
+  const COL=['#c05030','#c05030','#8050c0','#ff3030','#e0a020','#c05030','#30c060','#ff3030','#d4a020','#7a8a3a','#5a5a6a','#a040c0','#2a6a8a','#303030','#c0c0d0','#a06030','#9a9a8a','#7ad0ff','#50d060'];
+  const COIN=[10,18,22,150,20,18,16,300,450,400,500,450,550,600,45,40,12,35,30];
   const DIFF=[{n:'Normal',hp:1,dmg:1,cnt:1,coin:1},{n:'Hard',hp:1.4,dmg:1.25,cnt:1.3,coin:1.5},{n:'Outlaw',hp:2,dmg:1.6,cnt:1.7,coin:2.2}];
   const cover=[],npcs=new Map(),cache={};
   let wiped=false,clock=0,C=null,active=false,host=null,wave=0,kills=0,best=0,nextWave=0,queue=[],spawnT=0,nid=1,snapT=0;
@@ -447,7 +452,7 @@ const Outlaw=(()=>{
     else if(e==='strike'){if(EnemyAI.meleeReach(d,tfy-ny(n),2.6)||d<2.6)dealDmg(n,t,Math.round(T.dmg*1.6))}
     else if(e==='lunge')sfxAt('shout',n.x,n.z);
     else if(e==='slam'){boom(n.x,n.z,6);sfxAt('vent',n.x,n.z);if(d<6.5&&Math.abs(tfy-ny(n))<2.5)dealDmg(n,t,Math.round(T.dmg*(1-d/9)))}
-    else if(e==='summon'&&isHost()){const L={10:[0,0,0],11:[2,2],12:[0,0,5,1],13:[0,0]}[n.type];if(L){queue.unshift(...L);const m=n.type===10?'The Undertaker raises the dead!':n.type===11?'Madame Vulture calls her hawks!':n.type===12?'The Baron hires more guns!':'The Stranger is not alone...';send({k:'bn',t:m});banner(m,'OUTLAW TOWN')}}
+    else if(e==='summon'&&isHost()){const L={10:[16,16,16,16],11:[2,2],12:[0,0,5,1],13:[0,0]}[n.type];if(L){queue.unshift(...L);const m=n.type===10?'The Undertaker raises the dead!':n.type===11?'Madame Vulture calls her hawks!':n.type===12?'The Baron hires more guns!':'The Stranger is not alone...';send({k:'bn',t:m});banner(m,'OUTLAW TOWN')}}
     else if(e==='barrage'&&isHost()){for(let k=0;k<3;k++){const a=k*2.1+Math.random(),tt={x:t.x+Math.cos(a)*5*(k?1:0),z:t.z+Math.sin(a)*5*(k?1:0),vx:t.vx||0,vz:t.vz||0};setTimeout(()=>{if(!n.dead)throwDyn(n,tt)},k*450)}}
     else if(e==='blink'&&isHost()){const L=Math.hypot(t.x-n.x,t.z-n.z)||1,ux=(t.x-n.x)/L,uz=(t.z-n.z)/L,x=t.x+ux*9,z=t.z+uz*9;if(H(x,z)>1){boom(n.x,n.z,2);n.x=x;n.z=z;n.tx=x;n.tz=z;boom(x,z,2);sfxAt('shout',x,z)}}
     else if(e==='feign'){n.hp=Math.max(1,n.hp)}
@@ -455,17 +460,24 @@ const Outlaw=(()=>{
     else if(e==='decoy'&&isHost()){for(let k=0;k<2;k++){const a=Math.random()*6.283,x=n.x+Math.cos(a)*5,z=n.z+Math.sin(a)*5;addNpc(9,x,z);const q=[...npcs.values()].pop();q.decoy=1;q.hp=q.max=12;q.dm=0;q.bb={s:'stalk',t:rnd(.5,1.5),heat:0,ph:3,side:1,sw:0,fed:1,dec:1}}}}
   function dealDmg(n,t,d){d=Math.round(d*n.dm);if(t.id==='bank'){bank.hp=Math.max(0,bank.hp-d);return}if(t.id===myId)hurt(d,n.x,n.z);else send({k:'hurt',to:t.id,d,x:n.x,z:n.z})}
   function healBeam(a,b){tracer(a.x,H(a.x,a.z)+1.3,a.z,b.x,H(b.x,b.z)+1.3,b.z,'#5dff8a');popText(b.x,H(b.x,b.z)+2.6,b.z,'+','#5dff8a');sfx('heal')}
-  function throwDyn(n,t,k){ST.dyn++;const p={k:'dy',x0:n.x,z0:n.z,x1:t.x+t.vx*1.2,z1:t.z+t.vz*1.2,d:Math.round(TYPES[4].dmg*n.dm*(k||1))};send(p);addDyn(p)}
+  function throwDyn(n,t,k){ST.dyn++;const gs=n.type===18,p={k:'dy',x0:n.x,z0:n.z,x1:t.x+t.vx*1.2,z1:t.z+t.vz*1.2,d:Math.round(TYPES[gs?18:4].dmg*n.dm*(k||1)),pz:gs?1:0};send(p);addDyn(p)}
   function addDyn(p){
-    const m=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.5,8),new THREE.MeshStandardMaterial({color:'#d33',emissive:'#a00'}));scene.add(m);
-    const r=new THREE.Mesh(new THREE.RingGeometry(4.2,5.2,32),new THREE.MeshBasicMaterial({color:'#ff3030',transparent:true,opacity:.55,side:THREE.DoubleSide}));r.rotation.x=-Math.PI/2;r.position.set(p.x1,H(p.x1,p.z1)+.15,p.z1);scene.add(r);
+    const m=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.5,8),new THREE.MeshStandardMaterial({color:p.pz?'#5f5':'#d33',emissive:p.pz?'#2a2':'#a00'}));scene.add(m);
+    const r=new THREE.Mesh(new THREE.RingGeometry(p.pz?3:4.2,p.pz?4:5.2,32),new THREE.MeshBasicMaterial({color:p.pz?'#50ff50':'#ff3030',transparent:true,opacity:.55,side:THREE.DoubleSide}));r.rotation.x=-Math.PI/2;r.position.set(p.x1,H(p.x1,p.z1)+.15,p.z1);scene.add(r);
     dyn.push({p,m,r,t:0,fuse:1.7})}
   function dynTick(dt){
     for(let i=dyn.length-1;i>=0;i--){const e=dyn[i],p=e.p,u=Math.min(1,e.t/e.fuse);e.t+=dt;
       e.m.position.set(p.x0+(p.x1-p.x0)*u,H(p.x0,p.z0)+1.4+Math.sin(u*Math.PI)*6*(1-u*.3)-1.2*u,p.z0+(p.z1-p.z0)*u);e.m.rotation.x+=dt*12;e.r.material.opacity=.35+.3*Math.sin(e.t*14);
-      if(e.t>=e.fuse){scene.remove(e.m);scene.remove(e.r);dyn.splice(i,1);boom(p.x1,p.z1,5);if(isHost())OutlawArena.blast(p.x1,p.z1,5,p.d*2);
+      if(e.t>=e.fuse&&p.pz){scene.remove(e.m);scene.remove(e.r);dyn.splice(i,1);addGas(p.x1,p.z1,p.d)}
+      else if(e.t>=e.fuse){scene.remove(e.m);scene.remove(e.r);dyn.splice(i,1);boom(p.x1,p.z1,5);if(isHost())OutlawArena.blast(p.x1,p.z1,5,p.d*2);
         const dd=Math.hypot(S.x-p.x1,S.z-p.z1);if(!down&&dd<5.2)hurt(Math.max(1,Math.round(p.d*(1-dd/6.5))),p.x1,p.z1);
         if(isHost()&&mode==='defend'&&Math.hypot(bank.x-p.x1,bank.z-p.z1)<9)bank.hp=Math.max(0,bank.hp-p.d*2)}}}
+  // POISON CLOUD (Alchemist flask): a green cloud that lingers ~6 s; standing in it hurts you ~3x/s, so you cannot hold the cover behind it. Each screen hurts its own player.
+  const gas=[];
+  function addGas(x,z,d){const g=new THREE.Mesh(new THREE.SphereGeometry(3.4,16,10),new THREE.MeshBasicMaterial({color:'#4fe04f',transparent:true,opacity:.28,depthWrite:false}));g.position.set(x,H(x,z)+1.2,z);g.scale.y=.6;scene.add(g);gas.push({x,z,g,t:0,tick:0,d:Math.max(2,Math.round(d*.35))});try{BattleFX.impact(x,H(x,z)+1,z,'smoke')}catch(e){}sfxAt('boom',x,z,.5)}
+  function gasTick(dt){for(let i=gas.length-1;i>=0;i--){const e=gas[i];e.t+=dt;e.tick-=dt;e.g.material.opacity=.2+.1*Math.sin(e.t*5)-Math.max(0,e.t-5)*.2;e.g.scale.set(1+Math.sin(e.t*3)*.04,.6,1+Math.cos(e.t*3)*.04);
+      if(e.tick<=0){e.tick=.35;if(!down&&Math.hypot(S.x-e.x,S.z-e.z)<3.6&&S.y<H(e.x,e.z)+3)hurt(e.d,e.x,e.z)}
+      if(e.t>=6){scene.remove(e.g);e.g.geometry.dispose();e.g.material.dispose();gas.splice(i,1)}}}
   // SUPPRESSION: bullets cracking past your head pin you down: the screen edges darken, your aim blooms, the camera flinches. It fades when the shooting stops.
   function addSupp(v){supp=Math.min(1,supp+v)}
   // CALLOUTS: raiders talk to each other (and you hear it): short floating lines, same on both screens
@@ -558,7 +570,7 @@ const Outlaw=(()=>{
     }else{
       // GUNMEN: every move has a reason. Bound cover to cover toward where they believe you are, hold a band for their role, peek to shoot, relocate when it gets hot,
       // flankers take ONE side route and only while the squad is engaged, aggressors push when you reload / are low, suppressors pin you, marksmen perch. No weaving.
-      const boss=BOSS(n.type)&&n.type!==8&&n.type!==9,role=boss?'rifle':n.type===4?'bomber':n.type===2?'sniper':(n.role||'grunt'),tp=tpK,dp=Math.hypot(tp.x-n.x,tp.z-n.z)||1,lkAge=now0-(n.lkT||0),
+      const boss=BOSS(n.type)&&n.type!==8&&n.type!==9,role=boss?'rifle':n.type===4||n.type===18?'bomber':n.type===2?'sniper':(n.role||'grunt'),tp=tpK,dp=Math.hypot(tp.x-n.x,tp.z-n.z)||1,lkAge=now0-(n.lkT||0),
         pushNow=role==='aggr'&&EnemyAI.shouldPush({reloading:t.id===myId&&reloading,partnerDown:t.id===myId&&pdown,lowHp:t.id===myId&&hp<maxHp()*.4,stalemate:brave}),
         band=(role==='aggr'&&!pushNow)?[22,30]:EnemyAI.bandOf(role),tpd={x:tp.x,z:tp.z};
       n.rdmg=Math.max(0,(n.rdmg||0)-dt*T.hp*.08);
@@ -603,7 +615,7 @@ const Outlaw=(()=>{
         flushT=now0+rnd(7,11);n.fgT=now0;bark(n,'gren',true);ST.flush++;throwDyn(n,{x:n.lk.x,z:n.lk.z,vx:0,vz:0},.7)}
       if(peeking&&seen&&d<T.range&&n.react<=0){
         if(n.type===2){if(tov&&!tov.stop){n.aim=0}else{n.aim+=dt;n.st='aim';sp=0}if(n.aim>=.9&&n.cd<=0){n.aim=0;n.cd=T.cd;enemyShoot(n,t,d,T)}}
-        else if(n.cd<=0){n.cd=T.cd*rnd(.85,1.2);if(n.type===4)throwDyn(n,t);else{enemyShoot(n,t,d,T);if(n.type===0){n.bn=(n.bn||0)+1;if(n.bn>=(n.bsz||3)){n.bn=0;n.bsz=wave>=4&&Math.random()<.5?4:3;n.cd=T.cd*rnd(.55,1)}else n.cd=.11}if(n.type===7){n.bc=(n.bc||0)+1;n.cd=n.bc>=14?(n.bc=0,2.2):T.cd}}}
+        else if(n.cd<=0){n.cd=T.cd*rnd(.85,1.2);if(n.type===4||n.type===18)throwDyn(n,t);else{enemyShoot(n,t,d,T);if(n.type===0){n.bn=(n.bn||0)+1;if(n.bn>=(n.bsz||3)){n.bn=0;n.bsz=wave>=4&&Math.random()<.5?4:3;n.cd=T.cd*rnd(.55,1)}else n.cd=.11}if(n.type===7){n.bc=(n.bc||0)+1;n.cd=n.bc>=14?(n.bc=0,2.2):T.cd}}}
       }else if(role==='suppress'&&peeking&&!seen&&lkAge<7&&n.cd<=0&&n.mode!=='advance'&&n.mode!=='flank'){n.cd=rnd(.28,.45);suppressFire(n);if(Math.random()<.06)bark(n,'supp')}   // pins you down: fires where you were last seen
       else if(n.type===2)n.aim=0;
     }
@@ -694,6 +706,7 @@ const Outlaw=(()=>{
       n.lhp=n.hp;
       if(n.st==='run'){const dd=Math.hypot(n.x-S.x,n.z-S.z);if(dd<20){n.stepT=(n.stepT||0)-dt;if(n.stepT<=0){n.stepT=.32;sfxAt('step',n.x,n.z,.9)}}}   // you can hear them coming (and which side)
       if(n.type===9){const near=Math.hypot(n.x-S.x,n.z-S.z)<6||n.flash>0;g.visible=n.st!=='cloak'||near||(clock/140|0)%11===0;if(n.bar)n.bar.visible=g.visible}   // Jake's cloak: a flicker and a shimmer at distance, plain sight up close or when hit
+      if(n.type===17&&g.userData.kit){const want=(n.st==='run'||n.st==='cloak')&&!(n.flash>0)?.22:.9;g.userData.gop=(g.userData.gop===undefined?want:g.userData.gop)+(want-(g.userData.gop===undefined?want:g.userData.gop))*Math.min(1,dt*6);g.userData.kit.root.traverse(o=>{if(o.material){o.material.transparent=true;o.material.opacity=g.userData.gop;o.material.depthWrite=g.userData.gop>.8}});if(n.bar)n.bar.visible=g.userData.gop>.5}
       if(g.userData.isKit){if(g.userData.kit)KitNPC.update(g.userData.kit,dt,n.st,g.userData)}else animate(g,dt,n.st==='cloak'?'run':n.st==='aim'||n.st==='vent'?'idle':n.st);   // 'crouch' (behind cover) is handled by animateClips
       n.fg.scale.x=Math.max(.001,n.hp/n.max);n.fg.position.x=-(1-n.fg.scale.x)*.6;n.bar.lookAt(camera.position);
       if(n.st==='aim'){const t=[...others.values()].map(o=>o.group.position).concat([{x:S.x,y:S.y,z:S.z}]).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];
@@ -787,7 +800,7 @@ const Outlaw=(()=>{
   }
 
   // ---------- messages ----------
-  function stopGame(){active=false;if(scoped)setScope(false);OutlawItems.reset(true);OutlawArena.reset();for(const n of npcs.values())removeVisual(n);npcs.clear();for(const d of drops)scene.remove(d.m);drops=[];for(const e of dyn){scene.remove(e.m);scene.remove(e.r)}dyn=[];updateHud()}
+  function stopGame(){active=false;if(scoped)setScope(false);OutlawItems.reset(true);OutlawArena.reset();for(const n of npcs.values())removeVisual(n);npcs.clear();for(const d of drops)scene.remove(d.m);drops=[];for(const e of dyn){scene.remove(e.m);scene.remove(e.r)}dyn=[];for(const e of gas)scene.remove(e.g);gas.length=0;updateHud()}
   function onMsg(p){
     if(!p)return;
     if(p.k==='cv'||p.k==='cb'||p.k==='fr'||p.k==='rs'){OutlawArena.onMsg(p);return}
@@ -846,7 +859,7 @@ const Outlaw=(()=>{
     if(reloading){reloadT-=dt;if(reloadT<=0){reloading=false;if(wi>=0)ammo[wi]=magOf(wi);updateHud()}}
     me.userData.rl=reloading&&wi>=0?1-Math.max(0,reloadT)/(WEAPONS[wi].rl*(1-.12*SAVE.rl)):OutlawItems.useProgress();   // using an item reuses the reload arm dip
     if(p){const u=p[1].group.userData;if(u.rlT>0){u.rlT-=dt;u.rl=1-Math.max(0,u.rlT)/u.rlD}else u.rl=-1}
-    dropTick(dt,t);dynTick(dt);
+    dropTick(dt,t);dynTick(dt);gasTick(dt);
     reviveTick(dt);
     if(down){downT-=dt;if(downT<=0)respawn()}
     if(active){if(isHost())hostTick(dt)}
@@ -859,5 +872,5 @@ const Outlaw=(()=>{
   function moveMul(){if(down)return 0;const im=OutlawItems.moveMul();if(wi<0||!C||S.flying||S.dv||S.state==='swim')return im;return (Math.hypot(S.x-C.x,S.z-C.z)<OUT.R?ARMED_SPEED:1)*im}
   Interaction.register('ow-start','Start Showdown',()=>C&&!active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>missionPanel());
   Interaction.register('ow-end','End Showdown',()=>C&&active&&Math.hypot(S.x-C.x,S.z-(C.z+1))<5,()=>{send({k:'end'});onMsg({k:'end'})});
-  return {earn,build,tick,idle:()=>!active&&!huntOn,onMsg,equip,fire,setGun,lockTarget,poseGun,loadGun,moveMul,ARMED_SPEED,_t:()=>({damageNpc,KITGUN,ST,cover,tracer,get lastShot(){return lastShot},dmgDir,get hp(){return hp},set hp(v){hp=v},get huntOn(){return huntOn},WEAPONS,get wave(){return wave},set wave(v){wave=v},get queueLen(){return queue.length},get nextWave(){return nextWave},damageNpc,cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
+  return {earn,build,tick,idle:()=>!active&&!huntOn,onMsg,equip,fire,setGun,lockTarget,poseGun,loadGun,moveMul,ARMED_SPEED,_t:()=>({gas,dyn:()=>dyn,damageNpc,KITGUN,ST,cover,tracer,get lastShot(){return lastShot},dmgDir,get hp(){return hp},set hp(v){hp=v},get huntOn(){return huntOn},WEAPONS,get wave(){return wave},set wave(v){wave=v},get queueLen(){return queue.length},get nextWave(){return nextWave},damageNpc,cover,npcVolumes,zoneHit,aimPoint,fire,addNpc,isHost,dbgZones:on=>{dbgOn=on;if(!on&&dbgG)while(dbgG.children.length)dbgG.remove(dbgG.children[0])},panelAct,SAVE,get ammo(){return ammo},get bank(){return bank},get npcs(){return npcs}})};
 })();

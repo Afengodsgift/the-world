@@ -10,9 +10,9 @@ const EnemyAI=(()=>{
   const waveSize=(wave,np,cnt)=>Math.round(Math.max(FLOOR[wave]||0,Math.min(2+wave*1.9,22))*cnt*(np>1?1.75:1));
   const liveCap=(diff,np)=>8+diff*3+(np>1?5:0);
   const frontsFor=(wave,np)=>wave+(np>1?2:0);
-  const wavePool=(wave,np)=>{const p=np>1?[0,0,0,5]:[0,0,0];if(wave>=2)p.push(1,5);if(wave>=3)p.push(0,5);if(wave>=4)p.push(2,4);if(wave>=5)p.push(4,1,6);if(wave>=7)p.push(2,5,6);if(wave>=4)p.push(14);if(wave>=6)p.push(15);if(wave>=9)p.push(14,15);return p};
+  const wavePool=(wave,np)=>{const p=np>1?[0,0,0,5]:[0,0,0];if(wave>=2)p.push(1,5);if(wave>=3)p.push(0,5);if(wave>=4)p.push(2,4);if(wave>=5)p.push(4,1,6);if(wave>=7)p.push(2,5,6);if(wave>=4)p.push(14);if(wave>=6)p.push(15);if(wave>=9)p.push(14,15);if(wave>=3)p.push(17);if(wave>=5)p.push(18);if(wave>=8)p.push(17,18);return p};
   // bandits: 20% flankers, 25% riflemen, 17% suppressors, 18% aggressors, 20% grunts; shotgunners are rushers (bound cover to cover into close range); snipers are marksmen
-  function role(type,r){if(type===0)return r<.2?'flanker':r<.45?'rifle':r<.62?'suppress':r<.8?'aggr':'grunt';if(type===5||type===15)return 'rusher';if(type===14)return 'rifle';if(type===2)return 'sniper';return 'grunt'}
+  function role(type,r){if(type===0)return r<.2?'flanker':r<.45?'rifle':r<.62?'suppress':r<.8?'aggr':'grunt';if(type===5||type===15||type===16)return 'rusher';if(type===14)return 'rifle';if(type===17)return 'flanker';if(type===2)return 'sniper';return 'grunt'}
   // preferred firing band [near, far] in metres per role
   const BAND={rifle:[20,30],suppress:[24,32],grunt:[13,22],flanker:[10,18],rusher:[7,13],aggr:[8,14],sniper:[34,60],bomber:[18,30]};
   const bandOf=role=>BAND[role]||BAND.grunt;
