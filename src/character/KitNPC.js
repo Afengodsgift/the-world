@@ -9,7 +9,19 @@ const KitNPC=(()=>{
   const RUN={Barbarian:'Running_B',Knight:'Running_A',Mage:'Running_A',Rogue:'Running_B',Rogue_Hooded:'Running_B',Skeleton_Warrior:'Running_A',Skeleton_Rogue:'Running_B',Skeleton_Mage:'Running_A',Skeleton_Minion:'Running_A'};
   const cache={};let animsP=null,clips=null;
   function url(f){return 'assets/kit/'+f+'.glb'}
-  function loadGLB(f){return cache[f]||(cache[f]=new Promise((res,rej)=>new THREE.GLTFLoader().load(url(f),g=>res(g),undefined,rej)))}
+  // PERFORMANCE: the source models are 8-10 separate skinned pieces (arms, legs, body, head...) = 8-10 draw calls + 8-10 skeletons per enemy, doubled again by the shadow pass.
+  // Merge every skinned piece that shares a material into ONE mesh once, right after loading (all clones then share that geometry): ~3x fewer draw calls per enemy.
+  function mergeSkinned(root){
+    const groups=new Map();root.traverse(o=>{if(o.isSkinnedMesh&&o.geometry&&o.geometry.index){const k=o.material.map?o.material.map.uuid:o.material.uuid;(groups.get(k)||groups.set(k,[]).get(k)).push(o)}});
+    for(const list of groups.values()){if(list.length<2)continue;const keep=list[0],A=['position','normal','uv','skinIndex','skinWeight'];
+      const geos=list.map(m=>m.geometry),at={};let vc=0,ic=0;
+      for(const g of geos){if(A.some(n=>!g.attributes[n]))return;vc+=g.attributes.position.count;ic+=g.index.count}
+      for(const n of A){const sz=geos[0].attributes[n].itemSize,arr=n==='skinIndex'?new Uint16Array(vc*sz):new Float32Array(vc*sz);let o=0;for(const g of geos){const at2=g.attributes[n],c=at2.count;for(let i=0;i<c;i++){arr[o++]=at2.getX(i);if(sz>1)arr[o++]=at2.getY(i);if(sz>2)arr[o++]=at2.getZ(i);if(sz>3)arr[o++]=at2.getW(i)}}at[n]=new THREE.BufferAttribute(arr,sz)}
+      const idx=new Uint32Array(ic);let io=0,vo=0;for(const g of geos){const ia=g.index.array;for(let i=0;i<ia.length;i++)idx[io+i]=ia[i]+vo;io+=ia.length;vo+=g.attributes.position.count}
+      const ng=new THREE.BufferGeometry();for(const n of A)ng.setAttribute(n,at[n]);ng.setIndex(new THREE.BufferAttribute(idx,1));ng.computeBoundingSphere();
+      keep.geometry=ng;for(const m of list)if(m!==keep){if(m.parent)m.parent.remove(m)}}
+    return root}
+  function loadGLB(f){return cache[f]||(cache[f]=new Promise((res,rej)=>new THREE.GLTFLoader().load(url(f),g=>{try{if(f!=='anims')mergeSkinned(g.scene)}catch(e){console.warn('kit merge',e)}res(g)},undefined,rej)))}
   function loadClips(){return animsP||(animsP=loadGLB('anims').then(g=>{clips={};for(const c of g.animations)clips[c.name]=c;return clips}))}
   // state -> clip name (pure)
   function clipFor(name,st,pose){
