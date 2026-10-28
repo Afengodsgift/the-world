@@ -72,6 +72,13 @@ const Fleet=(()=>{
       if(!Sailing.clear(x,z,h,H,pr))continue;const e=make(nextId++,id,x,z,h);if(e){banner('Sails on the horizon…','☠ PIRATES');return e}}
     return null}
 
+  // a raid ship at a chosen bearing (ang: world angle from your ship, x=sin z=cos) and distance: used by the Voyage director; ignores the cap and the harbour distance rule
+  function spawnNear(clsId,ang,dist){
+    const p=pl(),K=C.cls[clsId];if(!K||!K.cap)return null;const pr=Sailing.probes(K.scale*8,K.scale*3.5);
+    for(let i=0;i<30;i++){const a=ang+(R()-.5)*.6*(1+i/6),d=dist*(.85+R()*.3),x=p.x+Math.sin(a)*d,z=p.z+Math.cos(a)*d;if(H(x,z)>-5)continue;
+      const h=Math.atan2(p.x-x,p.z-z)+(R()-.5)*.5;if(!Sailing.clear(x,z,h,H,pr))continue;const e=make(nextId++,clsId,x,z,h);if(e)return e}
+    return null}
+
   // ---------- host AI ----------
   function shoreAvoid(sh,want){            // look ahead: if the water gets shallow turn toward the open side
     const ax=sh.x+Math.sin(sh.h)*45,az=sh.z+Math.cos(sh.h)*45;if(H(ax,az)<-2.5)return want;
@@ -166,6 +173,7 @@ const Fleet=(()=>{
     if(e.hp<=0){e.sinking=true;e.lash=null;const c=Math.round(e.K.coin[0]+R()*(e.K.coin[1]-e.K.coin[0]));loot(c,e.K.name,e.K.boss);Net.emit('flt',{k:'l',c,n:e.K.name,b:e.K.boss?1:0})}}
   function loot(c,name,boss){
     try{if(typeof Outlaw!=='undefined'&&Outlaw.earn)Outlaw.earn(c)}catch(e){}
+    try{if(typeof Voyage!=='undefined')Voyage.kill(!!boss)}catch(e){}
     banner((boss?'BOSS SUNK! ':'')+name+' goes down! +'+c+' 🪙','☠ PIRATES')}
 
   // ---------- you ----------
@@ -285,7 +293,7 @@ const Fleet=(()=>{
     const o=overboardDir();if(!o)return;const w=Decks.toWorld(o.d,o.l.x+o.x*2.6,o.l.y,o.l.z+o.z*2.6,{});
     S._dk=null;S.x=w.x;S.z=w.z;S.y=w.y+.6;S.vy=5;S.grounded=false}
   Interaction.register('ship-overboard','Jump overboard 🌊',()=>built&&!Ship.locked()&&!!overboardDir(),overboard);
-  return {overboard,build,ships,shells,make,remove,trySpawn,elev,aim,fire,playerFire,broadside,nearGun,hurtMe,respawn,applyHit,damageEnemy,captainDown,boardable,boardEnemy,sideSalvo,isHost,
+  return {overboard,build,ships,shells,make,remove,trySpawn,spawnNear,live,elev,aim,fire,playerFire,broadside,nearGun,hurtMe,respawn,applyHit,damageEnemy,captainDown,boardable,boardEnemy,sideSalvo,isHost,
     marks:()=>[...ships.values()].filter(e=>!e.sinking).map(e=>({n:e.K.cap.n,x:e.sh.x,z:e.sh.z,r:6,icon:e.K.boss?'☠':'🏴‍☠️',dyn:true})),
     _me:me,_step:step,_ai:ai,_net:onNet,_snapshot:snapshot};
 })();

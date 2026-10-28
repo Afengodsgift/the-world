@@ -52,6 +52,7 @@ const DEPS={ // file -> files that must come first
   'ship/Vessel.js':['world/Ocean.js','data/ship.js','data/decks.js','ship/Decks.js','ship/Sailing.js'],
   'ship/Bowsprit.js':['data/ship.js','ship/Ship.js','interaction/InteractionManager.js','core/Systems.js'],
   'combat/LockOn.js':['core/Systems.js'],
+  'ship/Voyage.js':['data/ship.js','ship/Fleet.js','ship/Ship.js','core/Net.js','core/Systems.js','interaction/InteractionManager.js'],
   'ship/Leviathan.js':['data/ship.js','ship/Fleet.js','ship/Ship.js','core/Net.js','core/Systems.js','combat/LockOn.js','world/Ocean.js'],
   'ship/Monster.js':['data/ship.js','ship/Fleet.js','ship/Ship.js','core/Net.js','core/Systems.js','combat/LockOn.js','world/Ocean.js'],
   'ship/Deckhands.js':['ship/Crew.js','ship/Fleet.js','ship/Ship.js','ship/Decks.js','ship/Vessel.js','core/Systems.js'],

@@ -19,7 +19,7 @@ const WorldMap=(()=>{
     if(typeof Verbs!=='undefined')try{l.push(...Verbs.places())}catch(e){} // discovered camps (systems add only what you have found)
     if(typeof Vaults!=='undefined')try{l.push(...Vaults.places())}catch(e){}
     if(typeof Events!=='undefined')try{l.push(...Events.places())}catch(e){} // a live event shows up once you have noticed it
-    if(typeof Ship!=='undefined')l.push(...Ship.marks());
+    if(typeof Ship!=='undefined')l.push(...Ship.marks());if(typeof Voyage!=='undefined')l.push(...Voyage.marks());
     return l};
   const icon=p=>p.icon||(p.n==='Harbor'?'⚓':p.n==='Soccer Pitch'?'⚽':p.n==='Farm'?'🐄':p.n==='Outlaw Isle'?'🤠':p.n==='The Floating Island'?'☁️':p.n==='The Warden Isles'?'⚔️':p.n==='The Race Track'?'🏁':p.big?'🏝️':'📍');
   const dist=p=>Math.hypot(S.x-p.x,S.z-p.z);
