@@ -33,6 +33,7 @@ const PlayerCombat=(()=>{
     if(keys.KeyA||keys.ArrowLeft)ix-=1;if(keys.KeyD||keys.ArrowRight)ix+=1;if(keys.KeyW||keys.ArrowUp)iy-=1;if(keys.KeyS||keys.ArrowDown)iy+=1;
     const l=Math.hypot(ix,iy);if(l<.2)return null;ix/=l;iy/=l;const sy=Math.sin(S.yaw),cy=Math.cos(S.yaw);return[cy*ix+sy*iy,-sy*ix+cy*iy]}
   function assist(){   // snap the facing toward the nearest foe when he is close and roughly ahead
+    if(ult&&ult.kind==='echo')return;   // (it would point you at the real one)
     const F=nearest();if(!F)return;const dx=F.f.x-S.x,dz=F.f.z-S.z,d=Math.hypot(dx,dz);if(d>4.5)return;const a=Math.atan2(dx,dz);
     if(lock||Math.abs(Math.atan2(Math.sin(a-S.rot),Math.cos(a-S.rot)))<1.0){pendFace=a;pendT=8;S.rot=a}}
   function reject(){if(P.st>2||!el)return;const b=el.querySelector('.p .st');b.classList.add('bad');setTimeout(()=>b.classList.remove('bad'),260);tone(110,80,.08,'square',.05)}   // out of stamina: say so instead of silently dropping the tap
@@ -258,6 +259,7 @@ const PlayerCombat=(()=>{
   function releaseAll(){release('heavy');release('guard');for(const k in ptr)delete ptr[k];if(el)for(const b of el.querySelectorAll('button.dn'))b.classList.remove('dn')}
   // lock: tap = lock the nearest foe; tap again = cycle to the next one (clockwise by distance); with only one foe left it unlocks
   function toggleLock(){
+    if(ult&&ult.kind==='echo'){msg('You cannot lock onto illusions',1);return}
     const al=alive();if(!al.length){lock=false}
     else if(!lock){lock=true;lockI=nearest().i}
     else if(al.length>1){const cur=foes[lockI],ord=al.slice().sort((a,b)=>Math.hypot(a.f.x-S.x,a.f.z-S.z)-Math.hypot(b.f.x-S.x,b.f.z-S.z)),k=ord.indexOf(cur);lockI=ord[(k+1)%ord.length].i}
@@ -403,6 +405,7 @@ const PlayerCombat=(()=>{
     for(let i=n;i<thA.length;i++)thA[i].style.display='none'}
   // Camera framing: with 2+ awake foes and no lock, ease the camera yaw so both stay in view (unless you are dragging the camera yourself).
   function frameFoes(dt){
+    if(ult&&ult.kind==='echo'){try{CameraRig.setFocus(null)}catch(e){}return}   // the camera must not lean toward the real one
     try{const D0=target().f,fd=Math.hypot(D0.x-S.x,D0.z-S.z);CameraRig.setFocus(!lock&&P.act!=='dead'&&alive().some(F=>F.awake)&&fd>2?{x:D0.x,z:D0.z,k:.34}:null)}catch(e){}   // look a third of the way toward the foe: you stay low in the frame, the opponent sits in the middle
     if(ult)return;if(lock||P.act==='dead')return;const al=alive().filter(F=>F.awake);if(!al.length||performance.now()-(S._lk||0)<1500)return;
     let worst=0,sum=0;for(const F of al){const r=wrapA(Math.atan2(-(F.f.x-S.x),-(F.f.z-S.z))-S.yaw);worst=Math.max(worst,Math.abs(r));sum+=r}
@@ -419,12 +422,12 @@ const PlayerCombat=(()=>{
   let barEl=null;
   function barUI(){
     if(barEl)return barEl;
-    try{const c=document.createElement('style');c.textContent='#wbarr{position:fixed;inset:0;z-index:44;pointer-events:none;display:none}#wbarr .vg{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(20,0,40,0) 30%,rgba(34,0,70,.8) 100%);opacity:0;transition:opacity .5s}#wbarr.on .vg{opacity:1}#wbarr .tx{position:absolute;left:0;right:0;top:19%;text-align:center;font:900 8.5vmin/1 system-ui;color:#fff;letter-spacing:.08em;text-shadow:0 0 22px #a050ff,0 0 5px #000;opacity:0;transition:opacity .2s}#wbarr .tx.on{opacity:1}#wbarr .rg{position:absolute;left:50%;top:60%;border-radius:50%;transform:translate(-50%,-50%);box-sizing:border-box;opacity:0}#wbarr .rt{border:.9vmin solid rgba(255,255,255,.85);width:14vmin;height:14vmin}#wbarr .rs{border:1.2vmin solid #ffd25a;box-shadow:0 0 3vmin #ffd25a}#wbarr .rs.go{border-color:#5aff9a;box-shadow:0 0 4vmin #5aff9a}#wbarr .rr{position:absolute;left:0;right:0;top:34%;text-align:center;font:900 11vmin/1 system-ui;text-shadow:0 0 26px currentColor,0 0 5px #000;opacity:0;transition:opacity .15s}#wbarr .rr.on{opacity:1}#wDodge.pulse{animation:wdp .22s infinite alternate;box-shadow:0 0 0 1vmin #ffd25a,0 0 6vmin #ffd25a !important}@keyframes wdp{to{transform:scale(1.14)}}';document.head.appendChild(c);
-      barEl=document.createElement('div');barEl.id='wbarr';barEl.innerHTML='<div class="vg"></div><div class="tx">TAP DODGE ➜</div><div class="rg rt"></div><div class="rg rs"></div><div class="rr"></div>';document.body.appendChild(barEl)}catch(e){}
+    try{const c=document.createElement('style');c.textContent='#wbarr{position:fixed;inset:0;z-index:44;pointer-events:none;display:none}#wbarr .vg{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(20,0,40,0) 30%,rgba(34,0,70,.8) 100%);opacity:0;transition:opacity .5s}#wbarr.on .vg{opacity:1}#wbarr .tx{position:absolute;left:0;right:0;top:19%;text-align:center;font:900 8.5vmin/1 system-ui;color:#fff;letter-spacing:.08em;text-shadow:0 0 22px #a050ff,0 0 5px #000;opacity:0;transition:opacity .2s}#wbarr .tx.on{opacity:1}#wbarr .rg{position:absolute;left:50%;top:60%;border-radius:50%;transform:translate(-50%,-50%);box-sizing:border-box;opacity:0}#wbarr .rt{border:.9vmin solid rgba(255,255,255,.85);width:14vmin;height:14vmin}#wbarr .rs{border:1.2vmin solid #ffd25a;box-shadow:0 0 3vmin #ffd25a}#wbarr .rs.go{border-color:#5aff9a;box-shadow:0 0 4vmin #5aff9a}#wbarr .rr{position:absolute;left:0;right:0;top:34%;text-align:center;font:900 11vmin/1 system-ui;text-shadow:0 0 26px currentColor,0 0 5px #000;opacity:0;transition:opacity .15s}#wbarr .rr.on{opacity:1}#wbarr .ec{position:absolute;left:0;right:0;top:13%;text-align:center;font:800 5vmin/1 system-ui;color:#fff;letter-spacing:.06em;text-shadow:0 0 14px #7a3cff,0 0 4px #000;opacity:0;transition:opacity .2s}#wbarr .ec.on{opacity:1}#wDodge.pulse{animation:wdp .22s infinite alternate;box-shadow:0 0 0 1vmin #ffd25a,0 0 6vmin #ffd25a !important}@keyframes wdp{to{transform:scale(1.14)}}';document.head.appendChild(c);
+      barEl=document.createElement('div');barEl.id='wbarr';barEl.innerHTML='<div class="vg"></div><div class="tx">TAP DODGE ➜</div><div class="rg rt"></div><div class="rg rs"></div><div class="rr"></div><div class="ec"></div>';document.body.appendChild(barEl)}catch(e){}
     return barEl}
   const bq=s=>barEl&&barEl.querySelector(s);
-  function addGhost(B,k,x,z){
-    const T=Object.assign({},B.T,{id:B.T.id+'~ph',boss:false,ghost:true,name:'Phantom',ph2:'',sa:false,aggro:undefined,barrage:false}),id=['x','y','w'][k];   // own pool key: the tinted bodies never come back as a real foe
+  function addGhost(B,k,x,z,tag){
+    const T=Object.assign({},B.T,{id:B.T.id+'~'+(tag||'ph'),boss:false,ghost:true,name:tag==='ec'?B.T.name:'Phantom',ph2:'',sa:false,aggro:undefined,barrage:false,echo:false}),id=['x','y','w','v','u'][k];   // own pool key: the tinted bodies never come back as a real foe
     const f=C.F[id]=CombatCore.mkFighter(id,{x,z,face:0,hp:99999,team:'e',dm:1,rm:T.rm||1,pg:0});if(!C.order.includes(id))C.order.push(id);f.r=T.r;f.spd=T.spd||1.3;
     const b=body(T,k+1,B.body);b.g.scale.setScalar(T.scale);b.g.position.set(x,H(x,z),z);
     const F={i:foes.length,id,T,f,body:b,human:false,ai:DuelistAI.create(77+k,{foe:T.ai,intro:0}),loco:{x:0,z:0,vf:0,vs:0,sp:0,init:false},flash:0,awake:true,late:false,dorm:null,dormSync:null,wakeT:0,ph2:false,home:{x,z},ghost:true,script:true,gt:0};
@@ -495,15 +498,89 @@ const PlayerCombat=(()=>{
     barLanes(false);
     if(barEl){barEl.classList.remove('on');barEl.style.display='none';bq('.tx').classList.remove('on');bq('.rr').classList.remove('on');for(const q of barEl.querySelectorAll('.rg'))q.style.opacity=0}
     try{el.querySelector('#wDodge').classList.remove('pulse')}catch(e){}}
+  // ================= HOLLOW ECHO (Ganfaul's set piece; see Echo.js) =================
+  // Ganfaul vanishes; the room fills with copies of him and ONE is real. The real one grounds a dark pool under his feet, the echoes float without one. Find him in time and strike: he reels. Strike an echo
+  // and it shatters and bites you (6% of your health). Out of time: every copy lunges - the echoes at empty air, the real one at you. Same seed on both co-op clients => the same room; each player judges
+  // only their own hits and the host applies the boss reward (messages 'es' start / 'ef' found / 'ee' end, all inside the 'sp' channel).
+  let ecPool=null;
+  function echoPool(on){
+    if(!on){if(ecPool){scene.remove(ecPool);ecPool.material.dispose();ecPool.geometry.dispose();ecPool=null}return}
+    if(ecPool)return;ecPool=new THREE.Mesh(new THREE.CircleGeometry(1,28),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.62,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2,fog:false}));
+    ecPool.rotation.x=-Math.PI/2;ecPool.renderOrder=6;ecPool.frustumCulled=false;scene.add(ecPool)}
+  function plainClone(root){   // own material copies (a hit flash on one body must not light up the others - and must not give the real one away)
+    root.traverse(o=>{if(o.isMesh){o.castShadow=false;if(o.material&&!o.userData.gh){o.userData.gh=1;const m=[].concat(o.material).map(q=>q.clone());o.material=Array.isArray(o.material)?m:m[0]}}})}   // castShadow off: only the real one casts a shadow, whatever the shadow setting
+  function startEcho(B,opt){
+    const A=C.arena,co=!!opt.co,n=Echo.count(opt.st,co),ring=Math.min(6.5,A.R*.42),lay=Echo.layout(opt.seed,n,ring,A.x,A.z,co),role=NET.mode==='guest'?'g':'h';
+    killDecoy(true);
+    const sl=r=>{const o=Barrage.slot(r,0,co);return{x:A.x+o.dx,z:A.z+o.dz}},SL={h:sl('h'),g:sl('g')};
+    ult={kind:'echo',B,t:0,ph:'reveal',hits:0,dodged:0,all:[],mine:new Set(),co,role,sl:SL,lay,seed:opt.seed,st:opt.st,T:Echo.searchTime(opt.st,co),found:false,t2:0,fin:false};
+    const me0=SL[role];S.x=P.x=me0.x;S.z=P.z=me0.z;lx=S.x;lz=S.z;S.rot=P.face=lay.a0;pendFace=null;lock=false;try{el.querySelector('#wLock').classList.remove('on')}catch(e){}
+    if(co&&Q){const o=SL[role==='h'?'g':'h'];Q.x=o.x;Q.z=o.z}
+    let gi=0;
+    for(let k=0;k<n;k++){
+      const ps=lay.pos[k],F=k===lay.real?B:addGhost(B,gi++,ps.x,ps.z,'ec');
+      F.f.x=ps.x;F.f.z=ps.z;F.f.vx=F.f.vz=0;F.f.face=Math.atan2(A.x-ps.x,A.z-ps.z);F.script=true;F.body.g.position.set(F.f.x,H(F.f.x,F.f.z),F.f.z);
+      if(F.ghost)plainClone(F.body.g);F.ek=k;ult.all.push(F)}
+    echoPool(true);barUI().style.display='block';try{bq('.ec').classList.remove('on')}catch(e){}
+    try{for(const F of ult.all){WardenVfx.burst(F.f.x,H(F.f.x,F.f.z)+1.4,F.f.z,1)}flash(.45,'rgba(150,110,255,.7)');tone(110,60,.8,'sawtooth',.12)}catch(e){}
+    if(co&&NET.mode==='host')try{WardenNet.send({k:'sp',t:'es',s:site.id,b:B.id,seed:opt.seed,st:opt.st})}catch(e){}
+    msg('HOLLOW ECHO',1.3)}
+  function echoShatter(G,mine){
+    if(!ult||ult.kind!=='echo'||!G||!G.ghost||G.dead)return;G.dead=true;
+    try{WardenVfx.burst(G.f.x,H(G.f.x,G.f.z)+1.3,G.f.z,2);tone(700,200,.25,'triangle',.12)}catch(e){}
+    ult.all=ult.all.filter(F=>F!==G);rmGhost(G);
+    if(mine&&P.act!=='dead'){P.hp=Math.max(1,P.hp-P.hpMax*Echo.BACKLASH);flash(.5,'rgba(255,60,60,.6)');msg('FALSE ECHO',.9);try{CameraRig.shake(.35)}catch(e){}}}
+  function echoFound(remote){
+    const U=ult;if(!U||U.kind!=='echo'||U.found||U.ph==='strike'||U.ph==='wait')return;U.found=true;U.ph='out';U.t2=0;
+    for(const F of U.all.slice())if(F.ghost)echoShatter(F,false);
+    try{bq('.ec').classList.remove('on');const rr=bq('.rr');rr.textContent='FOUND HIM';rr.style.color='#ffe27a';rr.classList.add('on');flash(.7,'rgba(255,236,150,.8)');CameraRig.shake(.5);tone(900,1800,.3,'triangle',.14);flowAdd(40);WardenVfx.clash(U.B.f.x,H(U.B.f.x,U.B.f.z)+1.5,U.B.f.z,true)}catch(e){}
+    if(NET.mode==='guest'){if(!remote)try{WardenNet.send({k:'sp',t:'ef',s:site.id})}catch(e){}}
+    else{echoReel(U.B);if(U.co)try{WardenNet.send({k:'sp',t:'ee',s:site.id})}catch(e){}}}
+  function echoReel(B){if(!B||B.f.act==='dead')return;B.f.hp=Math.max(1,B.f.hp-B.f.hpMax*.05);B.f.po=Math.min(B.f.poMax*.97,B.f.po+B.f.poMax*.7)}   // host / solo only: the boss is the host's
+  function endEcho(){
+    if(!ult||ult.kind!=='echo')return;const U=ult;ult=null;
+    for(const F of U.all){if(F.ghost)rmGhost(F);else{F.script=false;F.ai.cool=Math.max(F.ai.cool||0,70)}}
+    echoPool(false);
+    if(barEl){barEl.style.display='none';bq('.ec').classList.remove('on');bq('.rr').classList.remove('on')}}
+  const endSet=()=>{if(!ult)return;if(ult.kind==='echo')endEcho();else endBarrage()};
+  function echoTick(dt){
+    const U=ult,B=U.B;U.t+=dt;
+    if(ecPool){const f=B.f;ecPool.position.set(f.x,H(f.x,f.z)+.1,f.z);ecPool.scale.setScalar(1.05*(B.T.scale||1))}
+    for(const F of U.all)if(F.ghost){F.body.g.position.y=H(F.f.x,F.f.z)+.1}   // the echoes float a hand above the ground (and cast no pool)
+    if(U.ph==='reveal'){if(U.t>=Echo.REVEAL){U.ph='search';U.t=0;msg('Which one is real? Only the real one casts a shadow.',3)}return}
+    if(U.ph==='search'){
+      const left=Math.max(0,U.T-U.t);try{const ec=bq('.ec');ec.textContent='HOLLOW ECHO · '+Math.ceil(left);ec.classList.add('on')}catch(e){}
+      if(U.t>=U.T){   // out of time: everyone lunges
+        U.ph='strike';U.t=0;try{bq('.ec').classList.remove('on')}catch(e){}
+        const A=C.arena,realRole=U.lay.roles[U.lay.real],dm=Barrage.dmFor(P.hpMax,P.hp,Moves[Barrage.MOVE].dmg,2);
+        for(const F of U.all){
+          if(F===B){const mine=realRole===U.role;if(!mine&&!(U.co&&Q))continue;const T=U.sl[realRole];F.f.face=Math.atan2(T.x-F.f.x,T.z-F.f.z);F.f.dm=mine?dm:.001;U.mine.add(F.id)}
+          else{F.f.face=Math.atan2(F.f.x-A.x,F.f.z-A.z);F.f.dm=.001}   // echoes lunge outward, at nothing
+          ST.input(F.id,{t:'atk',m:Barrage.MOVE},now())}
+        U.T0=C.tick+1;P.st=P.stMax;try{tone(220,60,.5,'sawtooth',.12)}catch(e){}}
+      return}
+    if(U.ph==='strike'){U.ph='wait';return}
+    if(U.ph==='wait'){if(U.t>=Echo.STRIKE_WAIT){try{const rr=bq('.rr');rr.textContent=U.hits?'HOLLOW STRIKE':'AVOIDED';rr.style.color=U.hits?'#ff5a4a':'#9ad0ff';rr.classList.add('on')}catch(e){}U.ph='out';U.t2=0}return}
+    U.t2+=dt;if(U.t2>1.3)endEcho()}
+  function echoEvents(evs){
+    const U=ult;if(!U||U.kind!=='echo'||U.found||U.ph!=='search'&&U.ph!=='reveal')return;
+    for(const e of evs){if(e.t!=='hit'||e.a!=='P'&&e.a!=='Q')continue;
+      if(e.d===U.B.id){echoFound(false);return}
+      const G=U.all.find(F=>F.ghost&&F.id===e.d);if(G)echoShatter(G,e.a==='P')}}
   function bossReel(B,rw){if(!B||B.f.act==='dead')return;B.f.hp=Math.max(1,B.f.hp-B.f.hpMax*.1*rw);B.f.po=Math.min(B.f.poMax*.97,B.f.po+B.f.poMax*.6*rw)}   // host / solo only: the boss is the host's
   function spMsg(p){
     if(!on||!site||p.s!==site.id)return;
     if(p.t==='bs'&&NET.mode==='guest'&&!ult&&state==='fight'&&P.act!=='dead'&&!CineCam.busy()){const B=byId[p.b];if(B&&B.f.act!=='dead')startBarrage(B,{a0:p.a,co:true})}
+    else if(p.t==='es'&&NET.mode==='guest'&&!ult&&state==='fight'&&P.act!=='dead'&&!CineCam.busy()){const B=byId[p.b];if(B&&B.f.act!=='dead')startEcho(B,{co:true,seed:p.seed,st:p.st})}
+    else if(p.t==='ef'&&NET.mode==='host'&&ult&&ult.kind==='echo')echoFound(true)
+    else if(p.t==='ee'&&NET.mode==='guest'&&ult&&ult.kind==='echo')echoFound(true)
     else if(p.t==='r'&&NET.mode==='host'&&p.ok){const B=ult?ult.B:foes.find(F=>F.T.barrage);bossReel(B,Barrage.reward(true))}}
   function barrageTick(dt){
+    if(ult&&ult.kind==='echo'){echoTick(dt);return}
     if(!ult){
       if(!on||state!=='fight'||P.act!=='free'||P.hp<25||NET.mode==='guest'||Q&&Q.act==='dead'||CineCam.busy())return;
       for(const F of foes){if(!F.T.barrage||F.ghost||!F.awake||F.f.act!=='free'||F.f.inv>0)continue;const s=Barrage.stage(F.f.hp/F.f.hpMax);if(s>(F.bar||0)){F.bar=s;startBarrage(F);return}}
+      for(const F of foes){if(!F.T.echo||F.ghost||!F.awake||F.f.act!=='free'||F.f.inv>0)continue;const s=Echo.stage(F.f.hp/F.f.hpMax);if(s>(F.ech||0)){F.ech=s;startEcho(F,{co:!!(Q&&NET.mode==='host'),seed:(Math.random()*2147483647)|0,st:s});return}}
       return}
     const U=ult,rdt=dt/Math.max(.05,tsc);U.t+=rdt;
     for(const F of U.all)if(F.ghost)ghostLook(F);
@@ -584,7 +661,7 @@ const PlayerCombat=(()=>{
     decoyTick(decoy,'Z',dt);decoyTick(rdecoy,'Y',dt);
     const b=el&&el.querySelector('#wShadow');if(b){const t=shCd>0?Math.ceil(shCd):0;if(b._c!==t){b._c=t;b.textContent=t?'Shadow '+t:'Shadow';b.classList.toggle('cd',t>0)}}}
   function leave(hold){   // hold: keep the corpses of a cleared site in the world
-    if(!on)return;if(ult)endBarrage();killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;pendFace=null;
+    if(!on)return;endSet();killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;pendFace=null;
     if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
     try{if(site&&site.fog)WardenIsles.fog(site.id,rt(site).cleared?'gone':'idle')}catch(e){}}
@@ -607,6 +684,7 @@ const PlayerCombat=(()=>{
     else if(e.t==='dodge'&&e.a==='P'){WardenVfx.spawn(P.x,H(P.x,P.z)+1,P.z,2,4,2.8,-P.face+Math.PI/2,30)}}
   function vfxAt(e,f){const y=H(f.x,f.z)+1.3;if(e.t==='hit')WardenVfx.hit(f.x,y,f.z,e.crit,e.dmg>=20);else if(e.t==='block')WardenVfx.clash(f.x,y,f.z);else if(e.t==='deflect')WardenVfx.clash(f.x,y,f.z,true);else WardenVfx.burst(f.x,y,f.z,e.t==='posturebreak'?0:3)}
   function events(evs){
+    echoEvents(evs);
     if(ult)for(const e of evs){if(e.t==='hit'&&e.d==='P'&&ult.mine.has(e.a))ult.hits++;else if(e.t==='dodged'&&e.d==='P'&&ult.mine.has(e.a))ult.dodged++}
     if(decoy||rdecoy)for(const e of evs){if(e.t==='hit'&&(e.d==='Z'||e.d==='Y')){const d=e.d==='Z'?decoy:rdecoy,Z=C.F[e.d];if(d)d.hits++;if(Z)try{WardenVfx.hit(Z.x,H(Z.x,Z.z)+1.2,Z.z,false,false)}catch(x){}}}
     if(PC._log)for(const e of evs)if(e.t!=='hitstop')PC._log.push(e);
