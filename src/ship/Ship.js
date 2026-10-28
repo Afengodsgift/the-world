@@ -61,8 +61,8 @@ const Ship=(()=>{
     if(!best)best=[0,0];Decks.pin(S,d,best[0],best[1]);S.vy=0;S.grounded=true;S.kx=S.kz=0;banner('Welcome aboard! Climb the stairs at the back (stern) to the wheel.','⛵ SHIP')}
 
   // ---------- damage: cannon balls from the fleet (Fleet.js); only the ship's host applies it, everybody sees it in the snapshots ----------
-  function damage(n){
-    if(!isHost()||ship.sunk>0||!built)return;ship.hull=Math.max(0,ship.hull-n);
+  function damage(n,burn){
+    if(!isHost()||ship.sunk>0||!built)return;ship.hull=Math.max(0,ship.hull-n);if(!burn&&typeof Fires!=='undefined')try{Fires.ignite(n)}catch(e){}   // a hit can set the deck ablaze (src/ship/Fires.js)
     if(ship.hull<=0){ship.sunk=.001;ship.sail=0;broadcast();banner('Your ship is going down! Swim for it!','⛵ SHIP')}}
   function repair(n){if(!isHost()||ship.sunk>0||!built)return;ship.hull=Math.min(C.hull,ship.hull+n)}
   // the wreck is gone: a fresh hull at the harbour; everybody who was near it washes up on the pier

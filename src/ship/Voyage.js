@@ -99,6 +99,7 @@ const Voyage=(()=>{
 
   // ---------- starting ----------
   function start(){
+    if(distDock()>140){banner('Bring your ship back to the harbour first.','💰 PLUNDER');return}
     if(!isHost()){send({k:'go'});return}
     if(v.st!==ST.IDLE&&v.st!==ST.DONE&&v.st!==ST.FAIL)return;
     const site=pickSite(H,dock(),Math.random);if(!site){banner('No safe waters found for a voyage.','💰 PLUNDER');return}
@@ -138,6 +139,10 @@ const Voyage=(()=>{
       g.visible=false;scene.add(g);beacon.userData.grp=g}catch(e){beacon=null}
     try{const css=document.createElement('style');css.textContent='#voyhud{position:fixed;z-index:6;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 8px);max-width:92vw;padding:6px 14px;border-radius:14px;background:#000a;color:#fff;font:700 13px sans-serif;text-align:center;display:none;pointer-events:none;text-shadow:0 1px 2px #000}#voyhud .vb{height:7px;border-radius:4px;background:#fff3;margin-top:4px;overflow:hidden}#voyhud .vb i{display:block;height:100%;background:linear-gradient(90deg,#ffcf4a,#ff8a3d)}';
       (document.head||document.body).appendChild(css);hudEl=document.createElement('div');hudEl.id='voyhud';document.body.appendChild(hudEl)}catch(e){}
+    // the MISSION BOARD on the pier (walk up to it): the clear, unmissable way to start a run (the ship-side prompt is shadowed by the helm / cannon prompts)
+    try{const D=DOCK,c=document.createElement('canvas');c.width=256;c.height=96;const g=c.getContext('2d');g.fillStyle='#3a2410';g.fillRect(0,0,256,96);g.strokeStyle='#ffcf4a';g.lineWidth=5;g.strokeRect(4,4,248,88);g.fillStyle='#ffcf4a';g.font='bold 30px sans-serif';g.textAlign='center';g.fillText('💰 PLUNDER RUN',128,42);g.fillStyle='#fff';g.font='20px sans-serif';g.fillText('Wreck · siege · haul it home',128,74);
+      const bm=new THREE.Mesh(new THREE.PlaneGeometry(3.4,1.28),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),side:THREE.DoubleSide})),post=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,2.6,6),new THREE.MeshStandardMaterial({color:'#5a3a1a'}));
+      bm.position.set(board.x,D.top+2.6,board.z);post.position.set(board.x,D.top+1.3,board.z);scene.add(bm,post)}catch(e){}
     Net.on('voy',onNet);Systems.add('voyage',step)}
   function markSite(){if(!beacon)return;const g=beacon.userData.grp,t=target();g.visible=!!t;if(t){g.position.set(t.x,SEA,t.z);ring.visible=true;ring.scale.setScalar(v.st===ST.BACK?V.rDock/V.r:1)}}
   const target=()=>v.st===ST.OUT||v.st===ST.SIEGE?v.site:v.st===ST.BACK?dock():null;
@@ -169,8 +174,11 @@ const Voyage=(()=>{
     if(beaM&&target()){const k=.28+.1*Math.sin(Date.now()/380);beaM.opacity=k;if(v.st===ST.SIEGE&&ring)ring.material.opacity=.35+.3*Math.abs(Math.sin(Date.now()/260))}
     hud()}
 
+  const board={x:DOCK.x+2.6,z:DOCK.z0+3};
+  const nearBoard=()=>Math.hypot(S.x-board.x,S.z-board.z)<4.2&&Math.abs(S.y-DOCK.top)<3;
   // ---------- interactions ----------
   const distDock=()=>{const sp=ship();return Math.hypot(DOCK.ship.x-sp.x,DOCK.ship.z-sp.z)};
+  Interaction.register('voy-board','💰 Start a Plunder Run',()=>built&&(v.st===ST.IDLE||v.st===ST.DONE||v.st===ST.FAIL)&&nearBoard(),start);
   Interaction.register('voy-start','⚓ Set sail: Plunder Run',()=>built&&(v.st===ST.IDLE||v.st===ST.DONE||v.st===ST.FAIL)&&Ship.onDeck()&&distDock()<90,start);
   Interaction.register('voy-abort','Abandon the voyage',()=>built&&(v.st===ST.OUT||v.st===ST.SIEGE||v.st===ST.BACK)&&Ship.onDeck()&&distDock()<70,abort);
 

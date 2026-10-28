@@ -10,7 +10,7 @@
 const Interaction=(()=>{
   const entries=[];
   let current=null;
-  function register(id,label,check,onUse){entries.push({id,label,check,onUse})}
+  function register(id,label,check,onUse,first){const e={id,label,check,onUse};if(first)entries.unshift(e);else entries.push(e)}   // first=true: urgent prompts (a fire to put out) win over everything registered before
   function update(){
     let hit=null;
     for(const e of entries){if(e.check()){hit=e;break}}
