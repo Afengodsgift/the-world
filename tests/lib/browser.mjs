@@ -29,6 +29,6 @@ export async function start(){
     await page.fill('#name',name);await page.click('#create');
     await page.waitForFunction(()=>typeof S!=='undefined'&&typeof me!=='undefined'&&me&&!document.getElementById('boot'),null,{timeout:120000});
     page.errs=errs;page.close2=async()=>{hub.pages.delete(page);await ctx.close()};return page}
-  return {open,browser,close:async()=>{await browser.close();srv.close()},hub,ROOT};
+  return {open,browser,port,close:async()=>{await browser.close();srv.close()},hub,ROOT};
 }
 export const real=errs=>errs.filter(e=>!/favicon|Failed to load resource|WebGL|GPU stall|swiftshader/i.test(e));

@@ -19,12 +19,15 @@ const GunLoco=(()=>{
       const c={};for(const x of j.clips){const a=THREE.AnimationClip.parse(x);a.name=x.name;c[x.name]=a}meta=j.meta;clips=c;
     }).catch(e=>{console.warn('gun animations unavailable (old armed gait stays)',e);loading=null});   // retried the next time something asks
     return loading}
-  const ready=()=>!!clips;
+  // an avatar (q.av) has its own retargeted set (src/avatar/AvatarKit.js), fetched on first use; stock chibis / NPCs use the stock one
+  const AV=q=>q&&q.av&&typeof AvatarKit!=='undefined'?AvatarKit.setOf(q):null;
+  const tab=q=>{const S=AV(q);if(!S)return clips;if(!S.gun)AvatarKit.more(S.id,'gun').catch(()=>{});return S.gun};
+  const ready=q=>{if(q&&q.av){const S=AV(q);if(S&&!S.gun)AvatarKit.more(S.id,'gun').catch(()=>{});return !!(S&&S.gun)}return !!clips};
   const isLoco=n=>typeof n==='string'&&n.length>2&&n.charAt(1)==='_'&&'wrs'.indexOf(n.charAt(0))>=0;
   // the clip + action for a name on this avatar's mixer (cached on q.nact under the clip's own name); null while the pack is loading or the name is unknown
   function act(q,name){
-    if(!clips||!clips[name]||!q||!q.mixer)return null;const A=q.nact;if(!A)return null;
-    if(!A[name]){const a=q.mixer.clipAction(clips[name]);if(name.charAt(0)==='d'){a.setLoop(THREE.LoopOnce,1);a.clampWhenFinished=ONCE.clamp}A[name]=a}
+    const T=q&&tab(q);if(!T||!T[name]||!q.mixer)return null;const A=q.nact;if(!A)return null;
+    if(!A[name]){const a=q.mixer.clipAction(T[name]);if(name.charAt(0)==='d'){a.setLoop(THREE.LoopOnce,1);a.clampWhenFinished=ONCE.clamp}A[name]=a}
     return A[name]}
   // sector index for a travel direction rel (rad, 0 = ahead, + = left), sticky: stays in the current sector until rel is 10 deg past its edge
   function sector(rel,cur){
@@ -41,7 +44,7 @@ const GunLoco=(()=>{
     const vN=v/(sc||1),g=gait(vN,q.glG),prev=q.glG||0;q.glG=g;
     if(g===0||Math.hypot(q.glx,q.glz)<.35){if(g===0)q.glS=undefined;return {name:'a_idle',ts:1,fade:g!==prev?.22:.2}}
     const s=sector(wrap(Math.atan2(q.glx,q.glz)-fy),q.glS),changed=s!==q.glS||g!==prev;q.glS=s;
-    const name=GAIT[g]+'_'+SECT[s],sp=meta&&meta[name]?meta[name].spd:[0,1.2,2.5,3.6][g];
+    const mt=AV(q)?AV(q).gunMeta:meta,name=GAIT[g]+'_'+SECT[s],sp=mt&&mt[name]?mt[name].spd:[0,1.2,2.5,3.6][g];
     return {name,ts:clamp(vN/Math.max(.3,sp),TS[0],TS[1]),fade:changed?.14:.14}}
   // which death fall for a kill: att = bearing of the shooter relative to the victim's facing (rad, 0 = in front, + = victim's left), head = headshot, crouch = behind cover
   function deathClip(att,head,crouch){

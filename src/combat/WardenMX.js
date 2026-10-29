@@ -149,8 +149,9 @@ const WardenMX=(()=>{
   const BUILD='mx3';const SH={};      // role -> {st,clips,p}
   // a dropped request is retried (3 times, growing gaps) before the role is declared failed: a role that failed once never recovers within a session
   const tryFetch=(u,n)=>fetch(u,n<6?{cache:'reload'}:undefined).then(r=>{if(!r.ok)throw new Error('http '+r.status);return r}).catch(e=>n>0?new Promise(r=>setTimeout(r,1500*(7-n))).then(()=>tryFetch(u,n-1)):Promise.reject(e));
-  function fetchRole(role){const s=SH[role]||(SH[role]={st:'none',clips:null,meta:null,p:null});
-    if(!s.p)s.p=tryFetch(ROLES[role].file,6).then(r=>r.json()).then(j=>{s.clips={};s.meta={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=role+':'+c.name;ac.uuid=role+':'+c.name;s.clips[c.name]=ac;   // unique uuid per role: three.js caches actions by clip uuid, and the game's own clips are also called idle/walk/jump (sharing one action stole the game's base layer -> T-pose on hit)
+  // av = a human avatar id (AvatarKit): the same role file baked for that avatar's proportions lives in assets/avatars/<name>/ (tools/avatar/retarget_clips.mjs); native (own-rig) roles never use it
+  function fetchRole(role,av){const key=av?role+'@'+av:role,s=SH[key]||(SH[key]={st:'none',clips:null,meta:null,p:null}),file=av&&typeof AvatarKit!=='undefined'&&AvatarKit.CAT[av]&&!ROLES[role].native?AURL+AvatarKit.CAT[av].dir+ROLES[role].file.replace(/^.*\//,'')+AvatarKit.ASSET_V:ROLES[role].file,tag=(av?av+'/':'')+role;
+    if(!s.p)s.p=tryFetch(file,6).then(r=>r.json()).then(j=>{s.clips={};s.meta={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=tag+':'+c.name;ac.uuid=tag+':'+c.name;s.clips[c.name]=ac;   // unique uuid per role: three.js caches actions by clip uuid, and the game's own clips are also called idle/walk/jump (sharing one action stole the game's base layer -> T-pose on hit)
       s.meta[c.name]={dur:c.duration,v:Math.hypot(c.trav?c.trav[0]:0,c.trav?c.trav[1]:0)/Math.max(.1,c.duration)}}s.st='ready';return s}).catch(e=>{s.st='failed';s.err=String(e&&e.message||e);s.p=null;throw e});return s.p}
   function make(q,role){
     const R=ROLES[role],I={st:'none',role,A:{},ws:{},gT:0,sT:0,dT:0,sw:0,lastLight:-1e9,ready:()=>I.st==='ready',variant:'light_b',alt:{},plans:{},tmem:{}};
@@ -161,7 +162,7 @@ const WardenMX=(()=>{
       for(const m of Object.values(R.moves))for(const g of norm(m))used.add(g.c);
       names=[...used].filter(n=>s.clips[n]);I.names=names;I.S=s;
       for(const n of names){const a=q.mixer.clipAction(s.clips[n]);a.enabled=false;a.setEffectiveWeight(.0001);I.A[n]=a;I.ws[n]=0}I.st='ready'};
-    const load=()=>fetchRole(role).then(init).catch(e=>{I.st='failed';I.err=String(e&&e.message||e);setTimeout(()=>{if(I.st!=='ready')load()},6000)});load();
+    const load=()=>fetchRole(role,q.av).then(init).catch(e=>{I.st='failed';I.err=String(e&&e.message||e);setTimeout(()=>{if(I.st!=='ready')load()},6000)});load();
     const planOf=mv=>I.plans[mv.id]||(I.plans[mv.id]=R.moves[mv.id]?plan(mv.phases,R.moves[mv.id],c=>I.S.clips[c]?I.S.clips[c].duration:9):null);
     I.update=(f,fr,loco,dt,on)=>{
       if(I.st!=='ready')return false;const A=I.A,tgt={},tm={},tsc={};for(const n of names)tgt[n]=0;

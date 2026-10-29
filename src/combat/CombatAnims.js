@@ -10,8 +10,9 @@ const CombatAnims=(()=>{
     }).catch(e=>{console.warn('combat anims unavailable',e);loading=null});   // retried the next time something asks
     return loading}
   function act(q,name){
-    if(!clips||!clips[name]||!q||!q.mixer)return null;const A=q.nact||(q.nact={});
-    if(!A['_c_'+name]){const a=q.mixer.clipAction(clips[name]);const o=ONCE[name];if(o){a.setLoop(THREE.LoopOnce,1);a.clampWhenFinished=o.clamp}A['_c_'+name]=a}
+    const S=q&&q.av&&typeof AvatarKit!=='undefined'?AvatarKit.setOf(q):null,T=S?S.combat:clips;   // a human avatar has its own set (AvatarKit)
+    if(!T||!T[name]||!q.mixer)return null;const A=q.nact||(q.nact={});
+    if(!A['_c_'+name]){const a=q.mixer.clipAction(T[name]);const o=ONCE[name];if(o){a.setLoop(THREE.LoopOnce,1);a.clampWhenFinished=o.clamp}A['_c_'+name]=a}
     return A['_c_'+name]}
   return {load,act,ready:()=>!!clips,clip:n=>clips&&clips[n]};
 })();

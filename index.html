@@ -121,7 +121,7 @@ button.alt{background:#ffffff26;color:var(--ink);font-weight:400}
   <h1>The World</h1>
   <p>A world for two.</p>
   <input id="name" placeholder="Your name" maxlength="16" autocomplete="off">
-  <div id="skinRow" style="display:flex;gap:8px;justify-content:center;margin:10px 0"></div>
+  <div id="skinRow" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:10px 0"></div>
   <button id="create">Create a world</button>
   <input id="code" placeholder="Room code (KAMI-7X4P)" maxlength="9" autocomplete="off" style="text-transform:uppercase">
   <button id="join" class="alt">Join with code</button>
@@ -158,6 +158,8 @@ addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').ca
 <script src="src/data/islands.js"></script>
 <script src="src/data/surf.js"></script>
 <script src="src/world/AssetLoader.js"></script>
+<script src="src/avatar/AvatarKit.js"></script>
+<script src="src/avatar/Wardrobe.js"></script>
 <script src="src/input/InputManager.js"></script>
 <script src="src/input/Locomotion.js"></script>
 <script src="src/movement/Boost.js"></script>
@@ -308,10 +310,23 @@ function warmUp(){
 }
 const COLORS=['#ff6b8b','#ffb454','#6bd6ff','#8dff9a','#c08bff','#ffe66b'];
 const myColor=COLORS[Math.random()*COLORS.length|0];
-const SKINLABELS=['Man','Woman','Warrior','Robot'];
-let mySkin=1;
-{const row=$('skinRow');SKINLABELS.forEach((lab,i)=>{const b=document.createElement('button');b.textContent=lab;if(i===mySkin)b.className='sel';
-  b.onclick=()=>{mySkin=i;[...row.children].forEach((c,k)=>c.className=k===i?'sel':'')};row.appendChild(b)})}
+const SKINLABELS=['Man','Woman','Warrior','Robot'];   // the stock chibi skins: NPCs, and any peer on an older build
+// The player is either a full-human avatar (myApp = a wardrobe appearance) or, as before, one of the stock chibi skins (myApp = null, mySkin = 0..3). Both stay selectable.
+let myApp=AvatarKit.restore()||AvatarKit.defaults(AvatarKit.DEFAULT_BASE),mySkin=AvatarKit.legacySkin(myApp.b);
+try{const cs=localStorage.getItem('tw_chibi_v1');if(cs!==null&&+cs>=0&&+cs<SKINLABELS.length){myApp=null;mySkin=+cs}}catch(e){}
+const myAp=()=>myApp?AvatarKit.encode(myApp):undefined;
+function lobbyAvatarRow(){const row=$('skinRow');row.innerHTML='';
+  const add=(txt,sel,fn)=>{const b=document.createElement('button');b.textContent=txt;if(sel)b.className='sel';b.onclick=fn;row.appendChild(b)};
+  for(const id of Object.keys(AvatarKit.CAT))add(AvatarKit.CAT[id].label,myApp&&myApp.b===id,()=>{myApp=AvatarKit.normalize(Object.assign({},myApp||AvatarKit.restore()||{},{b:id}));mySkin=AvatarKit.legacySkin(myApp.b);AvatarKit.save(myApp);try{localStorage.removeItem('tw_chibi_v1')}catch(e){}AvatarKit.preload(id).catch(()=>{});lobbyAvatarRow()});
+  SKINLABELS.forEach((lab,i)=>add(lab,!myApp&&mySkin===i,()=>{myApp=null;mySkin=i;try{localStorage.setItem('tw_chibi_v1',i)}catch(e){}lobbyAvatarRow()}));   // the original chibi characters
+  const w=document.createElement('button');w.textContent='\u{1F457} Wardrobe';w.onclick=()=>Wardrobe.open({current:myApp||AvatarKit.restore()||AvatarKit.defaults(AvatarKit.DEFAULT_BASE),onApply:a=>{myApp=a;mySkin=AvatarKit.legacySkin(a.b);AvatarKit.save(a);try{localStorage.removeItem('tw_chibi_v1')}catch(e){}lobbyAvatarRow()}});row.appendChild(w)}
+lobbyAvatarRow();if(myApp)AvatarKit.preload(myApp.b).catch(()=>{});   // start the download while the player types a name
+// in-game: change clothes (never during combat / an Outlaw match). The new look is applied to my model and sent to my partner with the presence update.
+const wardrobeBusy=()=>(typeof PlayerCombat!=='undefined'&&PlayerCombat.on())||(typeof Outlaw!=='undefined'&&Outlaw.idle&&!Outlaw.idle());
+function setMyAppearance(a){myApp=AvatarKit.normalize(a);mySkin=AvatarKit.legacySkin(myApp.b);AvatarKit.save(myApp);try{localStorage.removeItem('tw_chibi_v1')}catch(e){}
+  if(me)AvatarKit.apply(me,myApp);
+  if(chan&&entered)chan.track({name:myName,color:myColor,skin:mySkin,ap:myAp()}).catch(()=>{})}
+function openWardrobe(){Wardrobe.open({current:myApp||AvatarKit.restore()||AvatarKit.defaults(AvatarKit.DEFAULT_BASE),busy:wardrobeBusy,onBlocked:()=>banner('Not now - finish the fight first','\u{1F457}'),onApply:setMyAppearance})}
 
 const pre=new URLSearchParams(location.search).get('room');
 if(pre)$('code').value=pre;
@@ -380,7 +395,7 @@ async function enter(code){
       await new Promise(r=>setTimeout(r,700));
       if(Object.keys(chan.presenceState()).length>=2){msg('This world is full (2 players max).');sb.removeChannel(chan);joining=false;gameStarted=false;return}
       entered=true;
-      await chan.track({name:myName,color:myColor,skin:mySkin});
+      await chan.track({name:myName,color:myColor,skin:mySkin,ap:myAp()});
       startGame();
     }else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){if(!entered){joining=false;gameStarted=false}msg('Could not connect. Check your connection and try again.')}
   });
@@ -391,8 +406,9 @@ function syncPresence(){
   const st=chan.presenceState();
   for(const id of Object.keys(st)){
     if(id===myId||others.has(id))continue;
-    const m=st[id][0];addOther(id,m.name,m.color,m.skin);
+    const m=st[id][0];addOther(id,m.name,m.color,m.skin,m.ap);
   }
+  for(const [id,o] of others){const m=st[id]&&st[id][0];if(m&&typeof m.ap==='string'&&m.ap!==o.ap){o.ap=m.ap;AvatarKit.apply(o.group,m.ap)}}   // my partner changed clothes (or joined late with a look): restyle in place, never a second model
   for(const id of [...others.keys()])if(!st[id])removeOther(id);
   updateHud();
 }
@@ -454,11 +470,12 @@ const EMO={p:null,clips:{},def:{},menu:[]};
 function loadEmotes(){
   if(!EMO.p)EMO.p=fetch(AURL+'emotes.json').then(r=>r.json()).then(j=>{EMO.menu=j.menu;j.menu.forEach(m=>EMO.def[m.id]=m);for(const c of j.clips){const ac=THREE.AnimationClip.parse(c);ac.name=c.name;EMO.clips[c.name]=ac}}).catch(e=>{EMO.p=null;throw e});
   return EMO.p}
-function emoAct(q,name){const A=q.nact;if(!A[name]&&EMO.clips[name])A[name]=q.mixer.clipAction(EMO.clips[name]);return A[name]}
+function emoAct(q,name){const A=q.nact,T=(q.av&&typeof AvatarKit!=='undefined'&&AvatarKit.emoTable(q))||EMO.clips;if(!A[name]&&T[name])A[name]=q.mixer.clipAction(T[name]);return A[name]}   // a human avatar (q.av) plays its own retargeted set; everything else the stock one
 function openEmotes(){
   const pn=$('emopanel');if(pn.style.display==='block'){pn.style.display='none';return}
   pn.innerHTML='<button class="x">✕</button>';pn.style.display='block';
   pn.firstChild.onclick=()=>{pn.style.display='none'};
+  {const wb=document.createElement('button');wb.textContent='\u{1F457} Wardrobe';wb.style.cssText='display:block;margin:0 0 8px';wb.onclick=()=>{pn.style.display='none';openWardrobe()};pn.appendChild(wb)}   // change clothes (blocked in combat)
   loadEmotes().then(()=>{let cat='',row=null;
     for(const m of EMO.menu){if(m.hidden)continue;if(m.cat!==cat){cat=m.cat;const h=document.createElement('h4');h.textContent=cat;pn.appendChild(h);row=document.createElement('div');row.className='row';pn.appendChild(row)}
       const b=document.createElement('button');b.textContent=m.emoji+' '+m.label;b.onclick=()=>{pn.style.display='none';playEmote(m.id)};row.appendChild(b)}
@@ -489,10 +506,11 @@ function animateClips(g,dt,st){
   else if(st==='fall'){want='fall';fade=.12}
   else if(st==='walk'||st==='run'){const c=q.cur; // thresholds have hysteresis so it doesn't flicker between clips
     want=v<.4?'idle':(c==='sprint'?v>7.2:v>8.4)?'sprint':(c==='jog'?v>2.4:v>3.2)?'jog':'walk';
-    ts=want==='walk'?clamp(v/1.06,.6,2.2):want==='jog'?clamp(v/5.8,.5,1.5):want==='sprint'?clamp(v/9,.8,1.7):1}
+    const gr=q.av&&typeof AvatarKit!=='undefined'?AvatarKit.gait(q):null,rw=gr?gr.walk:1,rj=gr?gr.jog:1,rs=gr?gr.sprint:1;   // a human stride is longer than the chibi's: the same clip plays slower for the same ground speed (planted-foot ratios measured by tools/avatar/retarget_clips.mjs)
+    ts=want==='walk'?clamp(v/(1.06*rw),.6,2.2):want==='jog'?clamp(v/(5.8*rj),.5,1.5):want==='sprint'?clamp(v/(9*rs),.8,1.7):1}
   // armed (a gun in hand, on foot): the Mixamo rifle clips (src/character/GunLoco.js) - walk/run/sprint in 8 directions relative to the body's facing, so strafing and backpedalling are real
   // clips and the feet match the speed. Until assets/gun_anims.json has loaded (or if it can't) the old path stays: leg twist (src/character/CombatPose.js) + pistol-ready idle.
-  const gunOk=q.gunI>=0&&st!=='fly'&&st!=='swim'&&st!=='jump'&&st!=='fall'&&st!=='crouch'&&typeof GunLoco!=='undefined'&&GunLoco.ready();
+  const gunOk=q.gunI>=0&&st!=='fly'&&st!=='swim'&&st!=='jump'&&st!=='fall'&&st!=='crouch'&&typeof GunLoco!=='undefined'&&GunLoco.ready(q);
   const armed=!gunOk&&q.gunI>=0&&!q.noTwist&&st!=='fly'&&st!=='swim'&&st!=='jump'&&st!=='fall';   // q.noTwist: raiders keep the plain gait (the leg twist is for human players)
   if(gunOk){q.cpT=0;q.cpRev=false;const gp=GunLoco.pick(q,dt,mdx,mdz,v,g.rotation.y,g.scale.x);want=gp.name;ts=gp.ts;fade=gp.fade;A[want]=GunLoco.act(q,want)||A.idle}
   else if(armed)CombatPose.plan(q,dt,mdx,mdz,v,g.rotation.y,st==='walk'||st==='run');else{q.cpT=0;q.cpRev=false}
@@ -567,22 +585,34 @@ function animate(g,dt,st){
 }
 
 const K=2.5;
-function dress(g,skin){
+// Rig set-up shared by the stock chibi (dress) and the human avatars (src/avatar/AvatarKit.js): mixer + clip actions for ncl, hand-held props. cl = legacy 3-clip set, ncl = baked clip set.
+function dressRig(g,m,bones,cl,ncl){
+  const mx=new THREE.AnimationMixer(m),act={},nact={};for(const n in cl)act[n]=mx.clipAction(cl[n]);
+  if(act.jump){act.jump.setLoop(THREE.LoopOnce,1);act.jump.clampWhenFinished=true}
+  for(const n in ncl)nact[n]=mx.clipAction(ncl[n]);
+  if(nact.jump){nact.jump.setLoop(THREE.LoopOnce,1);nact.jump.clampWhenFinished=true}
+  for(const n of ['smack','hit','hit2','land','interact','dig'])if(nact[n])nact[n].setLoop(THREE.LoopOnce,1); // one-shot overlays
+  const u=g.userData;u.rig.visible=false;m.traverse(c=>{if(c.isMesh){c.castShadow=true}});g.add(m);Object.assign(u,{mixer:mx,act,nact:nact.idle?nact:null,model:m,bones,cur:null,ph:0,swing:0,spd:0,yr:0,fb:0,fd:0});
+  if(u.ov)u.ov=null;
+  if(PAN_ENABLED&&bones.RightHand&&!u.pan)loadPan().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(panBuf.slice(0),AURL,res,rej))).then(pr=>{
+    if(u.model!==m)return; // the model was swapped while the pan loaded
+    const piv=new THREE.Group(),pn=pr.scene;pn.traverse(c=>{if(c.isMesh)c.castShadow=true});
+    pn.position.set(.173,-19.68,31.046);piv.add(pn);piv.scale.setScalar((.36/5.915)/50);piv.position.set(0,.0016,0);piv.rotation.set(Math.PI,0,PAN_REST_Z);
+    if(u.nact)piv.quaternion.set(...PAN_GRIP);piv.visible=false;bones.RightHand.add(piv);u.pan=piv;
+  }).catch(()=>{});
+  if(bones.RightHand&&typeof Fishing!=='undefined'&&!u.rod)Fishing.attachRod(u,bones,g); // hidden fishing rod, posed per frame by Fishing.poseRod
+}
+// app = a wardrobe appearance (AvatarKit): the player's full-human avatar. Without it (NPCs, crew, an unknown/legacy peer) the stock chibi + skin texture is used, exactly as before.
+function dress(g,skin,app){
+  if(app&&typeof AvatarKit!=='undefined'&&AvatarKit.has(app)){
+    // the chibi is only a fallback until the avatar has loaded; if it can't load, dress the chibi so nobody is invisible
+    AvatarKit.apply(g,app).then(ok=>{if(!ok&&!g.userData.model)dressChibi(g,skin)});return}
+  dressChibi(g,skin)}
+function dressChibi(g,skin){
   loadChar().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(charBuf.slice(0),AURL,res,rej))).then(r=>{
     const m=r.scene,bones={};m.scale.setScalar(.5);
     m.traverse(o=>{if(o.isSkinnedMesh){o.skeleton.bones.forEach(b=>bones[b.name]=b);o.frustumCulled=false;o.material=new THREE.MeshStandardMaterial({map:skinT[skin%skinT.length],roughness:.85,metalness:0})}});
-    const mx=new THREE.AnimationMixer(m),act={},nact={};for(const n in clips)act[n]=mx.clipAction(clips[n]);
-    act.jump.setLoop(THREE.LoopOnce,1);act.jump.clampWhenFinished=true;
-    for(const n in nclips)nact[n]=mx.clipAction(nclips[n]);
-    if(nact.jump){nact.jump.setLoop(THREE.LoopOnce,1);nact.jump.clampWhenFinished=true}
-    for(const n of ['smack','hit','hit2','land','interact','dig'])if(nact[n])nact[n].setLoop(THREE.LoopOnce,1); // one-shot overlays
-    const u=g.userData;u.rig.visible=false;m.traverse(c=>{if(c.isMesh){c.castShadow=true}});g.add(m);Object.assign(u,{mixer:mx,act,nact:nact.idle?nact:null,model:m,bones,cur:null,ph:0,swing:0,spd:0,yr:0,fb:0,fd:0});
-    if(PAN_ENABLED&&bones.RightHand)loadPan().then(()=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(panBuf.slice(0),AURL,res,rej))).then(pr=>{
-      const piv=new THREE.Group(),pn=pr.scene;pn.traverse(c=>{if(c.isMesh)c.castShadow=true});
-      pn.position.set(.173,-19.68,31.046);piv.add(pn);piv.scale.setScalar((.36/5.915)/50);piv.position.set(0,.0016,0);piv.rotation.set(Math.PI,0,PAN_REST_Z);
-      if(u.nact)piv.quaternion.set(...PAN_GRIP);piv.visible=false;bones.RightHand.add(piv);u.pan=piv;
-    }).catch(()=>{});
-    if(bones.RightHand&&typeof Fishing!=='undefined')Fishing.attachRod(u,bones,g); // hidden fishing rod, posed per frame by Fishing.poseRod
+    dressRig(g,m,bones,clips,nclips);
   }).catch(()=>{});
 }
 loadAssets();loadChar().catch(()=>{});
@@ -768,7 +798,7 @@ async function startGame(){
     boot('Loading islands and creatures…',40);
     try{await Promise.race([Promise.all(jobs.map(p=>Promise.resolve(p).catch(()=>{}).then(()=>{done++;boot('Loading islands and creatures…',40+Math.round(done/jobs.length*28))}))),nap(30000)])}catch(e){showErr(e)}}
   boot('Building the sky island…',70);await nap(40);try{buildSkyIsland()}catch(e){showErr(e)}
-  me=makeAvatar(myName,myColor);scene.add(me);dress(me,mySkin);
+  me=makeAvatar(myName,myColor);scene.add(me);dress(me,mySkin,myApp);
   // spawn: slot by join order (offset so partners don't overlap)
   S.x=TOWN.x+(Math.random()-.5)*4;S.z=TOWN.z+7+(Math.random()-.5)*2;S.y=H(S.x,S.z)+.1;
   // Keep renderer + camera matched to the real viewport. Rotation can report stale sizes for a moment, so re-fit a few times.
@@ -787,16 +817,16 @@ async function startGame(){
   setTimeout(()=>banner('Fly straight up and keep going: past 60 km the world opens up','TIP'),90000);
 }
 
-function addOther(id,name,color,skin){
+function addOther(id,name,color,skin,ap){
   if(!scene||!me)return;
-  const g=makeAvatar(name||'Partner',color||'#fff');g.userData.nm=name||'Partner';scene.add(g);dress(g,skin||0);
+  const g=makeAvatar(name||'Partner',color||'#fff');g.userData.nm=name||'Partner';scene.add(g);dress(g,skin||0,typeof ap==='string'?AvatarKit.decode(ap):null);
   others.set(id,{group:g,tx:0,ty:0,tz:0,tr:0,st:'idle'});
 }
 function removeOther(id){const o=others.get(id);if(o){scene.remove(o.group);others.delete(id)}updateHud()}
 function onState(p){
   if(!scene||!me)return;
   let o=others.get(p.id);
-  if(!o){const m=(chan.presenceState()[p.id]||[{}])[0];addOther(p.id,m.name,m.color,m.skin);o=others.get(p.id);if(!o)return;o.group.position.set(p.x,p.y,p.z)}
+  if(!o){const m=(chan.presenceState()[p.id]||[{}])[0];addOther(p.id,m.name,m.color,m.skin,m.ap);o=others.get(p.id);if(!o)return;o.group.position.set(p.x,p.y,p.z)}
   RemoteSmooth.snap(o,p,performance.now());o.sf=p.sf;if(o.group.userData.pan)o.group.userData.pan.visible=!!p.pn;
   if(o.st==='fall'&&p.st!=='fall'&&p.st!=='jump')o.group.userData.land=.15;o.st=p.st||'idle';o.group.userData.bc=+p.bc||0;
 }
@@ -1354,7 +1384,7 @@ function tickFrame(t){
   else if(!bvis)$('smack').style.display=(PAN_ENABLED&&panOn)?'block':'none';
   FlightFX.screen(dt,CameraRig.speedFrac());                                    // speed lines (src/fx/FlightFX.js)
   smackTick(dt);
-  Space.render(renderer,scene,camera);Viewmodel.render(renderer,camera);               // first-person arms + weapon (separate pass, fixed FOV)
+  if(typeof Wardrobe==='undefined'||!Wardrobe.isOpen()){Space.render(renderer,scene,camera);Viewmodel.render(renderer,camera)}   // first-person arms + weapon (separate pass, fixed FOV); skipped while the wardrobe sheet covers the screen (one GPU context at a time)
 }
 </script>
 </body>
