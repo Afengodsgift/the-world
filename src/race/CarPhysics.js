@@ -231,5 +231,24 @@ const CarPhysics=(()=>{
   function unpack(a,o){o=o||{};o.x=a[0];o.y=a[1];o.z=a[2];o.h=a[3];o.pitch=a[4];o.roll=a[5];o.vx=a[6];o.vy=a[7];o.vz=a[8];
     o.mode=a[9]&1?'fly':'car';o.grounded=!!(a[9]&2);o.boosting=!!(a[9]&4);o.shield=!!(a[9]&8);o.hit=!!(a[9]&16);return o}
 
-  return {newCar,step,toFly,toCar,pad,pack,unpack,turnRate,disrupt};
+  // ---------- car vs car ----------
+  // Two cars touch when their circles overlap (grounded or flying, at about the same height). Positions are pushed apart by the inverse-mass share and the closing
+  // speed along the contact normal is exchanged with a little bounce (a heavy Bruiser shoves a light Comet aside), a touch of speed is scrubbed by the scrape.
+  // o.moveA / o.moveB (default true): only move/impulse that car. A remote ghost is driven by its OWNER's phone, which runs the same maths on its own car, so each
+  // phone applies its own half and the pair separates exactly once. Returns the closing speed (m/s) of a hit, 0 if they did not touch or were already parting.
+  const CR=1.75,REST=.32;
+  function collide(a,b,o){
+    if(a===b||Math.abs(a.y-b.y)>2.4)return 0;
+    const dx=b.x-a.x,dz=b.z-a.z,min=CR*2;let d2=dx*dx+dz*dz;if(d2>=min*min)return 0;
+    let d=Math.sqrt(d2),nx,nz;if(d<1e-3){nx=Math.cos(a.h);nz=-Math.sin(a.h);d=0}else{nx=dx/d;nz=dz/d}   // exactly on top of each other: separate sideways
+    const ma=a.p.mass||1,mb=b.p.mass||1,ia=1/ma,ib=1/mb,tot=ia+ib,mvA=!o||o.moveA!==false,mvB=!o||o.moveB!==false,pen=min-d;
+    if(mvA){a.x-=nx*pen*ia/tot;a.z-=nz*pen*ia/tot}
+    if(mvB){b.x+=nx*pen*ib/tot;b.z+=nz*pen*ib/tot}
+    const vn=(b.vx-a.vx)*nx+(b.vz-a.vz)*nz;if(vn>=0)return .01;           // already moving apart: just separated
+    const j=-(1+REST)*vn/tot;
+    if(mvA){a.vx-=j*ia*nx;a.vz-=j*ia*nz;const k=1-Math.min(.12,-vn*.006);a.vx*=k;a.vz*=k}
+    if(mvB){b.vx+=j*ib*nx;b.vz+=j*ib*nz;const k=1-Math.min(.12,-vn*.006);b.vx*=k;b.vz*=k}
+    return -vn}
+
+  return {newCar,step,toFly,toCar,pad,pack,unpack,turnRate,disrupt,collide,CR};
 })();

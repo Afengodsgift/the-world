@@ -361,6 +361,7 @@ const Rally=(()=>{
       stepRacer(x,x.inp);
       if(x.r.finished&&!x.finT){x.finT=1}
     }
+    if(ST.mode==='race'||ST.mode==='finish')collisions();
     if(IS&&(ST.mode==='race'||ST.mode==='finish')){
       if(++ST.tick%12===0)rank();                                   // item rolls and AI decisions need an up-to-date race position
       for(const x of R)if(x.kind==='ai')Items.aiThink(IS,x,R,DT,{nearJump});
@@ -368,6 +369,19 @@ const Rally=(()=>{
     }
     if(ST.mode==='race'||ST.mode==='finish')ST.t+=DT;
   }
+  // ---- car-to-car: every pair (grounded or flying at about the same height) bumps. A remote ghost is moved only by its owner's phone (see CarPhysics.collide) ----
+  function collisions(){
+    for(let i=0;i<R.length;i++){const a=R[i];if(a.r.finished||(a.kind==='net'&&!a.seen))continue;
+      for(let j=i+1;j<R.length;j++){const b=R[j];if(b.r.finished||(b.kind==='net'&&!b.seen))continue;
+        if(Math.abs(a.c.x-b.c.x)>4||Math.abs(a.c.z-b.c.z)>4)continue;
+        const imp=CP.collide(a.c,b.c,{moveA:a.kind!=='net',moveB:b.kind!=='net'});
+        if(imp>2){const k=a.key+'|'+b.key,now=ST.t;if(!ST.bumpAt)ST.bumpAt={};if(now-(ST.bumpAt[k]||-9)<.18)continue;ST.bumpAt[k]=now;bumpFx(a,b,imp)}}}
+  }
+  function bumpFx(a,b,imp){
+    const x=(a.c.x+b.c.x)/2,y=Math.max(a.c.y,b.c.y)+.7,z=(a.c.z+b.c.z)/2,mine=a===ME||b===ME;
+    try{Fx.burst(x,y,z,imp>14?'#ffb347':'#ffe9a8',Math.min(10,2+Math.round(imp/2)))}catch(e){}
+    if(mine){ST.shake=Math.max(ST.shake,clamp(imp/30,.12,.6));ST.bumps=(ST.bumps||0)+1;tone(80+Math.min(70,imp*4),.14,'square',clamp(.05+imp/150,.05,.2),.55);if(imp>14)tone(1400,.05,'triangle',.06)}
+    else if(ME&&Math.hypot(x-ME.c.x,z-ME.c.z)<60)tone(95,.1,'square',.05,.6)}
   function netVisual(x,dt){
     const v=x.view,p=x.pk;if(!p)return;
     const age=Math.min(.4,(performance.now()-p.at)/1000);
@@ -498,7 +512,7 @@ const Rally=(()=>{
     frame,
     // handy for tests / debugging
     state:()=>({mode:ST.mode,t:ST.t,hits:ST.hits,uses:ST.uses,fc:ST.fc,startIn:Math.round(ST.startAt-performance.now()),err:ST.err,me:ME&&{passed:ME.r.passed,next:ME.r.next,finished:ME.r.finished,finishT:ME.r.finishT,place:ME.place,mode:ME.c.mode,x:ME.c.x,y:ME.c.y,z:ME.c.z,s:ME.c.s,rec:ME.rec,grounded:ME.c.grounded,hitT:ME.c.hitT,shieldT:ME.c.shieldT,item:ME.item},
-      racers:R.map(x=>({key:x.key,item:x.item,hitT:x.c.hitT,shieldT:x.c.shieldT,protT:x.c.protT,x:x.c.x,z:x.c.z,name:x.name,kind:x.kind,passed:x.r.passed,finished:x.r.finished,finishT:x.r.finishT,rec:x.rec,mode:x.c.mode,seen:x.seen,cheat:!!x.cheat})),gates:T&&T.gates.length}),
+      bumps:ST.bumps||0,racers:R.map(x=>({key:x.key,item:x.item,hitT:x.c.hitT,shieldT:x.c.shieldT,protT:x.c.protT,x:x.c.x,z:x.c.z,name:x.name,kind:x.kind,passed:x.r.passed,finished:x.r.finished,finishT:x.r.finishT,rec:x.rec,mode:x.c.mode,seen:x.seen,cheat:!!x.cheat})),gates:T&&T.gates.length}),
     // test hook: fast-forward the simulation by `sec` seconds without waiting for frames (software WebGL in CI is far slower than a phone)
     sim:(sec)=>{if(ST.mode==='off')return;if(ST.mode==='countdown'){ST.mode='race';ST.t=0;ST.startAt=performance.now()-1}for(let i=0,n=Math.round(sec/DT);i<n;i++)simStep()},
     snapCam:()=>{camS.init=false},
