@@ -52,6 +52,11 @@ const Moves={
   // ---- the hunters' tricks (see Tricks.js): no blade, no damage - the move IS the tell. blink: the body dissolves (26 ticks), then he reappears behind you; snare: a long cast, then traps appear on the ground ----
   blink:{id:'blink',who:'D',dmg:0,pdmg:0,hs:0,stun:0,kb:0,reach:30,w:0,phases:[ph('windup',26),ph('release',2),ph('recovery',20)]},
   snare:{id:'snare',who:'D',dmg:0,pdmg:0,hs:0,stun:0,kb:0,reach:30,w:0,phases:[ph('cast',26),ph('release',2),ph('recovery',34)]},
+  iai:{id:'iai',who:'D',dmg:28,pdmg:26,hs:7,stun:24,kb:1,reach:3.4,w:.1,phases:[ph('windup',30),ph('lunge',5,{move:2.4}),ph('active',5,{seg:0,a0:.6,a1:-.6}),ph('recovery',44)]},          // Kage's draw-cut: he sinks, then crosses the gap in one stroke
+  feint:{id:'feint',who:'D',dmg:0,pdmg:0,hs:0,stun:0,kb:0,reach:3.4,w:0,phases:[ph('windup',18),ph('recovery',20)]},                                                                // the empty sheath: looks like the draw, strikes nothing (he follows with the real thing)
+  moon:{id:'moon',who:'D',dmg:24,pdmg:22,hs:6,stun:24,kb:1.1,reach:3.7,w:.15,phases:[ph('startup',30),ph('active',7,{seg:0,a0:2.2,a1:-2.2}),ph('recovery',44)]},                  // a wide crescent: stand outside it
+  counter:{id:'counter',who:'D',dmg:26,pdmg:24,hs:6,stun:24,kb:1,reach:2.9,w:.13,phases:[ph('stance',34),ph('active',4,{seg:0,a0:.9,a1:-.9}),ph('recovery',40)]},                 // counter draw: he waits in a low stance and answers anyone who walks in swinging
+  requiem:{id:'requiem',who:'D',dmg:32,pdmg:28,hs:8,stun:28,kb:1.4,reach:5.2,w:0,fx:[{on:'start',k:'aoe',at:'self',r:5.2,delay:56,dur:3}],phases:[ph('windup',52),ph('release',2),ph('recovery',54)]},   // the final technique: the ring shows where the flames break
   riposte:{id:'riposte',who:'D',dmg:16,pdmg:14,hs:5,stun:20,kb:.6,reach:2.4,w:.12,phases:[ph('startup',20),ph('active',4,{seg:0,a0:.5,a1:-.5}),ph('recovery',24)]},
 };
 // TEMPO: player strikes are ~30% quicker than the base table (Sekiro-like cadence): shorter start-ups, shorter recoveries, and a small step-in on the light chain so a swing closes the gap.

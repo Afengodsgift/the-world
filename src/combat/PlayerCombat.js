@@ -169,13 +169,13 @@ const PlayerCombat=(()=>{
         if(o.act==='dead'){if(f.act!=='dead'){f.hp=0;f.act='dead';f.ph=null;f.mv=null;events([{t:'dead',a:'P',d:o.id}])}continue}
         if(ult&&ult.all.includes(F)){if(!F.ghost)F.f.hp=o.hp;continue}   // barrage actors run the same scripted timeline here; only the boss's health follows the host
         const keep=F.lh&&performance.now()-F.lh<500&&o.hp>f.hp?f.hp:o.hp;WardenNet.apply(f,o,Moves,.5);f.hp=keep;F.nin={mx:o.mx||0,mz:o.mz||0};
-        if(o.aw&&!F.awake)rouse(F,F.dorm!=='wake');F.ai.ph2=!!o.p2}
+        if(o.aw&&!F.awake)rouse(F,F.dorm!=='wake');F.ai.ph2=!!o.p2;F.ai.ph3=!!o.p3}
       if(Q&&sn.p)WardenNet.apply(Q,sn.p,Moves,1)}}
   function netSend(dt){
     if(NET.mode==='solo'||!on)return;const nw=performance.now();
     if(NET.mode==='host'&&nw-helloAt>=1000){helloAt=nw;WardenNet.send({k:'h',s:site.id,t0:NET.t0})}
     if(nw-netSendT<66)return;netSendT=nw;
-    if(NET.mode==='host'&&Q){const f=foes.map(F=>Object.assign(WardenNet.pack(F.f),{id:F.id,mx:F.nin?F.nin.mx:0,mz:F.nin?F.nin.mz:0,aw:F.awake?1:0,p2:F.ai.ph2?1:0}));WardenNet.send({k:'s',f,p:WardenNet.pack(P),st:netStarts,y:styId()});netStarts=[]}
+    if(NET.mode==='host'&&Q){const f=foes.map(F=>Object.assign(WardenNet.pack(F.f),{id:F.id,mx:F.nin?F.nin.mx:0,mz:F.nin?F.nin.mz:0,aw:F.awake?1:0,p2:F.ai.ph2?1:0,p3:F.ai.ph3?1:0}));WardenNet.send({k:'s',f,p:WardenNet.pack(P),st:netStarts,y:styId()});netStarts=[]}
     else if(NET.mode==='guest')WardenNet.send({k:'g',p:WardenNet.pack(P),y:styId()});
     if(NET.mode==='guest'&&performance.now()-NET.gotSnap>3500){netDropQ();netHost();msg('Lost the host: you lead the fight',1.8)}}
   // the partner's avatar (the world's normal remote avatar) plays a roll / block / swing while the puppet does
@@ -638,7 +638,7 @@ const PlayerCombat=(()=>{
         if(f.act==='attack'&&f.ph&&f.ph[f.pi]&&f.ph[f.pi].k==='release'&&f.pk===0){   // the reappearance
           const sp=B.spot||Tricks.blinkSpot(tg.x,tg.z,tg.face,C.arena);try{WardenVfx.burst(sp.x,H(sp.x,sp.z)+1.2,sp.z,1);WardenVfx.slash(sp.x,H(sp.x,sp.z)+1.2,sp.z,tg.face,true,1);sfx('whoosh',.6,.7,()=>tone(200,80,.2,'sawtooth',.1))}catch(x){}
           f.x=sp.x;f.z=sp.z;f.face=Math.atan2(tg.x-sp.x,tg.z-sp.z);f.act='free';f.ph=null;f.mv=null;f.inv=0;f.pt=0;f.pk=0;F.ai.cool=0;F.ai.busy=false;
-          F.ai.follow=Math.random()<.45?'twin':'cut';blinkEnd(F)}}
+          F.ai.follow=F.T.ai==='samurai'?(F.ai.ph2&&!F.ai.chain&&Math.random()<.55?(F.ai.chain=1,'blink'):(F.ai.chain=0,Math.random()<.7?'iai':'cut')):Math.random()<.45?'twin':'cut';blinkEnd(F)}}
       if(F.sn){const S_=F.sn;S_.n++;if(f.act!=='attack'||!f.mv||f.mv.id!=='snare'){F.sn=null;continue}
         if(f.ph&&f.ph[f.pi]&&f.ph[f.pi].k==='release'&&f.pk===0){F.sn=null;const tg=C.F[S_.tg]||P,n=Tricks.count(F.ai.ph2,!!(Q&&NET.mode==='host')),seed=(Math.random()*2147483647)|0,cn=++trapN;
           trapsPlace(seed,n,tg.x,tg.z,cn);try{if(NET.mode==='host'&&Q)WardenNet.send({k:'sp',t:'tp',s:site.id,seed,n,x:+tg.x.toFixed(2),z:+tg.z.toFixed(2),c:cn})}catch(x){}}}}}
@@ -826,6 +826,7 @@ const PlayerCombat=(()=>{
     // camera: pull back for a big foe, when he is far, and when there are several
     try{let sc=1;for(const F of foes)if(F.f.act!=='dead'&&F.awake)sc=Math.max(sc,F.T.scale);const fd=Math.hypot(S.x-D.x,S.z-D.z);CameraRig.setBias(-2.8+(sc-1)*3.4+Math.min(3.5,Math.max(0,fd-5))*.45+(alive().length>1?1:0))}catch(e){}
     for(const F of foes)if(F.ai.ph2&&!F.ph2&&state==='fight'){F.ph2=true;if(F.T.boss){msg(F.T.ph2,2);sfx('heavy',.7,.6,()=>tone(120,60,.4,'sawtooth',.12));WardenSfx.play('vo_sudden_death',.8,1,{nojit:1})}if(F.body.shield)F.body.shield.visible=false}
+    for(const F of foes)if(F.ai.ph3&&!F.ph3&&state==='fight'){F.ph3=true;if(F.T.ph3){msg(F.T.ph3,2.4);sfx('heavy',.8,.5,()=>tone(90,45,.5,'sawtooth',.14))}}
     // 1) hand the sim the player's current position, run the due ticks, apply the forced motion back to S
     P.x=S.x;P.z=S.z;
     // bodies are solid: free walking used to pass through foes (only sim-driven moves collided). A foe that is attacking / stunned / asleep holds its ground, otherwise you share the push.
