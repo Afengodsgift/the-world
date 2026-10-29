@@ -188,10 +188,15 @@ const PlayerCombat=(()=>{
   const nick=()=>(typeof myName!=='undefined'&&myName)||'Player';
   const meId=()=>typeof myId!=='undefined'?myId:'me';
   const duelSide=()=>DU.pair&&meId()<DU.pair.id?1:-1;
+  // The Ashen Arena is for duels only: you cannot walk in without another player close by, there is no bot, and a Leave button always works (also while the connection is flaky).
+  let exitLock=null,duelHint=0,waitMsg=0;
+  function duelPartnerNear(q){if(typeof others==='undefined')return false;const cx=WRD.x+q.x,cz=WRD.z+q.z;for(const o of others.values()){const g=o&&o.group;if(g&&g.position&&Math.hypot(g.position.x-cx,g.position.z-cz)<q.R+35)return true}return false}
+  function quitArena(){if(!on||!site||!site.duel)return;const sid=site.id,cx=WRD.x+site.x,cz=WRD.z+site.z;let dx=S.x-cx,dz=S.z-cz;const d=Math.hypot(dx,dz)||1;if(d<1){dx=0;dz=1}else{dx/=d;dz/=d}
+    leave(false);exitLock=sid;S.x=cx+dx*(site.R+3);S.z=cz+dz*(site.R+3);try{S.y=H(S.x,S.z)+.5}catch(e){}toast('You left the arena',1.8)}
   function duelT(){const p=DU.pair,WT=WardenGear.TYPES[p.ty]||WardenGear.TYPES.falchion;
     return Object.assign({},Foes.TYPES.shade,{id:'rival:'+(WardenGear.TYPES[p.ty]?p.ty:'falchion'),name:String(p.n).slice(0,16),hp:100,role:WT.role,sword:{f:WT.file,len:WT.want,l0:WT.l0},human:true,tint:1})}
   function duelBegin(){DU.over=false;DU.cd=3.2;DU.cdEnd=performance.now()+3200;DU.rep=null;DU.gotAt=performance.now();startFight();WardenMX.fetch(foes[0].T.role).catch(()=>{});msg('DUEL · '+DU.pair.n+' · '+PG.rank(DU.pair.r),1.6)}
-  function duelUnpair(t){DU.pair=null;DU.cd=0;DU.rep=null;DU.over=false;if(on&&site&&site.duel){startFight();msg(t,2)}}
+  function duelUnpair(t){DU.pair=null;DU.cd=0;DU.rep=null;DU.over=false;if(on&&site&&site.duel){startFight();msg(t,2.4)}}
   function duelLeave(){if(DU.pair)WardenNet.send({k:'dl'});DU.pair=null;DU.cd=0;DU.rep=null;DU.over=false}
   function duelMsg(p){
     if(!on||!site||!site.duel)return;
@@ -205,10 +210,10 @@ const PlayerCombat=(()=>{
     if(!on||!site||!site.duel)return;const nw=performance.now();
     if(DU.cd>0){const n=Math.ceil(DU.cd);DU.cd=Math.max(0,(DU.cdEnd-nw)/1000);const m=Math.ceil(DU.cd);if(DU.cd<=0){DU.cd=0;msg('FIGHT',1)}else if(m!==n&&m<=3)msg(String(m),.9)}
     if(nw-DU.helloAt>=1000){DU.helloAt=nw;WardenNet.send({k:'dh',n:nick(),r:PG.S.duel.rating,ty:WardenGear.equipped().ty})}
-    if(!DU.pair)return;
+    if(!DU.pair){if(nw-waitMsg>3000){waitMsg=nw;msg('Waiting for an opponent \u00b7 another player must enter the arena',3.2)}return}
     if(nw-DU.sendT>=66){DU.sendT=nw;WardenNet.send({k:'dr',p:WardenNet.pack(P)})}
     if(DU.rep){const r=DU.rep;DU.rep=null;duelApply(r)}
-    if(nw-DU.gotAt>4500)duelUnpair('Opponent lost: back to the Shade')}
+    if(nw-DU.gotAt>4500)duelUnpair('Connection lost \u00b7 waiting for your opponent (Leave arena to go)')}
   function duelOver(win){if(DU.over)return;DU.over=true;DU.overT=performance.now();const human=!!(DU.pair&&foes[0]&&foes[0].human),r=PG.duelResult(win,human);
     msg((win?'VICTORY':'DEFEATED')+(r.embers?' · +'+r.embers+' Embers':'')+(human?' · '+r.rank+' '+r.rating:''),3);emK=''}
   // ---------- Flow: the meter fills from dodges / deflects / hits / posture breaks. Not full: the Flow button is a stamina skill (Cinder Arc; with the stick held it is the Ginga Step: a sidestep with i-frames into an evasive slash).
@@ -279,10 +284,11 @@ const PlayerCombat=(()=>{
   // ---------- DOM (built once) ----------
   function build(){WardenNet.setHandler(netMsg);
     el=document.createElement('div');el.id='wroot';
-    el.innerHTML='<div id="wh"><div class="wb p"><i class="hp"><b></b></i><i class="st"><b></b></i><i class="fl"><b></b></i></div><div class="wb d"><span>The Duelist</span><i class="hp"><b></b></i><i class="po"><b></b></i></div></div><div id="wmsg"></div><div id="wem"></div><div id="whd" style="position:fixed;left:50%;top:46%;width:0;height:0;pointer-events:none;z-index:50;opacity:0;transition:opacity .5s"><div style="position:absolute;left:-26px;top:-150px;width:0;height:0;border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:54px solid #ff2a1a;filter:drop-shadow(0 0 8px #ff6a2a)"></div></div><div id="whn" style="position:fixed;left:0;right:0;top:34%;text-align:center;pointer-events:none;z-index:50;color:#ffb27a;font:700 15px sans-serif;letter-spacing:.14em;text-shadow:0 0 6px #000,0 0 3px #000;opacity:0;transition:opacity .5s"></div>'+
+    el.innerHTML='<div id="wh"><div class="wb p"><i class="hp"><b></b></i><i class="st"><b></b></i><i class="fl"><b></b></i></div><div class="wb d"><span>The Duelist</span><i class="hp"><b></b></i><i class="po"><b></b></i></div></div><div id="wmsg"></div><div id="wem"></div><button id="wQuit">Leave arena</button><div id="whd" style="position:fixed;left:50%;top:46%;width:0;height:0;pointer-events:none;z-index:50;opacity:0;transition:opacity .5s"><div style="position:absolute;left:-26px;top:-150px;width:0;height:0;border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:54px solid #ff2a1a;filter:drop-shadow(0 0 8px #ff6a2a)"></div></div><div id="whn" style="position:fixed;left:0;right:0;top:34%;text-align:center;pointer-events:none;z-index:50;color:#ffb27a;font:700 15px sans-serif;letter-spacing:.14em;text-shadow:0 0 6px #000,0 0 3px #000;opacity:0;transition:opacity .5s"></div>'+
       '<div id="wc"><button id="wLight">Light</button><button id="wHeavy">Heavy</button><button id="wGuard">Guard</button><button id="wDodge">Dodge</button><button id="wFlow">Flow</button><button id="wIhp" class="wi"><b>\u2764</b><i>3</i></button><button id="wIst" class="wi"><b>\u26A1</b><i>2</i></button><button id="wImt" class="wi"><b>\u2694</b><i>1</i></button><button id="wLock">Lock</button><button id="wJump">Jump</button><button id="wShadow">Shadow</button></div>'+
       '<div id="whint">F light (x3, then G = Tempest) · Guard+Light = Shove · dodge then G = Lunge · G heavy (hold) · Q guard · Space dodge · E flow · 1/2/3 flasks · Tab lock</div>';
     document.body.appendChild(el);
+    {const q=el.querySelector('#wQuit'),go=e=>{e.preventDefault();e.stopPropagation();quitArena()};q.addEventListener('pointerdown',e=>e.stopPropagation());q.addEventListener('click',go)}
     bind(el.querySelector('#wLight'),'light');bind(el.querySelector('#wHeavy'),'heavy');bind(el.querySelector('#wGuard'),'guard');bind(el.querySelector('#wDodge'),'dodge');bind(el.querySelector('#wFlow'),'flow');bind(el.querySelector('#wIhp'),'ihp');bind(el.querySelector('#wIst'),'ist');bind(el.querySelector('#wImt'),'imt');flaskUi();bind(el.querySelector('#wLock'),'lock');bind(el.querySelector('#wJump'),'jump');bind(el.querySelector('#wShadow'),'shadow');
     addEventListener('keydown',onKey,true);addEventListener('keyup',onKey,true);
     addEventListener('blur',releaseAll);document.addEventListener('visibilitychange',releaseAll);addEventListener('orientationchange',releaseAll)}
@@ -291,7 +297,7 @@ const PlayerCombat=(()=>{
   let nameKey='';
   let emK='';
   function hud(){const du=site&&site.duel,dd=PG.S.duel,ek=du?'d'+dd.rating+'|'+dd.w+'|'+dd.l+'|'+dd.streak+(DU.pair?DU.pair.n:''):PG.S.embers+'|'+PG.S.cycle;if(ek!==emK){emK=ek;el.querySelector('#wem').textContent=du?'\u2694 '+PG.rank()+' '+dd.rating+'  \u00b7  W'+dd.w+' L'+dd.l+(dd.streak>1?'  \u00b7  streak '+dd.streak:''):'\ud83d\udd25 '+PG.S.embers+(PG.S.cycle>1?'  \u00b7  Cycle '+PG.S.cycle:'')}setBar('.p .hp',P.hp/P.hpMax);setBar('.p .st',P.st/P.stMax);
-    const F=target(),n=alive().filter(o=>o.awake).length,nk=F?F.T.name+(n>1?' ×'+n:''):'';if(nk!==nameKey){nameKey=nk;el.querySelector('.wb.d span').textContent=nk}
+    const F=target(),wt=!!(F&&F.wait);if(bars.wt!==wt){bars.wt=wt;el.querySelector('.wb.d').style.display=wt?'none':''}const n=alive().filter(o=>o.awake).length,nk=F?F.T.name+(n>1?' ×'+n:''):'';if(nk!==nameKey){nameKey=nk;el.querySelector('.wb.d span').textContent=nk}
     if(F){setBar('.d .hp',F.f.hp/F.f.hpMax);setBar('.d .po',F.f.po/F.f.poMax);const brk=F.f.act==='stun'&&F.f.sk==='stagger';if(bars.brk!==brk){bars.brk=brk;el.querySelector('.wb.d').classList.toggle('brk',brk)}}
     const c=P.act==='charge'?Math.min(1,P.c/Moves.heavy.chargeMax)*360:0,r=Math.round(c/6);if(bars.chg!==r){bars.chg=r;el.querySelector('#wHeavy').style.setProperty('--chg',r*6+'deg')}}
   let hdT=0;
@@ -356,6 +362,7 @@ const PlayerCombat=(()=>{
       const b=body(T,i);b.g.scale.setScalar(T.scale);b.g.position.set(f.x,H(f.x,f.z),f.z);b.g.rotation.y=f.face;
       if(b.u.mixer&&typeof emoStop==='function'&&T.body==='avatar')emoStop(b.u);
       const F={i,id,T,f,body:b,human:hum,ai:DuelistAI.create(fightN*7919+i*131+1,{foe:T.ai,intro:T.pack?25:75}),loco:{x:0,z:0,vf:0,vs:0,sp:0,init:false},flash:0,awake:!T.aggro&&!def.late,late:!!def.late,dorm:T.aggro||def.late?'sleep':null,dormSync:null,wakeT:0,ph2:false,home:{x:f.x,z:f.z}};
+      if(site.duel&&!DU.pair){F.wait=true;f.act='dead';f.hp=0;b.g.visible=false}   // no bot in the duel arena: until an opponent walks in there is only an empty ring
       foes.push(F);byId[id]=F});
     rt(site).foes=foes}
   function startFight(){
@@ -363,7 +370,7 @@ const PlayerCombat=(()=>{
     C=CombatCore.create({arena:{x:WRD.x+site.x,z:WRD.z+site.z,R},solids:sol});try{CameraRig.setArena({x:WRD.x+site.x,z:WRD.z+site.z,R:site.wall||site.dg?R:site.R,sol:sol.filter(q=>!q.wall)})}catch(e){}ST=CombatCore.stepper(C,6);t0=performance.now();vt=0;vl=0;tsc=1;ult=null;
     if(site.duel&&DU.pair){const L=duelSide();S.x=WRD.x+site.x;S.z=WRD.z+site.z+9*L;S.rot=L>0?Math.PI:0;lx=S.x;lz=S.z}
     P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});applyStats();spawnFoes();WardenFx.clear();WardenVfx.clear();trapsClear();blinkRing(0,0,false);Q=null;spectate=false;netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
-    flow=0;flowOn=false;flowN=0;fq=null;skillCD=0;bars.fl=-1;healLeft=0;mightT=0;itemLock=0;state='fight';stateT=0;lock=site.fog||site.duel||foes.some(F=>F.T.boss);lockI=0;lastEv=[];pv.init=false;down.guard=down.heavy=false;stW=0;gT=0;
+    flow=0;flowOn=false;flowN=0;fq=null;skillCD=0;bars.fl=-1;healLeft=0;mightT=0;itemLock=0;state='fight';stateT=0;lock=(site.fog||site.duel||foes.some(F=>F.T.boss))&&!(site.duel&&!DU.pair);lockI=0;lastEv=[];pv.init=false;down.guard=down.heavy=false;stW=0;gT=0;
     if(el)el.querySelector('#wLock').classList.toggle('on',lock);D=target().f}
   // Inside a walled arena the screen is the cost on a low-end phone: render at 1.25x (not 2x) while you fight, restore on leaving. Skipped when ?dpr= was given.
   let resPrev=null;
@@ -378,7 +385,7 @@ const PlayerCombat=(()=>{
     try{if(typeof loadEmotes==='function')loadEmotes().catch(()=>{})}catch(e){}   // the 'playdead' fall clip lives in the emote library: without it corpses (and you) just stand there
     if(on)return;if(!el)build();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenFx.build();WardenVfx.build();WardenMX.fetch(pRole()).catch(()=>{});
     site=s;fightN=0;const hh=WardenNet.hostFor(s.id);NET.joined=false;startFight();if(s.duel){}else if(hh)netJoin();else netHost();for(const F of foes)WardenMX.fetch(F.T.role).catch(()=>{});
-    lx=S.x;lz=S.z;on=true;document.body.classList.add('warden-fight');ensureAvatars();if(sword&&sword.grip)sword.grip.visible=true;
+    lx=S.x;lz=S.z;on=true;document.body.classList.add('warden-fight');document.body.classList.toggle('warden-duel',!!s.duel);ensureAvatars();if(sword&&sword.grip)sword.grip.visible=true;
     for(const F of foes)for(const k of['sword','sword2','shield'])if(F.body[k]){const o=F.body[k].grip||F.body[k];if(o)o.visible=true}
     arenaRes(true);msg(s.n+(typeof WardenKind==='function'?' · '+WardenKind(s).tag:''),2.2);try{if(s.fog)WardenIsles.fog(s.id,'sealed')}catch(e){}}
   // Who am I fighting? With 2+ foes alive a ring + chevron marks the one your swings go to (red while it winds up an attack), and any OTHER foe that is mid-attack gets a small red ring at its feet.
@@ -732,7 +739,7 @@ const PlayerCombat=(()=>{
     decoyTick(decoy,'Z',dt);decoyTick(rdecoy,'Y',dt);
     const b=el&&el.querySelector('#wShadow');if(b){const t=shCd>0?Math.ceil(shCd):0;if(b._c!==t){b._c=t;b.textContent=t?'Shadow '+t:'Shadow';b.classList.toggle('cd',t>0)}}}
   function leave(hold){   // hold: keep the corpses of a cleared site in the world
-    if(!on)return;endSet();trapsClear();try{blinkRing(0,0,false)}catch(e){}killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;pendFace=null;
+    if(!on)return;endSet();trapsClear();try{blinkRing(0,0,false)}catch(e){}killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');document.body.classList.remove('warden-duel');if(sword&&sword.grip)sword.grip.visible=false;pendFace=null;
     if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
     try{if(site&&site.fog)WardenIsles.fog(site.id,rt(site).cleared?'gone':'idle')}catch(e){}}
@@ -795,7 +802,10 @@ const PlayerCombat=(()=>{
     if(!on){rearm(wx,wz);
       for(const k in RT)for(const F of RT[k].foes||[])if(F.f.act==='dead'&&Math.hypot(F.f.x-S.x,F.f.z-S.z)<70)foeTick(F,dt,0);   // corpses of cleared sites keep animating until they have finished falling
       if(S.flying||S.state==='swim'||!S.grounded||!me||!me.userData.nact)return;
-      const s=SITES().find(q=>!q.safe&&!rt(q).cleared&&Math.hypot(wx-q.x,wz-q.z)<q.R-(q.wall?1.5:1));if(s)engage(s);if(!on)return}
+      if(exitLock){const q=SITES().find(z=>z.id===exitLock);if(!q||Math.hypot(wx-q.x,wz-q.z)>q.R+1.5)exitLock=null}
+      const s=SITES().find(q=>!q.safe&&!rt(q).cleared&&q.id!==exitLock&&Math.hypot(wx-q.x,wz-q.z)<q.R-(q.wall?1.5:1)&&(!q.duel||duelPartnerNear(q)));
+      if(!s){const dq=SITES().find(q=>q.duel&&q.id!==exitLock&&Math.hypot(wx-q.x,wz-q.z)<q.R-1);if(dq&&performance.now()-duelHint>6000){duelHint=performance.now();toast('The Ashen Arena is for duels \u00b7 another player has to be nearby',3.2)}}
+      if(s)engage(s);if(!on)return}
     const d=Math.hypot(wx-site.x,wz-site.z);
     if(S.flying||S.state==='swim'){leave(false);return}
     if(site.fog||site.duel&&DU.pair){if((state!=='won'||site.duel)&&d>site.R-.8){const k=(site.R-.8)/d;S.x=WRD.x+site.x+(wx-site.x)*k;S.z=WRD.z+site.z+(wz-site.z)*k}}      // the fog gate holds you in until the foe is felled
@@ -857,7 +867,7 @@ const PlayerCombat=(()=>{
     WardenFx.update(dt);WardenVfx.update(dt);
     hud()}
   function foeTick(F,dt,fr){
-    const b=F.body,f=F.f,g=b.g;g.position.set(f.x,H(f.x,f.z),f.z);
+    const b=F.body,f=F.f,g=b.g;if(F.wait){g.visible=false;return}g.position.set(f.x,H(f.x,f.z),f.z);
     if(f.act==='attack'||f.act==='stun'||f.act==='dead'){g.rotation.y=f.face}else g.rotation.y=lerpAngle(g.rotation.y,f.face,1-Math.exp(-12*dt));
     if(F.dorm){if(F.anim&&F.dormSync!==F.dorm){F.anim.setMode(F.dorm);F.dormSync=F.dorm}
       if(F.dorm==='wake'){F.wakeT+=dt;if((F.anim&&F.anim.wakeDone)||F.wakeT>4)rise(F)}}
