@@ -10,19 +10,19 @@ const DuelistAI=(()=>{
   const HR={sweep:3.0,slam:3.0,triple:2.8,quake:4.2};
   function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
   function create(seed,o){o=o||{};const r=mulberry(seed|0);return{foe:o.foe||'duelist',noAtk:false,gcool:0,r,t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,mood:'patient',moodT:90,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null,
-    bcd:240,scd:100,hcd:0,hunt:false,follow:null,ph3:false,att:0,ccd:300,rcd:0,chain:0,moves:0,nextBreath:3+Math.floor(r()*3),breath:0,ph2:false,closeP:0}}
+    bcd:240,scd:100,hcd:0,hunt:false,follow:null,adaptCd:0,adapt:null,ph3:false,att:0,ccd:300,rcd:0,chain:0,moves:0,nextBreath:3+Math.floor(r()*3),breath:0,ph2:false,closeP:0}}
   const key=P=>P.act==='attack'&&P.ph&&P.ph[P.pi]?'a'+P.ph[P.pi].k:P.act==='stun'?'stun':P.act==='dodge'?'dodge':P.act==='charge'?'charge':P.guard?'guard':'free';
   const rest=(A,lo,span)=>Math.max(20,Math.floor((lo+Math.floor(A.r()*span))*(A.ph3?.58:A.ph2?.75:1)));
   // A = ai state, P/D = sim fighters, evs = events of the previous tick. Returns {face,mx,mz,list}
   function think(A,P,D,evs,tick){
     const out={face:Math.atan2(P.x-D.x,P.z-D.z),mx:0,mz:0,list:[]};A.t++;
     if(!A.on||D.act==='dead'||P.act==='dead')return out;
-    const dx=P.x-D.x,dz=P.z-D.z,rawD=Math.hypot(dx,dz),dist=rawD/(D.rm||1),ux=dx/(rawD||1),uz=dz/(rawD||1),st=A.foe,H=st==='hollow'||st==='beast',BK=st==='blackknight',KN=st==='knight'||BK,DA=st==='dancer',SO=st==='soldier',AR=st==='archer',SK=st==='stalker',TR=st==='trapper',SM=st==='samurai',PN=st==='penitent';
+    const dx=P.x-D.x,dz=P.z-D.z,rawD=Math.hypot(dx,dz),dist=rawD/(D.rm||1),ux=dx/(rawD||1),uz=dz/(rawD||1),st=A.foe,H=st==='hollow'||st==='beast',BK=st==='blackknight',KN=st==='knight'||BK,DA=st==='dancer',SO=st==='soldier',AR=st==='archer',SK=st==='stalker',TR=st==='trapper',SM=st==='samurai'||st==='veil',VL=st==='veil',PN=st==='penitent';
     // what the player visibly does now, and how long we have been seeing it (a human reaction delay)
     const k=key(P);if(k!==A.seenKey){A.seenKey=k;A.see=0}else A.see++;
     A.gP=P.guard&&P.act==='free'?A.gP+1:0;if(A.cool>0)A.cool--;if(A.gcool>0)A.gcool--;if(A.rip>1)A.rip--;if(A.breath>0)A.breath--;if(A.bcd>0)A.bcd--;if(A.scd>0)A.scd--;if(A.hcd>0)A.hcd--;
     if(!A.ph2&&D.hp<D.hpMax*.5)A.ph2=true;if(SM&&!A.ph3&&D.hp<D.hpMax*.22){A.ph3=true;A.ph2=true;A.rcd=0;A.req=true}   // Kage has a third phase
-    if(SM){if(A.ccd>0)A.ccd--;if(A.rcd>0)A.rcd--;if((k==='astartup'||k==='aactive'||k==='acharge')&&dist<3.4)A.att++;else A.att=Math.max(0,A.att-.5)}                                 // second phase: the game announces it by reading A.ph2
+    if(VL)veilTally(A,P,k,tick);if(SM){if(A.adaptCd>0)A.adaptCd--;if(A.ccd>0)A.ccd--;if(A.rcd>0)A.rcd--;if((k==='astartup'||k==='aactive'||k==='acharge')&&dist<3.4)A.att++;else A.att=Math.max(0,A.att-.5)}                                 // second phase: the game announces it by reading A.ph2
     for(const e of evs||[])if((e.t==='block'||e.t==='deflect')&&e.d===D.id&&A.rip===0)A.rip=REACT;   // we just blocked something: counter-attack soon
     if(D.act!=='free'){A.busy=true;return out}
     if(A.busy){A.busy=false;A.moves++;
@@ -54,6 +54,7 @@ const DuelistAI=(()=>{
     if(DA)return dancer(A,P,D,out,tick,dist,k);
     if(AR)return archer(A,P,D,out,tick,dist,k);
     if(PN)return penitent(A,P,D,out,tick,dist,k);
+    if(VL){const r=veil(A,P,D,out,tick,dist,k);if(r)return r}
     if(SM)return samurai(A,P,D,out,tick,dist,k);
     if(SK)return stalker(A,P,D,out,tick,dist,k);
     if(TR)return trapper(A,P,D,out,tick,dist,k);
@@ -139,6 +140,20 @@ const DuelistAI=(()=>{
     if(A.ph2){w.triple+=1.6;w.spin+=1.2;w.twin+=1}
     if(dist>2.7){w.cut=0;w.twin=0;w.triple=0;w.spin=0;w.fall*=.5}else if(dist<1.7){w.thrust=.2}
     return choose(A,out,w,dist,tick,REACH)}
+  // The Veil Dancer (Three Oaths): Kage's duelling toolkit plus ADAPTATION. She tallies what you keep doing (dodging, guarding, charging heavies, spamming lights) and, once one habit clearly dominates, sometimes answers it
+  // with a readable counter-tool (delayed strike / guard punisher / counter draw / wide crescent). Borrowed Motion: she answers your last attack with its own kind. A decoy is investigated before she commits. Fair: every answer is an existing move with its normal tell.
+  function veilTally(A,P,k,tick){
+    if(!A.hab){A.hab={d:0,g:0,h:0,l:0};A.habT=0;A.invest=0;A.lastP=null;A.lastPT=-999}
+    if(A.see===0){if(k==='dodge')A.hab.d++;else if(k==='guard')A.hab.g++;else if(k==='acharge')A.hab.h++;else if(k==='astartup'){A.hab.l++;if(P.mv&&P.mv.id){A.lastP=P.mv.id;A.lastPT=tick}}}
+    if(++A.habT>=420){A.habT=0;for(const h in A.hab)A.hab[h]*=.6}}
+  function veil(A,P,D,out,tick,dist,k){
+    if(A.cov&&!A.ph2)A.ph2=true;
+    if(A.onDecoy){if(A.invest<50){A.invest++;out.mx=out.mz=0;return out}}else A.invest=0;          // she studies the shadow before committing to it
+    if(A.cool>0||A.follow||A.req||A.hunt||dist>3.4||dist<.1)return null;
+    const hs=Object.entries(A.hab).sort((a,b)=>b[1]-a[1]),top=hs[0],second=hs[1];
+    if(top[1]>=4&&top[1]>=second[1]*1.6&&A.r()<.5&&A.adaptCd<=0){A.adaptCd=360;A.adapt=top[0];const m={d:'feint',g:'fall',h:'counter',l:'moon'}[top[0]];if(top[0]==='d')A.follow='iai';return start(A,out,m,m==='fall'?12:0,tick)}
+    if(A.lastP&&tick-A.lastPT<150&&A.ph2&&A.r()<.4){const heavy=/heavy|rising|whirl/.test(A.lastP),m=heavy?'fall':/lunge|plunge|rush|advance/.test(A.lastP)?'iai':'twin';A.lastP=null;return start(A,out,m,m==='fall'?10:0,tick)}   // borrowed motion
+    return null}
   // Kage, the Shadowflame Samurai: a duelist in three phases. I: deliberate (cut chains, the draw, a wide crescent, a delayed overhead on your guard). II (below half): the feint, the blink chain, the counter draw. III (below 22%): shorter rests, the final technique, everything chained.
   // Fair by the same rules as every foe: each strike keeps its tell; the counter draw only answers someone who has been swinging at him for over a second; the feint costs you stamina, not health.
   function samurai(A,P,D,out,tick,dist,k){
@@ -146,7 +161,7 @@ const DuelistAI=(()=>{
     const L0=A.last[A.last.length-1];
     if(A.req&&dist<5){A.req=false;A.rcd=A.ph3?900:0;A.follow='moon';return start(A,out,'requiem',0,tick)}   // the last phase opens with the final technique (ring on the ground, then a crescent)
     if(A.hunt){A.hunt=false;A.hcd=300;if(dist>2.8&&L0!=='blink'){A.bcd=A.ph2?220:330;return start(A,out,'blink',0,tick)}if(dist<=REACH.iai)return start(A,out,'iai',0,tick)}
-    if(A.bcd<=0&&L0!=='blink'&&(dist>=3.6&&dist<=10||A.gP>25&&dist<3.2)){A.closeP+=A.ph2?.09:.05;if(A.r()<A.closeP||A.gP>40){A.closeP=0;A.bcd=A.ph3?170:A.ph2?220:330;return start(A,out,'blink',0,tick)}}
+    if(A.bcd<=0&&L0!=='blink'&&(dist>=3.6&&dist<=10||A.gP>25&&dist<3.2)){A.closeP+=A.ph2?.09:.05;if(A.r()<A.closeP||A.gP>40){A.closeP=0;A.bcd=A.cov?140:A.ph3?170:A.ph2?220:330;return start(A,out,'blink',0,tick)}}
     if(dist>=3.6&&dist<=10&&L0!=='iai'){if(A.ph2&&A.r()<.012)return start(A,out,'iai',0,tick);return out}
     if(dist>REACH.moon+.2)return out;
     if(A.ph3&&A.rcd<=0&&dist<5&&A.r()<.02){A.rcd=900;A.follow='moon';return start(A,out,'requiem',0,tick)}
@@ -168,9 +183,11 @@ const DuelistAI=(()=>{
     if(A.follow){const m=A.follow;A.follow=null;if(dist<REACH[m]+.8&&!(A.sigLock&&m==='verdict'))return start(A,out,m,m==='verdict'?(A.ph2?6+Math.floor(A.r()*7):Math.floor(A.r()*13)):0,tick)}
     const L0=A.last[A.last.length-1];
     if(A.hunt){A.hunt=false;A.hcd=300;if(dist>3.2)return start(A,out,'pursuit',0,tick);if(dist<=REACH.march)return start(A,out,'march',0,tick)}
-    if(dist>4&&dist<=9&&L0!=='pursuit'&&A.bcd<=0){A.bcd=A.ph2?200:300;return start(A,out,'pursuit',0,tick)}      // the gap closer
+    if(dist>4&&dist<=9&&L0!=='pursuit'&&A.bcd<=0){A.bcd=A.cov?130:A.ph2?200:300;return start(A,out,'pursuit',0,tick)}      // the gap closer
     if(dist>REACH.groundbreaker+.2)return out;
     const w={cut:2.6,twin:2.4,march:1.8,thrust:1.2,groundbreaker:1};
+    if(A.onDecoy){w.cut=0;w.twin=0;w.thrust=0;w.march=3;w.groundbreaker=A.sigLock?0:3}                        // a shadow in front of him: he commits a heavy blow to it (and is open afterwards)
+    if(A.cov==='veil'){w.groundbreaker+=A.sigLock?0:2.2;w.march+=1.5}                                      // the Dancer fell: he carries the oath alone, heavier
     if(A.sigLock){w.groundbreaker=0}
     if(L0==='cut')w.twin*=1.8;else if(L0==='pursuit'){w.cut*=2;w.march*=1.4}
     if(A.gP>20){w.groundbreaker+=A.sigLock?0:3.5;w.march+=2.5;w.cut*=.3}                                // the guard does not save you from him: the floor breaks, or he walks through
@@ -205,6 +222,6 @@ const DuelistAI=(()=>{
     return start(A,out,pick,pick==='fall'||pick==='slam'?Math.floor(A.r()*13):0,tick)}
   function start(A,out,m,hold,tick){A.last.push(m);if(A.last.length>3)A.last.shift();out.list.push({t:'atk',m,hold,e:tick});out.mx=out.mz=0;return out}
   // the game calls this when the hunted player drinks a health flask: every foe ends its rest and stops breathing (at most once per 5 s each); Vael blinks onto you, Skrag fires the heavy bolt
-  const hunt=(A)=>{if(A.hcd>0)return false;A.hcd=300;A.cool=Math.min(A.cool,6);A.breath=0;if(A.foe==='stalker'||A.foe==='trapper'||A.foe==='samurai'||A.foe==='penitent')A.hunt=true;return true};   // everyone cuts their rest short; the hunters have a special answer
+  const hunt=(A)=>{if(A.hcd>0)return false;A.hcd=300;A.cool=Math.min(A.cool,6);A.breath=0;if(A.foe==='stalker'||A.foe==='trapper'||A.foe==='samurai'||A.foe==='veil'||A.foe==='penitent')A.hunt=true;return true};   // everyone cuts their rest short; the hunters have a special answer
   return{create,think,hunt,REACH:Object.assign({},REACH,HR),REACT,INTRO}})();
 if(typeof module!=='undefined')module.exports=DuelistAI;
