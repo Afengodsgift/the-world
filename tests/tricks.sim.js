@@ -1,0 +1,47 @@
+// Boss tricks (Vael's blink + lifesteal, Skrag's snares): pure rules + AI behaviour + move fairness.
+const fs=require('fs'),vm=require('vm'),R=__dirname+'/../';
+const T=require(R+'src/combat/Tricks.js'),AI=require(R+'src/combat/DuelistAI.js'),M=(()=>{const c={console,Math};vm.createContext(c);vm.runInContext(fs.readFileSync(R+'src/combat/Moves.js','utf8')+';this.M=Moves',c);return c.M})();
+let bad=0;const ok=(v,m)=>{if(!v){console.log('FAIL',m);bad++}else console.log('ok',m)};
+// ---- lifesteal ----
+ok(Math.abs(T.heal(20,0,300)-12)<1e-9,'a 20-point hit heals 12 (60%)');
+ok(T.heal(20,119,300)===1&&T.heal(20,120,300)===0&&T.heal(20,500,300)===0,'healing stops at 40% of max health per fight');
+{let done=0;for(let i=0;i<200;i++)done+=T.heal(30,done,360);ok(Math.abs(done-144)<1e-9,'200 hits can never drink more than 144 of 360 (40%)')}
+// ---- blink spot ----
+{const s=T.blinkSpot(0,0,0,null);ok(Math.abs(s.x)<1e-9&&Math.abs(s.z+T.BLINK.BEHIND)<1e-9,'facing +z: he lands behind at -z');
+ const s2=T.blinkSpot(5,5,Math.PI/2,null);ok(Math.abs(s2.x-(5-T.BLINK.BEHIND))<1e-9&&Math.abs(s2.z-5)<1e-9,'facing +x: he lands at -x');
+ const A={x:0,z:0,R:10},s3=T.blinkSpot(9.5,0,Math.PI/2*0+Math.PI,A);ok(Math.hypot(s3.x,s3.z)<=A.R-1+1e-9,'never lands outside the arena');
+ ok(T.BLINK.WIND-T.BLINK.LOCK>=20,'the destination is locked >= 20 ticks before he appears (a real warning)')}
+// ---- snare layout: deterministic, spread, off the target, inside the arena ----
+{const A={x:0,z:0,R:20};const a=T.snareLayout(123,4,3,2,A),b=T.snareLayout(123,4,3,2,A),c=T.snareLayout(124,4,3,2,A);
+ ok(JSON.stringify(a)===JSON.stringify(b),'same seed -> identical traps on both clients');ok(JSON.stringify(a)!==JSON.stringify(c),'a new seed -> a new layout');
+ let good=true;for(let s=1;s<300;s++){const L=T.snareLayout(s,5,(s%7)-3,(s%5)-2,A);for(const p of L){if(Math.hypot(p.x-((s%7)-3),p.z-((s%5)-2))<T.SNARE.NEAR[0]-.4-1e-9)good=false;if(Math.hypot(p.x,p.z)>A.R-1.4+1e-9)good=false}
+  for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++)if(Math.hypot(L[i].x-L[j].x,L[i].z-L[j].z)<T.SNARE.SEP-1e-9)good=false;if(L.length<3)good=false}
+ ok(good,'300 seeds: traps stay off the target, >= 2 m apart, inside the arena, at least 3 of 5 placed');
+ ok(T.count(false,false)===3&&T.count(true,false)===4&&T.count(false,true)===4&&T.count(true,true)===5&&T.count(true,true)<=T.SNARE.MAX,'trap count: 3 / 4 (phase 2 or co-op) / 5, never above the cap')}
+// ---- trap touch rules ----
+{const t={x:0,z:0};ok(T.touch(t,0,0,false,.5)===null,'an unarmed trap does nothing');ok(T.touch(t,.5,0,false,1.2)==='bite','armed + inside radius = bite');
+ ok(T.touch(t,.5,0,true,1.2)==='rolled','a dodge roll through an armed trap springs it harmlessly');ok(T.touch(t,2,0,false,1.2)===null,'outside the radius is safe');
+ ok(T.bite(100)<=15&&T.bite(100)>0,'a bite is a share of health, never lethal on its own')}
+// ---- moves: the tricks have no blade and keep the fairness rules ----
+for(const id of['blink','snare']){const m=M[id];ok(m&&m.who==='D'&&m.dmg===0&&!m.phases.some(p=>p.k==='active'),id+': no hit segment');ok(M.endRecovery(id)>=M.REC_MIN,id+': ends in >= 20 ticks of recovery');ok(m.cancel===undefined,id+': no cancel')}
+ok(M.blink.phases[0].n===T.BLINK.WIND,'blink windup matches Tricks.BLINK.WIND');
+// ---- AI: Vael blinks from range and when you turtle; Skrag lays snares and punishes a rooted player ----
+function sim(foe,dist,ticks,P0,seed){const A=AI.create(seed,{foe,intro:0}),D={id:'D',x:0,z:0,act:'free',hp:300,hpMax:300,rm:1,guard:false},P=Object.assign({id:'P',x:0,z:dist,act:'free',guard:false,hp:100,ph:null,pi:0},P0||{});const cnt={};
+ for(let t=0;t<ticks;t++){const o=AI.think(A,P,D,[],t);for(const c of o.list)if(c.t==='atk'){cnt[c.m]=(cnt[c.m]||0)+1;D.act='attack';D.busy=t;setTimeout(()=>{},0)}
+  if(D.act==='attack'&&t-D.busy>45){D.act='free'}}return{cnt,A}}
+{let blinks=0,snares=0;for(let s=1;s<=20;s++){blinks+=(sim('stalker',6,900,null,s).cnt.blink||0);snares+=(sim('trapper',7,900,null,s).cnt.snare||0)}
+ ok(blinks>=20,'Vael blinks from range (>= 1 per 15 s on average): '+blinks+' in 20 runs');ok(snares>=20,'Skrag lays snares regularly: '+snares+' in 20 runs')}
+{let b=0;for(let s=1;s<=20;s++){const A=AI.create(s,{foe:'stalker',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:300,hpMax:300,rm:1},P={id:'P',x:0,z:2.2,act:'free',guard:true,hp:100};A.gP=60;A.bcd=0;const o=AI.think(A,P,D,[],5);if(o.list.some(c=>c.m==='blink'))b++}
+ ok(b>=15,'a turtling player (guard held) is answered with a blink behind the guard ('+b+'/20)')}
+{const A=AI.create(1,{foe:'stalker',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:300,hpMax:300,rm:1},P={id:'P',x:0,z:1.6,act:'free',guard:false,hp:100};A.follow='cut';A.cool=0;const o=AI.think(A,P,D,[],5);ok(o.list.length===1&&o.list[0].m==='cut','after reappearing he cuts at once (follow-up)')}
+{const A=AI.create(1,{foe:'trapper',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:300,hpMax:300,rm:1},P={id:'P',x:0,z:1.9,act:'free',guard:false,hp:100};const o=AI.think(A,P,D,[],5);ok(o.list.some(c=>c.m==='cut'),'inside 2.5 m Skrag kicks you off')}
+{let orb=0,bolt=0;for(let s=1;s<=40;s++){const A=AI.create(s,{foe:'trapper',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:300,hpMax:300,rm:1},P={id:'P',x:0,z:7,act:'stun',guard:false,hp:100};A.scd=999;A.see=10;A.seenKey='stun';const o=AI.think(A,P,D,[],5);for(const c of o.list){if(c.m==='orb')orb++;if(c.m==='bolt')bolt++}}
+ ok(orb>bolt*2,'a rooted / staggered player eats the heavy bolt (orb '+orb+' vs bolt '+bolt+')')}
+// ---- flask punishment: drinking a flask puts Vael / Skrag on you, at most once per 5 s each ----
+{const mk=(foe,dist)=>{const A=AI.create(3,{foe,intro:0}),D={id:'D',x:0,z:0,act:'free',hp:300,hpMax:300,rm:1},P={id:'P',x:0,z:dist,act:'free',guard:false,hp:100};return{A,D,P}};
+ let a=mk('stalker',6);ok(AI.hunt(a.A)===true,'Vael accepts a flask hunt');let o=AI.think(a.A,a.P,a.D,[],5);ok(o.list.length===1&&o.list[0].m==='blink','far from you he blinks onto you');
+ ok(AI.hunt(a.A)===false,'a second flask within 5 s does not re-trigger it');
+ a=mk('stalker',2);AI.hunt(a.A);o=AI.think(a.A,a.P,a.D,[],5);ok(o.list.length===1&&o.list[0].m==='thrust','close to you he lunges');
+ a=mk('trapper',7);AI.hunt(a.A);a.A.scd=999;o=AI.think(a.A,a.P,a.D,[],5);ok(o.list.length===1&&o.list[0].m==='orb','Skrag answers a flask with the heavy bolt');
+ a=mk('knight',6);ok(AI.hunt(a.A)===false,'other bosses are unaffected')}
+ console.log(bad?'FAILED '+bad:'ALL OK');process.exit(bad?1:0);

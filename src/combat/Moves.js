@@ -49,6 +49,9 @@ const Moves={
   spin:{id:'spin',who:'D',dmg:18,pdmg:16,hs:5,stun:20,kb:.8,reach:2.8,w:.14,phases:[ph('startup',24),ph('active',8,{seg:0,a0:3,a1:-3}),ph('recovery',36)]},
   hammer:{id:'hammer',who:'D',dmg:28,pdmg:26,hs:7,stun:26,kb:1.2,reach:2.6,w:.14,phases:[ph('startup',28),ph('active',5,{seg:0,a0:.3,a1:-.3}),ph('recovery',46)]},
   lowsweep:{id:'lowsweep',who:'D',dmg:16,pdmg:14,hs:4,stun:22,kb:.6,reach:3.0,w:.14,phases:[ph('startup',24),ph('active',6,{seg:0,a0:1.2,a1:-1.2}),ph('recovery',38)]},
+  // ---- the hunters' tricks (see Tricks.js): no blade, no damage - the move IS the tell. blink: the body dissolves (26 ticks), then he reappears behind you; snare: a long cast, then traps appear on the ground ----
+  blink:{id:'blink',who:'D',dmg:0,pdmg:0,hs:0,stun:0,kb:0,reach:30,w:0,phases:[ph('windup',26),ph('release',2),ph('recovery',20)]},
+  snare:{id:'snare',who:'D',dmg:0,pdmg:0,hs:0,stun:0,kb:0,reach:30,w:0,phases:[ph('cast',26),ph('release',2),ph('recovery',34)]},
   riposte:{id:'riposte',who:'D',dmg:16,pdmg:14,hs:5,stun:20,kb:.6,reach:2.4,w:.12,phases:[ph('startup',20),ph('active',4,{seg:0,a0:.5,a1:-.5}),ph('recovery',24)]},
 };
 // TEMPO: player strikes are ~30% quicker than the base table (Sekiro-like cadence): shorter start-ups, shorter recoveries, and a small step-in on the light chain so a swing closes the gap.

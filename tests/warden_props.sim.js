@@ -11,6 +11,6 @@ ok(loc.filter(o=>!o.p.startsWith('Mountain')).every(o=>H(o.x,o.z)>.4),'no props 
 ok(loc.every(o=>!(o.wz>0&&Math.abs(o.wx)<9&&Math.hypot(o.wx,o.wz)<150&&!/Pillar/.test(o.p))),'road from the landing to the gate is clear of trees and rocks');
 const b=fs.readFileSync('assets/warden/props.glb'),jl=b.readUInt32LE(12),j=JSON.parse(b.slice(20,20+jl));const tri={};j.meshes.forEach(m=>tri[m.name]=j.accessors[m.primitives[0].attributes.POSITION].count/3);
 ok(L.every(o=>tri[o.p]),'every placed piece exists in props.glb');
-const total=L.reduce((a,o)=>a+tri[o.p],0);ok(total<16000,'total prop triangles '+total+' (< 16k budget)');
+const total=L.reduce((a,o)=>a+tri[o.p],0);ok(total<17000,'total prop triangles '+total+' (< 17k budget; was 16k before the two new boss arenas)');
 ok(b.length<300*1024,'props.glb is '+(b.length/1024|0)+' KB (< 300 KB)');
 process.exit(bad?1:0);
