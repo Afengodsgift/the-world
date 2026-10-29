@@ -34,6 +34,10 @@ for(const [gap,want] of [[12,'light2'],[45,'light']]){const {C,P}=mk();step(C,1,
 // Evasive Punish: Light within the gap after a dodge ends; startup is only 6 ticks
 {const {C,P}=mk({D:{z:9}});step(C,1,{P:{list:[{t:'dodge',e:0,dx:1,dz:0}],face:0}});while(P.act==='dodge')step(C,1);step(C,5);const s=starts(step(C,1,L()));ok(s[0]==='evade','Light 5 ticks after a dodge = Evasive Punish');
   let t=0;while(P.pi<1&&t<20){step(C,1);t++}ok(M.evade.phases[0].n===4&&M.evade.phases[0].n<M.light.phases[0].n,'Evasive Punish startup is 4 ticks (faster than a normal Light, 7)')}
+// Plunge Strike: Light while airborne (Jump + Light) = a dive that lands a heavy, posture-breaking hit
+{ok(CB.light({air:true,from:null,chain:0,sinceDodge:99})==='plunge'&&CB.light({air:false,from:null,chain:0,sinceDodge:99})==='light','Light in the air = Plunge Strike, on the ground = Light');
+ const {C,P,D}=mk({D:{z:2.2}});P.y=2;const s=starts(step(C,1,L()));ok(s[0]==='plunge','an airborne Light starts the Plunge ('+s[0]+')');P.y=0;const hp0=D.hp;let hit=0;for(let i=0;i<40;i++){const ev=step(C,1);hit+=ev.filter(e=>e.t==='hit'&&e.a==='P').length}
+ ok(hit===1&&D.hp<hp0-25,'it lands one hit for 25+ damage on a foe in front of you (hp '+hp0+' -> '+D.hp+')');ok(M.plunge.pdmg>=M.rising.pdmg&&M.plunge.dmg>M.light.dmg*2,'it breaks posture harder than Rising Slash and hits over twice as hard as Light');ok(M.plunge.phases[2].n>=M.light.phases[2].n,'and costs a long recovery ('+M.plunge.phases[2].n+' ticks)')}
 // Rising Slash
 {const {C,P,D}=mk();step(C,1,L());step(C,19);let got=null;for(let i=0;i<8&&!got;i++){const s=starts(step(C,1,i===0?{P:{list:[{t:'heavyDown',e:C.tick+1}],face:0}}:null));if(s.length)got=s[0]}
   ok(got==='rising','Heavy tapped in the Light cancel window = Rising Slash');ok(M.rising.pdmg>M.light.pdmg*2.5,'Rising Slash pressures posture ('+M.rising.pdmg+' vs '+M.light.pdmg+')')}

@@ -22,7 +22,7 @@ const WardenMX=(()=>{
         advance:{c:'atk2',t0:.1,h:[[.3,.74]],e:1.2},rush:{c:'atk2',t0:.1,h:[[.3,.74]],e:1.2},
         evade:{c:'slash3',t0:.4,h:[[.66,.94]],e:1.5},
         rising:{c:'atk3',t0:.35,h:[[.52,.9]],e:1.6},
-        heavy:{c:'atk',t0:.55,ch:[.5,.72],h:[[.9,1.3]],e:2.1}}},
+        heavy:{c:'atk',t0:.55,ch:[.5,.72],h:[[.9,1.3]],e:2.1},plunge:{c:'atk',t0:.5,h:[[.9,1.3]],e:2.0}}},
     duelist:{file:'assets/warden_mx_duelist.json',guard:'guard',dorm:'idle',wake:{c:'power',t0:.35,t1:2.6,rate:1},
       loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
       moves:{
@@ -144,7 +144,7 @@ const WardenMX=(()=>{
     moves:{
       light:{c:'slash',t0:.05,h:[[.45,.8]],e:1.2},light2:{c:'slash5',t0:.15,h:[[.5,.82]],e:1.3},light3:{c:'slash3',t0:.3,h:[[.6,1.0]],e:1.6},
       advance:{c:'slash4',t0:.3,h:[[.6,.85]],e:1.6},rush:{c:'slash4',t0:.3,h:[[.6,.85]],e:1.6},evade:{c:'slash',t0:.1,h:[[.45,.8]],e:1.2},rising:{c:'slash2',t0:.35,h:[[.62,.92]],e:1.5},
-      heavy:{c:'slash3',t0:0,ch:[.35,.55],h:[[.6,1.18]],e:1.8},
+      heavy:{c:'slash3',t0:0,ch:[.35,.55],h:[[.6,1.18]],e:1.8},plunge:{c:'slash3',t0:.1,h:[[.6,1.18]],e:1.8},
       cinder:{c:'slash4',t0:.3,h:[[.6,.85]],e:1.6},armada:{c:'spin',t0:0,h:[[.5,1.25]],e:1.85},meia:{c:'slash2',t0:1.2,h:[[1.5,1.95]],e:2.3},
       martelo:{c:'atk',t0:0,h:[[.37,.52]],e:1.1},rasteira:{c:'slash4',t0:.9,h:[[1.17,1.5]],e:1.8},
       shove:{c:'kick',t0:.5,h:[[.88,1.28]],e:1.5},lunge:{c:'slash4',t0:.3,h:[[.6,.85]],e:1.6},whirl:{c:'spin',t0:0,h:[[.5,1.25]],e:1.85}}};
