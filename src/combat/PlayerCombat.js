@@ -234,6 +234,7 @@ const PlayerCombat=(()=>{
     else if(e.t==='dodged'&&e.d==='P'){flowAdd(22);msg('ESQUIVA',.6)}
     else if(e.t==='deflect'&&!T)flowAdd(28);
     else if(e.t==='posturebreak'&&T)flowAdd(30);
+    else if(e.t==='start'&&e.a==='P'&&e.move==='plunge'){S.vy=-17;S.coy=0;setTimeout(()=>{if(on)WardenVfx.burst(P.x+Math.sin(P.face)*1.6,H(P.x,P.z)+.3,P.z+Math.cos(P.face)*1.6,2)},110);sfx('heavy',.6,.7)}
     else if(e.t==='start'&&e.a==='P'&&e.move==='cinder'){WardenVfx.slash(P.x,H(P.x,P.z)+1.2,P.z,P.face,true,3);setTimeout(()=>{if(on)WardenVfx.slash(P.x,H(P.x,P.z)+1.2,P.z,P.face,true,3)},180)}
     else if(e.t==='start'&&e.a==='P'&&FIN.indexOf(e.move)>=0){setTimeout(()=>{if(on)WardenVfx.burst(P.x,H(P.x,P.z)+1.1,P.z,3)},330);flow=Math.max(0,flow-FLOW_COST);flowN++;if(flow<=0)flowOff()}}
   function flowOff(){if(flowOn){flowOn=false;msg('FLOW ENDS',.8)}}
@@ -691,10 +692,10 @@ const PlayerCombat=(()=>{
   // ================= FIGHT JUMP + AFTERIMAGE (Shadow) =================
   // Jump: the normal jump (index.html), now a button in the fight HUD. While you are high enough, ground attacks whiff (SwordHit's height band) - it costs stamina and has a short cooldown so it is a dodge, not a god mode.
   // Shadow: you blink away (+ a dodge's invulnerability) and leave an afterimage for a few seconds. Every foe aims at it, hits it, and it bursts after two hits or when time runs out.
-  let jumpCd=0,shCd=0,decoy=null,rdecoy=null,gBase=0;
+  let jumpTip=0,jumpCd=0,shCd=0,decoy=null,rdecoy=null,gBase=0;
   function fightJump(){
     if(!on||ult||P.act==='dead'||jumpCd>0||!S.grounded||S.flying||P.st<10)return false;
-    if(P.act==='attack'||P.act==='stun'||P.act==='dodge')return false;P.st-=10;jumpCd=.9;jumpQ=true;return true}
+    if(P.act==='attack'||P.act==='stun'||P.act==='dodge')return false;P.st-=10;jumpCd=.9;jumpQ=true;if(!jumpTip){jumpTip=1;toast('Jump + Light = Plunge Strike',2.6)}return true}
   // an afterimage: a team-'p' fighter (foes aim at it) + a translucent cyan avatar. id 'Z' = yours, 'Y' = your partner's (sent over the net so both of you see it and the foes hitting it)
   // The afterimage is a copy of YOUR model (same skin and skeleton), frozen in an idle pose and tinted cyan. It used to be the generic capsule avatar (dress() never ran on it): that was the "placeholder" look.
   // SkeletonUtils.clone shares the geometry, so it costs next to nothing; if the player model is not available the capsule is the fallback.
