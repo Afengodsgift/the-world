@@ -79,6 +79,10 @@ const Fleet=(()=>{
       const h=Math.atan2(p.x-x,p.z-z)+(R()-.5)*.5;if(!Sailing.clear(x,z,h,H,pr))continue;const e=make(nextId++,clsId,x,z,h);if(e)return e}
     return null}
 
+  // place a ship exactly (Blockade fleets). opts: guard {x,z} = hold station there until you come close; keep = never culled for distance; flee = runs from you (Flagship Hunt)
+  function spawnAt(clsId,x,z,opts){
+    const K=C.cls[clsId];if(!K||!K.cap||H(x,z)>-4)return null;const p=pl(),h=Math.atan2(p.x-x,p.z-z);
+    const e=make(nextId++,clsId,x,z,h);if(e&&opts){if(opts.guard)e.guard=opts.guard;if(opts.keep)e.keep=1;if(opts.flee)e.flee=1;if(opts.blk)e.blk=1}return e}
   // ---------- host AI ----------
   function shoreAvoid(sh,want){            // look ahead: if the water gets shallow turn toward the open side
     const ax=sh.x+Math.sin(sh.h)*45,az=sh.z+Math.cos(sh.h)*45;if(H(ax,az)<-2.5)return want;
@@ -93,6 +97,10 @@ const Fleet=(()=>{
       sh.x=_a.x;sh.z=_a.z;sh.h=wrap(p.h+L.dh);sh.v=p.v;
       if(e.lashT<=0||p.v>(gr?15:7.5)){e.lash=null;banner('The lines are cut — the pirates break away','☠ PIRATES')}return}
     const st=fo?'gunnery':K.style;
+    if(e.flee&&!fo){want=brg+Math.PI;spd=.8;                                                                  // the Admiral runs; open water is chosen by shoreAvoid
+      want=shoreAvoid(sh,wrap(want));Sailing.step(sh,{rud:clamp(wrap(want-sh.h)*2.2,-1,1),trim:clamp((spd-sh.sail)*4,-1,1)},dt,{wind:{dir:sh.h+1.5708,s:1},H});return}
+    if(e.guard&&!fo&&D>E.engage*2.4){const gx=e.guard.x-sh.x,gz=e.guard.z-sh.z,gd=Math.hypot(gx,gz);want=gd>25?Math.atan2(gx,gz):brg;spd=gd>25?.4:.06;
+      Sailing.step(sh,{rud:clamp(wrap(shoreAvoid(sh,wrap(want))-sh.h)*2.2,-1,1),trim:clamp((spd-sh.sail)*4,-1,1)},dt,{wind:{dir:sh.h+1.5708,s:1},H});return}
     if(st==='ram'){want=Math.atan2(dx+Math.sin(p.h)*p.v*3,dz+Math.cos(p.h)*p.v*3)}
     else if(st==='board'){                                          // come up the lane beside your ship from behind, match speed, lash on
       const lp=Sailing.toShip(p,sh.x,sh.z,_b),v=plv();if(!e.sd)e.sd=lp.x>=0?1:-1;const sd=e.sd,gap=(v?v.hb:5)+e.v.hb-.8,lane=sd*gap;
@@ -269,7 +277,7 @@ const Fleet=(()=>{
         if(e.prov>0)e.prov-=dt;e.sh.hull=Math.max(0,e.hp/e.K.hp)*C.hull;
         ai(e,dt);
         if(e.sinking){e.sunk=Math.min(1,e.sunk+dt/8);if(e.sunk>=1){remove(e);continue}}
-        else if(Math.hypot(e.sh.x-p.x,e.sh.z-p.z)>480){remove(e);continue}}
+        else if(!e.keep&&Math.hypot(e.sh.x-p.x,e.sh.z-p.z)>480){remove(e);continue}}
       separate();
       sendT-=dt;if(sendT<=0){sendT=1/C.net.enemies;Net.emit('flt',snapshot())}
     }
@@ -310,7 +318,7 @@ const Fleet=(()=>{
     const o=overboardDir();if(!o)return;const w=Decks.toWorld(o.d,o.l.x+o.x*2.6,o.l.y,o.l.z+o.z*2.6,{});
     S._dk=null;S.x=w.x;S.z=w.z;S.y=w.y+.6;S.vy=5;S.grounded=false}
   Interaction.register('ship-overboard','Jump overboard 🌊',()=>built&&!Ship.locked()&&!!overboardDir(),overboard);
-  return {overboard,build,ships,shells,make,remove,trySpawn,spawnNear,live,grapple,grappleTarget,elev,aim,fire,playerFire,broadside,nearGun,hurtMe,respawn,applyHit,damageEnemy,captainDown,boardable,boardEnemy,sideSalvo,isHost,
+  return {overboard,build,ships,shells,make,remove,trySpawn,spawnNear,spawnAt,live,grapple,grappleTarget,elev,aim,fire,playerFire,broadside,nearGun,hurtMe,respawn,applyHit,damageEnemy,captainDown,boardable,boardEnemy,sideSalvo,isHost,
     marks:()=>[...ships.values()].filter(e=>!e.sinking).map(e=>({n:e.K.cap.n,x:e.sh.x,z:e.sh.z,r:6,icon:e.K.boss?'☠':'🏴‍☠️',dyn:true})),
     _me:me,_step:step,_ai:ai,_net:onNet,_snapshot:snapshot};
 })();
