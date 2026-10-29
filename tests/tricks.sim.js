@@ -61,6 +61,23 @@ function simK(hpf,dist,ticks,seed,P0){const A=AI.create(seed,{foe:'samurai',intr
   const A2=AI.create(s,{foe:'penitent',intro:0}),D2={id:'D',x:0,z:0,act:'free',hp:560,hpMax:560,rm:1};A2.sigLock=true;A2.follow='verdict';A2.cool=0;for(let t=0,busy=0;t<1500;t++){if(D2.act==='attack'&&t-busy>90)D2.act='free';A2.sigLock=true;const o=AI.think(A2,P,D2,[],t);for(const c of o.list)if(c.t==='atk'){if(c.m==='verdict'||c.m==='groundbreaker')blocked++;D2.act='attack';busy=t}}}
  ok(v>=30&&g>=15,'the Penitent uses both signatures when free ('+v+' verdicts, '+g+' groundbreakers in 30 runs)');ok(blocked===0,'and never starts one while an ally holds the token')}
 {const A=AI.create(1,{foe:'penitent',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:560,hpMax:560,rm:1},P={id:'P',x:0,z:2.2,act:'free',guard:false,hp:100};A.follow='verdict';A.cool=0;const o=AI.think(A,P,D,[],5);ok(o.list.length===1&&o.list[0].m==='verdict','the Threefold Sentence ends in the verdict')}
+// ---- The Veil Dancer: adaptation, borrowed motion, decoy study; the Penitent's decoy / covenant ----
+{const A=AI.create(3,{foe:'veil',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:400,hpMax:400,rm:1},P={id:'P',x:0,z:2.6,act:'free',guard:false,hp:100};const seen={};
+ for(let i=0;i<8;i++){P.act='dodge';AI.think(A,P,D,[],i*40);P.act='free';AI.think(A,P,D,[],i*40+20)}
+ ok(A.hab&&A.hab.d>=6,'she tallies your dodges ('+(A.hab&&A.hab.d)+')');
+ let ans=0;for(let s=1;s<=30;s++){const B=AI.create(s,{foe:'veil',intro:0});B.hab={d:9,g:0,h:0,l:0};B.habT=0;B.invest=0;B.cool=0;B.adaptCd=0;B.seenKey='free';const o=AI.think(B,{id:'P',x:0,z:2.6,act:'free',guard:false,hp:100},{id:'D',x:0,z:0,act:'free',hp:400,hpMax:400,rm:1},[],5);if(o.list.some(c=>c.m==='feint'))ans++}
+ ok(ans>=8&&ans<=22,'a dodge-spammer is answered with the feint about half the time ('+ans+'/30), not always')}
+{let g=0,h=0;for(let s=1;s<=30;s++){const mk=hab=>{const B=AI.create(s,{foe:'veil',intro:0});B.hab=hab;B.habT=0;B.invest=0;B.cool=0;B.adaptCd=0;B.seenKey='free';return AI.think(B,{id:'P',x:0,z:2.6,act:'free',guard:false,hp:100},{id:'D',x:0,z:0,act:'free',hp:400,hpMax:400,rm:1},[],5)};
+  if(mk({d:0,g:9,h:0,l:0}).list.some(c=>c.m==='fall'))g++;if(mk({d:0,g:0,h:9,l:0}).list.some(c=>c.m==='counter'))h++}
+ ok(g>=8&&h>=8,'a turtle meets the guard punisher ('+g+'/30), a heavy-spammer the counter draw ('+h+'/30)')}
+{const B=AI.create(1,{foe:'veil',intro:0});B.hab={d:3,g:3,h:3,l:3};B.habT=0;B.invest=0;B.cool=0;B.adaptCd=0;B.seenKey='free';let any=false;for(let t=0;t<200;t++){const o=AI.think(B,{id:'P',x:0,z:2.6,act:'free',guard:false,hp:100},{id:'D',x:0,z:0,act:'free',hp:400,hpMax:400,rm:1},[],t);if(o.list.some(c=>c.m==='feint'||c.m==='counter')&&B.adapt)any=true;B.cool=0}
+ ok(!any,'no clear habit = no adaptation answer (she does not guess)')}
+{const A=AI.create(2,{foe:'veil',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:400,hpMax:400,rm:1},P={id:'P',x:0,z:2.6,act:'free',guard:false,hp:100};A.onDecoy=true;A.cool=0;let first=null;for(let t=0;t<120&&!first;t++){const o=AI.think(A,P,D,[],t);if(o.list.length)first=t}
+ ok(first===null||first>=50,'she studies a decoy for ~50 ticks before committing (first move at '+first+')')}
+{const A=AI.create(2,{foe:'penitent',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:560,hpMax:560,rm:1},P={id:'P',x:0,z:2.6,act:'free',guard:false,hp:100};A.onDecoy=true;let heavy=0,light=0;for(let s=1;s<=30;s++){const B=AI.create(s,{foe:'penitent',intro:0});B.onDecoy=true;B.cool=0;const o=AI.think(B,P,D,[],5);for(const c of o.list){if(c.m==='march'||c.m==='groundbreaker')heavy++;else light++}}
+ ok(heavy>=20&&light===0,'the Penitent commits a heavy blow to a shadow ('+heavy+' heavy, '+light+' light)')}
+{let n0=0,n1=0;for(let s=1;s<=30;s++)for(const cov of [null,'veil']){const A=AI.create(s,{foe:'penitent',intro:0});A.cov=cov;if(cov)A.ph2=true;const D={id:'D',x:0,z:0,act:'free',hp:560,hpMax:560,rm:1},P={id:'P',x:0,z:2.4,act:'free',guard:false,hp:100};A.ph2=true;for(let t=0,b=0;t<2400;t++){if(D.act==='attack'&&t-b>90)D.act='free';const o=AI.think(A,P,D,[],t);for(const c of o.list)if(c.t==='atk'){if(c.m==='groundbreaker'||c.m==='march'){if(cov)n1++;else n0++}D.act='attack';b=t}}}
+ ok(n1>n0*1.15,'when the Dancer falls first the Penitent throws more heavy blows ('+n0+' -> '+n1+')')}
 // ---- flask punishment: drinking a flask puts every foe back on you (Vael / Skrag with a special answer), at most once per 5 s each ----
 {const mk=(foe,dist)=>{const A=AI.create(3,{foe,intro:0}),D={id:'D',x:0,z:0,act:'free',hp:300,hpMax:300,rm:1},P={id:'P',x:0,z:dist,act:'free',guard:false,hp:100};return{A,D,P}};
  let a=mk('stalker',6);ok(AI.hunt(a.A)===true,'Vael accepts a flask hunt');let o=AI.think(a.A,a.P,a.D,[],5);ok(o.list.length===1&&o.list[0].m==='blink','far from you he blinks onto you');
