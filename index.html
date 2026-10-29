@@ -782,6 +782,7 @@ async function startGame(){
   setInterval(send,100);
   setTimeout(()=>banner('Jump, then tap Jump again in the air to fly','TIP'),6000);
   setTimeout(()=>banner('Glowing beams on the horizon are new islands','TIP'),40000);
+  setTimeout(()=>banner('Fly straight up and keep going: past 60 km the world opens up','TIP'),90000);
 }
 
 function addOther(id,name,color,skin){
@@ -1199,10 +1200,15 @@ function markToEl(el,x,y,z,label){
 function markTo(x,y,z,label){markToEl(mk,x,y,z,label)}
 // In space an arrow points at the next thing on the trail you have not found (SpaceObjects.next). It is projected by hand: these things are hundreds of km away, far beyond the
 // camera's far plane, so the usual world-to-screen helper (which reads 'beyond the far plane' as 'behind you') would flip the arrow.
-let smk=null;const _sv=new THREE.Vector3();
+let smk=null,edgeHinted=false,climbHinted=false;const _sv=new THREE.Vector3();
+// The way out of the home world is straight up (the edge is a funnel: 3.3 km wide on the ground, widening to 91 km at 60 km, open above that), and nothing used to say so: you hit an invisible
+// wall, the sea beyond looked empty, and space never came into it. So: say it once when you hit the wall, and point the trail arrow at things whenever you are flying, not only once you are in space.
+function edgeHint(){if(edgeHinted)return;edgeHinted=true;banner('The sea goes on, but the way out is up. Climb, and the world opens.','⬆ THE WAY OUT')}
 function spaceTrack(){
   if(!smk)smk=document.getElementById('smk');if(!smk)return;
-  const nx=Space.f.stars>.45&&typeof SpaceObjects!=='undefined'?SpaceObjects.next():null;
+  const busy=(typeof Ship!=='undefined'&&Ship.locked())||(typeof Rally!=='undefined'&&Rally.locked());
+  const nx=(Space.f.stars>.45||(S.flying&&S.y>250&&!busy))&&typeof SpaceObjects!=='undefined'&&SpaceObjects.next?SpaceObjects.next():null;
+  if(nx&&!climbHinted&&S.flying&&S.y>5000&&nx.id==='satellite'){climbHinted=true;banner('Keep climbing. Past 60 km the world opens, and something is up there.','⬆ KEEP GOING')}
   if(!nx||nx.dist<400){smk.style.display='none';return}
   const o=nx.o;_sv.set(o.pos.x-camera.position.x,o.pos.y-camera.position.y,o.pos.z-camera.position.z).transformDirection(camera.matrixWorldInverse);
   const t=Math.tan(camera.fov*Math.PI/360);let px,py;
@@ -1297,7 +1303,7 @@ function tickFrame(t){
   }else{S.fvx=S.fvz=0;Locomotion.move(S,len>.05?dx*speed:0,len>.05?dz*speed:0,dt,S.dv?'swim':!S.grounded?'air':H(S.x,S.z)<-.5?'swim':'ground');if(len>.05&&!CameraRig.shooterActive())S.rot=lerpAngle(S.rot,Math.atan2(dx,dz),1-Math.exp(-14*dt))}
   S.x+=S.kx*dt;S.z+=S.kz*dt;const kd=Math.exp(-4*dt);S.kx*=kd;S.kz*=kd;
   S.iframe=Math.max(0,S.iframe-dt);S.hurt=Math.max(0,S.hurt-dt);{const fo=S.hurt>0?Math.min(.35,S.hurt*.7):0;if(fo!==S._fo){S._fo=fo;$('flash').style.opacity=fo}}
-  const rr=Math.hypot(S.x,S.z);SpaceFlight.contain(S,dt);
+  const rr=Math.hypot(S.x,S.z);if(SpaceFlight.contain(S,dt)&&S.flying&&S.y>30)edgeHint();
   let gY=H(S.x,S.z);
   {const dxs=S.x-SKY.x,dzs=S.z-SKY.z;if(Math.hypot(dxs,dzs)<SKY.R*2.8){const sh=SKYG(dxs,dzs);if(sh>-1e8&&S.y>=sh-3)gY=Math.max(gY,sh)}}
   let wat=gY<-.5;const seabed=gY;if(wat)gY=-1;

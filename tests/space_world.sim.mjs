@@ -133,6 +133,15 @@ world();const pl=()=>by('planet');
  world();const P=SpacePlanet.parts;ok(P.body.material.isShaderMaterial&&P.body.material.uniforms.sun.value.x===sun[0],'lit by its own shader with that sun, not by the home world\'s light (no time-of-day dependence)');
  const D=Math.hypot(M.planet.pos[0],M.planet.pos[1]-130000,M.planet.pos[2]);ok(Math.asin(M.planet.r/D)*2*57.3>26,'from the edge of space it is '+(Math.asin(M.planet.r/D)*2*57.3).toFixed(0)+'° across: a big world, not a dot')}
 
+// 6d) the way out is up, and the game now says so
+{const P={x:5000,y:300,z:0,_dy:0};ok(SpaceFlight.contain(P,1/60)===true&&Math.hypot(P.x,P.z)<=3300+1,'contain() reports it when the edge pushes you back ('+Math.round(Math.hypot(P.x,P.z))+' m: the funnel is 3.3 km wide near the ground)');
+ const Q={x:1000,y:300,z:0,_dy:0};ok(SpaceFlight.contain(Q,1/60)===false&&Q.x===1000,'and says nothing when you are inside it');
+ const U={x:60000,y:30000,z:0,_dy:0};ok(SpaceFlight.contain(U,1/60)===true,'the funnel widens with height (still an edge at 30 km up)');
+ const O={x:900000,y:80000,z:0,_dy:0};ok(SpaceFlight.contain(O,1/60)===false&&O.x===900000,'above 60 km there is no edge at all');
+ const html=R('index.html');ok(/contain\(S,dt\)&&S\.flying&&S\.y>30\)edgeHint\(\)/.test(html)&&html.includes('the way out is up'),'hitting the edge while flying tells you the way out is up');
+ ok(/Space\.f\.stars>\.45\|\|\(S\.flying&&S\.y>250&&!busy\)/.test(html),'the trail arrow shows whenever you are flying (above 250 m), not only in space');
+ ok(html.includes('Keep climbing. Past 60 km')&&html.includes('Fly straight up and keep going'),'a nudge while climbing and a tip after 90 s')}
+
 // 7) nothing on the ground is touched
 {world();place(2000,50,1500);const x0=S.x,y0=S.y,z0=S.z;const t0=performance.now();for(let i=0;i<3000;i++)SpaceObjects.update(1/60,i/60);ok(S.x===x0&&S.y===y0&&S.z===z0&&!SpacePlanet.parts.g.visible,'on the island everything is inert (position untouched, planet hidden), '+((performance.now()-t0)/3000).toFixed(3)+' ms per frame');
  ok(SpaceFlight.moveMul(50)===1&&SpaceFlight.drift(Space.f.space)===1,'and flight is exactly as before')}

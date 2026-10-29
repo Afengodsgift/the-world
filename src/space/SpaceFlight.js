@@ -26,13 +26,13 @@ const SpaceFlight=(()=>{
   // come down from open space: then the excess is shrunk in proportion to the descent (so you arrive at the cone's edge exactly as you reach 1.5 km), never a jump.
   function contain(S,dt){
     const y=S.y,rr=Math.hypot(S.x,S.z);
-    if(y>=OPEN_Y){if(rr>LIM){const k=LIM/rr;S.x*=k;S.z*=k}return}
-    const B=bound(y);if(rr<=B)return;
+    if(y>=OPEN_Y){if(rr>LIM){const k=LIM/rr;S.x*=k;S.z*=k;return true}return false}
+    const B=bound(y);if(rr<=B)return false;
     let rn;
     if(y<=1500)rn=B;
     else{const ex=rr-B,need=Math.max(0,-(S._dy||0))/(y-1500+1),drift=Math.min(ex*(1-Math.exp(-dt*.5)),600*dt);   // descent-proportional, plus a slow (<= 600 m/s) drift if you hover out there
       rn=rr-Math.min(ex,Math.max(ex*Math.min(1,need),drift))}
-    const k=rn/rr;S.x*=k;S.z*=k}
+    const k=rn/rr;S.x*=k;S.z*=k;return true}   // true = the edge pushed you back this frame
 
   const terminal=y=>48+100*sm(900,2500,y)+750*sm(2500,16000,y)+1700*sm(16000,60000,y);          // 48 m/s up to 900 m (unchanged); re-entry speeds up high, easing back as the air thickens
   const gravMul=y=>1+9*sm(3000,20000,y);
