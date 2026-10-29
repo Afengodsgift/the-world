@@ -38,7 +38,7 @@ const PlayerCombat=(()=>{
     if(lock||Math.abs(Math.atan2(Math.sin(a-S.rot),Math.cos(a-S.rot)))<1.0){pendFace=a;pendT=8;S.rot=a}}
   function reject(){if(P.st>2||!el)return;const b=el.querySelector('.p .st');b.classList.add('bad');setTimeout(()=>b.classList.remove('bad'),260);tone(110,80,.08,'square',.05)}   // out of stamina: say so instead of silently dropping the tap
   // ---------- difficulty: foes are tougher than the base roster, and tougher again when two fight them together (the host rescales as the partner joins / leaves) ----------
-  const DIFF={hp:1.3,dm:1.15},COOP={hp:1.8,dm:1.2};
+  const DIFF={hp:1.4,dm:1.3},COOP={hp:1.8,dm:1.2};
   const foeMul=()=>{const c=WardenProg.cycleMul();return{hp:DIFF.hp*(Q?COOP.hp:1)*c.hp,dm:DIFF.dm*(Q?COOP.dm:1)*c.dm}};
   function rescaleFoes(){const m=foeMul();for(const F of foes){const f=F.f,base=F.T.hp*m.hp,r=f.hpMax>0?f.hp/f.hpMax:1;if(f.act!=='dead'){f.hpMax=Math.round(base);f.hp=Math.max(1,r*f.hpMax)}f.dm=(F.T.dm||1)*m.dm;F.sc=m.hp}}
   // ---------- flasks: Health (50 HP over 2.5 s), Stamina Tonic (full stamina), Might Tonic (+30% damage for 30 s). Counts persist in the browser; felled foes drop them ----------
@@ -62,7 +62,7 @@ const PlayerCombat=(()=>{
     if(mightT>0){mightT-=dt;if(mightT<=0||P.act==='dead'){mightT=0;P.dm=baseDm}}}
   function flaskUi(){if(!el)return;for(const k in FL){const b=el.querySelector('#wI'+k);if(!b)continue;b.querySelector('i').textContent=flasks[k];b.classList.toggle('none',flasks[k]<=0);b.classList.toggle('use',k==='mt'?mightT>0:k==='hp'?healLeft>0:false)}}
   function flaskDrop(T){const rnd=Math.random;let got=null;
-    if(T.boss){got=['hp',rnd()<.5?'st':'mt'];}else if(rnd()<.22)got=['hp'];
+    if(T.boss){got=[rnd()<.6?'hp':'st',rnd()<.5?'st':'mt'];}else if(rnd()<.22)got=['hp'];
     if(!got)return;const names=[];for(const k of got)if(flasks[k]<flaskCap(k)){flasks[k]++;names.push(FL[k].n)}if(names.length){saveFl();flaskUi();setTimeout(()=>msg('Found: '+names.join(' + '),2),900)}}
   // ---------- progression (WardenProg.js): Embers from every kill, permanent upgrades at the Ember Shrine, Ashen Cycles (New Game+) ----------
   const PG=WardenProg;PG.setBosses(WARDEN.sites.filter(s=>s.fog&&s.boss!==false).map(s=>s.id));
@@ -159,7 +159,7 @@ const PlayerCombat=(()=>{
     if(p.k==='j'&&NET.mode==='host'&&p.s===site.id){netAddQ();msg('Your partner joins the fight',1.6)}
     else if(p.k==='l'&&p.s===NET.site){if(NET.mode==='host'){netDropQ();NET.joined=false;msg('Your partner left the fight',1.6)}else if(NET.mode==='guest'){netDropQ();netHost();msg('The host left: you lead the fight',1.8)}}
     else if(p.k==='h'&&NET.mode==='host'&&p.s===site.id&&(p.t0<NET.t0||p.t0===NET.t0&&p.from<(typeof myId!=='undefined'?myId:''))){netJoin()}}   // two hosts at once: the earlier fight wins, the other becomes its guest
-  const aiTarget=q=>{if(decoy&&decoy.t>0&&C.F.Z)return C.F.Z;if(rdecoy&&rdecoy.t>0&&C.F.Y)return C.F.Y;if(!Q||Q.act==='dead')return P;if(P.act==='dead')return Q;const dp=Math.hypot(P.x-q.x,P.z-q.z)-WardenStyle.taunt(styId()),dq=Math.hypot(Q.x-q.x,Q.z-q.z)-WardenStyle.taunt(pStyle),cur=q._tg==='Q'?Q:P;const o=cur===P?Q:P,dc=cur===P?dp:dq,dO=cur===P?dq:dp;const pick=dO<dc-2?o:cur;q._tg=pick.id;return pick};
+  const aiTarget=q=>{const bs=!!(q.T&&q.T.boss||byId[q.id]&&byId[q.id].T.boss);if(decoy&&decoy.t>0&&C.F.Z&&!(bs&&decoy.seen>=2))return C.F.Z;if(rdecoy&&rdecoy.t>0&&C.F.Y&&!(bs&&rdecoy.seen>=2))return C.F.Y;if(!Q||Q.act==='dead')return P;if(P.act==='dead')return Q;const dp=Math.hypot(P.x-q.x,P.z-q.z)-WardenStyle.taunt(styId()),dq=Math.hypot(Q.x-q.x,Q.z-q.z)-WardenStyle.taunt(pStyle),cur=q._tg==='Q'?Q:P;const o=cur===P?Q:P,dc=cur===P?dp:dq,dO=cur===P?dq:dp;const pick=dO<dc-2?o:cur;q._tg=pick.id;return pick};
   function partnerStyle(y){if(!WardenStyle.valid(y)||y===pStyle)return;pStyle=y;try{msg('Partner: '+WardenStyle.get(y).icon+' '+WardenStyle.get(y).n,1.8)}catch(e){}}
   function netApply(){   // consume the newest partner message (once)
     if(NET.mode==='host'&&NET.rep&&Q){const r=NET.rep;NET.rep=null;partnerStyle(r.y);WardenNet.apply(Q,r.p,Moves,1)}
@@ -621,6 +621,7 @@ const PlayerCombat=(()=>{
   function trickStep(evs){
     if(!on||!C||state!=='fight')return;
     for(const e of evs){
+      if(e.t==='start'&&byId[e.a]&&byId[e.a].T.boss&&!byId[e.a].ghost&&!byId[e.a].script)for(const d of[decoy,rdecoy])if(d&&d.t>0&&!(d.seen>=2)){d.seen=(d.seen||0)+1;if(d.seen===2)try{toast('A boss sees through your shadow',1.8)}catch(x){}}   // a boss is fooled by a decoy twice, then it knows
       if(e.t==='start'&&NET.mode!=='guest'){const F=byId[e.a];if(!F||F.ghost)continue;
         if(e.move==='blink'&&F.T.blink&&!F.bl){const tg=aiTarget(F.f);F.bl={n:0,t:0,tg:tg.id,hide:false,lock:false};try{blinkFx(F)}catch(x){}}
         else if(e.move==='snare'&&F.T.traps){F.sn={n:0,tg:aiTarget(F.f).id}}}

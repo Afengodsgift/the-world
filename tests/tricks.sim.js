@@ -37,11 +37,11 @@ function sim(foe,dist,ticks,P0,seed){const A=AI.create(seed,{foe,intro:0}),D={id
 {const A=AI.create(1,{foe:'trapper',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:300,hpMax:300,rm:1},P={id:'P',x:0,z:1.9,act:'free',guard:false,hp:100};const o=AI.think(A,P,D,[],5);ok(o.list.some(c=>c.m==='cut'),'inside 2.5 m Skrag kicks you off')}
 {let orb=0,bolt=0;for(let s=1;s<=40;s++){const A=AI.create(s,{foe:'trapper',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:300,hpMax:300,rm:1},P={id:'P',x:0,z:7,act:'stun',guard:false,hp:100};A.scd=999;A.see=10;A.seenKey='stun';const o=AI.think(A,P,D,[],5);for(const c of o.list){if(c.m==='orb')orb++;if(c.m==='bolt')bolt++}}
  ok(orb>bolt*2,'a rooted / staggered player eats the heavy bolt (orb '+orb+' vs bolt '+bolt+')')}
-// ---- flask punishment: drinking a flask puts Vael / Skrag on you, at most once per 5 s each ----
+// ---- flask punishment: drinking a flask puts every foe back on you (Vael / Skrag with a special answer), at most once per 5 s each ----
 {const mk=(foe,dist)=>{const A=AI.create(3,{foe,intro:0}),D={id:'D',x:0,z:0,act:'free',hp:300,hpMax:300,rm:1},P={id:'P',x:0,z:dist,act:'free',guard:false,hp:100};return{A,D,P}};
  let a=mk('stalker',6);ok(AI.hunt(a.A)===true,'Vael accepts a flask hunt');let o=AI.think(a.A,a.P,a.D,[],5);ok(o.list.length===1&&o.list[0].m==='blink','far from you he blinks onto you');
  ok(AI.hunt(a.A)===false,'a second flask within 5 s does not re-trigger it');
  a=mk('stalker',2);AI.hunt(a.A);o=AI.think(a.A,a.P,a.D,[],5);ok(o.list.length===1&&o.list[0].m==='thrust','close to you he lunges');
  a=mk('trapper',7);AI.hunt(a.A);a.A.scd=999;o=AI.think(a.A,a.P,a.D,[],5);ok(o.list.length===1&&o.list[0].m==='orb','Skrag answers a flask with the heavy bolt');
- a=mk('knight',6);ok(AI.hunt(a.A)===false,'other bosses are unaffected')}
+ a=mk('knight',6);a.A.cool=40;a.A.breath=90;ok(AI.hunt(a.A)===true&&a.A.cool<=6&&a.A.breath===0,'every other foe cuts its rest short and stops breathing when you drink')}
  console.log(bad?'FAILED '+bad:'ALL OK');process.exit(bad?1:0);
