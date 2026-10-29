@@ -58,6 +58,10 @@ const Moves={
   moon:{id:'moon',who:'D',dmg:24,pdmg:22,hs:6,stun:24,kb:1.1,reach:3.7,w:.15,phases:[ph('startup',30),ph('active',7,{seg:0,a0:2.2,a1:-2.2}),ph('recovery',44)]},                  // a wide crescent: stand outside it
   counter:{id:'counter',who:'D',dmg:26,pdmg:24,hs:6,stun:24,kb:1,reach:2.9,w:.13,phases:[ph('stance',34),ph('active',4,{seg:0,a0:.9,a1:-.9}),ph('recovery',40)]},                 // counter draw: he waits in a low stance and answers anyone who walks in swinging
   requiem:{id:'requiem',who:'D',dmg:32,pdmg:28,hs:8,stun:28,kb:1.4,reach:5.2,w:0,fx:[{on:'start',k:'aoe',at:'self',r:5.2,delay:56,dur:3}],phases:[ph('windup',52),ph('release',2),ph('recovery',54)]},   // the final technique: the ring shows where the flames break
+  march:{id:'march',who:'D',dmg:24,pdmg:22,hs:6,stun:24,kb:1.1,reach:2.7,w:.14,phases:[ph('windup',26),ph('lunge',26,{move:3.2}),ph('active',5,{seg:0,a0:.6,a1:-.6}),ph('recovery',44)]},       // Executioner's Advance: a slow, heavy walk-in that ends in a swing
+  groundbreaker:{id:'groundbreaker',who:'D',dmg:36,pdmg:30,hs:8,stun:28,kb:1.4,reach:3.9,w:0,fx:[{on:'start',k:'aoe',at:'self',r:3.9,delay:46,dur:3}],phases:[ph('windup',46),ph('release',2),ph('recovery',56)]},   // the blade into the floor: a ring that shows where it breaks
+  verdict:{id:'verdict',who:'D',dmg:40,pdmg:36,hs:8,stun:30,kb:1.4,reach:2.8,w:.16,hold:true,bg:true,phases:[ph('raise',20),ph('hold',0),ph('down',22),ph('active',6,{seg:0,a0:.2,a1:-.2}),ph('recovery',52)]},   // the third stroke of the Threefold Sentence: DEFLECT it and his guard breaks
+  pursuit:{id:'pursuit',who:'D',dmg:22,pdmg:20,hs:5,stun:22,kb:.9,reach:3.1,w:.12,phases:[ph('windup',20),ph('lunge',14,{move:5}),ph('active',5,{seg:0,a0:.5,a1:-.5}),ph('recovery',46)]},   // Iron Pursuit: he crosses the room at you
   riposte:{id:'riposte',who:'D',dmg:16,pdmg:14,hs:5,stun:20,kb:.6,reach:2.4,w:.12,phases:[ph('startup',20),ph('active',4,{seg:0,a0:.5,a1:-.5}),ph('recovery',24)]},
 };
 // TEMPO: player strikes are ~30% quicker than the base table (Sekiro-like cadence): shorter start-ups, shorter recoveries, and a small step-in on the light chain so a swing closes the gap.

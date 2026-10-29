@@ -103,7 +103,7 @@ const CombatCore=(()=>{
     for(const o of out){const{a,t,mv}=o;
       if(o.k==='dodged'){emit(C,'dodged',a.id,t.id,{seg:o.seg});continue}
       if(!o.fx)a.done[o.seg]=true;const sc=!o.fx&&a.mv&&a.mv.id==='heavy'?1+.5*(a.chg||0):1;
-      if(o.k==='deflect'){if(!o.fx){addPo(C,a,mv.pdmg*1.6);if(a.act==='attack')stunF(a,16,'recoil')}addPo(C,t,mv.pdmg*.15);emit(C,'deflect',a.id,t.id,{seg:o.seg});hs=Math.max(hs,5)}
+      if(o.k==='deflect'){if(!o.fx){addPo(C,a,mv.pdmg*1.6);if(mv.bg&&a.act==='attack'){stunF(a,84,'stagger');emit(C,'brokenguard',a.id,t.id)}else if(a.act==='attack')stunF(a,16,'recoil')}addPo(C,t,mv.pdmg*.15);emit(C,'deflect',a.id,t.id,{seg:o.seg});hs=Math.max(hs,5)}
       else if(o.k==='block'){t.st=mv.gb?0:Math.max(0,t.st-mv.dmg*.8*sc);t.sr=0;addPo(C,t,mv.pdmg*.7*sc);emit(C,'block',a.id,t.id,{seg:o.seg});hs=Math.max(hs,3);
         if(t.st<=0&&t.act==='free'){stunF(t,45,'stagger');emit(C,'guardbreak',a.id,t.id)}}
       else if(t.inv>0){emit(C,'immune',a.id,t.id,{seg:o.seg})}   // the phase roar: nothing lands (a few ticks, see below)
@@ -135,4 +135,4 @@ const CombatCore=(()=>{
       for(let i=0;i<n;i++){const nt=C.tick+1,cm={},held=getHeld?getHeld(nt):{};for(const id in held)cm[id]=Object.assign({list:[]},held[id]);
         for(const p of S.pend)if(p.tick<=nt){(cm[p.id]=cm[p.id]||{list:[]}).list.push(p.cmd)}S.pend=S.pend.filter(p=>p.tick>nt);
         for(const e of C.step(cm))evs.push(e);if(post)post(nt)}return evs};return S}
-  return{create,stepper,mkFighter,moveBy,CONST:{SPEED,SUBM,GUARD_ARC,REARM,DEFL,BUF}}})();
+  return{create,stepper,mkFighter,moveBy,stun:stunF,CONST:{SPEED,SUBM,GUARD_ARC,REARM,DEFL,BUF}}})();

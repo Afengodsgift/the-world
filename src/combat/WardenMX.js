@@ -133,6 +133,9 @@ const WardenMX=(()=>{
     spin:{c:'spin',t0:.1,h:[[.5,1.3]],e:1.8},lowsweep:{c:'slash4',t0:.1,h:[[.55,1.0]],e:1.5},hammer:{c:'atk',t0:.1,h:[[.55,.9]],e:1.2},
     triple:{seq:[{c:'slash',t0:.1,h:[.45,.75],e:1.0},{c:'slash5',t0:.15,h:[.5,.82],e:1.0},{c:'slash',t0:.1,h:[.45,.75],e:1.25}]},
     blink:{c:'crouch',t0:0,e:.66}})});
+  // The Iron Penitent (Three Oaths): Morvane's Great Sword clips; the Sentence is two cuts then the delayed overhead (verdict), the floor-breaker is the stomp, the march a slow lunge
+  ROLES.penitent=Object.assign({},ROLES.darkknight,{moves:Object.assign({},ROLES.darkknight.moves,{
+    march:{c:'slash4',t0:.3,h:[[.9,1.3]],e:1.7},groundbreaker:{c:'power',t0:.3,e:2.0},verdict:{c:'atk',t0:.1,ch:[.4,.6],h:[[.55,.9]],e:1.2},pursuit:{c:'slash5',t0:0,h:[[.5,.82]],e:1.3}})});
   // Kage, the Shadowflame Samurai (uploaded CC rig, packed by tools/pack_cc_char.mjs): the Oathbound set retargeted onto his skeleton (no spin / crouch clips there, so the sweep reuses a slash and the blink uses the power-up crouch)
   ROLES.samurai=Object.assign({},ROLES.vampire,{file:'assets/warden_mx_samurai.json',dorm:'idle',moves:Object.assign({},ROLES.vampire.moves,{
     sweep:{c:'slash3',t0:.2,h:[[.55,.85],[1.1,1.4]],e:1.6},twin:{c:'slash3',t0:.2,h:[[.55,.85],[1.1,1.4]],e:1.6},bash:{c:'kick',t0:.1,h:[[.5,.85]],e:1.15},riposte:{c:'kick',t0:.1,h:[[.5,.85]],e:1.15},spin:{c:'slash4',t0:.1,h:[[.55,1.0]],e:1.5},blink:{c:'power',t0:.3,e:.96},

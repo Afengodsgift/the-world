@@ -7,7 +7,7 @@ const duel=(o)=>{o=o||{};const C=CC.create({arena:o.arena||{x:0,z:0,R:14},solids
 const run=(C,n,fn)=>{const ev=[];for(let i=0;i<n;i++){const cm=fn?fn(C.tick+1):{};for(const e of C.step(cm))ev.push(e)}return ev};
 // ---------- A. fairness data rules (no exceptions) ----------
 const EXCEPTIONS=[];ok(EXCEPTIONS.length===0,'fairness exceptions list is empty');
-const dm=Object.keys(M).filter(k=>M[k]&&M[k].who==='D');ok(dm.length===25,'25 foe moves (5 Duelist + 3 Hollow Warden + 2 gap closers + 4 ranged/magic + bash + riposte + 3 capoeira + blink + snare + Kage: iai, feint, moon, counter, requiem): '+dm.join(','));
+const dm=Object.keys(M).filter(k=>M[k]&&M[k].who==='D');ok(dm.length===29,'29 foe moves (5 Duelist + 3 Hollow Warden + 2 gap closers + 4 ranged/magic + bash + riposte + 3 capoeira + blink + snare + Kage: iai, feint, moon, counter, requiem): '+dm.join(','));
 for(const id of dm){let worst=1e9,rec=M.endRecovery(id);for(let h=0;h<=M.HOLD_MAX;h++)for(const t of M.tells(id,h))worst=Math.min(worst,t);
   ok(worst>=M.TELL_MIN,id+': every hit has a tell >= '+M.TELL_MIN+' ticks for hold 0..12 (min '+worst+')');
   ok(rec>=M.REC_MIN,id+': ends in >= '+M.REC_MIN+' uncancellable recovery ('+rec+')');
@@ -41,6 +41,15 @@ const tH=firstHit();ok(tH>0,'a stationary player is hit by the cut at tick '+tH+
 // fresh module state for the rest (dodgeRoot was zeroed above)
 const W=load(),M2=W.M,CC2=W.CC;
 const duel2=(o)=>{o=o||{};const C=CC2.create({arena:o.arena||{x:0,z:0,R:14},solids:o.solids});const P=C.add('P',Object.assign({x:0,z:0,face:0},o.P));const D=C.add('D',Object.assign({x:0,z:2,face:Math.PI,hp:140},o.D));return{C,P,D}};
+// ---------- E2. Broken Guard: deflecting the Penitent's verdict breaks HIS guard ----------
+{const run1=(mv,gt)=>{const{C,P,D}=duel2({});const evs=[];C.step({D:{list:[{t:'atk',m:mv,hold:0}]},P:gt===1?{list:[{t:'guardDown'}]}:{}});for(let i=1;i<140;i++){const cm={};if(C.tick+1===gt)cm.P={list:[{t:'guardDown'}]};for(const e of C.step(cm))evs.push(e)}return{evs,D}};
+  let found=null;for(let gt=1;gt<90&&!found;gt++){const r=run1('verdict',gt);if(r.evs.some(e=>e.t==='deflect'))found=gt}
+  ok(found!==null,'the verdict can be deflected (guard pressed at tick '+found+')');
+  const r=run1('verdict',found);ok(r.evs.some(e=>e.t==='brokenguard'),'deflecting it emits brokenguard');
+  const stag=(()=>{const{C,P,D}=duel2({});C.step({D:{list:[{t:'atk',m:'verdict',hold:0}]}});let n=0,seen=false;for(let i=1;i<200;i++){const cm={};if(C.tick+1===found)cm.P={list:[{t:'guardDown'}]};C.step(cm);if(D.act==='stun'&&D.sk==='stagger'){n++;seen=true}}return n})();
+  ok(stag>=80,'and he is staggered for >= 80 ticks ('+stag+')');
+  let cutF=null;for(let gt=1;gt<60&&!cutF;gt++){const r2=run1('cut',gt);if(r2.evs.some(e=>e.t==='deflect'))cutF=r2}
+  ok(cutF&&!cutF.evs.some(e=>e.t==='brokenguard'),'deflecting an ordinary cut does not break his guard')}
 // ---------- E. deflect window ----------
 {const res={};for(let d=0;d<=12;d++){const{C,P,D}=duel2({});const gt=tH-d;if(gt<1)continue;const evs=[];C.step({D:{list:[{t:'atk',m:'cut'}]},P:gt===1?{list:[{t:'guardDown'}]}:{}});
   for(let i=1;i<60;i++){const cm={};if(C.tick+1===gt)cm.P={list:[{t:'guardDown'}]};for(const e of C.step(cm))evs.push(e)}const e=evs.find(e=>['hit','block','deflect'].includes(e.t));res[d]=e?e.t:'none'}
