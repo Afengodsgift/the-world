@@ -24,9 +24,13 @@ const Deckhands=(()=>{
     try{dress(g,c.role==='gun'?3:0)}catch(e){}
     if(c.role==='gun'&&typeof Outlaw!=='undefined'&&Outlaw.setGun)try{Outlaw.setGun(g,0)}catch(e){}}
   // ---------- host: boarding ----------
+  // the boarders only jump once the hulls are close (the hooks haul a far ship in first)
+  const boardReady=(e,v)=>Math.hypot(e.sh.x-v.pose.x,e.sh.z-v.pose.z)-e.v.hl*.5-v.hl*.5<22;
   function boardTarget(v){
     if(typeof Fleet==='undefined')return null;let best=null,bd=1e9;const p=v.pose;
     for(const e of Fleet.ships.values()){if(e.sinking||e.sunk>0||!e.v.deck||Crew.alive(e.id)<1)continue;const d=Math.hypot(e.sh.x-p.x,e.sh.z-p.z)-e.v.hl*.5-v.hl*.5;if(d<24&&d<bd){bd=d;best=e}}
+    if(!best&&Fleet.grappleTarget){const g=Fleet.grappleTarget();if(g&&g.lash===null&&Crew.alive(g.id)>0)best=g}
+    if(best&&best.lash===null&&Fleet.isHost())try{Fleet.grapple(best)}catch(x){}   // the BOARD order throws the hooks itself: the target is hauled alongside, then the boarders jump
     return best}
   function jump(c,e,v){
     const cells=Crew.freeCells(e);if(!cells.length)return false;const p=v.pose;let best=null,bd=1e9;
@@ -84,7 +88,7 @@ const Deckhands=(()=>{
         if(c.mode===2){c.downT-=dt;if(c.downT<=0){c.mode=0;c.hp=c.max}}
         else if(c.mode===1){away=true;const es=Fleet.ships.get(c.sid);if(sunk)recall(c,v);else fight(c,es,v,dt)}
         else{
-          if(c.fighter&&order==='board'&&e&&!sunk){c.jumpT-=dt;if(c.jumpT<=0){c.jumpT=c.i*.45+.2;jump(c,e,v)}}else if(order!=='board')c.jumpT=c.i*.45+.2;
+          if(c.fighter&&order==='board'&&e&&!sunk&&boardReady(e,v)){c.jumpT-=dt;if(c.jumpT<=0){c.jumpT=c.i*.45+.2;jump(c,e,v)}}else if(order!=='board')c.jumpT=c.i*.45+.2;
           if(c.role==='gun'&&!sunk&&!seated&&c.g.cd<=0&&(order==='fire'||(order==='board'&&!c.fighter))){
             c.think=(c.think||0)-dt;if(c.think<=0){c.think=.25+R()*.35;if(Fleet.playerFire(c.g,true,false,true))c.recoil=.35}}}}
       else if(c.mode===1&&c.snap){const k=1-Math.exp(-12*dt),B=c.B,s=c.snap;B.x+=(s[0]-B.x)*k;B.y+=(s[1]-B.y)*k;B.z+=(s[2]-B.z)*k;B.rot+=wrapA(s[3]-B.rot)*k}

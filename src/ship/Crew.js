@@ -6,7 +6,7 @@
 // Globals used at runtime: THREE, S, me, scene, camera, others, Decks, Vessel, Fleet, Net, Systems, SHIP, myId, banner, makeAvatar/dress/animate (index.html), Outlaw (optional).
 const Crew=(()=>{
   const C=SHIP,SEA=C.sea,list=new Map();
-  let bbtn=null,bshow=false,swordT=0,snT=0,nextN=1,built=false,btn=null,combo=0,comboT=0,slashCd=0,sayT=0,vis=true;
+  let gbtn=null,gshow=false,bbtn=null,bshow=false,swordT=0,snT=0,nextN=1,built=false,btn=null,combo=0,comboT=0,slashCd=0,sayT=0,vis=true;
   const R=Math.random,clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),wrapA=a=>Math.atan2(Math.sin(a),Math.cos(a));
   const KIND={cut:{hp:60,spd:3.3,dmg:11,cd:1.05,rng:1.9,gun:-1},pis:{hp:45,spd:2.2,dmg:9,cd:2.1,rng:42,gun:0,acc:.5},mus:{hp:55,spd:1.8,dmg:17,cd:3.3,rng:62,gun:5,acc:.6},cap:{hp:150,spd:3.3,dmg:15,cd:.95,rng:1.9,gun:-1}};
   const CODE=['cut','pis','mus','cap'],ST=['idle','run','atk','aim','dead'];
@@ -143,6 +143,7 @@ const Crew=(()=>{
     comboT-=dt;slashCd-=dt;if(comboT<=0)combo=0;
     let near=false;for(const c of list.values())if(!c.dead&&Math.hypot(c.B.x-S.x,c.B.z-S.z)<45){near=true;break}
     if(host){snT-=dt;if(snT<=0){snT=.125;if(list.size)Net.emit('flt',{k:'cr',a:snapshot()})}}
+    if(gbtn){const gs=!!(Fleet.grappleTarget()&&(Ship.onDeck()||Ship.seated())&&!Ship.gunning());if(gs!==gshow){gshow=gs;gbtn.style.display=gs?'flex':'none'}}
     if(bbtn){const bs=!!Fleet.boardable();if(bs!==bshow){bshow=bs;bbtn.style.display=bs?'flex':'none'}}
     if(btn&&near!==vis){vis=near;btn.style.display=near?'flex':'none'}}
 
@@ -193,6 +194,7 @@ const Crew=(()=>{
     if(built)return;built=true;Net.on('flt',onNet);
     if(typeof LockOn!=='undefined')LockOn.source('crew',()=>{const a=[];for(const c of list.values())if(!c.dead&&c.group&&c.group.visible)a.push({id:c.id,crew:1,x:c.B.x,y:c.B.y,z:c.B.z,lift:1.5,hp:c.hp,max:c.max,cap:c.cap});return a});Systems.add('crew',step);
     try{const css=document.createElement('style');css.textContent='#seaboard{position:fixed;z-index:7;right:calc(env(safe-area-inset-right,0px) + 96px);bottom:calc(env(safe-area-inset-bottom,0px) + 112px);min-width:58px;height:48px;padding:0 14px;border-radius:24px;background:#1f4f7acc;color:#fff;font:700 14px sans-serif;border:2px solid #fff8;display:none;align-items:center;justify-content:center;touch-action:none;user-select:none}#seaslash{position:fixed;z-index:7;right:calc(env(safe-area-inset-right,0px) + 22px);bottom:calc(env(safe-area-inset-bottom,0px) + 104px);width:58px;height:58px;border-radius:50%;background:#7a1f1fcc;color:#fff;font:700 28px sans-serif;border:2px solid #fff8;display:none;align-items:center;justify-content:center;touch-action:none;user-select:none}';(document.head||document.body).appendChild(css);
+      gbtn=document.createElement('div');gbtn.id='seagrap';gbtn.textContent='🪝 Grapple';gbtn.style.cssText='position:fixed;z-index:7;right:calc(env(safe-area-inset-right,0px) + 96px);bottom:calc(env(safe-area-inset-bottom,0px) + 170px);min-width:58px;height:48px;padding:0 14px;border-radius:24px;background:#7a4f1fcc;color:#fff;font:700 14px sans-serif;border:2px solid #fff8;display:none;align-items:center;justify-content:center;touch-action:none;user-select:none';document.body.appendChild(gbtn);gbtn.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();Fleet.grapple()});
       bbtn=document.createElement('div');bbtn.id='seaboard';bbtn.textContent='⚓ Board!';document.body.appendChild(bbtn);bbtn.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();Fleet.boardEnemy()});
       btn=document.createElement('div');btn.id='seaslash';btn.textContent='⚔';document.body.appendChild(btn);vis=false;
       const go=e=>{e.preventDefault();slash()};btn.addEventListener('pointerdown',go);addEventListener('keydown',e=>{if(e.code==='KeyF'&&!e.repeat)slash()})}catch(e){}}

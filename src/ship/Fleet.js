@@ -87,8 +87,11 @@ const Fleet=(()=>{
     const sh=sh_(e),fo=foe(e),p=fo||pl(),K=e.K,dx=p.x-sh.x,dz=p.z-sh.z,D=Math.hypot(dx,dz),brg=Math.atan2(dx,dz);let want=brg,spd=1;
     if(e.sinking){sh.v*=.985;return}
     if(e.lash){                                                     // lashed alongside: ride with the player's ship until the crew is beaten, the player sails off, or the lines burn through
-      e.lashT-=dt;const L=e.lash;L.z-=L.z*Math.min(1,dt*.7);Sailing.toWorld(p,L.x,L.z,_a);sh.x=_a.x;sh.z=_a.z;sh.h=wrap(p.h+L.dh);sh.v=p.v;
-      if(e.lashT<=0||p.v>7.5){e.lash=null;banner('The lines are cut — the pirates break away','☠ PIRATES')}return}
+      e.lashT-=dt;const L=e.lash,gr=L.cx!==undefined;
+      if(gr){const k=Math.min(1,dt*1.1);L.cx+=(L.x-L.cx)*k;L.cz+=(L.z-L.cz)*k;L.dh+=(L.dh0*.15-L.dh)*k;Sailing.toWorld(p,L.cx,L.cz,_a)}   // GRAPPLED: the hooks reel the hull in smoothly (no teleport)
+      else{L.z-=L.z*Math.min(1,dt*.7);Sailing.toWorld(p,L.x,L.z,_a)}
+      sh.x=_a.x;sh.z=_a.z;sh.h=wrap(p.h+L.dh);sh.v=p.v;
+      if(e.lashT<=0||p.v>(gr?15:7.5)){e.lash=null;banner('The lines are cut — the pirates break away','☠ PIRATES')}return}
     const st=fo?'gunnery':K.style;
     if(st==='ram'){want=Math.atan2(dx+Math.sin(p.h)*p.v*3,dz+Math.cos(p.h)*p.v*3)}
     else if(st==='board'){                                          // come up the lane beside your ship from behind, match speed, lash on
@@ -167,6 +170,18 @@ const Fleet=(()=>{
     // people on the planks: only the enemy's balls hurt, and every client hurts only itself
     if(!d.f&&d.k==='deck'&&typeof Crew!=='undefined'&&isHost())Crew.splash(d.t,d.x,d.y,d.z,CN.splash*.8,CN.pdmg*2.2);
     if(d.f&&d.k==='deck'){const dd=Math.hypot(S.x-d.x,(S.y-d.y)*.6,S.z-d.z);if(dd<CN.splash)hurtMe(CN.pdmg*(1-dd/CN.splash*.6),d.x,d.z)}}
+  // GRAPPLING HOOKS: throw them at the nearest pirate hull (<= 62 m) and it is reeled alongside and lashed to you for 75 s (the cannons stop, the decks touch: board and fight). The host does the work; the guest asks.
+  const GRAP=62;
+  function grappleTarget(){
+    const p=pl();let best=null,bd=GRAP;
+    for(const e of ships.values()){if(e.sinking||e.sunk>0||e.lash)continue;const d=Math.hypot(e.sh.x-p.x,e.sh.z-p.z)-e.v.hl*.35;if(d<bd){bd=d;best=e}}
+    return best}
+  function grapple(e){
+    e=e||grappleTarget();if(!e||e.sinking||e.lash||pl().sunk>0)return false;
+    if(!isHost()){Net.emit('flt',{k:'gr',id:e.id});return true}
+    const p=pl(),pv=plv(),lp=Sailing.toShip(p,e.sh.x,e.sh.z,{}),sd=lp.x>=0?1:-1,gap=(pv?pv.hb:5)+e.v.hb-.8,dh=wrap(e.sh.h-p.h);
+    e.sd=sd;e.lash={x:sd*gap,z:0,cx:lp.x,cz:lp.z,dh,dh0:dh};e.lashT=75;
+    banner('Grappling hooks away! '+e.K.cap.n+'\'s ship is being hauled alongside!','🪝 BOARDING');Net.emit('flt',{k:'grb',n:e.K.cap.n});return true}
   function captainDown(e){if(e.sinking)return;banner(e.K.cap.n+' falls! The ship is yours!','☠ PIRATES');damageEnemy(e,e.hp+1,'crew')}
   function damageEnemy(e,n,kind){
     if(e.sinking)return;e.hp=Math.max(0,e.hp-n);e.hitT=.3;if(kind==='monster')e.prov=30;drawTag(e);
@@ -234,6 +249,8 @@ const Fleet=(()=>{
         if(v&&g){Vessel.outward(v,g,_b);muzzleFx({x:d.x,y:d.y,z:d.z},_b)}boomSfx(d.x,d.z,1);break}
       case 'h':applyHit({n:d.n,t:d.t,k:d.w,d:d.d,f:d.f,x:d.x,y:d.y,z:d.z});break;
       case 'l':loot(d.c,d.n,d.b);break;
+      case 'gr':{if(isHost()){const e=ships.get(d.id);if(e)grapple(e)}break}
+      case 'grb':{if(!isHost())banner('Grappling hooks away! '+d.n+'\'s ship is being hauled alongside!','🪝 BOARDING');break}
       case 's':{if(isHost())break;const seen=new Set();
         for(const a of d.e){const [id,cls,x,z,h,v,hp,sk,lc]=a;seen.add(id);let e=ships.get(id);
           if(!e){e=make(id,cls,x,z,h,hp);if(!e)continue}
@@ -293,7 +310,7 @@ const Fleet=(()=>{
     const o=overboardDir();if(!o)return;const w=Decks.toWorld(o.d,o.l.x+o.x*2.6,o.l.y,o.l.z+o.z*2.6,{});
     S._dk=null;S.x=w.x;S.z=w.z;S.y=w.y+.6;S.vy=5;S.grounded=false}
   Interaction.register('ship-overboard','Jump overboard 🌊',()=>built&&!Ship.locked()&&!!overboardDir(),overboard);
-  return {overboard,build,ships,shells,make,remove,trySpawn,spawnNear,live,elev,aim,fire,playerFire,broadside,nearGun,hurtMe,respawn,applyHit,damageEnemy,captainDown,boardable,boardEnemy,sideSalvo,isHost,
+  return {overboard,build,ships,shells,make,remove,trySpawn,spawnNear,live,grapple,grappleTarget,elev,aim,fire,playerFire,broadside,nearGun,hurtMe,respawn,applyHit,damageEnemy,captainDown,boardable,boardEnemy,sideSalvo,isHost,
     marks:()=>[...ships.values()].filter(e=>!e.sinking).map(e=>({n:e.K.cap.n,x:e.sh.x,z:e.sh.z,r:6,icon:e.K.boss?'☠':'🏴‍☠️',dyn:true})),
     _me:me,_step:step,_ai:ai,_net:onNet,_snapshot:snapshot};
 })();

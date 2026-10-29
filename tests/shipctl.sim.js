@@ -33,4 +33,21 @@ ok(into>3.5,'sailing into the wind still moves you ('+into.toFixed(1)+' m/s): no
 ok(down>beam*.5,'running before the wind is decent ('+down.toFixed(1)+' m/s)');
 ok(C.sailing.boostT>=8&&C.sailing.boostCd>C.sailing.boostT,'boost lasts 8 s then a short recharge');
 ok(C.sailing.vmax*C.sailing.boostMul<=C.cls.galleon.v*1.6,'boost is strong but not absurd');
+// ---------- grappling hooks ----------
+{
+  for(const e of [...A.Fleet.ships.values()])A.Fleet.remove(e);
+  const Fl=A.Fleet,p=sh;p.x=-300;p.z=300;p.h=0;p.v=0;p.sail=0;p.hull=C.hull;
+  const e=Fl.make(901,'barnacle',p.x+40,p.z+25,Math.PI);ok(!!e,'a pirate ship 47 m away');
+  ok(Fl.grappleTarget()===e,'it is in grapple range');
+  const far=Fl.make(902,'skiff',p.x+300,p.z,0);ok(Fl.grappleTarget()===e,'a ship 300 m away is not');
+  Fl.remove(far);
+  ok(Fl.grapple(),'the hooks fly');ok(e.lash&&e.lashT>60,'the pirate is lashed to us ('+Math.round(e.lashT)+' s)');
+  const d0=Math.hypot(e.sh.x-p.x,e.sh.z-p.z);let jump=0,last={x:e.sh.x,z:e.sh.z};
+  for(let i=0;i<20*8;i++){A.Fleet._step(.05);const dx=Math.hypot(e.sh.x-last.x,e.sh.z-last.z);jump=Math.max(jump,dx);last={x:e.sh.x,z:e.sh.z}}
+  const d1=Math.hypot(e.sh.x-p.x,e.sh.z-p.z);
+  ok(d1<d0&&d1<(A.Ship.vessel().hb+e.v.hb),'it is hauled alongside ('+Math.round(d0)+' m -> '+Math.round(d1)+' m)');
+  ok(jump<4,'...smoothly, no teleport (largest step '+jump.toFixed(2)+' m)');
+  p.v=12;for(let i=0;i<20;i++)A.Fleet._step(.05);ok(!!e.lash,'it stays hooked while you sail at 12 m/s (you can tow it)');
+  p.v=18;A.Fleet._step(.05);ok(!e.lash,'...but the lines snap at ramming speed');p.v=0;
+  }
 console.log(fails?fails+' failure(s)':'all ship control checks passed');process.exit(fails?1:0);
