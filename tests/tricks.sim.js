@@ -51,6 +51,16 @@ function simK(hpf,dist,ticks,seed,P0){const A=AI.create(seed,{foe:'samurai',intr
  ok(c===20,'a player who keeps swinging at him is answered with the counter draw ('+c+'/20)');
  const A=AI.create(1,{foe:'samurai',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:200,hpMax:520,rm:1},P={id:'P',x:0,z:2.4,act:'free',guard:false,hp:100};A.ph2=true;A.att=0;A.ccd=0;A.cool=0;const o=AI.think(A,P,D,[],5);ok(!o.list.some(m=>m.m==='counter'),'but not a player who is merely standing there')}
 {const A=AI.create(2,{foe:'samurai',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:500,hpMax:520,rm:1},P={id:'P',x:0,z:3,act:'free',guard:false,hp:100};A.follow='iai';A.cool=0;const o=AI.think(A,P,D,[],5);ok(o.list.length===1&&o.list[0].m==='iai','the empty sheath is followed by the real draw when he chooses it')}
+// ---- The Three Oaths: one signature attack at a time ----
+{const L=[{id:'a',alive:true,act:'free',mv:null,gap:0},{id:'b',alive:true,act:'attack',mv:'verdict',gap:0},{id:'c',alive:true,act:'free',mv:null,gap:0}];
+ ok(T.sigBusy(L,'a')&&T.sigBusy(L,'c'),'while one boss is inside a signature move the others are locked out');ok(!T.sigBusy(L,'b'),'it does not lock itself out');
+ L[1].act='free';L[1].mv=null;L[1].gap=T.GAP;ok(T.sigBusy(L,'a'),'and for a short gap after it ends');L[1].gap=0;ok(!T.sigBusy(L,'a'),'then the floor is free again');
+ L[1].act='attack';L[1].mv='cut';ok(!T.sigBusy(L,'a'),'an ordinary cut holds no token');L[1].alive=false;L[1].mv='verdict';ok(!T.sigBusy(L,'a'),'a fallen boss holds nothing')}
+{let v=0,g=0,blocked=0;for(let s=1;s<=30;s++){const A=AI.create(s,{foe:'penitent',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:560,hpMax:560,rm:1},P={id:'P',x:0,z:2.2,act:'free',guard:false,hp:100};
+  for(let t=0,busy=0;t<3000;t++){if(D.act==='attack'&&t-busy>90)D.act='free';A.sigLock=false;const o=AI.think(A,P,D,[],t);for(const c of o.list)if(c.t==='atk'){if(c.m==='verdict')v++;if(c.m==='groundbreaker')g++;D.act='attack';busy=t}}
+  const A2=AI.create(s,{foe:'penitent',intro:0}),D2={id:'D',x:0,z:0,act:'free',hp:560,hpMax:560,rm:1};A2.sigLock=true;A2.follow='verdict';A2.cool=0;for(let t=0,busy=0;t<1500;t++){if(D2.act==='attack'&&t-busy>90)D2.act='free';A2.sigLock=true;const o=AI.think(A2,P,D2,[],t);for(const c of o.list)if(c.t==='atk'){if(c.m==='verdict'||c.m==='groundbreaker')blocked++;D2.act='attack';busy=t}}}
+ ok(v>=30&&g>=15,'the Penitent uses both signatures when free ('+v+' verdicts, '+g+' groundbreakers in 30 runs)');ok(blocked===0,'and never starts one while an ally holds the token')}
+{const A=AI.create(1,{foe:'penitent',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:560,hpMax:560,rm:1},P={id:'P',x:0,z:2.2,act:'free',guard:false,hp:100};A.follow='verdict';A.cool=0;const o=AI.think(A,P,D,[],5);ok(o.list.length===1&&o.list[0].m==='verdict','the Threefold Sentence ends in the verdict')}
 // ---- flask punishment: drinking a flask puts every foe back on you (Vael / Skrag with a special answer), at most once per 5 s each ----
 {const mk=(foe,dist)=>{const A=AI.create(3,{foe,intro:0}),D={id:'D',x:0,z:0,act:'free',hp:300,hpMax:300,rm:1},P={id:'P',x:0,z:dist,act:'free',guard:false,hp:100};return{A,D,P}};
  let a=mk('stalker',6);ok(AI.hunt(a.A)===true,'Vael accepts a flask hunt');let o=AI.think(a.A,a.P,a.D,[],5);ok(o.list.length===1&&o.list[0].m==='blink','far from you he blinks onto you');

@@ -26,5 +26,8 @@ const Tricks=(()=>{
   // does a player standing at (x,z) spring this trap? 'dodge' = the player is inside the roll's i-frames (the trap is sprung harmlessly)
   const touch=(t,x,z,dodge,age)=>armed(age)&&Math.hypot(t.x-x,t.z-z)<=SNARE.R?(dodge?'rolled':'bite'):null;
   const bite=hpMax=>hpMax*SNARE.DMG;
-  return{BLINK,LEECH,SNARE,rng,heal,blinkSpot,count,snareLayout,armed,touch,bite}})();
+  // THE THREE OATHS: only one boss may START a signature attack at a time. A foe is 'busy' while it is inside a signature move and for GAP ticks after it ends; everyone else is locked out meanwhile.
+  const SIG={verdict:1,groundbreaker:1,requiem:1},GAP=50;
+  const sigBusy=(list,selfId)=>{for(const o of list)if(o.id!==selfId&&o.alive&&(o.gap>0||o.act==='attack'&&o.mv&&SIG[o.mv]))return true;return false};
+  return{BLINK,LEECH,SNARE,SIG,GAP,sigBusy,rng,heal,blinkSpot,count,snareLayout,armed,touch,bite}})();
 if(typeof module!=='undefined')module.exports=Tricks;

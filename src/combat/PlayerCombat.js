@@ -191,6 +191,10 @@ const PlayerCombat=(()=>{
   const duelSide=()=>DU.pair&&meId()<DU.pair.id?1:-1;
   // The Ashen Arena is for duels only: you cannot walk in without another player close by, there is no bot, and a Leave button always works (also while the connection is flaky).
   let exitLock=null,duelHint=0,waitMsg=0;
+  // a hidden chamber opens once enough Warden bosses have fallen
+  function hiddenOpen(q){let n=0;for(const s of SITES())if(s.fog&&!s.dg&&!s.hidden&&rt(s).cleared)n++;if(n>=q.req)return true;
+    const wx=S.x-WRD.x,wz=S.z-WRD.z;if(Math.hypot(wx-q.x,wz-q.z)<q.R-1&&performance.now()-hidHint>7000){hidHint=performance.now();toast('The chamber is sealed \u00b7 fell '+q.req+' Warden bosses ('+n+'/'+q.req+')',3.6)}return false}
+  let hidHint=0;
   function duelPartnerNear(q){if(typeof others==='undefined')return false;const cx=WRD.x+q.x,cz=WRD.z+q.z;for(const o of others.values()){const g=o&&o.group;if(g&&g.position&&Math.hypot(g.position.x-cx,g.position.z-cz)<q.R+35)return true}return false}
   function quitArena(){if(!on||!site||!site.duel)return;const sid=site.id,cx=WRD.x+site.x,cz=WRD.z+site.z;let dx=S.x-cx,dz=S.z-cz;const d=Math.hypot(dx,dz)||1;if(d<1){dx=0;dz=1}else{dx/=d;dz/=d}
     leave(false);exitLock=sid;S.x=cx+dx*(site.R+3);S.z=cz+dz*(site.R+3);try{S.y=H(S.x,S.z)+.5}catch(e){}toast('You left the arena',1.8)}
@@ -580,7 +584,7 @@ const PlayerCombat=(()=>{
   function bossReel(B,rw){if(!B||B.f.act==='dead')return;B.f.hp=Math.max(1,B.f.hp-B.f.hpMax*.1*rw);B.f.po=Math.min(B.f.poMax*.97,B.f.po+B.f.poMax*.6*rw)}   // host / solo only: the boss is the host's
   function spMsg(p){
     if(!on||!site||p.s!==site.id)return;
-    if(p.t==='tp'||p.t==='tx'||p.t==='vh'||p.t==='br'||p.t==='fk'){trickSp(p);return}
+    if(p.t==='tp'||p.t==='tx'||p.t==='vh'||p.t==='br'||p.t==='fk'||p.t==='bg'){trickSp(p);return}
     if(p.t==='bs'&&NET.mode==='guest'&&!ult&&state==='fight'&&P.act!=='dead'&&!CineCam.busy()){const B=byId[p.b];if(B&&B.f.act!=='dead')startBarrage(B,{a0:p.a,co:true})}
     else if(p.t==='es'&&NET.mode==='guest'&&!ult&&state==='fight'&&P.act!=='dead'&&!CineCam.busy()){const B=byId[p.b];if(B&&B.f.act!=='dead')startEcho(B,{co:true,seed:p.seed,st:p.st})}
     else if(p.t==='ef'&&NET.mode==='host'&&ult&&ult.kind==='echo')echoFound(true)
@@ -649,12 +653,16 @@ const PlayerCombat=(()=>{
       const bl=F.f.act==='attack'&&F.f.mv&&F.f.mv.id==='blink';
       if(bl&&!F.bl&&NET.mode==='guest'){F.bl={t:0};blinkFx(F)}
       if(F.bl){F.bl.t+=dt;if(!bl&&NET.mode==='guest'||F.bl.t>3||F.f.act==='dead')blinkEnd(F);else{const hide=bl&&F.f.pt>=Tricks.BLINK.HIDE;if(F.body.g.visible===hide)F.body.g.visible=!hide}}}}
+  // The Three Oaths: one signature attack at a time (Tricks.sigBusy); F.sg counts the quiet gap after a signature move ends
+  function Foes_sig(q,F){const inSig=q.act==='attack'&&q.mv&&Tricks.SIG[q.mv.id];if(inSig)F.sg=Tricks.GAP;else if(F.sg>0)F.sg--;
+    return Tricks.sigBusy(foes.filter(o=>o.T.oath&&!o.ghost).map(o=>({id:o.id,alive:o.f.act!=='dead',act:o.f.act,mv:o.f.mv&&o.f.mv.id,gap:o.sg||0})),F.id)}
   function flaskHunt(){if(!on||state!=='fight')return;if(NET.mode==='guest'){try{WardenNet.send({k:'sp',t:'fk',s:site.id})}catch(e){}return}for(const F of foes)if(F.awake&&F.f.act==='free'&&!F.ghost&&!F.script)DuelistAI.hunt(F.ai)}
   function trickSp(p){
     if(p.t==='tp'&&NET.mode==='guest'){trapsPlace(p.seed,p.n,p.x,p.z,p.c)}
     else if(p.t==='fk'&&NET.mode==='host'){for(const F of foes)if(F.awake&&F.f.act==='free'&&!F.ghost&&!F.script)DuelistAI.hunt(F.ai)}
     else if(p.t==='tx'){const t=traps.find(q=>q.id===p.i);if(t){trapDel(t);try{WardenVfx.spawn(t.x,H(t.x,t.z)+.6,t.z,2,3,2,Math.random()*6.28,24)}catch(e){}}}
     else if(p.t==='vh'&&NET.mode==='host'){const A=byId[p.b];if(A&&A.f.act!=='dead'&&A.T.vamp){const h=Math.min(+p.h||0,A.f.hpMax*.1);A.f.hp=Math.min(A.f.hpMax,A.f.hp+h);A.drunk=(A.drunk||0)+h}}
+    else if(p.t==='bg'&&NET.mode==='host'){const F=byId[p.b];if(F&&F.f.act==='attack'&&F.f.mv&&F.f.mv.bg)CombatCore.stun(F.f,84,'stagger')}
     else if(p.t==='br'&&NET.mode==='guest'){const F=byId[p.b];if(F&&F.f.act==='attack'&&F.f.mv&&F.f.mv.id==='blink')blinkRing(p.x,p.z,true)}}
   function barrageTick(dt){
     if(ult&&ult.kind==='echo'){echoTick(dt);return}
@@ -761,6 +769,7 @@ const PlayerCombat=(()=>{
     if(e.t==='hit'&&e.a==='P'){const big=e.dmg>=20||e.crit;const y=H(f.x,f.z)+1.3;
       WardenVfx.spawn(f.x,y,f.z,3,3,big?3.2:2.2,Math.random()*6.28,30);if(big)WardenVfx.spawn(f.x,y,f.z,0,3,3.8,Math.random()*6.28,26);
       flash(big?.55:.26);try{CameraRig.shake(big?.5:.22)}catch(x){}}
+    else if(e.t==='brokenguard'&&e.d==='P'){flash(.6,'rgba(255,220,140,.9)');try{CameraRig.shake(.5)}catch(x){}if(NET.mode==='guest'){try{WardenNet.send({k:'sp',t:'bg',b:e.a})}catch(x){}}}
     else if(e.t==='deflect'&&e.d==='P'){flash(.4,'rgba(190,225,255,.85)');try{CameraRig.shake(.3)}catch(x){}}
     else if(e.t==='dodge'&&e.a==='P'){WardenVfx.spawn(P.x,H(P.x,P.z)+1,P.z,2,4,2.8,-P.face+Math.PI/2,30)}}
   function vfxAt(e,f){const y=H(f.x,f.z)+1.3;if(e.t==='hit')WardenVfx.hit(f.x,y,f.z,e.crit,e.dmg>=20);else if(e.t==='block')WardenVfx.clash(f.x,y,f.z);else if(e.t==='deflect')WardenVfx.clash(f.x,y,f.z,true);else WardenVfx.burst(f.x,y,f.z,e.t==='posturebreak'?0:3)}
@@ -779,6 +788,7 @@ const PlayerCombat=(()=>{
       else if(e.t==='dodge'&&e.a==='P')tone(200,80,.14,'sine',.08);
       else if(e.t==='hit'){if(T&&e.a==='P'){if(wst.bleed&&T.f.act!=='dead')T.bleed={t:4,dps:wst.bleed};if(wst.vamp&&P.hp>0)P.hp=Math.min(P.hpMax,P.hp+e.dmg*wst.vamp)}if(T){T.flash=1;T.lh=performance.now();wake(T,true);sfx(e.dmg>=20||e.crit?'heavy':'strike',.8,e.crit?.85:1,()=>tone(140,50,.14,'square',.14));if(e.crit)msg('CRITICAL');if(T.body.T.body==='avatar')T.body.u.hitReq=1}else{sfx(e.dmg>=20?'heavy':'strike',.9,.9,()=>tone(110,40,.18,'square',.16));if(e.d==='P'&&P.hp>0){hurt=true;msg('',0);hitFrom(A,e.move)}}}
       else if(e.t==='block')sfx('clash',.36,.9,()=>tone(420,260,.1,'square',.06));
+      else if(e.t==='brokenguard'){sfx('heavy',.8,1.3);msg('GUARD BROKEN',1.1)}
       else if(e.t==='deflect'){sfx('clash',.52,1.4,()=>tone(1500,900,.18,'sine',.09));msg(T?'':'DEFLECTED',.5)}
       else if(e.t==='posturebreak'&&T){if(T.T.boss)msg('POSTURE BROKEN');sfx('heavy',.8,1.1,()=>tone(500,120,.3,'sawtooth',.12))}
       else if(e.t==='posturebreak'&&e.d==='P'){msg('POSTURE BROKEN',.8);sfx('heavy',.9,.8,()=>tone(300,90,.3,'sawtooth',.12))}
@@ -806,7 +816,7 @@ const PlayerCombat=(()=>{
       for(const k in RT)for(const F of RT[k].foes||[])if(F.f.act==='dead'&&Math.hypot(F.f.x-S.x,F.f.z-S.z)<70)foeTick(F,dt,0);   // corpses of cleared sites keep animating until they have finished falling
       if(S.flying||S.state==='swim'||!S.grounded||!me||!me.userData.nact)return;
       if(exitLock){const q=SITES().find(z=>z.id===exitLock);if(!q||Math.hypot(wx-q.x,wz-q.z)>q.R+1.5)exitLock=null}
-      const s=SITES().find(q=>!q.safe&&!rt(q).cleared&&q.id!==exitLock&&Math.hypot(wx-q.x,wz-q.z)<q.R-(q.wall?1.5:1)&&(!q.duel||duelPartnerNear(q)));
+      const s=SITES().find(q=>!q.safe&&!rt(q).cleared&&q.id!==exitLock&&Math.hypot(wx-q.x,wz-q.z)<q.R-(q.wall?1.5:1)&&(!q.duel||duelPartnerNear(q))&&(!q.req||hiddenOpen(q)));
       if(!s){const dq=SITES().find(q=>q.duel&&q.id!==exitLock&&Math.hypot(wx-q.x,wz-q.z)<q.R-1);if(dq&&performance.now()-duelHint>6000){duelHint=performance.now();toast('The Ashen Arena is for duels \u00b7 another player has to be nearby',3.2)}}
       if(s)engage(s);if(!on)return}
     const d=Math.hypot(wx-site.x,wz-site.z);
@@ -846,7 +856,7 @@ const PlayerCombat=(()=>{
         if(!F.awake&&F.dorm!=='wake'&&Math.hypot(S.x-q.x,S.z-q.z)<F.T.aggro)wake(F);
         if(F.human){h[F.id]={face:q.face,mx:0,mz:0,list:[]};continue}
         if(NET.mode==='guest'){const n=F.nin||{mx:0,mz:0};h[F.id]={face:q.face,mx:n.mx,mz:n.mz,list:[]};continue}
-        if(F.awake&&PC.ai&&state==='fight'){F.ai.noAtk=!!F.T.pack&&atk>=Foes.PACK_ATK&&q.act!=='attack';const a=DuelistAI.think(F.ai,aiTarget(q),q,lastEv,nt);F.nin={mx:a.mx,mz:a.mz};h[F.id]={face:a.face,mx:a.mx,mz:a.mz,list:a.list}}
+        if(F.awake&&PC.ai&&state==='fight'){if(F.T.oath){const sg=Foes_sig(q,F);F.ai.sigLock=sg}F.ai.noAtk=!!F.T.pack&&atk>=Foes.PACK_ATK&&q.act!=='attack';const a=DuelistAI.think(F.ai,aiTarget(q),q,lastEv,nt);F.nin={mx:a.mx,mz:a.mz};h[F.id]={face:a.face,mx:a.mx,mz:a.mz,list:a.list}}
         else h[F.id]={face:F.awake||F.dorm==='wake'?Math.atan2(S.x-q.x,S.z-q.z):q.face,mx:0,mz:0}}
       return h};
     const evs=CineCam.frozen()||DU.cd>0?[]:ST.advance(now(),held,()=>{S.x+=P.x-lx;S.z+=P.z-lz;lx=P.x;lz=P.z;lastEv=C.ev;trickStep(C.ev)});
