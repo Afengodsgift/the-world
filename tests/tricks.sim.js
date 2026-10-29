@@ -37,6 +37,20 @@ function sim(foe,dist,ticks,P0,seed){const A=AI.create(seed,{foe,intro:0}),D={id
 {const A=AI.create(1,{foe:'trapper',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:300,hpMax:300,rm:1},P={id:'P',x:0,z:1.9,act:'free',guard:false,hp:100};const o=AI.think(A,P,D,[],5);ok(o.list.some(c=>c.m==='cut'),'inside 2.5 m Skrag kicks you off')}
 {let orb=0,bolt=0;for(let s=1;s<=40;s++){const A=AI.create(s,{foe:'trapper',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:300,hpMax:300,rm:1},P={id:'P',x:0,z:7,act:'stun',guard:false,hp:100};A.scd=999;A.see=10;A.seenKey='stun';const o=AI.think(A,P,D,[],5);for(const c of o.list){if(c.m==='orb')orb++;if(c.m==='bolt')bolt++}}
  ok(orb>bolt*2,'a rooted / staggered player eats the heavy bolt (orb '+orb+' vs bolt '+bolt+')')}
+// ---- Kage: three phases, each with its own tools ----
+function simK(hpf,dist,ticks,seed,P0){const A=AI.create(seed,{foe:'samurai',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:520*hpf,hpMax:520,rm:1},P=Object.assign({id:'P',x:0,z:dist,act:'free',guard:false,hp:100,ph:null,pi:0},P0||{});const cnt={};let busy=0;
+ for(let t=0;t<ticks;t++){if(D.act==='attack'&&t-busy>60)D.act='free';const o=AI.think(A,P,D,[],t);for(const c of o.list)if(c.t==='atk'){cnt[c.m]=(cnt[c.m]||0)+1;D.act='attack';busy=t}}return{cnt,A}}
+{const tot={},tot2={},tot3={};for(let s=1;s<=30;s++){const a=simK(1,2.2,2400,s),b=simK(.4,2.2,2400,s),c=simK(.15,2.2,2400,s);for(const [t,r] of [[tot,a],[tot2,b],[tot3,c]])for(const m in r.cnt)t[m]=(t[m]||0)+r.cnt[m]}
+ ok(!tot.feint&&!tot.counter&&!tot.requiem,'phase 1 is plain: no feint / counter draw / final technique ('+JSON.stringify(tot)+')');
+ ok(Object.keys(tot).length>=4,'phase 1 already mixes at least 4 different moves');
+ ok(tot2.feint>0&&tot2.iai>0&&tot2.moon>0,'phase 2 adds the feint, the draw and the crescent ('+JSON.stringify(tot2)+')');
+ ok(tot3.requiem>=30,'phase 3 opens with the final technique every time ('+tot3.requiem+' in 30 runs)');
+ ok(!tot.requiem&&!tot2.requiem,'the final technique is phase 3 only')}
+{let ph3=0;for(let s=1;s<=10;s++){ph3+=simK(.2,2.2,60,s).A.ph3?1:0}ok(ph3===10,'below 22% health the third phase starts');let n=0;for(let s=1;s<=10;s++)n+=simK(.3,2.2,60,s).A.ph3?1:0;ok(n===0,'above 22% it has not')}
+{let c=0;for(let s=1;s<=20;s++){const A=AI.create(s,{foe:'samurai',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:200,hpMax:520,rm:1},P={id:'P',x:0,z:2.4,act:'attack',guard:false,hp:100,ph:[{k:'startup'}],pi:0};A.ph2=true;A.seenKey='astartup';A.att=80;A.ccd=0;A.cool=0;const o=AI.think(A,P,D,[],5);if(o.list.some(m=>m.m==='counter'))c++}
+ ok(c===20,'a player who keeps swinging at him is answered with the counter draw ('+c+'/20)');
+ const A=AI.create(1,{foe:'samurai',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:200,hpMax:520,rm:1},P={id:'P',x:0,z:2.4,act:'free',guard:false,hp:100};A.ph2=true;A.att=0;A.ccd=0;A.cool=0;const o=AI.think(A,P,D,[],5);ok(!o.list.some(m=>m.m==='counter'),'but not a player who is merely standing there')}
+{const A=AI.create(2,{foe:'samurai',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:500,hpMax:520,rm:1},P={id:'P',x:0,z:3,act:'free',guard:false,hp:100};A.follow='iai';A.cool=0;const o=AI.think(A,P,D,[],5);ok(o.list.length===1&&o.list[0].m==='iai','the empty sheath is followed by the real draw when he chooses it')}
 // ---- flask punishment: drinking a flask puts every foe back on you (Vael / Skrag with a special answer), at most once per 5 s each ----
 {const mk=(foe,dist)=>{const A=AI.create(3,{foe,intro:0}),D={id:'D',x:0,z:0,act:'free',hp:300,hpMax:300,rm:1},P={id:'P',x:0,z:dist,act:'free',guard:false,hp:100};return{A,D,P}};
  let a=mk('stalker',6);ok(AI.hunt(a.A)===true,'Vael accepts a flask hunt');let o=AI.think(a.A,a.P,a.D,[],5);ok(o.list.length===1&&o.list[0].m==='blink','far from you he blinks onto you');

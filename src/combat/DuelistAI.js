@@ -6,22 +6,23 @@
 // they enter a second phase (faster, shorter rests, more gap closers). Moods (Duelist) vary the pacing; a turtling guard is punished; a visibly recovering player is punished.
 // Adaptive difficulty (learning your habits) is a separate layer, off by default, and is NOT in this file.
 const DuelistAI=(()=>{
-  const REACH={cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4,dash:2.4,leap:3.0,bash:2.3,orb:12,bolt:16,spin:2.9,hammer:2.7,lowsweep:3.1,blink:30,snare:30},REACT=14,INTRO=90;
+  const REACH={cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4,dash:2.4,leap:3.0,bash:2.3,orb:12,bolt:16,spin:2.9,hammer:2.7,lowsweep:3.1,blink:30,snare:30,iai:3.4,feint:3.4,moon:3.7,counter:2.9,requiem:5.2},REACT=14,INTRO=90;
   const HR={sweep:3.0,slam:3.0,triple:2.8,quake:4.2};
   function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
   function create(seed,o){o=o||{};const r=mulberry(seed|0);return{foe:o.foe||'duelist',noAtk:false,gcool:0,r,t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,mood:'patient',moodT:90,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null,
-    bcd:240,scd:100,hcd:0,hunt:false,follow:null,moves:0,nextBreath:3+Math.floor(r()*3),breath:0,ph2:false,closeP:0}}
+    bcd:240,scd:100,hcd:0,hunt:false,follow:null,ph3:false,att:0,ccd:300,rcd:0,chain:0,moves:0,nextBreath:3+Math.floor(r()*3),breath:0,ph2:false,closeP:0}}
   const key=P=>P.act==='attack'&&P.ph&&P.ph[P.pi]?'a'+P.ph[P.pi].k:P.act==='stun'?'stun':P.act==='dodge'?'dodge':P.act==='charge'?'charge':P.guard?'guard':'free';
-  const rest=(A,lo,span)=>Math.max(20,Math.floor((lo+Math.floor(A.r()*span))*(A.ph2?.75:1)));
+  const rest=(A,lo,span)=>Math.max(20,Math.floor((lo+Math.floor(A.r()*span))*(A.ph3?.58:A.ph2?.75:1)));
   // A = ai state, P/D = sim fighters, evs = events of the previous tick. Returns {face,mx,mz,list}
   function think(A,P,D,evs,tick){
     const out={face:Math.atan2(P.x-D.x,P.z-D.z),mx:0,mz:0,list:[]};A.t++;
     if(!A.on||D.act==='dead'||P.act==='dead')return out;
-    const dx=P.x-D.x,dz=P.z-D.z,rawD=Math.hypot(dx,dz),dist=rawD/(D.rm||1),ux=dx/(rawD||1),uz=dz/(rawD||1),st=A.foe,H=st==='hollow'||st==='beast',BK=st==='blackknight',KN=st==='knight'||BK,DA=st==='dancer',SO=st==='soldier',AR=st==='archer',SK=st==='stalker',TR=st==='trapper';
+    const dx=P.x-D.x,dz=P.z-D.z,rawD=Math.hypot(dx,dz),dist=rawD/(D.rm||1),ux=dx/(rawD||1),uz=dz/(rawD||1),st=A.foe,H=st==='hollow'||st==='beast',BK=st==='blackknight',KN=st==='knight'||BK,DA=st==='dancer',SO=st==='soldier',AR=st==='archer',SK=st==='stalker',TR=st==='trapper',SM=st==='samurai';
     // what the player visibly does now, and how long we have been seeing it (a human reaction delay)
     const k=key(P);if(k!==A.seenKey){A.seenKey=k;A.see=0}else A.see++;
     A.gP=P.guard&&P.act==='free'?A.gP+1:0;if(A.cool>0)A.cool--;if(A.gcool>0)A.gcool--;if(A.rip>1)A.rip--;if(A.breath>0)A.breath--;if(A.bcd>0)A.bcd--;if(A.scd>0)A.scd--;if(A.hcd>0)A.hcd--;
-    if(!A.ph2&&D.hp<D.hpMax*.5)A.ph2=true;                                 // second phase: the game announces it by reading A.ph2
+    if(!A.ph2&&D.hp<D.hpMax*.5)A.ph2=true;if(SM&&!A.ph3&&D.hp<D.hpMax*.22){A.ph3=true;A.ph2=true;A.rcd=0;A.req=true}   // Kage has a third phase
+    if(SM){if(A.ccd>0)A.ccd--;if(A.rcd>0)A.rcd--;if((k==='astartup'||k==='aactive'||k==='acharge')&&dist<3.4)A.att++;else A.att=Math.max(0,A.att-.5)}                                 // second phase: the game announces it by reading A.ph2
     for(const e of evs||[])if((e.t==='block'||e.t==='deflect')&&e.d===D.id&&A.rip===0)A.rip=REACT;   // we just blocked something: counter-attack soon
     if(D.act!=='free'){A.busy=true;return out}
     if(A.busy){A.busy=false;A.moves++;
@@ -35,7 +36,7 @@ const DuelistAI=(()=>{
       else{if(KN){out.mx=dist>1.9?ux*.9:-uz*A.strafe*.4;out.mz=dist>1.9?uz*.9:ux*A.strafe*.4}else{out.mx=0;out.mz=0}return out}}
     if(--A.strafeT<=0){A.strafe=A.r()<.5?-1:1;A.strafeT=70+Math.floor(A.r()*90)}
     // ---- movement: breathing = back off; otherwise close to the fighting distance (full speed when far), then circle ----
-    const want=AR?(A.ph2?9:10.5):TR?(A.ph2?6:7.2):SK?(A.ph2?1.5:1.8):H?2.3:DA?4.2:SO?1.9:KN?(A.ph2?1.8:2.1):A.mood==='aggro'?1.6:A.mood==='evasive'?3.0:2.1;let mx=0,mz=0;
+    const want=SM?(A.ph2?1.9:2.3):AR?(A.ph2?9:10.5):TR?(A.ph2?6:7.2):SK?(A.ph2?1.5:1.8):H?2.3:DA?4.2:SO?1.9:KN?(A.ph2?1.8:2.1):A.mood==='aggro'?1.6:A.mood==='evasive'?3.0:2.1;let mx=0,mz=0;
     if(A.breath>0&&A.t>A.intro){if(dist<4){mx=-ux*.8;mz=-uz*.8}else{mx=-uz*A.strafe*.4;mz=ux*A.strafe*.4}}
     else if(dist>want+.5){const f=dist>7?1:.85;mx=ux*f;mz=uz*f}else if(dist<want-.6){mx=-ux*.7;mz=-uz*.7}else{mx=-uz*A.strafe*.55;mz=ux*A.strafe*.55}
     out.mx=mx;out.mz=mz;
@@ -46,12 +47,13 @@ const DuelistAI=(()=>{
     // defence (Duelist): after reacting to a visible heavy charge / wind-up at close range, sometimes guard it
     // the Knight's shield wall (phase 1 only: at half health the shield is gone): raise it against a visible attack, or just sit behind it for a while
     if(KN&&!BK&&!A.ph2&&A.gcool<=0&&dist<3.6&&((k==='astartup'||k==='charge')&&A.see>=REACT-4||k==='free'&&A.r()<.006)){A.guardT=45+Math.floor(A.r()*40);out.list.push({t:'guardDown',e:tick});out.mx=out.mz=0;return out}
-    if(!H&&!KN&&!DA&&!SO&&!SK&&!TR&&A.cool<=6&&dist<2.8&&(k==='charge'||k==='astartup')&&A.see>=REACT&&A.r()<.012*A.see){A.guardT=40+Math.floor(A.r()*25);out.list.push({t:'guardDown',e:tick});out.mx=out.mz=0;return out}
+    if(!H&&!KN&&!DA&&!SO&&!SK&&!TR&&!SM&&A.cool<=6&&dist<2.8&&(k==='charge'||k==='astartup')&&A.see>=REACT&&A.r()<.012*A.see){A.guardT=40+Math.floor(A.r()*25);out.list.push({t:'guardDown',e:tick});out.mx=out.mz=0;return out}
     if(A.cool>0||k==='dodge')return out;              // resting, or the player is mid-dodge: wait for them to land
     if(A.noAtk)return out;                            // someone else holds the attack token: keep circling
     if(SO)return soldier(A,P,D,out,tick,dist,k);
     if(DA)return dancer(A,P,D,out,tick,dist,k);
     if(AR)return archer(A,P,D,out,tick,dist,k);
+    if(SM)return samurai(A,P,D,out,tick,dist,k);
     if(SK)return stalker(A,P,D,out,tick,dist,k);
     if(TR)return trapper(A,P,D,out,tick,dist,k);
     // ---- gap closer: from range, sometimes lunge in instead of just running (never twice in a row) ----
@@ -136,6 +138,29 @@ const DuelistAI=(()=>{
     if(A.ph2){w.triple+=1.6;w.spin+=1.2;w.twin+=1}
     if(dist>2.7){w.cut=0;w.twin=0;w.triple=0;w.spin=0;w.fall*=.5}else if(dist<1.7){w.thrust=.2}
     return choose(A,out,w,dist,tick,REACH)}
+  // Kage, the Shadowflame Samurai: a duelist in three phases. I: deliberate (cut chains, the draw, a wide crescent, a delayed overhead on your guard). II (below half): the feint, the blink chain, the counter draw. III (below 22%): shorter rests, the final technique, everything chained.
+  // Fair by the same rules as every foe: each strike keeps its tell; the counter draw only answers someone who has been swinging at him for over a second; the feint costs you stamina, not health.
+  function samurai(A,P,D,out,tick,dist,k){
+    if(A.follow){const m=A.follow;A.follow=null;if(dist<REACH[m]+.8)return start(A,out,m,m==='fall'?12:0,tick)}
+    const L0=A.last[A.last.length-1];
+    if(A.req&&dist<5){A.req=false;A.rcd=A.ph3?900:0;A.follow='moon';return start(A,out,'requiem',0,tick)}   // the last phase opens with the final technique (ring on the ground, then a crescent)
+    if(A.hunt){A.hunt=false;A.hcd=300;if(dist>2.8&&L0!=='blink'){A.bcd=A.ph2?220:330;return start(A,out,'blink',0,tick)}if(dist<=REACH.iai)return start(A,out,'iai',0,tick)}
+    if(A.bcd<=0&&L0!=='blink'&&(dist>=3.6&&dist<=10||A.gP>25&&dist<3.2)){A.closeP+=A.ph2?.09:.05;if(A.r()<A.closeP||A.gP>40){A.closeP=0;A.bcd=A.ph3?170:A.ph2?220:330;return start(A,out,'blink',0,tick)}}
+    if(dist>=3.6&&dist<=10&&L0!=='iai'){if(A.ph2&&A.r()<.012)return start(A,out,'iai',0,tick);return out}
+    if(dist>REACH.moon+.2)return out;
+    if(A.ph3&&A.rcd<=0&&dist<5&&A.r()<.02){A.rcd=900;A.follow='moon';return start(A,out,'requiem',0,tick)}
+    if(A.ph2&&A.ccd<=0&&A.att>=70&&dist<REACH.counter+.4){A.ccd=A.ph3?420:600;A.att=0;return start(A,out,'counter',0,tick)}   // you keep swinging at him: he waits for it
+    const w={cut:3,twin:2.4,triple:1.2,iai:1.6,moon:.8,fall:.9};
+    if(L0==='cut')w.twin*=1.8;else if(L0==='twin'){w.triple*=2;w.fall*=1.5}else if(L0==='blink'){w.iai*=2}else if(L0==='moon')w.cut*=1.6;
+    if(A.gP>20){w.fall+=3.5;w.moon+=2;w.cut*=.3;w.twin*=.4}                                      // the guard punisher: a heavy overhead for turtling
+    if((k==='arecovery'||k==='stun')&&A.see>=REACT){w.cut+=3;w.twin+=3;w.triple+=2}                  // you are recovering: punish it
+    if(A.ph2){w.feint=L0==='feint'?0:1.5;w.moon+=1.2;w.triple+=1.3;w.iai+=.8}
+    if(A.ph3){w.iai+=1.6;w.triple+=1.2;w.moon+=.6;w.feint=L0==='feint'?0:1.1}
+    if(dist>2.7){w.cut=0;w.twin=0;w.triple=0;w.fall*=.4;if(dist>3.5){w.iai=0}}else if(dist<1.6){w.iai*=.3}
+    const pick=choose(A,out,w,dist,tick,REACH);
+    const m=pick.list[pick.list.length-1];if(m&&m.m==='feint'){A.follow=A.r()<.62?'iai':'twin'}     // the empty sheath: sometimes the real draw follows, sometimes a quick pair
+    if(m&&m.m==='fall')m.hold=A.ph2?8+Math.floor(A.r()*5):Math.floor(A.r()*13);                      // his overhead lands on a different beat each time
+    return pick}
   // Skrag, the Snare-Trapper: keeps his distance (7 m, 6 in phase 2), lays snares around you on a cooldown (they arm, then wait), shoots arrows, and when you are ROOTED in a snare he answers with the heavy bolt.
   // Get inside two and a half metres and he kicks you off; otherwise he backs away (movement above). Phase 2: more traps, faster cooldown, the heavy bolt joins the normal volley.
   function trapper(A,P,D,out,tick,dist,k){
@@ -161,6 +186,6 @@ const DuelistAI=(()=>{
     return start(A,out,pick,pick==='fall'||pick==='slam'?Math.floor(A.r()*13):0,tick)}
   function start(A,out,m,hold,tick){A.last.push(m);if(A.last.length>3)A.last.shift();out.list.push({t:'atk',m,hold,e:tick});out.mx=out.mz=0;return out}
   // the game calls this when the hunted player drinks a health flask: every foe ends its rest and stops breathing (at most once per 5 s each); Vael blinks onto you, Skrag fires the heavy bolt
-  const hunt=(A)=>{if(A.hcd>0)return false;A.hcd=300;A.cool=Math.min(A.cool,6);A.breath=0;if(A.foe==='stalker'||A.foe==='trapper')A.hunt=true;return true};   // everyone cuts their rest short; the hunters have a special answer
+  const hunt=(A)=>{if(A.hcd>0)return false;A.hcd=300;A.cool=Math.min(A.cool,6);A.breath=0;if(A.foe==='stalker'||A.foe==='trapper'||A.foe==='samurai')A.hunt=true;return true};   // everyone cuts their rest short; the hunters have a special answer
   return{create,think,hunt,REACH:Object.assign({},REACH,HR),REACT,INTRO}})();
 if(typeof module!=='undefined')module.exports=DuelistAI;
