@@ -128,6 +128,13 @@ const WardenMX=(()=>{
   ROLES.archer={file:'assets/warden_mx_archer.json',native:true,guard:null,dorm:'idle',wake:{c:'power',t0:.3,t1:2.4,rate:1},death:'death',hit:'hit1',     // Erika, the Ashen Huntress: Longbow locomotion + a quick cast clip for the shot + a kick when you get close
     loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
     moves:{bolt:{c:'spell',t0:0,e:1.1},orb:{c:'spell',t0:0,e:1.1},cut:{c:'kick',t0:.1,h:[[.5,.85]],e:1.4},thrust:{c:'kick',t0:.1,h:[[.5,.85]],e:1.4},quake:{c:'power',t0:.3,e:2.0}}};
+  // Vael, the Crimson Duelist (uploaded vampire rig): Ganfaul's Great Sword clips retargeted onto his skeleton (tools/rebase_mx.mjs); a fast chain of cuts, a spin, a low sweep, and the blink (he crouches, then the sim hides him)
+  ROLES.vampire=Object.assign({},ROLES.ganfaul,{file:'assets/warden_mx_vampire.json',moves:Object.assign({},ROLES.ganfaul.moves,{
+    spin:{c:'spin',t0:.1,h:[[.5,1.3]],e:1.8},lowsweep:{c:'slash4',t0:.1,h:[[.55,1.0]],e:1.5},hammer:{c:'atk',t0:.1,h:[[.55,.9]],e:1.2},
+    triple:{seq:[{c:'slash',t0:.1,h:[.45,.75],e:1.0},{c:'slash5',t0:.15,h:[.5,.82],e:1.0},{c:'slash',t0:.1,h:[.45,.75],e:1.25}]},
+    blink:{c:'crouch',t0:0,e:.66}})});
+  // Skrag, the Snare-Trapper (uploaded goblin rig): the Longbow set (arrow cast, kick, power-up) retargeted onto his skeleton; the long power-up clip is his snare-laying
+  ROLES.goblin=Object.assign({},ROLES.archer,{file:'assets/warden_mx_goblin.json',moves:Object.assign({},ROLES.archer.moves,{snare:{c:'power',t0:.3,e:1.6}})});
   // ---- the player's heavier weapons: the Great Sword pack (already baked onto the game rig for the Duelist) drives the Claymore and the Hand Axe ----
   ROLES.player_gs={file:'assets/warden_mx_duelist.json',guard:'guard',loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
     moves:{

@@ -52,7 +52,7 @@ const PlayerCombat=(()=>{
     if(t==='stam'&&P.st>=P.stMax*.8){msg('Stamina is fine',.8);return}
     if(t==='might'&&mightT>0){msg('Already empowered',.8);return}
     flasks[k]--;saveFl();itemLock=.9;
-    if(t==='heal'){healLeft=50;sfx('clash',.3,.7,()=>tone(520,900,.25,'sine',.1))}
+    if(t==='heal'){healLeft=50;flaskHunt();sfx('clash',.3,.7,()=>tone(520,900,.25,'sine',.1))}
     else if(t==='stam'){P.st=P.stMax;sfx('clash',.3,1.2,()=>tone(700,1100,.2,'sine',.1))}
     else{mightT=30;P.dm=baseDm*1.3;msg('MIGHT',1);sfx('heavy',.4,1.4,()=>tone(200,500,.3,'sawtooth',.1))}
     flaskUi()}
@@ -305,8 +305,8 @@ const PlayerCombat=(()=>{
   // ---------- bodies (avatars + models) and weapons ----------
   const pool={};     // foe type id -> [body]  (reused between fights; hidden when free)
   let netT=0;function netWarn(why){const t=performance.now();if(t-netT>20000&&el){netT=t;try{msg('Models failed to load ('+(why||'network')+') - retrying',3)}catch(e){}}}
-  function attachSword(av,file,len,slot,fixed){
-    const u=av&&av.userData;if(!u||!u.bones||!u.bones.RightHand||!THREE.GLTFLoader)return null;const st={ready:false,grip:null,hand:u.bones.RightHand,len:slot.len,want:len,av,fixed};
+  function attachSword(av,file,len,slot,fixed,hn){
+    hn=hn||'RightHand';const u=av&&av.userData;if(!u||!u.bones||!u.bones[hn]||!THREE.GLTFLoader)return null;const st={ready:false,grip:null,hand:u.bones[hn],len:slot.len,want:len,av,fixed};
     const go=n=>new THREE.GLTFLoader().load('assets/'+(file.indexOf('/')>=0?file:'warden/'+file),g=>{if(st.dead)return;const grip=new THREE.Group(),m=g.scene;m.traverse(o=>{if(o.isMesh){o.castShadow=false;o.frustumCulled=false}});grip.add(m);st.hand.add(grip);st.grip=grip;st.ready=true;setGrip(st);grip.visible=on},()=>{},()=>{netWarn();if(!st.dead)setTimeout(()=>go(n+1),Math.min(8000,1500*(n+1)))});go(0);
     return st}
   function setGrip(st,g){
@@ -325,6 +325,7 @@ const PlayerCombat=(()=>{
     if(b.styled||!b.u.model)return;b.styled=true;const T=b.T;
     if(T.body==='avatar'&&T.tint!==undefined&&T.tint!==1)b.u.model.traverse(c=>{if(c.isSkinnedMesh&&c.material&&c.material.color){c.material.userData.c0=c.material.color.clone();c.material.color.copy(c.material.userData.c0).multiply(new THREE.Color(T.tint,T.tint*(T.tint<1?.7:1),T.tint*(T.tint<1?.75:1)))}});
     if(T.sword&&!b.sword)b.sword=attachSword(b.g,T.sword.f,T.sword.len,{len:T.sword.l0,set tried(v){}},T.grip);
+    if(T.sword2&&T.sword&&!b.sword2)b.sword2=attachSword(b.g,T.sword.f,T.sword.len,{len:T.sword.l0,set tried(v){}},T.grip2,'LeftHand');
     if(T.shield&&!b.shield)attachShield(b)}
   function glbLoad(b,T,n){n=n||0;if(n===0)setTimeout(()=>{if(!b.ready)placeholder(b,T)},2500);   // a failed download is retried until it works (gaps grow to 8 s; retries bypass the HTTP cache so a bad cached copy cannot stick): a flaky connection must never leave a boss or guard invisible for the rest of the session
     fetch('assets/warden/'+(b.file||T.file)+'.glb',n>0?{cache:'reload'}:undefined).then(r=>{if(!r.ok)throw new Error('http '+r.status);return r.arrayBuffer()}).then(buf=>{if(buf.byteLength<64||new Uint32Array(buf,0,1)[0]!==0x46546C67)throw new Error('not a glb ('+buf.byteLength+' B)');return new Promise((res,rej)=>new THREE.GLTFLoader().parse(buf,'assets/warden/',res,rej))}).then(gl=>{
@@ -340,11 +341,11 @@ const PlayerCombat=(()=>{
     b.u.mixer=new THREE.AnimationMixer(cm);b.u.bones=bones;b.u.model=cm;b.ready=true}
   function body(T,v,from){
     const key=T.id+(T.files?':'+(v%T.files.length):''),L=pool[key]||(pool[key]=[]),f=L.find(b=>!b.used);if(f){f.used=true;f.g.visible=true;if(!f.ready&&f.T.body!=='avatar'&&!f.err)glbLoad(f,f.T,0);return f}
-    const b={T,used:true,anims:{},sword:null,shield:null,styled:false,ready:false,flashOn:false,file:T.files?T.files[v%T.files.length]:T.file};
+    const b={T,used:true,anims:{},sword:null,sword2:null,shield:null,styled:false,ready:false,flashOn:false,file:T.files?T.files[v%T.files.length]:T.file};
     if(T.body==='avatar'){const g=makeAvatar(T.name,'#3a2a2a');for(const c of g.children.slice())if(c.isSprite)g.remove(c);scene.add(g);dress(g,T.dress||0);b.g=g;b.u=g.userData;b.ready=true}
     else{const g=new THREE.Group();g.name=T.name;scene.add(g);b.g=g;b.u=g.userData;b.u.mixer=null;b.u.bones={};let ok=false;if(from&&from.ready&&from.u.model&&THREE.SkeletonUtils)try{cloneBody(b,from);ok=true}catch(e){}if(!ok)glbLoad(b,T)}
     L.push(b);return b}
-  function freeBody(b){b.used=false;b.g.visible=false;if(b.anims)for(const k in b.anims)b.anims[k].off();for(const k of['sword','shield'])if(b[k]){const o=b[k].grip||b[k];if(o)o.visible=false}}
+  function freeBody(b){b.used=false;b.g.visible=false;if(b.anims)for(const k in b.anims)b.anims[k].off();for(const k of['sword','sword2','shield'])if(b[k]){const o=b[k].grip||b[k];if(o)o.visible=false}}
   // ---------- fight lifecycle ----------
   function spawnFoes(){
     for(const F of foes)freeBody(F.body);foes=[];byId={};
@@ -361,7 +362,7 @@ const PlayerCombat=(()=>{
     killDecoy(true);jumpCd=shCd=0;fightN++;hurt=false;fightVo=false;try{WardenSfx.load()}catch(e){}const R=site.wall?site.R-.5:site.dg?site.R-.3:site.R+10,sol=WardenSolids().filter(s=>Math.hypot(s.x-WRD.x-site.x,s.z-WRD.z-site.z)<site.R+14);
     C=CombatCore.create({arena:{x:WRD.x+site.x,z:WRD.z+site.z,R},solids:sol});try{CameraRig.setArena({x:WRD.x+site.x,z:WRD.z+site.z,R:site.wall||site.dg?R:site.R,sol:sol.filter(q=>!q.wall)})}catch(e){}ST=CombatCore.stepper(C,6);t0=performance.now();vt=0;vl=0;tsc=1;ult=null;
     if(site.duel&&DU.pair){const L=duelSide();S.x=WRD.x+site.x;S.z=WRD.z+site.z+9*L;S.rot=L>0?Math.PI:0;lx=S.x;lz=S.z}
-    P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});applyStats();spawnFoes();WardenFx.clear();WardenVfx.clear();Q=null;spectate=false;netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
+    P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});applyStats();spawnFoes();WardenFx.clear();WardenVfx.clear();trapsClear();blinkRing(0,0,false);Q=null;spectate=false;netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
     flow=0;flowOn=false;flowN=0;fq=null;skillCD=0;bars.fl=-1;healLeft=0;mightT=0;itemLock=0;state='fight';stateT=0;lock=site.fog||site.duel||foes.some(F=>F.T.boss);lockI=0;lastEv=[];pv.init=false;down.guard=down.heavy=false;stW=0;gT=0;
     if(el)el.querySelector('#wLock').classList.toggle('on',lock);D=target().f}
   // Inside a walled arena the screen is the cost on a low-end phone: render at 1.25x (not 2x) while you fight, restore on leaving. Skipped when ?dpr= was given.
@@ -378,7 +379,7 @@ const PlayerCombat=(()=>{
     if(on)return;if(!el)build();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenFx.build();WardenVfx.build();WardenMX.fetch(pRole()).catch(()=>{});
     site=s;fightN=0;const hh=WardenNet.hostFor(s.id);NET.joined=false;startFight();if(s.duel){}else if(hh)netJoin();else netHost();for(const F of foes)WardenMX.fetch(F.T.role).catch(()=>{});
     lx=S.x;lz=S.z;on=true;document.body.classList.add('warden-fight');ensureAvatars();if(sword&&sword.grip)sword.grip.visible=true;
-    for(const F of foes)for(const k of['sword','shield'])if(F.body[k]){const o=F.body[k].grip||F.body[k];if(o)o.visible=true}
+    for(const F of foes)for(const k of['sword','sword2','shield'])if(F.body[k]){const o=F.body[k].grip||F.body[k];if(o)o.visible=true}
     arenaRes(true);msg(s.n+(typeof WardenKind==='function'?' · '+WardenKind(s).tag:''),2.2);try{if(s.fog)WardenIsles.fog(s.id,'sealed')}catch(e){}}
   // Who am I fighting? With 2+ foes alive a ring + chevron marks the one your swings go to (red while it winds up an attack), and any OTHER foe that is mid-attack gets a small red ring at its feet.
   let tmk=null;const thr=[];
@@ -570,11 +571,81 @@ const PlayerCombat=(()=>{
   function bossReel(B,rw){if(!B||B.f.act==='dead')return;B.f.hp=Math.max(1,B.f.hp-B.f.hpMax*.1*rw);B.f.po=Math.min(B.f.poMax*.97,B.f.po+B.f.poMax*.6*rw)}   // host / solo only: the boss is the host's
   function spMsg(p){
     if(!on||!site||p.s!==site.id)return;
+    if(p.t==='tp'||p.t==='tx'||p.t==='vh'||p.t==='br'||p.t==='fk'){trickSp(p);return}
     if(p.t==='bs'&&NET.mode==='guest'&&!ult&&state==='fight'&&P.act!=='dead'&&!CineCam.busy()){const B=byId[p.b];if(B&&B.f.act!=='dead')startBarrage(B,{a0:p.a,co:true})}
     else if(p.t==='es'&&NET.mode==='guest'&&!ult&&state==='fight'&&P.act!=='dead'&&!CineCam.busy()){const B=byId[p.b];if(B&&B.f.act!=='dead')startEcho(B,{co:true,seed:p.seed,st:p.st})}
     else if(p.t==='ef'&&NET.mode==='host'&&ult&&ult.kind==='echo')echoFound(true)
     else if(p.t==='ee'&&NET.mode==='guest'&&ult&&ult.kind==='echo')echoFound(true)
     else if(p.t==='r'&&NET.mode==='host'&&p.ok){const B=ult?ult.B:foes.find(F=>F.T.barrage);bossReel(B,Barrage.reward(true))}}
+  // ---------- boss tricks (Tricks.js): Vael's blink + lifesteal, Skrag's snares. Host decides (seed / spot) and tells the guest; every client judges only its own player's feet and tells the partner what it sprang ----------
+  let traps=[],trapG=null,trapN=0,trapSh=null;
+  function trapShared(){if(trapSh)return trapSh;trapG=new THREE.Group();trapG.name='WardenTraps';scene.add(trapG);
+    trapSh={disc:new THREE.CircleGeometry(1,24),ring:new THREE.RingGeometry(.8,1,28),cone:new THREE.ConeGeometry(.09,.5,5),tooth:new THREE.MeshBasicMaterial({color:0xe2d8c4,fog:false}),
+      mk:(c,o)=>new THREE.MeshBasicMaterial(Object.assign({color:c,transparent:true,depthWrite:false,fog:false},o||{}))};return trapSh}
+  function trapAdd(id,x,z){const sh=trapShared();if(traps.some(t=>t.id===id))return;
+    while(traps.length>=Tricks.SNARE.MAX)trapDel(traps[0]);
+    const g=new THREE.Group(),dm=sh.mk(0x7a1010,{opacity:.3}),rm=sh.mk(0xffb030,{opacity:.6}),disc=new THREE.Mesh(sh.disc,dm),ring=new THREE.Mesh(sh.ring,rm);
+    disc.rotation.x=ring.rotation.x=-Math.PI/2;g.add(disc);g.add(ring);const teeth=[];
+    for(let i=0;i<8;i++){const c=new THREE.Mesh(sh.cone,sh.tooth),a=i/8*Math.PI*2;c.position.set(Math.sin(a)*.62,.15,Math.cos(a)*.62);c.scale.y=.05;g.add(c);teeth.push(c)}
+    g.position.set(x,H(x,z)+.08,z);g.scale.setScalar(Tricks.SNARE.R);trapG.add(g);traps.push({id,x,z,age:0,g,dm,rm,teeth,armed:false});
+    try{WardenVfx.spawn(x,H(x,z)+.4,z,3,3,1.5,Math.random()*6.28,22)}catch(e){}}
+  function trapDel(t){const i=traps.indexOf(t);if(i>=0)traps.splice(i,1);if(t.g.parent)t.g.parent.remove(t.g);t.dm.dispose();t.rm.dispose()}
+  function trapsClear(){for(const t of traps.slice())trapDel(t);traps=[]}
+  function trapsPlace(seed,n,px,pz,castN){const lay=Tricks.snareLayout(seed,n,px,pz,C&&C.arena);lay.forEach((q,i)=>trapAdd(castN*10+i,q.x,q.z))}
+  function trapsTick(dt){
+    for(const t of traps.slice()){t.age+=dt;const arm=Tricks.armed(t.age);
+      if(arm&&!t.armed){t.armed=true;t.rm.color.setHex(0xff3a22);t.dm.opacity=.42}
+      if(!arm){const k=t.age/Tricks.SNARE.ARM;t.rm.opacity=.35+.3*Math.abs(Math.sin(t.age*9));for(const c of t.teeth)c.scale.y=.05+.95*k*k}
+      else{t.rm.opacity=.75+.2*Math.sin(t.age*5);for(const c of t.teeth)c.scale.y=1}
+      const left=Tricks.SNARE.LIFE-t.age;if(left<2){t.g.visible=Math.floor(t.age*8)%2===0}
+      if(left<=0){trapDel(t);continue}
+      if(!on||state!=='fight'||!P||P.act==='dead')continue;
+      const inv=P.act==='dodge'&&P.pt>=Moves.dodge.iStart&&P.pt<=Moves.dodge.iEnd,r=Tricks.touch(t,P.x,P.z,inv,t.age);if(!r)continue;
+      trapDel(t);try{if(NET.mode!=='solo')WardenNet.send({k:'sp',t:'tx',s:site.id,i:t.id})}catch(e){}
+      try{WardenVfx.spawn(t.x,H(t.x,t.z)+.6,t.z,r==='bite'?3:2,3,2.2,Math.random()*6.28,24)}catch(e){}
+      if(r==='bite'){P.hp=Math.max(1,P.hp-Tricks.bite(P.hpMax));P.act='stun';P.sk='hit';P.stun=Tricks.SNARE.STUN;P.guard=false;P.ph=null;P.mv=null;P.c=0;hurt=true;flash(.55,'rgba(255,70,40,.6)');msg('SNARED',1);try{CameraRig.shake(.4)}catch(e){}sfx('heavy',.8,.8,()=>tone(150,60,.25,'sawtooth',.14))}
+      else{flowAdd(12);msg('SNARE SPRUNG',.8);sfx('clash',.4,1.5,()=>tone(900,500,.12,'sine',.08))}}}
+  // Vael: the host runs the blink (see trickStep); a guest only shows the mist and the ring that the host announces
+  function blinkRing(x,z,on_){if(!blinkRing.m){const mb=new THREE.MeshBasicMaterial({color:0xff2a3a,transparent:true,opacity:.8,depthWrite:false,fog:false});blinkRing.m=new THREE.Mesh(new THREE.RingGeometry(.7,1,32),mb);blinkRing.m.rotation.x=-Math.PI/2;blinkRing.m.scale.setScalar(1.5);scene.add(blinkRing.m)}
+    const m=blinkRing.m;m.visible=!!on_;if(on_){m.position.set(x,H(x,z)+.1,z)}}
+  function blinkFx(F){try{WardenVfx.burst(F.f.x,H(F.f.x,F.f.z)+1.2,F.f.z,1);flash(.18,'rgba(255,40,60,.5)');tone(300,120,.35,'sawtooth',.08)}catch(e){}}
+  function blinkEnd(F){if(!F)return;if(F.bl){F.bl=null;F.body.g.visible=true}blinkRing(0,0,false)}
+  function trickStep(evs){
+    if(!on||!C||state!=='fight')return;
+    for(const e of evs){
+      if(e.t==='start'&&NET.mode!=='guest'){const F=byId[e.a];if(!F||F.ghost)continue;
+        if(e.move==='blink'&&F.T.blink&&!F.bl){const tg=aiTarget(F.f);F.bl={n:0,t:0,tg:tg.id,hide:false,lock:false};try{blinkFx(F)}catch(x){}}
+        else if(e.move==='snare'&&F.T.traps){F.sn={n:0,tg:aiTarget(F.f).id}}}
+      else if(e.t==='hit'&&e.d==='P'&&byId[e.a]&&byId[e.a].T.vamp&&e.dmg>0){const A=byId[e.a],h=Tricks.heal(e.dmg,A.drunk||0,A.f.hpMax);if(h>0){A.drunk=(A.drunk||0)+h;
+        if(NET.mode==='guest'){try{WardenNet.send({k:'sp',t:'vh',s:site.id,b:A.id,h:+h.toFixed(2)})}catch(x){}}else A.f.hp=Math.min(A.f.hpMax,A.f.hp+h);
+        A.flash=.9;try{WardenVfx.spawn(A.f.x,H(A.f.x,A.f.z)+1.4,A.f.z,3,3,2.6,Math.random()*6.28,24);toast('Vael drinks your blood',1.1)}catch(x){}}}}
+    if(NET.mode==='guest')return;
+    for(const F of foes){const f=F.f;
+      if(F.bl&&F.bl.n!==undefined){const B=F.bl;B.n++;
+        if(f.act==='dead'||f.act==='stun'){blinkEnd(F);continue}
+        const tg=C.F[B.tg]||P;
+        if(B.n>=Tricks.BLINK.LOCK&&!B.lock){B.lock=true;B.spot=Tricks.blinkSpot(tg.x,tg.z,tg.face,C.arena);blinkRing(B.spot.x,B.spot.z,true);try{if(NET.mode==='host'&&Q)WardenNet.send({k:'sp',t:'br',s:site.id,b:F.id,x:+B.spot.x.toFixed(2),z:+B.spot.z.toFixed(2)})}catch(x){}}
+        if(B.n>=Tricks.BLINK.HIDE)f.inv=Math.max(f.inv,3)
+        if(f.act==='attack'&&f.ph&&f.ph[f.pi]&&f.ph[f.pi].k==='release'&&f.pk===0){   // the reappearance
+          const sp=B.spot||Tricks.blinkSpot(tg.x,tg.z,tg.face,C.arena);try{WardenVfx.burst(sp.x,H(sp.x,sp.z)+1.2,sp.z,1);WardenVfx.slash(sp.x,H(sp.x,sp.z)+1.2,sp.z,tg.face,true,1);sfx('whoosh',.6,.7,()=>tone(200,80,.2,'sawtooth',.1))}catch(x){}
+          f.x=sp.x;f.z=sp.z;f.face=Math.atan2(tg.x-sp.x,tg.z-sp.z);f.act='free';f.ph=null;f.mv=null;f.inv=0;f.pt=0;f.pk=0;F.ai.cool=0;F.ai.busy=false;
+          F.ai.follow=Math.random()<.45?'twin':'cut';blinkEnd(F)}}
+      if(F.sn){const S_=F.sn;S_.n++;if(f.act!=='attack'||!f.mv||f.mv.id!=='snare'){F.sn=null;continue}
+        if(f.ph&&f.ph[f.pi]&&f.ph[f.pi].k==='release'&&f.pk===0){F.sn=null;const tg=C.F[S_.tg]||P,n=Tricks.count(F.ai.ph2,!!(Q&&NET.mode==='host')),seed=(Math.random()*2147483647)|0,cn=++trapN;
+          trapsPlace(seed,n,tg.x,tg.z,cn);try{if(NET.mode==='host'&&Q)WardenNet.send({k:'sp',t:'tp',s:site.id,seed,n,x:+tg.x.toFixed(2),z:+tg.z.toFixed(2),c:cn})}catch(x){}}}}}
+  function trickTick(dt){
+    trapsTick(dt);
+    for(const F of foes){if(!F.T.blink)continue;   // what is shown follows the synced sim state (act / move / phase tick), so host and guest agree even when a phone lags
+      const bl=F.f.act==='attack'&&F.f.mv&&F.f.mv.id==='blink';
+      if(bl&&!F.bl&&NET.mode==='guest'){F.bl={t:0};blinkFx(F)}
+      if(F.bl){F.bl.t+=dt;if(!bl&&NET.mode==='guest'||F.bl.t>3||F.f.act==='dead')blinkEnd(F);else{const hide=bl&&F.f.pt>=Tricks.BLINK.HIDE;if(F.body.g.visible===hide)F.body.g.visible=!hide}}}}
+  function flaskHunt(){if(!on||state!=='fight')return;if(NET.mode==='guest'){try{WardenNet.send({k:'sp',t:'fk',s:site.id})}catch(e){}return}for(const F of foes)if(F.awake&&F.f.act==='free'&&!F.ghost&&!F.script)DuelistAI.hunt(F.ai)}
+  function trickSp(p){
+    if(p.t==='tp'&&NET.mode==='guest'){trapsPlace(p.seed,p.n,p.x,p.z,p.c)}
+    else if(p.t==='fk'&&NET.mode==='host'){for(const F of foes)if(F.awake&&F.f.act==='free'&&!F.ghost&&!F.script)DuelistAI.hunt(F.ai)}
+    else if(p.t==='tx'){const t=traps.find(q=>q.id===p.i);if(t){trapDel(t);try{WardenVfx.spawn(t.x,H(t.x,t.z)+.6,t.z,2,3,2,Math.random()*6.28,24)}catch(e){}}}
+    else if(p.t==='vh'&&NET.mode==='host'){const A=byId[p.b];if(A&&A.f.act!=='dead'&&A.T.vamp){const h=Math.min(+p.h||0,A.f.hpMax*.1);A.f.hp=Math.min(A.f.hpMax,A.f.hp+h);A.drunk=(A.drunk||0)+h}}
+    else if(p.t==='br'&&NET.mode==='guest'){const F=byId[p.b];if(F&&F.f.act==='attack'&&F.f.mv&&F.f.mv.id==='blink')blinkRing(p.x,p.z,true)}}
   function barrageTick(dt){
     if(ult&&ult.kind==='echo'){echoTick(dt);return}
     if(!ult){
@@ -661,7 +732,7 @@ const PlayerCombat=(()=>{
     decoyTick(decoy,'Z',dt);decoyTick(rdecoy,'Y',dt);
     const b=el&&el.querySelector('#wShadow');if(b){const t=shCd>0?Math.ceil(shCd):0;if(b._c!==t){b._c=t;b.textContent=t?'Shadow '+t:'Shadow';b.classList.toggle('cd',t>0)}}}
   function leave(hold){   // hold: keep the corpses of a cleared site in the world
-    if(!on)return;endSet();killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;pendFace=null;
+    if(!on)return;endSet();trapsClear();try{blinkRing(0,0,false)}catch(e){}killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');if(sword&&sword.grip)sword.grip.visible=false;pendFace=null;
     if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
     try{if(site&&site.fog)WardenIsles.fog(site.id,rt(site).cleared?'gone':'idle')}catch(e){}}
@@ -739,7 +810,7 @@ const PlayerCombat=(()=>{
       if(PC.loop){startFight();msg('Again.',1.4)}else{rt(site).cleared=true;felled++;if(site.dg){try{WardenDungeon.clear(site.id);WardenCatacombs.onClear(site.id)}catch(e){}}const cr=site.fog?PG.felled(site.id):null;msg(site.n+' · cleared ('+felled+' felled)',2.4);leave(true);if(cr)cycleTurn(cr);return}}
     // one-time status toast so a missing animation set is visible instead of silent
     {const F0=foes[0],ka=(pAnim?pAnim.st:'none')+'/'+(F0&&F0.anim?F0.anim.st:'none');if(ka!==mxSaid&&pAnim&&F0&&F0.anim&&pAnim.st!=='none'&&F0.anim.st!=='none'){mxSaid=ka;msg(pAnim.st==='ready'&&F0.anim.st==='ready'?'Animations '+WardenMX.BUILD+' loaded':'Animation load FAILED ('+(pAnim.err||F0.anim.err||ka)+')',2.2)}}
-    const TF=target();D=TF.f;try{markers(TF,performance.now()/1000);threatArrows();frameFoes(dt);barrageTick(dt);fightMoveTick(dt)}catch(e){}
+    const TF=target();D=TF.f;try{markers(TF,performance.now()/1000);threatArrows();frameFoes(dt);barrageTick(dt);trickTick(dt);fightMoveTick(dt)}catch(e){}
     // camera: pull back for a big foe, when he is far, and when there are several
     try{let sc=1;for(const F of foes)if(F.f.act!=='dead'&&F.awake)sc=Math.max(sc,F.T.scale);const fd=Math.hypot(S.x-D.x,S.z-D.z);CameraRig.setBias(-2.8+(sc-1)*3.4+Math.min(3.5,Math.max(0,fd-5))*.45+(alive().length>1?1:0))}catch(e){}
     for(const F of foes)if(F.ai.ph2&&!F.ph2&&state==='fight'){F.ph2=true;if(F.T.boss){msg(F.T.ph2,2);sfx('heavy',.7,.6,()=>tone(120,60,.4,'sawtooth',.12));WardenSfx.play('vo_sudden_death',.8,1,{nojit:1})}if(F.body.shield)F.body.shield.visible=false}
@@ -764,7 +835,7 @@ const PlayerCombat=(()=>{
         if(F.awake&&PC.ai&&state==='fight'){F.ai.noAtk=!!F.T.pack&&atk>=Foes.PACK_ATK&&q.act!=='attack';const a=DuelistAI.think(F.ai,aiTarget(q),q,lastEv,nt);F.nin={mx:a.mx,mz:a.mz};h[F.id]={face:a.face,mx:a.mx,mz:a.mz,list:a.list}}
         else h[F.id]={face:F.awake||F.dorm==='wake'?Math.atan2(S.x-q.x,S.z-q.z):q.face,mx:0,mz:0}}
       return h};
-    const evs=CineCam.frozen()||DU.cd>0?[]:ST.advance(now(),held,()=>{S.x+=P.x-lx;S.z+=P.z-lz;lx=P.x;lz=P.z;lastEv=C.ev});
+    const evs=CineCam.frozen()||DU.cd>0?[]:ST.advance(now(),held,()=>{S.x+=P.x-lx;S.z+=P.z-lz;lx=P.x;lz=P.z;lastEv=C.ev;trickStep(C.ev)});
     for(const e of evs)if(e.t==='start'&&NET.mode==='host'&&byId[e.a]){const F=byId[e.a];netStarts.push({id:e.a,m:e.move,h:F.f.hold|0})}
     events(evs);flowTick(dt);flaskTick(dt);netSend(dt);netVis();
     // 2) facing: the sim owns it while attacking / dodging / stunned; lock-on owns it otherwise
@@ -790,7 +861,7 @@ const PlayerCombat=(()=>{
     if(f.act==='attack'||f.act==='stun'||f.act==='dead'){g.rotation.y=f.face}else g.rotation.y=lerpAngle(g.rotation.y,f.face,1-Math.exp(-12*dt));
     if(F.dorm){if(F.anim&&F.dormSync!==F.dorm){F.anim.setMode(F.dorm);F.dormSync=F.dorm}
       if(F.dorm==='wake'){F.wakeT+=dt;if((F.anim&&F.anim.wakeDone)||F.wakeT>4)rise(F)}}
-    if(b.sword){const sv=!(F.dorm==='sleep'||(F.dorm==='wake'&&F.anim&&F.anim.wakeP<.4)),o=b.sword.grip||b.sword;if(o.visible!==sv&&state!=='won')o.visible=sv}
+    for(const sk of['sword','sword2'])if(b[sk]){const sv=!(F.dorm==='sleep'||(F.dorm==='wake'&&F.anim&&F.anim.wakeP<.4)),o=b[sk].grip||b[sk];if(o.visible!==sv&&state!=='won')o.visible=sv}
     locoOf(F.loco,f.x,f.z,g.rotation.y,dt);const moving=F.loco.sp>.6&&f.act==='free',loco={moving,vf:F.loco.vf,vs:F.loco.vs};
     if(b.T.body==='avatar'){if(f.act==='dead'){b.u.pp=null;b.u.v=0;if(!b.u.hold&&!b.u.emoteReq)b.u.emoteReq='playdead'}   // a corpse keeps its fall: no motion-based emote cancel, and re-ask until the emote library has loaded
       if(typeof animate==='function')animate(g,dt,moving?'walk':'idle')}
@@ -802,4 +873,4 @@ const PlayerCombat=(()=>{
       if(WardenGear.full()){const v=WardenGear.sellValue(it);PG.earn(v);line+=' · pack full, sold a '+WardenGear.name(it)+' for '+v}else{WardenGear.add(it);line+=' · '+WardenGear.RAR[it.rar]+' '+WardenGear.name(it)}
       toast((label||'Chest')+': '+line,4.2);return it},toast:(t,s)=>toast(t,s),setSeq:v=>{if(pAnim)pAnim.variant=v},tick,speedMul,press,release,enter:()=>{},engage:id=>{const s=SITES().find(q=>q.id===id);if(s&&!on)engage(s)},leave:()=>leave(false),on:()=>on,site:()=>site,GRIP,setGrip:()=>{setGrip(sword);for(const F of foes)setGrip(F.body.sword)},newFight:()=>{if(on)startFight()},
     _flow:v=>{if(v!==undefined)flow=v;return[flow,flowOn,flowN]},
-    _lanes:()=>lanes&&lanes.map(l=>({v:l.visible,o:+l.material.opacity.toFixed(2),x:+l.position.x.toFixed(1),y:+l.position.y.toFixed(1),z:+l.position.z.toFixed(1),sy:+l.scale.y.toFixed(1),ry:+l.rotation.y.toFixed(2),inScene:!!l.parent})),_style:()=>({my:myStyle,partner:pStyle,hpMax:P&&P.hpMax,dfl:P&&P.dfl,bk:P&&P.bk}),setStyle,_foes:()=>foes,_rdecoy:()=>rdecoy?{t:rdecoy.t,hits:rdecoy.hits}:null,_netMsg:p=>netMsg(p),_decoy:()=>decoy?{t:+decoy.t.toFixed(1),hits:decoy.hits,vis:decoy.g.visible,par:!!decoy.g.parent,x:decoy.g.position.x,z:decoy.g.position.z,zf:C.F.Z?1:0,sc:decoy.g.scale.x,kids:decoy.g.children.length,meshes:(()=>{let n=0;decoy.g.traverse(o=>{if(o.isMesh)n++});return n})(),y:decoy.g.position.y}:null,_ult:()=>ult?{tk:C.tick-ult.T0,ph:ult.ph,t:+ult.t.toFixed(2),hits:ult.hits,dodged:ult.dodged,res:ult.res,tsc}:null,_t:()=>({DU,on,C,P,D,lock,sword,foes,site,AI:foes[0]&&foes[0].ai,state,cur,stW,down,pAnim,dAnim:foes[0]&&foes[0].anim,duel:foes[0]&&foes[0].body.g,dSword:foes[0]&&foes[0].body.sword,RT})})})();
+    _lanes:()=>lanes&&lanes.map(l=>({v:l.visible,o:+l.material.opacity.toFixed(2),x:+l.position.x.toFixed(1),y:+l.position.y.toFixed(1),z:+l.position.z.toFixed(1),sy:+l.scale.y.toFixed(1),ry:+l.rotation.y.toFixed(2),inScene:!!l.parent})),_style:()=>({my:myStyle,partner:pStyle,hpMax:P&&P.hpMax,dfl:P&&P.dfl,bk:P&&P.bk}),setStyle,_foes:()=>foes,_trick:()=>({ring:!!(blinkRing.m&&blinkRing.m.visible),rx:blinkRing.m?+blinkRing.m.position.x.toFixed(1):0,rz:blinkRing.m?+blinkRing.m.position.z.toFixed(1):0,traps:traps.map(t=>({id:t.id,x:+t.x.toFixed(1),z:+t.z.toFixed(1),age:+t.age.toFixed(1),armed:t.armed}))}),_rdecoy:()=>rdecoy?{t:rdecoy.t,hits:rdecoy.hits}:null,_netMsg:p=>netMsg(p),_decoy:()=>decoy?{t:+decoy.t.toFixed(1),hits:decoy.hits,vis:decoy.g.visible,par:!!decoy.g.parent,x:decoy.g.position.x,z:decoy.g.position.z,zf:C.F.Z?1:0,sc:decoy.g.scale.x,kids:decoy.g.children.length,meshes:(()=>{let n=0;decoy.g.traverse(o=>{if(o.isMesh)n++});return n})(),y:decoy.g.position.y}:null,_ult:()=>ult?{tk:C.tick-ult.T0,ph:ult.ph,t:+ult.t.toFixed(2),hits:ult.hits,dodged:ult.dodged,res:ult.res,tsc}:null,_t:()=>({DU,on,C,P,D,lock,sword,foes,site,AI:foes[0]&&foes[0].ai,state,cur,stW,down,pAnim,dAnim:foes[0]&&foes[0].anim,duel:foes[0]&&foes[0].body.g,dSword:foes[0]&&foes[0].body.sword,RT})})})();

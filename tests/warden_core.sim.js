@@ -7,7 +7,7 @@ const duel=(o)=>{o=o||{};const C=CC.create({arena:o.arena||{x:0,z:0,R:14},solids
 const run=(C,n,fn)=>{const ev=[];for(let i=0;i<n;i++){const cm=fn?fn(C.tick+1):{};for(const e of C.step(cm))ev.push(e)}return ev};
 // ---------- A. fairness data rules (no exceptions) ----------
 const EXCEPTIONS=[];ok(EXCEPTIONS.length===0,'fairness exceptions list is empty');
-const dm=Object.keys(M).filter(k=>M[k]&&M[k].who==='D');ok(dm.length===18,'18 foe moves (5 Duelist + 3 Hollow Warden + 2 gap closers + 4 ranged/magic + bash + riposte + 3 capoeira): '+dm.join(','));
+const dm=Object.keys(M).filter(k=>M[k]&&M[k].who==='D');ok(dm.length===20,'20 foe moves (5 Duelist + 3 Hollow Warden + 2 gap closers + 4 ranged/magic + bash + riposte + 3 capoeira + blink + snare): '+dm.join(','));
 for(const id of dm){let worst=1e9,rec=M.endRecovery(id);for(let h=0;h<=M.HOLD_MAX;h++)for(const t of M.tells(id,h))worst=Math.min(worst,t);
   ok(worst>=M.TELL_MIN,id+': every hit has a tell >= '+M.TELL_MIN+' ticks for hold 0..12 (min '+worst+')');
   ok(rec>=M.REC_MIN,id+': ends in >= '+M.REC_MIN+' uncancellable recovery ('+rec+')');
