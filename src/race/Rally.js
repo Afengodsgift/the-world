@@ -5,13 +5,14 @@
 // Multiplayer uses the existing Net adapter only: invite / accept / go (start time is relative, so clients start together), a 10 Hz car packet
 // (~60 bytes, dead-reckoned by the receiver), gate progress inside that packet (so a lost message repairs itself), results computed locally.
 // AI racers are simulated on each phone from the same seed (zero extra traffic); they can differ by a few metres between phones.
+// Combat racing (Items.js + RallyCombatFx.js): pickups, six items, victim-authoritative hits over Net (rl:pk / rl:fire / rl:mine / rl:burst / rl:hit).
 // Globals used: THREE, scene, camera, renderer, S, me, others, H, keys, banner, Net, myId, myName, entered, Fx, $, CarPhysics, Track, Pilot, RallyWorld, RALLY, TRACKS.
 const Rally=(()=>{
   const CP=CarPhysics,Tk=Track,DT=1/60,TRACK_ID='skybreak-1';
   const clamp=(v,a,b)=>v<a?a:v>b?b:v,wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
   const ST={mode:'off',acc:0,startAt:0,t:0,go:false,cfg:null,ret:null,rid:null,partner:null,lastNet:0,finAt:0,shake:0,punch:0,flash:0,auto:false,err:0};
-  const IN={ix:0,iy:0},BTN={boost:false,hand:false,rec:false},touch=matchMedia&&matchMedia('(pointer:coarse)').matches;
-  let T=null,world=null,R=[],ME=null,env=null,hud=null,fab=null,sheet=null,inv=null,lastHud=0,camS={yaw:0,x:0,y:0,z:0,fov:65,init:false},baseFov=65,lastClock=0;
+  const IN={ix:0,iy:0},BTN={boost:false,hand:false,rec:false,item:false},touch=matchMedia&&matchMedia('(pointer:coarse)').matches;
+  let T=null,world=null,IS=null,cfx=null,R=[],ME=null,env=null,hud=null,fab=null,sheet=null,inv=null,lastHud=0,camS={yaw:0,x:0,y:0,z:0,fov:65,init:false},baseFov=65,lastClock=0;
   const models={};
   const best=()=>{try{return +localStorage.getItem('wrally_best')||0}catch(e){return 0}};
   const setBest=t=>{try{localStorage.setItem('wrally_best',String(t))}catch(e){}};
@@ -20,9 +21,13 @@ const Rally=(()=>{
   // ---------------------------------------------------------------- track
   function ensureTrack(){
     if(T||typeof TRACKS==='undefined'||typeof H!=='function')return T;
-    T=Tk.build(TRACKS[TRACK_ID],{H});env={ground:T.ground,surf:T.surf,landOK:T.landOK};
+    T=Tk.build(TRACKS[TRACK_ID],{H});env={ground:T.ground,surf:T.surf,landOK:T.landOK,block:T.block};
+    syncSolids();
     return T;
   }
+  // The game's solid scenery (trunks, boulders, structures: the same circles the avatar collides with) becomes collision for the cars. setSolids rebuilds from
+  // scratch each time, so reloading an island never duplicates anything; it is re-synced when the list changes size (islands stream their props in).
+  function syncSolids(){if(T&&typeof solids!=='undefined'&&solids&&ST.solN!==solids.length){ST.solN=solids.length;T.setSolids(solids)}}
   // vegetation / props keep clear of the roads (index.html's scatter add() asks). A corridor of half-width + margin around every road sample.
   let clearGrid=null;
   function clears(x,z){
@@ -84,6 +89,8 @@ const Rally=(()=>{
   function placeCar(o,c,dt,t){
     const hover=c.mode==='fly'?0:.12+Math.sin(t*6+o.group.id)*.03;
     o.group.position.set(c.x,c.y+hover,c.z);o.group.rotation.set(-c.pitch,c.h,c.roll,'YXZ');
+    // visual only: the body yaws a little into the turn on top of the (stable) physics heading, so a turn reads instantly
+    if(o.model)o.model.rotation.y=(c.mode==='fly'?0:c.steer*.14*Math.min(1,c.s/12))+(c.hitT>0?Math.sin(t*38)*.2:0);   // a hit car wobbles
     const fly=c.mode==='fly';
     if(fly!==o.fly){o.fly=fly;o.wingT=0}
     o.wingT=Math.min(1,o.wingT+dt*2.2);const wv=fly?o.wingT:1-o.wingT;
@@ -96,8 +103,8 @@ const Rally=(()=>{
   }
 
   // ---------------------------------------------------------------- racers
-  function newRacer(kind,name,cls,tint,slot,skill){
-    const s=T.gridSlots(12)[slot],c=CP.newCar(s.x,s.z,s.h,cls,env),R0={kind,name,cls,c,r:Tk.racer(),o:makeCar(cls,tint),slot,pilot:null,inp:{},hitCd:0,rec:0,place:1,finT:0,smooth:null,seen:0,hum:[],splits:[]};
+  function newRacer(kind,name,cls,tint,slot,skill,key){
+    const s=T.gridSlots(12)[slot],c=CP.newCar(s.x,s.z,s.h,cls,env),R0={kind,key:key||kind+slot,item:null,cool:0,held:0,aiWait:null,name,cls,c,r:Tk.racer(),o:makeCar(cls,tint),slot,pilot:null,inp:{},hitCd:0,rec:0,place:1,finT:0,smooth:null,seen:0,hum:[],splits:[]};
     if(kind==='ai')R0.pilot=Pilot.make(T,skill||'steady',(ST.seed||1)*31+slot*7);
     return R0;
   }
@@ -150,13 +157,13 @@ const Rally=(()=>{
       <div class="rl-top"><div class="rl-pos"><b id="rlPos">1</b><span id="rlOf">/1</span></div>
         <div class="rl-mid"><div class="rl-time" id="rlTime">0:00.0</div><div class="rl-bar" id="rlBar"></div><div class="rl-gate" id="rlGate"></div></div>
         <div class="rl-spd"><b id="rlSpd">0</b><small>km/h</small><div class="rl-mode" id="rlMode">CAR</div><div class="rl-pips" id="rlPips"></div></div></div>
-      <div class="rl-arrow" id="rlArrow"><i></i></div>
+      <div class="rl-arrow" id="rlArrow"><i></i></div><div class="rl-lock" id="rlLock"></div><div class="rl-warn" id="rlWarn"></div><div class="rl-status" id="rlStatus"></div>
       <div class="rl-msg"></div><div class="rl-count" id="rlCount"></div>
-      <div class="rl-btns"><button id="rlBoost" class="rl-b rl-boost">BOOST</button><button id="rlHand" class="rl-b rl-hand">DRIFT</button><button id="rlRec" class="rl-b rl-rec">RECOVER</button><button id="rlExit" class="rl-b rl-exit">EXIT</button></div>`;
+      <div class="rl-btns"><button id="rlItem" class="rl-b rl-item"><span class="rl-ic">·</span><small>ITEM</small></button><button id="rlBoost" class="rl-b rl-boost">BOOST</button><button id="rlHand" class="rl-b rl-hand">DRIFT</button><button id="rlRec" class="rl-b rl-rec">RECOVER</button><button id="rlExit" class="rl-b rl-exit">EXIT</button></div>`;
     document.body.appendChild(hud);
     const hold=(id,on,off)=>{const b=hud.querySelector(id);const dn=e=>{e.preventDefault();on();b.classList.add('dn')},up=e=>{e.preventDefault();off&&off();b.classList.remove('dn')};
       b.addEventListener('pointerdown',dn);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('pointerleave',up)};
-    hold('#rlBoost',()=>{BTN.boost=true});hold('#rlHand',()=>{BTN.hand=true},()=>{BTN.hand=false});hold('#rlRec',()=>{BTN.rec=true});
+    hold('#rlBoost',()=>{BTN.boost=true});hold('#rlItem',()=>{BTN.item=true});hold('#rlHand',()=>{BTN.hand=true},()=>{BTN.hand=false});hold('#rlRec',()=>{BTN.rec=true});
     hud.querySelector('#rlExit').addEventListener('click',()=>{if(ST.mode==='finish'||confirm('Leave the race?'))exit()});
   }
   function hudUpdate(now){
@@ -173,8 +180,25 @@ const Rally=(()=>{
     R.forEach((x,i)=>{const d=bar.children[i];if(!d)return;const g=T.gates[x.r.next],pg=T.gates[Math.max(0,x.r.next-1)];let f=x.r.passed;
       if(g&&!x.r.finished){const seg=Math.max(1,Math.hypot(g.x-pg.x,g.z-pg.z)),dd=Math.hypot(g.x-x.c.x,g.z-x.c.z);f+=clamp(1-dd/seg,0,.99)}else f=N;
       d.style.left=clamp(f/N,0,1)*100+'%';d.className='rl-dot '+(x===ME?'me':x.kind==='net'?'net':'ai')+(x.kind==='net'&&!x.seen?' hide':'')});
+    // combat: the held item (button face), status chips, the soft lock-on reticle, the incoming-missile warning
+    { const ic=RALLY.items.kinds,itm=q('#rlItem'),held=ME.item;
+      itm.classList.toggle('has',!!held);itm.firstChild.textContent=held?ic[held].ic:'·';itm.lastChild.textContent=held?ic[held].n.toUpperCase():'ITEM';
+      const st=[];if(c.shieldT>0)st.push('🛡️ '+Math.ceil(c.shieldT)+'s');if(c.hitT>0)st.push('💥 disrupted');q('#rlStatus').textContent=st.join('   ');
+      const lk=q('#rlLock');let tg=null;if(held==='rocket'||held==='blaster')tg=lockTarget(held==='rocket'?RALLY.items.rocket.range:55,held==='rocket'?RALLY.items.rocket.cone:.16);
+      if(tg&&ST.mode==='race'){const v=new THREE.Vector3(tg.c.x,tg.c.y+1.2,tg.c.z).project(camera);
+        if(v.z<1&&Math.abs(v.x)<1.05&&Math.abs(v.y)<1.05){lk.style.display='block';lk.style.left=((v.x*.5+.5)*innerWidth)+'px';lk.style.top=((-v.y*.5+.5)*innerHeight)+'px';lk.className='rl-lock '+held;lk.textContent=held==='rocket'?'LOCK':''}else lk.style.display='none'}
+      else lk.style.display='none';
+      const w=q('#rlWarn'),inc=IS&&IS.proj.find(p=>p.on&&p.kind==='rocket'&&p.tgt===ME.key);
+      if(inc){const d=Math.hypot(inc.x-c.x,inc.y-c.y,inc.z-c.z);ST.warn=d<70;w.textContent='⚠ MISSILE '+Math.round(d)+' m';w.classList.toggle('on',ST.warn)}else{ST.warn=false;w.classList.remove('on')} }
     // arrow to the next gate
     const g=T.gates[ME.r.next];if(g){const err=wrap(Math.atan2(g.x-c.x,g.z-c.z)-c.h);q('#rlArrow').style.transform='rotate('+(-err)+'rad)';q('#rlArrow').style.opacity=ST.mode==='race'?.85:0}
+  }
+  // the nearest rival in front of the car (within range metres and a cone in radians): what a held blaster / rocket would pick
+  function lockTarget(range,cone){
+    const c=ME.c,cp=Math.cos(c.pitch),d=[Math.sin(c.h)*cp,Math.sin(c.pitch),Math.cos(c.h)*cp];let best=null,bd=1e9;
+    for(const o of R){if(o===ME||o.r.finished||(o.kind==='net'&&!o.seen))continue;const dx=o.c.x-c.x,dy=o.c.y-c.y,dz=o.c.z-c.z,dist=Math.hypot(dx,dy,dz);if(dist>range||dist<4)continue;
+      if(Math.acos(clamp((dx*d[0]+dy*d[1]+dz*d[2])/dist,-1,1))>cone)continue;if(dist<bd){bd=dist;best=o}}
+    return best;
   }
   function countdownUI(){
     const c=hud.querySelector('#rlCount');
@@ -190,7 +214,7 @@ const Rally=(()=>{
     sheet&&sheet.remove();sheet=el('div','sheet rl-sheet');
     const partner=[...others.keys()][0],po=partner&&others.get(partner),pname=po&&(po.name||(po.group&&po.group.userData&&po.group.userData.nm))||'friend',cfg=openLobby.cfg||(openLobby.cfg={cls:'ace',mode:'ai',diff:'normal'});
     const stat=(k,v)=>`<div class="rl-st"><span>${k}</span><div><i style="width:${Math.round(v*100)}%"></i></div></div>`;
-    const cars=Object.entries(RALLY.cls).map(([k,v])=>`<button class="chip rl-car ${cfg.cls===k?'on':''}" data-cls="${k}"><b>${v.n}</b>${stat('Speed',(v.vmax-38)/16)}${stat('Handling',(v.turn*v.grip/10-.9)/1.0)}${stat('Boost',(v.charges*v.boostT*v.boostMul-7)/6)}</button>`).join('');
+    const cars=Object.entries(RALLY.cls).map(([k,v])=>`<button class="chip rl-car ${cfg.cls===k?'on':''}" data-cls="${k}"><b>${v.n}</b>${stat('Speed',(v.vmax-38)/16)}${stat('Handling',(v.turn*v.grip/11-.6)/.7)}${stat('Boost',(v.charges*v.boostT*v.boostMul-7)/6)}</button>`).join('');
     const mode=(k,l,dis)=>`<button class="chip ${cfg.mode===k?'on':''}" data-mode="${k}" ${dis?'disabled':''}>${l}</button>`;
     const diff=(k,l)=>`<button class="chip ${cfg.diff===k?'on':''}" data-diff="${k}">${l}</button>`;
     sheet.innerHTML=`<h2>🏁 Skybreak Rally</h2>
@@ -199,7 +223,7 @@ const Rally=(()=>{
       <div class="rl-row">${mode('solo','⏱ Time trial')}${mode('ai','🤖 vs AI')}${mode('star','👥 vs '+pname,!partner)}</div>
       <div class="rl-row" id="rlDiff" style="display:${cfg.mode==='ai'||cfg.mode==='star'?'flex':'none'}"><small>AI rivals:</small>${diff('none','None')}${diff('easy','Easy')}${diff('normal','Normal')}${diff('hard','Hard')}</div>
       <div class="rl-row"><button class="btn rl-go">START RACE</button><button class="btn rl-x">Close</button></div>
-      <p class="rl-help">${touch?'Left stick: steer · up/down in the air to climb/dive · auto-gas on (pull down to brake). BOOST, DRIFT (airbrake in the sky) and RECOVER are on the right.':'Arrows/WASD steer · Space drift or airbrake · Shift boost · R recover. In the air up/down climbs or dives.'}</p>
+      <p class="rl-help">${touch?'Left stick: steer · up/down in the air to climb/dive · auto-gas on (pull down to brake). ITEM fires what you picked up (rockets lock on to a rival ahead), BOOST, DRIFT (airbrake in the sky) and RECOVER are on the right.':'Arrows/WASD steer · Space drift or airbrake · Shift boost · E use item · R recover. In the air up/down climbs or dives.'}</p>
       <p class="rl-best">Best time: ${best()?fmt(best()):'none yet'}</p>`;
     document.body.appendChild(sheet);
     sheet.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
@@ -244,10 +268,14 @@ const Rally=(()=>{
     const names=['Nova','Rex','Kai'],cls=['comet','bruiser','ace'],tints=['#ff6a3d','#3d8bff','#8c6dff'];
     R=[];const humans=net?[net.hostFirst?'me':'net',net.hostFirst?'net':'me']:['me'];let slot=0;
     for(const h of humans){
-      if(h==='me'){ME=newRacer('me',typeof myName==='string'&&myName||'You',cfg.cls,null,slot++);R.push(ME)}
-      else{const nr=newRacer('net',net.name||'Friend',net.cls||'ace','#9fe0ff',slot++);nr.view={x:nr.c.x,y:nr.c.y,z:nr.c.z,h:nr.c.h,pitch:0,roll:0,vx:0,vy:0,vz:0,mode:'car',grounded:true,boosting:false};R.push(nr)}
+      if(h==='me'){ME=newRacer('me',typeof myName==='string'&&myName||'You',cfg.cls,null,slot++,null,net?(net.hostFirst?'h':'g'):'h');R.push(ME)}
+      else{const nr=newRacer('net',net.name||'Friend',net.cls||'ace','#9fe0ff',slot++,null,net.hostFirst?'g':'h');nr.view={x:nr.c.x,y:nr.c.y,z:nr.c.z,h:nr.c.h,pitch:0,roll:0,vx:0,vy:0,vz:0,mode:'car',grounded:true,boosting:false};R.push(nr)}
     }
-    rivals.forEach((sk,i)=>{R.push(newRacer('ai',names[i],cls[i],tints[i],slot++,sk))});
+    rivals.forEach((sk,i)=>{R.push(newRacer('ai',names[i],cls[i],tints[i],slot++,sk,'a'+i))});
+    // combat: collisions synced, a fresh item state, the pooled visuals shown
+    syncSolids();IS=Items.make(T,ST.seed);ST.hits={taken:0,dealt:0};ST.uses={ai:0,hum:0};ST.tick=0;ST.warnT=0;
+    if(!cfx&&typeof RallyCombatFx!=='undefined'){try{cfx=RallyCombatFx.build(scene,T)}catch(e){console.error('RallyCombatFx',e)}}
+    if(cfx){cfx.reset();cfx.root.visible=true}
     ST.partner=net?net.id:null;
     // teleport the avatar onto the grid slot, hide it, take over the stick
     ST.mode='countdown';ST.t=0;ST.acc=0;ST.msg=null;document.body.classList.add('rally');
@@ -261,6 +289,7 @@ const Rally=(()=>{
     if(ST.mode==='off')return;
     if(ST.partner)send('rl:l');
     for(const x of R)destroyCar(x.o);R=[];ME=null;ST.mode='off';ST.partner=null;ST.auto=false;
+    if(IS)Items.reset(IS);IS=null;if(cfx){cfx.reset();cfx.root.visible=false}   // no projectiles, mines, pickups or status effects survive a race
     closeLobby();if(hud)hud.classList.remove('on');document.body.classList.remove('rally');
     if(ST.camKids){for(const [k,v] of ST.camKids)k.visible=v;ST.camKids=null}
     if(me)me.visible=true;camera.fov=baseFov;camera.updateProjectionMatrix();clearInterval(ST.resT);
@@ -277,10 +306,49 @@ const Rally=(()=>{
   // ---------------------------------------------------------------- per-frame
   function playerInput(c,inp){
     const fly=c.mode==='fly',hand=BTN.hand||keys.Space;
-    inp.steer=-IN.ix;inp.boost=BTN.boost||keys.ShiftLeft===true&&!playerInput.sh;playerInput.sh=keys.ShiftLeft===true;BTN.boost=false;inp.hand=false;inp.brake=false;inp.pitch=0;
+    // stick -> wheel: a tiny deadzone, then FULL lock at ~80% of the stick's travel (a thumb rarely reaches the rim); the physics adds no further smoothing
+    { const a=Math.abs(IN.ix);inp.steer=-(a<.04?0:Math.sign(IN.ix)*Math.min(1,(a-.04)*1.33)) }
+    inp.boost=BTN.boost||keys.ShiftLeft===true&&!playerInput.sh;playerInput.sh=keys.ShiftLeft===true;BTN.boost=false;inp.hand=false;inp.brake=false;inp.pitch=0;
     if(fly){inp.pitch=-IN.iy;inp.thr=hand?-1:.15}
     else{inp.thr=IN.iy>.25?-IN.iy:(touch||ST.autoGas)?1:(IN.iy<-.2?-IN.iy:0);inp.hand=hand&&c.s>6}
+    if(BTN.item||(keys.KeyE===true&&!playerInput.ke)){BTN.item=false;useItem()}playerInput.ke=keys.KeyE===true;
     if(BTN.rec||keys.KeyR){BTN.rec=false;if(ST.mode==='race'&&performance.now()-(playerInput.lastRec||0)>1500){playerInput.lastRec=performance.now();recoverRacer(ME,'manual')}}
+  }
+  const nearJump=r=>{const p=T.project(r.c.x,r.c.z,{},0),rd=T.roads[p.road];return p.road<T.roads.length-1&&p.s>rd.len-70};   // the last stretch of a road that ends in a jump
+  function useItem(){if(ST.mode==='race'&&ME&&IS&&ME.item&&!ME.r.finished)Items.use(IS,ME,R)}
+  // one place turns simulation events into feedback (visuals, sound, toasts) and network messages
+  function itemEvents(evs){
+    if(!evs||!evs.length)return;
+    const mineKey=ME&&ME.key,net=ST.partner&&ST.rid,IC=RALLY.items.kinds;
+    for(const e of evs){
+      if(cfx)cfx.event(e);
+      if(e.k==='fire'||e.k==='mine'||e.k==='burst'||e.k==='shield-on'||e.k==='turbo'){const o=e.owner||e.key||'';if(o.charAt(0)==='a')ST.uses.ai++;else ST.uses.hum++}
+      const nearMe=ME&&e.x!==undefined&&Math.hypot(e.x-ME.c.x,e.z-ME.c.z)<90;
+      switch(e.k){
+        case 'pickup':
+          if(e.key===mineKey){tone(660,.1,'triangle',.12);tone(990,.14,'triangle',.1);toast(IC[e.item].ic+' '+IC[e.item].n.toUpperCase(),1000);if(net)Net.emit('rl:pk',{rid:ST.rid,i:e.i,key:e.key,t:+e.t.toFixed(2)})}
+          break;
+        case 'fire':
+          if(nearMe)tone(e.kind==='rocket'?170:760,e.kind==='rocket'?.35:.12,e.kind==='rocket'?'sawtooth':'square',.1,e.kind==='rocket'?2.4:.5);
+          if(net&&e.owner===mineKey)Net.emit('rl:fire',Object.assign({rid:ST.rid},e));
+          break;
+        case 'mine':if(net&&e.owner===mineKey)Net.emit('rl:mine',Object.assign({rid:ST.rid},e));if(e.owner===mineKey)tone(200,.12,'square',.1);break;
+        case 'burst':if(nearMe)tone(100,.4,'sawtooth',.18,.4);if(net&&e.key===mineKey&&!e.remote)Net.emit('rl:burst',{rid:ST.rid,key:e.key,x:+e.x.toFixed(1),y:+e.y.toFixed(1),z:+e.z.toFixed(1)});break;
+        case 'shield-on':if(e.key===mineKey){tone(420,.3,'sine',.14,1.8);toast('🛡️ SHIELD UP',900)}break;
+        case 'turbo':if(e.key===mineKey){tone(300,.5,'sawtooth',.1,2.4);ST.punch=.8;toast('⚡ TURBO',800)}break;
+        case 'hit':case 'shield':case 'immune':{
+          const meVictim=e.victim===mineKey;
+          if(meVictim){
+            if(e.k==='hit'){ST.hits.taken++;ST.shake=Math.max(ST.shake,.7);ST.flash=1;toast(e.kind==='mine'?'💥 MINE!':e.kind==='rocket'?'🚀 ROCKET HIT!':e.kind==='burst'?'💥 BURST!':'HIT!',900);tone(95,.3,'square',.2,.5)}
+            else if(e.k==='shield'){toast('🛡️ BLOCKED!',900);tone(520,.2,'triangle',.14,.6)}
+            // the victim's phone is the judge: tell the shooter's phone the projectile / mine is spent
+            if(net&&e.pid&&e.pid.charAt(0)!=='a')Net.emit('rl:hit',{rid:ST.rid,pid:e.pid,res:e.k,kind:e.kind,x:+e.x.toFixed(1),y:+e.y.toFixed(1),z:+e.z.toFixed(1)});
+          }else if(e.k==='hit'&&e.pid&&e.pid.split(':')[0]===mineKey){ST.hits.dealt++;toast('🎯 HIT '+(R.find(r=>r.key===e.victim)||{name:''}).name.toUpperCase(),900);tone(880,.12,'triangle',.12)}
+          if(nearMe&&!meVictim)tone(120,.25,'square',.1,.5);
+          break}
+        case 'impact':case 'expire':if(nearMe)tone(140,.18,'square',.06,.5);break;
+      }
+    }
   }
   function simStep(){
     for(const x of R){
@@ -293,6 +361,11 @@ const Rally=(()=>{
       stepRacer(x,x.inp);
       if(x.r.finished&&!x.finT){x.finT=1}
     }
+    if(IS&&(ST.mode==='race'||ST.mode==='finish')){
+      if(++ST.tick%12===0)rank();                                   // item rolls and AI decisions need an up-to-date race position
+      for(const x of R)if(x.kind==='ai')Items.aiThink(IS,x,R,DT,{nearJump});
+      itemEvents(Items.step(IS,DT,R,R.length));
+    }
     if(ST.mode==='race'||ST.mode==='finish')ST.t+=DT;
   }
   function netVisual(x,dt){
@@ -300,7 +373,7 @@ const Rally=(()=>{
     const age=Math.min(.4,(performance.now()-p.at)/1000);
     const px=p.x+p.vx*age,py=p.y+p.vy*age-(p.grounded?0:0),pz=p.z+p.vz*age,k=1-Math.exp(-dt*12);
     v.x+=(px-v.x)*k;v.y+=(py-v.y)*k;v.z+=(pz-v.z)*k;v.h+=wrap(p.h-v.h)*k;v.pitch+=(p.pitch-v.pitch)*k;v.roll+=(p.roll-v.roll)*k;
-    v.mode=p.mode;v.boostT=p.boosting?1:0;v.padT=0;
+    v.mode=p.mode;v.boostT=p.boosting?1:0;v.padT=0;x.c.shieldT=p.shield?5:0;x.c.hitT=p.hit?.5:0;
     x.c.x=v.x;x.c.y=v.y;x.c.z=v.z;x.c.h=v.h;x.c.pitch=v.pitch;x.c.roll=v.roll;x.c.mode=v.mode;x.c.boostT=v.boostT;x.c.padT=0;x.c.vx=p.vx;x.c.vz=p.vz;x.c.vy=p.vy;x.c.s=Math.hypot(p.vx,p.vy,p.vz);
     if(performance.now()-p.at>6000)x.seen=0;
   }
@@ -342,6 +415,9 @@ const Rally=(()=>{
       // partner's avatar is represented by the car: hide it
       if(ST.partner){const o=others.get(ST.partner);if(o&&o.group)o.group.visible=false}
       chaseCamera(dt);
+      if(cfx&&IS)cfx.update(IS,R,wall,dt);
+      if(ST.warn&&wall-ST.warnT>.32){ST.warnT=wall;tone(1150,.07,'square',.09)}
+      if((ST.sf=(ST.sf||0)+1)%180===0)syncSolids();
       if(world)world.update(ST.mode==='race'||ST.mode==='finish'?ST.t:0,ME.r.next,wall);
       countdownUI();hudUpdate(now);sfxUpdate(dt);netTick(now);
       if(ST.msg&&ST.t-ST.msg.t<.9){toast(ST.msg.s,800);ST.msg=null}
@@ -401,6 +477,14 @@ const Rally=(()=>{
       if(d.f&&!x.r.finished){x.r.finished=true;x.r.finishT=d.f}
       x.name=d.n||x.name;
     });
+    // combat. Victim-authoritative: a weapon is announced once; every phone simulates it; the phone that owns the hit car decides and reports back.
+    const live=d=>IS&&ST.mode!=='off'&&d&&d.rid===ST.rid;
+    Net.on('rl:pk',d=>{if(!live(d))return;const r=Items.remoteClaim(IS,d.i,d.key,d.t,R,'h');if(r&&r.lost)toast('TOO SLOW! Your friend got it first',1500)});
+    Net.on('rl:fire',d=>{if(live(d)&&Items.spawnRemote(IS,Object.assign({k:'fire'},d))&&d.kind==='rocket'&&d.tgt===(ME&&ME.key)){ST.warn=true}});
+    Net.on('rl:mine',d=>{if(live(d))Items.spawnRemote(IS,Object.assign({k:'mine'},d))});
+    Net.on('rl:burst',d=>{if(live(d))Items.remoteBurst(IS,R,d)});                  // its effects on OUR cars come out of the next step as ordinary hit events
+    Net.on('rl:hit',d=>{if(!live(d))return;Items.remove(IS,d.pid);if(cfx)cfx.event({k:d.res==='shield'?'shield':'hit',kind:d.kind,x:d.x,y:d.y,z:d.z});
+      if(d.res==='hit'){ST.hits.dealt++;toast('🎯 DIRECT HIT!',900);tone(880,.12,'triangle',.12)}else if(d.res==='shield')toast('Blocked by their shield',900)});
     Net.on('rl:l',(d)=>{if(ST.mode==='off'||!d||d.rid!==ST.rid)return;const x=R.find(r=>r.kind==='net');if(x){x.seen=0;x.o.group.visible=false;toast('Your friend left the race',2200)}});
   }
 
@@ -413,11 +497,16 @@ const Rally=(()=>{
     setInput:(ix,iy)=>{IN.ix=ix;IN.iy=iy},
     frame,
     // handy for tests / debugging
-    state:()=>({mode:ST.mode,t:ST.t,fc:ST.fc,startIn:Math.round(ST.startAt-performance.now()),err:ST.err,me:ME&&{passed:ME.r.passed,next:ME.r.next,finished:ME.r.finished,finishT:ME.r.finishT,place:ME.place,mode:ME.c.mode,x:ME.c.x,y:ME.c.y,z:ME.c.z,s:ME.c.s,rec:ME.rec,grounded:ME.c.grounded},
-      racers:R.map(x=>({name:x.name,kind:x.kind,passed:x.r.passed,finished:x.r.finished,finishT:x.r.finishT,rec:x.rec,mode:x.c.mode,seen:x.seen,cheat:!!x.cheat})),gates:T&&T.gates.length}),
+    state:()=>({mode:ST.mode,t:ST.t,hits:ST.hits,uses:ST.uses,fc:ST.fc,startIn:Math.round(ST.startAt-performance.now()),err:ST.err,me:ME&&{passed:ME.r.passed,next:ME.r.next,finished:ME.r.finished,finishT:ME.r.finishT,place:ME.place,mode:ME.c.mode,x:ME.c.x,y:ME.c.y,z:ME.c.z,s:ME.c.s,rec:ME.rec,grounded:ME.c.grounded,hitT:ME.c.hitT,shieldT:ME.c.shieldT,item:ME.item},
+      racers:R.map(x=>({key:x.key,item:x.item,hitT:x.c.hitT,shieldT:x.c.shieldT,protT:x.c.protT,x:x.c.x,z:x.c.z,name:x.name,kind:x.kind,passed:x.r.passed,finished:x.r.finished,finishT:x.r.finishT,rec:x.rec,mode:x.c.mode,seen:x.seen,cheat:!!x.cheat})),gates:T&&T.gates.length}),
     // test hook: fast-forward the simulation by `sec` seconds without waiting for frames (software WebGL in CI is far slower than a phone)
     sim:(sec)=>{if(ST.mode==='off')return;if(ST.mode==='countdown'){ST.mode='race';ST.t=0;ST.startAt=performance.now()-1}for(let i=0,n=Math.round(sec/DT);i<n;i++)simStep()},
     snapCam:()=>{camS.init=false},
+    give:k=>{if(ME)ME.item=k},use:useItem,
+    items:()=>IS&&{me:ME&&ME.item,boxesOn:IS.boxes.filter(b=>b.on).length,boxes:IS.boxes.length,proj:IS.proj.length,mines:IS.mines.length,hits:ST.hits,meHitT:ME&&ME.c.hitT,meShield:ME&&ME.c.shieldT,meProt:ME&&ME.c.protT},
+    // test hooks: teleport our car onto the ground at (x,z) heading h at speed v; line it up d m directly behind a rival (by key, default the partner) with the same heading and speed
+    placeMe:(x,z,h,v)=>{if(!ME)return false;const c=ME.c;c.x=x;c.z=z;c.h=h;c.y=T.ground(x,z,1e4);c.vx=Math.sin(h)*v;c.vz=Math.cos(h)*v;c.vy=0;c.vyS=0;c.grounded=true;c.mode='car';c.pitch=0;c.roll=0;c.steer=0;ME.r.lostT=0;ME.r.stuckT=0;ME.r.gT=0;ME.r.px=NaN;return true},   // (a teleport also clears the rescue timers, as a real respawn does)
+    lineUpBehind:(key,d)=>{const x=key?R.find(r=>r.key===key):R.find(r=>r.kind==='net');if(!x||!ME)return false;const c=ME.c,p=x.c,dd=d||25;c.x=p.x-Math.sin(p.h)*dd;c.z=p.z-Math.cos(p.h)*dd;c.y=p.y;c.h=p.h;c.vx=p.vx;c.vz=p.vz;c.vy=0;c.vyS=0;c.grounded=p.grounded;c.mode=p.mode;return true},
     autopilot:(on)=>{ST.auto=!!on;if(ME&&on)ME.pilot=Pilot.make(T,'expert',3)},
     track:()=>ensureTrack(),
   };

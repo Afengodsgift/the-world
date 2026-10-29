@@ -161,6 +161,52 @@ function launch(sp,cls){
   const n=CP.newCar(0,0,0,'ace',nz);n.y=30;CP.toFly(n);let mn=1e9,mode='fly';run(n,{pitch:-1},10,nz,(c)=>{mn=Math.min(mn,c.y);mode=c.mode});
   ok(mn>0&&mode==='fly','outside a landing zone you cannot accidentally land: the ground pushes you back up');
 }
+// ---------- 10b. steering feel (responsiveness, speed-sensitivity, drift, correction, no spins) ----------
+{
+  const timeTo=(v,ang,cls,hold)=>{const c=CP.newCar(0,0,0,cls||'ace',flat);c.vz=v;for(let i=0;i<60*4;i++){CP.step(c,{thr:.6,steer:1,hand:hold},DT,flat);if(Math.abs(c.h)>=ang)return (i+1)*DT}return 99};
+  ok(timeTo(6,Math.PI/2)<=.6,`tight low-speed turn: 90 deg in ${timeTo(6,Math.PI/2).toFixed(2)} s at 6 m/s (was ~1.0 s)`);
+  ok(timeTo(12,Math.PI/4)<=.3,`quick corrections: 45 deg in ${timeTo(12,Math.PI/4).toFixed(2)} s at 12 m/s`);
+  ok(timeTo(20,Math.PI/4)<=.42,`agile mid-speed corner: 45 deg in ${timeTo(20,Math.PI/4).toFixed(2)} s at 20 m/s`);
+  ok(timeTo(30,Math.PI/4)<=.55,`45 deg in ${timeTo(30,Math.PI/4).toFixed(2)} s at 30 m/s`);
+  ok(timeTo(45,Math.PI/4)<=.8,`high speed keeps control: 45 deg in ${timeTo(45,Math.PI/4).toFixed(2)} s at 45 m/s`);
+  // no instant spins at speed: the steady yaw rate is capped by the grip limit (rad/s)
+  const yaw=v=>{const c=CP.newCar(0,0,0,'ace',flat);c.vz=v;for(let i=0;i<40;i++)CP.step(c,{thr:.6,steer:1},DT,flat);const h=c.h;CP.step(c,{thr:.6,steer:1},DT,flat);return (c.h-h)/DT};
+  ok(yaw(45)<1.5&&yaw(45)<yaw(30)&&yaw(30)<yaw(12),`yaw rate falls with speed (${yaw(12).toFixed(1)} / ${yaw(30).toFixed(1)} / ${yaw(45).toFixed(1)} rad/s at 12 / 30 / 45 m/s): stable at speed`);
+  // a flick from full left to full right reverses the yaw almost immediately
+  for(const v of [12,30]){const c=CP.newCar(0,0,0,'ace',flat);c.vz=v;for(let i=0;i<40;i++)CP.step(c,{thr:.6,steer:1},DT,flat);const h0=c.h;CP.step(c,{thr:.6,steer:1},DT,flat);const ss=(c.h-h0)/DT;let t=0,hit=null;for(let i=0;i<60;i++){const h=c.h;CP.step(c,{thr:.6,steer:-1},DT,flat);t+=DT;if(hit===null&&(c.h-h)/DT<=-.8*ss)hit=t}
+    ok(hit!==null&&hit<=.15,`left-right flick at ${v} m/s reverses the yaw in ${hit&&hit.toFixed(2)} s (was 0.26 s)`)}
+  // wheel response: no hidden smoothing beyond ~35 ms to full lock
+  { const c=CP.newCar(0,0,0,'ace',flat);c.vz=20;let n=0;for(;n<60&&c.steer<.95;n++)CP.step(c,{thr:.6,steer:1},DT,flat);ok(n*DT<=.1,`the wheel reaches 95% lock in ${(n*DT*1000).toFixed(0)} ms`) }
+  // the handbrake slide: controllable, not a spin, keeps its pace, and grip returns when released
+  { const c=CP.newCar(0,0,0,'ace',flat);c.vz=35;let maxAng=0;const ang=()=>Math.abs(Math.atan2(c.slip,Math.max(.1,c.vx*Math.sin(c.h)+c.vz*Math.cos(c.h))))*57.3;
+    for(let i=0;i<60*3;i++){CP.step(c,{thr:.5,steer:1,hand:true},DT,flat);maxAng=Math.max(maxAng,ang())}
+    ok(maxAng<55,`a held handbrake slide settles instead of spinning (peak slip angle ${maxAng.toFixed(0)} deg)`);
+    const d=CP.newCar(0,0,0,'ace',flat);d.vz=35;for(let i=0;i<48;i++)CP.step(d,{thr:.5,steer:1,hand:true},DT,flat);const a1=Math.abs(Math.atan2(d.slip,Math.max(.1,d.vx*Math.sin(d.h)+d.vz*Math.cos(d.h))))*57.3,sp=Math.hypot(d.vx,d.vz);
+    ok(a1>15&&a1<45&&sp>35*.65,`a deliberate drift: ${a1.toFixed(0)} deg of slip at 0.8 s while keeping ${(sp/35*100).toFixed(0)}% of its speed`);
+    let t=0;for(;t<2;t+=DT){CP.step(d,{thr:.5,steer:0,hand:false},DT,flat);if(Math.abs(d.slip)<1)break}ok(t<.5,`grip returns ${t.toFixed(2)} s after releasing the handbrake`);
+    const n=CP.newCar(0,0,0,'ace',flat);n.vz=35;let nmax=0;for(let i=0;i<72;i++){CP.step(n,{thr:.5,steer:1},DT,flat);nmax=Math.max(nmax,Math.abs(Math.atan2(n.slip,Math.max(.1,n.vx*Math.sin(n.h)+n.vz*Math.cos(n.h)))))*0+Math.abs(n.slip)}
+    ok(nmax<8,`a normal corner does NOT slide (peak sideways speed ${nmax.toFixed(1)} m/s): drifting is deliberate`) }
+  // no free energy in corners: holding full lock must not speed the car up beyond what the throttle gives
+  { const c=CP.newCar(0,0,0,'ace',flat);c.vz=30;let mx=0;for(let i=0;i<60*6;i++){CP.step(c,{thr:.5,steer:1},DT,flat);mx=Math.max(mx,c.s)}const s=CP.newCar(0,0,0,'ace',flat);s.vz=30;let ms=0;for(let i=0;i<60*6;i++){CP.step(s,{thr:.5,steer:0},DT,flat);ms=Math.max(ms,s.s)}
+    ok(mx<=ms+.5,`cornering never gains speed (peak ${mx.toFixed(1)} m/s turning vs ${ms.toFixed(1)} straight)`) }
+  // reversing, braking while turning, boosting while turning: stable and sensible
+  { const c=CP.newCar(0,0,0,'ace',flat);for(let i=0;i<120;i++)CP.step(c,{thr:-1,steer:0},DT,flat);const h0=c.h;for(let i=0;i<60;i++)CP.step(c,{thr:-1,steer:1},DT,flat);
+    ok(c.s>3&&(c.h-h0)<-.4,`reversing steers (mirrored: steer right while backing turns the heading the other way): ${(c.h-h0).toFixed(2)} rad at ${c.s.toFixed(0)} m/s`);
+    const b=CP.newCar(0,0,0,'ace',flat);b.vz=40;for(let i=0;i<40;i++)CP.step(b,{brake:true,steer:1},DT,flat);ok(b.s<25&&isFinite(b.h)&&Math.abs(b.slip)<12,`braking while turning is stable (${b.s.toFixed(0)} m/s, sideways ${Math.abs(b.slip).toFixed(1)})`);
+    const o=CP.newCar(0,0,0,'ace',flat);o.vz=30;let ok2=true;for(let i=0;i<180;i++){CP.step(o,{thr:1,steer:Math.sin(i/9),boost:i===5||i===70},DT,flat);if(!isFinite(o.h)||o.s>90||Math.abs(o.slip)>25)ok2=false}ok(ok2,'boosting through quick left-right changes stays stable') }
+  // a car drifting off the line can be brought back quickly by steering
+  { const c=CP.newCar(0,0,0,'ace',flat);c.vz=25;c.x=6;c.h=.35;c.vx=Math.sin(.35)*25;c.vz=Math.cos(.35)*25;let t=0;for(;t<3;t+=DT){const hT=Math.max(-.5,Math.min(.5,-c.x*.1));CP.step(c,{thr:.6,steer:Math.max(-1,Math.min(1,(hT-c.h)*3))},DT,flat);if(Math.abs(c.x)<.8&&Math.abs(c.h)<.08)break}
+    ok(t<2.2,`a car 6 m off the line and angled away is back on it in ${t.toFixed(1)} s with simple steering`) }
+  // classes still differ at every speed
+  { const rate=(cls,v)=>{const c=CP.newCar(0,0,0,cls,flat);c.vz=v;for(let i=0;i<40;i++)CP.step(c,{thr:.6,steer:1},DT,flat);const h=c.h;CP.step(c,{thr:.6,steer:1},DT,flat);return (c.h-h)/DT};
+    ok(rate('ace',12)>rate('comet',12)&&rate('ace',40)>rate('comet',40),'the Ace out-turns the Comet at low AND high speed') }
+  // the AI plans corner speeds with the very same function the physics uses
+  { const c=CP.newCar(0,0,0,'ace',flat);c.vz=20;for(let i=0;i<40;i++)CP.step(c,{thr:.6,steer:1},DT,flat);const h0=c.h,vf=c.vx*Math.sin(c.h)+c.vz*Math.cos(c.h);CP.step(c,{thr:.6,steer:1},DT,flat);const meas=(c.h-h0)/DT,pred=CP.turnRate(c.p,vf,false);
+    ok(Math.abs(meas-pred)<.12*pred,`AI and physics share one steering model (turnRate ${pred.toFixed(2)} vs measured ${meas.toFixed(2)} rad/s at ${vf.toFixed(1)} m/s)`) }
+  // flight steering is untouched by the ground rework
+  { const c=CP.newCar(0,0,0,'ace',{ground:()=>0});c.y=300;CP.toFly(c);for(let i=0;i<120;i++)CP.step(c,{steer:1},DT,{ground:()=>0});const h0=c.h;for(let i=0;i<60;i++)CP.step(c,{steer:1},DT,{ground:()=>0});
+    ok(Math.abs((c.h-h0)-RL.fly.turn*Math.cos(c.pitch))<.1,`flight yaw rate is the flight constant (${(c.h-h0).toFixed(2)} rad/s, expected ${RL.fly.turn})`) }
+}
 // ---------- 11. determinism + packet ----------
 {
   const script=t=>({thr:1,steer:Math.sin(t*1.3),boost:t>2&&t<2.05,hand:t>4&&t<4.5,brake:t>6&&t<6.4});

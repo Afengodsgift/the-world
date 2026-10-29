@@ -18,7 +18,7 @@ const Pilot=(()=>{
   const _pr={},_a={},_b={};
   // the fastest the CAR can take a bend of radius R using only `util` of its steering: solves v / (turnRate(v) * util) = R with the physics' own
   // speed-sensitive turn rate (so it is exactly as hard on a Bruiser as on a Comet, and a rookie leaves more margin than an expert)
-  function vCorner(P,R,util){let lo=3,hi=80;for(let i=0;i<16;i++){const v=(lo+hi)/2,tk=Math.min(1,v/P.vTurn)/(1+(v/P.vHigh)*(v/P.vHigh));if(v/Math.max(P.turn*tk*util,1e-3)<=R)lo=v;else hi=v}return lo}
+  function vCorner(P,R,util){let lo=3,hi=80;for(let i=0;i<16;i++){const v=(lo+hi)/2;if(v/Math.max(CarPhysics.turnRate(P,v,false)*util,1e-3)<=R)lo=v;else hi=v}return lo}
 
   // point `dist` metres ahead of (road,s); continues onto the next road (across a jump gap) when this one ends
   function ahead(T,ri,s,dist,out){

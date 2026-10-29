@@ -15,6 +15,7 @@ const _air=(P0,d0,P3,d3,pts)=>{
     tx=3*v*v*(P1.x-P0.x)+6*v*u*(P2.x-P1.x)+3*u*u*(P3.x-P2.x),tz=3*v*v*(P1.z-P0.z)+6*v*u*(P2.z-P1.z)+3*u*u*(P3.z-P2.z);
     return {x,y,z,h:Math.atan2(tx,tz),r:16,k:k||'ring'}});
 };
+const _box=(P0,d0,P3,d3,u,y)=>{const q=_air(P0,d0,P3,d3,[[u,y]])[0];return {x:q.x,y:q.y,z:q.z}};
 const _dir=(a,b)=>{const l=Math.hypot(b.x-a.x,b.z-a.z);return [(b.x-a.x)/l,(b.z-a.z)/l]};
 const _P=(o,x,z)=>({x:o.x+x,z:o.z+z});
 // Leg 1 ramp lip (Palm) and Storm touchdown; leg 2 lip (Storm) and Frost touchdown
@@ -40,6 +41,8 @@ const _FA={a:[],p:[]},_FB={a:[],p:[]};
   _FB.a.push(467);_FB.p.push(pt(467,0));
 }
 const _ia=(A,f)=>A.a.indexOf(f);
+const _air_items1=()=>[_box(_LIP1,_D1,_TD1,_D1,.245,58),_box(_LIP1,_D1,_TD1,_D1,.415,22),_box(_LIP1,_D1,_TD1,_D1,.58,36)];   // high line / low dive / mid
+const _air_items2=()=>[_box(_LIP2,_RD2,_TD2,_D2T,.25,56),_box(_LIP2,_RD2,_TD2,_D2T,.43,22),_box(_LIP2,_RD2,_TD2,_D2T,.61,36)];
 const TRACKS={
   'skybreak-1':{
     id:'skybreak-1',name:'Skybreak Rally: Palm - Storm - Frost',mode:'p2p',
@@ -86,6 +89,14 @@ const TRACKS={
       {road:'frost-a',p:_ia(_FA,56),len:14,w:10},{road:'frost-a',p:_ia(_FA,164),len:14,w:10},{road:'frost-a',p:_ia(_FA,176),len:14,w:10},{road:'frost-b',p:_ia(_FB,356),len:14,w:10}],
     hazards:[{k:'hammer',road:'palm-a',p:1.7,amp:6,period:3.2,phase:0,r:1.5},{k:'hammer',road:'palm-a',p:2,amp:6,period:3.2,phase:Math.PI,r:1.5},   // on the 157 m east straight: a clear run-in to read them
       {k:'hammer',road:'frost-a',p:_ia(_FA,92),amp:6,period:3.0,phase:0,r:1.5},{k:'hammer',road:'frost-a',p:_ia(_FA,104),amp:6,period:3.0,phase:Math.PI,r:1.5}],
+    // item boxes: open straights where players contest them, a jump approach, bridge edges, and risk/reward lines in the sky (a high line and a low dive between rings)
+    items:[
+      {road:'palm-a',p:2.6,lat:[-5,0,5]},{road:'palm-a',p:10.6,lat:[0]},{road:'palm-a',p:21.5,lat:[-4.5,4.5]},{road:'palm-b',p:2.5,lat:[0]},
+      ..._air_items1(),
+      {road:'storm',p:2.3,lat:[-6,0,6]},{road:'storm',p:6.5,lat:[0]},{road:'storm',p:9.5,lat:[-4,4]},
+      ..._air_items2(),
+      {road:'frost-a',p:1.6,lat:[-8,0,8]},{road:'frost-a',p:_ia(_FA,140),lat:[-5,0,5]},{road:'frost-a',p:_ia(_FA,200),lat:[-4,4]},{road:'frost-a',p:_ia(_FA,272),lat:[0]},{road:'frost-b',p:_ia(_FB,392),lat:[-5,0,5]},
+    ],
     landing:[{x:63.5,z:1727.9,r:80},{x:FROST.x+165,z:FROST.z+51,r:90}],
   },
 };

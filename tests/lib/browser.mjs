@@ -17,7 +17,7 @@ export async function start(){
       send(m){if(m&&m.type==='broadcast')window.__out&&window.__out(m.event,JSON.stringify(m.payload))},__recv(ev,pl){(ch._h[ev]||[]).forEach(f=>f({payload:pl}))}};window.__ch=ch;
     const q={select(){return q},eq(){return q},in(){return q},order(){return q},limit(){return q},then(r){r({data:[],error:null})},upsert:async()=>({error:null}),insert:async()=>({error:null})};
     window.supabase={createClient:()=>({channel:()=>ch,removeChannel(){},from:()=>q,auth:{getSession:async()=>({data:{}})}})}})();`;
-  async function open(query,{w=844,h=390,name='Tester'}={}){
+  async function open(query,{w=844,h=390,name='Tester',pre}={}){
     const ctx=await browser.newContext({viewport:{width:w,height:h},deviceScaleFactor:1,hasTouch:true});const page=await ctx.newPage();const errs=[];
     page.on('pageerror',e=>errs.push(String(e)));page.on('console',m=>{if(m.type()==='error')errs.push(m.text())});
     await page.route(/cdn\.jsdelivr\.net\/npm\/three@0\.147\.0\/(.*)/,r=>{const m=r.request().url().match(/three@0\.147\.0\/(.*)$/)[1];const f=path.join(NP,'three',m);fs.existsSync(f)?r.fulfill({body:fs.readFileSync(f),contentType:'text/javascript'}):r.fulfill({status:404})});
@@ -25,6 +25,7 @@ export async function start(){
     await page.route(/^https?:\/\/(?!127\.0\.0\.1)/,r=>{if(/jsdelivr/.test(r.request().url()))return r.fallback();r.abort()});
     await page.exposeFunction('__out',(ev,pl)=>{for(const o of hub.pages)if(o!==page)o.evaluate(([e,p])=>window.__ch.__recv(e,JSON.parse(p)),[ev,pl]).catch(()=>{})});
     hub.pages.add(page);
+    if(pre)await pre(page);   // optional: a test can intercept requests before the game starts loading
     await page.goto(`http://127.0.0.1:${port}/index.html${query}`);
     await page.fill('#name',name);await page.click('#create');
     await page.waitForFunction(()=>typeof S!=='undefined'&&typeof me!=='undefined'&&me&&!document.getElementById('boot'),null,{timeout:120000});

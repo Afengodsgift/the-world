@@ -132,6 +132,55 @@ const Track=(()=>{
     (def.hazards||[]).forEach(h=>{const ri=byId[h.road],r=T.roads[ri];T.at(ri,sOf(r,h.p),_p);
       T.hazards.push({k:h.k||'hammer',x:_p.x,y:_p.y,z:_p.z,tx:_p.tx,tz:_p.tz,amp:h.amp||5.5,period:h.period||3.1,phase:h.phase||0,r:h.r||2,road:ri,s:sOf(r,h.p)})});
 
+    // ---- item boxes: rows across a road (lat = lateral offsets in metres) or free positions in the sky ----
+    T.itemBoxes=[];
+    (def.items||[]).forEach(it=>{
+      if(it.road!=null){const ri=byId[it.road],r=T.roads[ri];T.at(ri,sOf(r,it.p),_p);for(const lat of (it.lat||[0]))T.itemBoxes.push({x:_p.x+(-_p.tz)*lat,z:_p.z+_p.tx*lat,y:_p.y+1.3,air:false})}
+      else T.itemBoxes.push({x:it.x,y:it.y,z:it.z,air:true});
+    });
+    // ---- solid scenery + terrain barriers (the physics asks env.block every frame while grounded) ----
+    // Solids are the game's own circles {x,z,r,h?,noSide?} (trunks, boulders, structures: the same list the avatar collides with). They go in a spatial hash
+    // (rebuilt from scratch on setSolids, so reloading an island never duplicates anything). A solid with a top height h can be driven OVER by a car whose
+    // wheels are above it; noSide solids are moving platforms and never block. Beyond that, OFF-ROAD terrain blocks a car that is driving INTO it:
+    //   - mountain flanks steeper than SLOPE_MAX (the car may still slide or drive down them, and is never pushed uphill),
+    //   - the island's edge: terrain below SEA_MIN (10 cm above the waterline: the car stops on dry sand) is the sea (a car approaching it stops; roads / ramps / airborne cars are untouched).
+    const SC=16,sh=new Map(),SLOPE_MAX=.45,SEA_MIN=.1;let nSol=0;
+    T.setSolids=(arr)=>{
+      sh.clear();nSol=0;if(!arr)return;
+      // only solids near a road matter at race scale: within 420 m of any road sample, or the car can reach them
+      const pts=[];for(const r of T.roads)for(let i=0;i<r.m;i+=12)pts.push(r.X[i],r.Z[i]);
+      for(const c of arr){if(c.noSide||!(c.r>0))continue;let near=false;for(let i=0;i<pts.length&&!near;i+=2){const dx=c.x-pts[i],dz=c.z-pts[i+1];if(dx*dx+dz*dz<420*420)near=true}if(!near)continue;
+        const k=key(Math.floor(c.x/SC),Math.floor(c.z/SC));let a=sh.get(k);if(!a){a=[];sh.set(k,a)}a.push(c);nSol++}
+    };
+    T.solidCount=()=>nSol;
+    // solid scenery only (no terrain rules): for projectiles. A low solid can be flown over (y above its top).
+    T.solidHit=(x,y,z,r)=>{if(!nSol)return false;const cx=Math.floor(x/SC),cz=Math.floor(z/SC);
+      for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const g=sh.get(key(cx+a,cz+b));if(g)for(const c of g){const dx=x-c.x,dz=z-c.z,R=c.r+r;if(dx*dx+dz*dz<R*R&&!(c.h&&y>=c.h))return true}}return false};
+    const gr={x:0,z:0};
+    const grad=(x,z)=>{const e=1.5,hx=env.H(x+e,z)-env.H(x-e,z),hz=env.H(x,z+e)-env.H(x,z-e);gr.x=hx/(2*e);gr.z=hz/(2*e);return gr};
+    // Is a grounded car (centre x,z, wheel height y, radius r) overlapping something solid? Fills out {nx,nz,pen} (unit normal pointing OUT of the obstacle).
+    // vx,vz = its velocity (used so a car sliding down a slope / away from an edge is never pushed or stuck).
+    T.block=(x,z,y,r,vx,vz,out)=>{
+      let best=0,bx=0,bz=0;
+      if(nSol){
+        const cx=Math.floor(x/SC),cz=Math.floor(z/SC);
+        for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const g=sh.get(key(cx+a,cz+b));if(g)for(const c of g){
+          const dx=x-c.x,dz=z-c.z,R=c.r+r,d2=dx*dx+dz*dz;if(d2>=R*R)continue;
+          if(c.h&&y>=c.h-.3)continue;                                   // driving over the top of a low block / platform
+          const d=Math.sqrt(d2)||1e-4,pen=R-d;if(pen>best){best=pen;bx=dx/d;bz=dz/d}}}
+      }
+      // terrain barriers only where there is no road deck, so roads, ramps, bridges and the shoulder blend are never blocked
+      if(best===0){
+        const d0=T.deck(x,z,y+TOL,null);
+        if(d0!==d0){
+          const h=env.H(x,z);
+          if(h<SEA_MIN){const g=grad(x,z),gl=Math.hypot(g.x,g.z)||1e-4;if(vx*g.x+vz*g.z<0){best=.01;bx=g.x/gl;bz=g.z/gl}}   // heading seaward: the wall faces inland (tiny push: the barrier cancels the velocity INTO it, it must not shove the car around)
+          else{const g=grad(x,z),gl=Math.hypot(g.x,g.z);if(gl>SLOPE_MAX&&vx*g.x+vz*g.z>0){best=.01;bx=-g.x/gl;bz=-g.z/gl}}  // heading up a too-steep flank: the wall faces downhill
+        }
+      }
+      if(best>0){out.nx=bx;out.nz=bz;out.pen=best;return true}
+      return false;
+    };
     // ---- boost pads ----
     T.padAt=(x,y,z)=>{for(let i=0;i<T.pads.length;i++){const p=T.pads[i];if(Math.abs(y-p.y)>3)continue;
       const dx=x-p.x,dz=z-p.z,a=dx*p.tx+dz*p.tz,l=dx*-p.tz+dz*p.tx-p.lat;if(Math.abs(a)<=p.hl&&Math.abs(l)<=p.hw)return i}return -1};

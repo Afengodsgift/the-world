@@ -20,13 +20,24 @@
 const CarPhysics=(()=>{
   const R=RALLY,C=R.car,F=R.fly;
   const clamp=(v,a,b)=>v<a?a:v>b?b:v,sgn=v=>v<0?-1:1;
-  const BIG=1e4;
+  const BIG=1e4,BL={nx:0,nz:0,pen:0};
 
   function newCar(x,z,h,cls,env){
     const base=R.cls[cls]||R.cls.ace,p=Object.assign({},C,base);
     const y=env&&env.ground?env.ground(x,z,BIG):0;
     return {cls:R.cls[cls]?cls:'ace',p,mode:'car',x,y,z,h:h||0,vx:0,vy:0,vz:0,vyS:0,s:0,steer:0,pitch:0,roll:0,slip:0,grounded:true,air:0,
-      boostT:0,padT:0,charges:p.charges,cool:0,ev:{launch:0,land:0,bump:0,boost:0,scrape:0}};
+      boostT:0,padT:0,charges:p.charges,cool:0,hitT:0,hitSlow:1,shieldT:0,protT:0,ev:{launch:0,land:0,bump:0,boost:0,scrape:0}};
+  }
+
+  // ---------- steering: one model for the physics, the player and the AI ----------
+  // Yaw rate (rad/s) at FULL lock for a car moving at `v` m/s. The wheel angle shrinks with speed (stability); the bicycle model turns that into a yaw rate
+  // (tight and quick when slow, with a floor speed minV so crawling still turns, and a ramp so you cannot pivot while stopped); finally the grip-limited
+  // lateral acceleration caps it (an arcade 4.5 g), so at speed the car turns less sharply instead of spinning. hand = handbrake held.
+  function turnRate(P,v,hand){
+    const a=v<0?-v:v,delta=P.d0/(1+Math.pow(a/P.vS,1.6));
+    const w=Math.tan(delta)*Math.sqrt(a*a+P.minV*P.minV)/P.L*(a<2.5?a/2.5:1)*P.turn*(hand?P.handTurn:1);
+    const cap=P.lat*P.turn*(hand?P.handLat:1)/(a>1?a:1);   // the class handling multiplier scales the grip limit too, so classes differ at speed as well
+    return w<cap?w:cap;
   }
 
   // ---------- shared: boost ----------
@@ -43,12 +54,15 @@ const CarPhysics=(()=>{
   function step(c,inp,dt,env){
     const ev=c.ev;ev.launch=ev.land=ev.bump=ev.boost=ev.scrape=0;
     if(!(dt>0))return ev;
+    if(c.hitT>0)c.hitT=Math.max(0,c.hitT-dt);if(c.protT>0)c.protT=Math.max(0,c.protT-dt);if(c.shieldT>0)c.shieldT=Math.max(0,c.shieldT-dt);
     if(c.mode==='fly')return stepFly(c,inp,dt,env,ev);
     const P=c.p,g=env.g||R.g;
-    c.steer+=(clamp(inp.steer||0,-1,1)-c.steer)*Math.min(1,dt*P.steerRate);
+    // the wheel follows the stick almost directly (about 35 ms to full lock); it only relaxes a little slower when you let go. No other input smoothing exists.
+    const st=clamp(inp.steer||0,-1,1),more=Math.abs(st)>Math.abs(c.steer)||st*c.steer<0;
+    c.steer+=(st-c.steer)*Math.min(1,dt*(more?P.steerUp:P.steerDn));
     const boosting=boostTick(c,inp,dt,ev);
     const sf=env.surf?env.surf(c.x,c.z):null,rough=!!(sf&&sf.rough);
-    const vmax=P.vmax*(boosting?P.boostMul:1)*(rough?P.offroad.vmax:1);
+    const vmax=P.vmax*(boosting?P.boostMul:1)*(rough?P.offroad.vmax:1)*(c.hitT>0?c.hitSlow:1);   // a hit slows you for a moment (never a stop)
     if(c.grounded)driveGround(c,inp,dt,env,ev,P,g,sf,rough,vmax,boosting);
     else driveAir(c,dt,env,ev,P,g);
     c.s=Math.hypot(c.vx,c.vz,c.vy);
@@ -58,9 +72,9 @@ const CarPhysics=(()=>{
   function driveGround(c,inp,dt,env,ev,P,g,sf,rough,vmax,boosting){
     let sh=Math.sin(c.h),ch=Math.cos(c.h);
     let vf=c.vx*sh+c.vz*ch;
-    // steering: fades out at a crawl (no pivoting), falls off at speed (stability); handbrake tightens the turn into a slide
-    const sp=Math.abs(vf),turnK=Math.min(1,sp/P.vTurn)/(1+(sp/P.vHigh)*(sp/P.vHigh));
-    c.h+=c.steer*P.turn*turnK*(inp.hand?1.45:1)*(vf<-.5?-1:1)*dt;
+    // steering: yaw rate from the shared model; reversing mirrors it
+    const sideways=Math.abs(Math.atan2(c.vx*Math.cos(c.h)-c.vz*Math.sin(c.h),Math.max(Math.abs(vf),1)));   // slip angle going in (velocity vs heading)
+    c.h+=c.steer*turnRate(P,vf,inp.hand)*(c.hitT>0?.75:1)*(vf<-.5?-1:1)*(1-clamp((sideways-.5)/.6,0,.85))*dt;   // yaw authority fades when already very sideways
     sh=Math.sin(c.h);ch=Math.cos(c.h);
     const lx=ch,lz=-sh;
     vf=c.vx*sh+c.vz*ch;let vl=c.vx*lx+c.vz*lz;
@@ -83,15 +97,33 @@ const CarPhysics=(()=>{
     if(vf0*vf<0&&thr<=0)vf=0;                                 // braking / coasting never flips into reverse by itself
     if(thr===0&&!boosting&&Math.abs(vf)<.05&&Math.abs(sF)<.08)vf=0;   // parked (on gentle ground) means parked, not creeping
     // lateral grip: the tyres scrub sideways speed (and a little forward speed with it); handbrake lets the tail out
-    const gr=P.grip*(rough?P.offroad.grip:1)*(inp.hand?P.handGrip:1)*(sf&&sf.grip!=null?sf.grip:1);
+    // tyre saturation: during a handbrake slide the grip returns as the slip angle grows (from ~17 deg, full by ~45 deg), so a slide settles around 30-40 deg
+    // instead of spinning, and the car pulls straight again the moment you let go.
+    const sa=Math.abs(Math.atan2(vl,Math.max(Math.abs(vf),1)));
+    const gk=inp.hand?P.handGrip+clamp((sa-.3)*2.4,0,1-P.handGrip):1;
+    const gr=P.grip*(rough?P.offroad.grip:1)*gk*(sf&&sf.grip!=null?sf.grip:1);
     const vl2=vl*Math.exp(-gr*dt),lost=Math.abs(vl)-Math.abs(vl2);
-    if(lost>0)vf-=sgn(vf)*Math.min(Math.abs(vf),lost*P.slipLoss);
+    if(lost>0){   // the tyres turn the velocity toward the heading. Kinetic energy is what is conserved: a fraction `keep` of the sideways energy becomes forward energy
+      const keep=inp.hand?P.handKeep:P.slipKeep,e=vl*vl-vl2*vl2;   // (never more energy than was removed: no free speed in corners)
+      vf=sgn(vf)*Math.sqrt(vf*vf+e*keep);
+      vf-=sgn(vf)*Math.min(Math.abs(vf),lost*P.slipLoss*(inp.hand?P.handSlipLoss:1));
+    }
     vl=vl2-g*.35*sL*dt;                                       // a banked surface slides you toward its low side
     c.slip=vl;
     c.vx=sh*vf+lx*vl;c.vz=ch*vf+lz*vl;
     // move
     const sx=c.vx*dt,sz=c.vz*dt,hsd=Math.hypot(sx,sz),lim=Math.max(P.stepUp,hsd*1.4);
-    let nx=c.x+sx,nz=c.z+sz,gy=env.ground(nx,nz,y);
+    let nx=c.x+sx,nz=c.z+sz;
+    if(env.block){   // solid scenery and terrain barriers: slide along them, never pass through (up to 2 overlaps resolved per step)
+      for(let it=0;it<2;it++){
+        if(!env.block(nx,nz,y,P.carR,c.vx,c.vz,BL))break;
+        nx+=BL.nx*BL.pen;nz+=BL.nz*BL.pen;
+        const vn=c.vx*BL.nx+c.vz*BL.nz;
+        if(vn<0){c.vx-=vn*BL.nx*(1+P.rest);c.vz-=vn*BL.nz*(1+P.rest);ev.bump=Math.max(ev.bump,-vn);          // remove the speed INTO the obstacle (a little bounce), keep the sliding speed
+          const k=P.blockKeep;c.vx*=k;c.vz*=k}
+      }
+    }
+    let gy=env.ground(nx,nz,y);
     if(gy-y>lim){                                             // a wall, not a slope: slide along it if one axis is free, else stop dead
       const gx=env.ground(nx,c.z,y),gz=env.ground(c.x,nz,y),okx=gx-y<=lim,okz=gz-y<=lim,hs=Math.hypot(c.vx,c.vz);
       ev.bump=hs;
@@ -108,7 +140,7 @@ const CarPhysics=(()=>{
       c.vyS+=((gy-y)/dt-c.vyS)*Math.min(1,dt*30);c.vy=c.vyS;c.y=gy;
     }
     // body attitude follows the surface; the body leans outward in a turn
-    const tp=Math.atan(sF),tr=Math.atan(sL)+c.steer*clamp(Math.abs(vf)/P.vmax,0,1)*.07,k=Math.min(1,dt*14);
+    const tp=Math.atan(sF),tr=Math.atan(sL)+c.steer*clamp(Math.abs(vf)/(P.vmax*.6),0,1)*.12,k=Math.min(1,dt*14);
     c.pitch+=(tp-c.pitch)*k;c.roll+=(tr-c.roll)*k;
   }
 
@@ -144,7 +176,7 @@ const CarPhysics=(()=>{
     c.pitch=clamp(c.pitch,-F.pitchMax,F.pitchMax);
     // speed: throttle sets the target, climbing bleeds and diving gains
     const thr=clamp(inp.thr||0,-1,1);
-    const tgt=(thr>=0?F.cruise+(F.vmax-F.cruise)*thr:F.cruise+(F.cruise-F.vmin)*thr)*fk*(boosting?F.boostMul:1);
+    const hs=c.hitT>0?c.hitSlow:1,tgt=(thr>=0?F.cruise+(F.vmax-F.cruise)*thr:F.cruise+(F.cruise-F.vmin)*thr)*fk*(boosting?F.boostMul:1)*hs;
     c.s+=(tgt-c.s)*Math.min(1,F.speedRate*dt)-Math.sin(c.pitch)*F.gCouple*dt;
     c.s=clamp(c.s,F.vmin*.8,F.vmax*fk*F.boostMul);
     if(c.s<F.vstall)c.pitch-=(F.vstall-c.s)*.12*dt;           // slow: the nose sinks a little (never a spin)
@@ -173,6 +205,14 @@ const CarPhysics=(()=>{
     return ev;
   }
 
+  // ---------- combat status ----------
+  // A hit: brief disruption (speed cap `slow` for `t` seconds, 75% steering) and a horizontal knockback impulse along (nx,nz). Never a stop, never stacking:
+  // a victim that is already disrupted keeps the longer of the two timers.
+  function disrupt(c,t,slow,kb,nx,nz){
+    c.hitT=Math.max(c.hitT,t);c.hitSlow=slow;
+    if(kb){const l=Math.hypot(nx,nz)||1;c.vx+=nx/l*kb;c.vz+=nz/l*kb}
+  }
+
   // ---------- transformation: nothing is reset ----------
   function toFly(c){
     if(c.mode==='fly')return c;
@@ -187,9 +227,9 @@ const CarPhysics=(()=>{
 
   // ---------- network packet: a few numbers, sent a few times a second, dead-reckoned by the receiver ----------
   const q=(v,n)=>Math.round(v*n)/n;
-  function pack(c){return [q(c.x,100),q(c.y,100),q(c.z,100),q(c.h,1000),q(c.pitch,1000),q(c.roll,1000),q(c.vx,100),q(c.vy,100),q(c.vz,100),(c.mode==='fly'?1:0)|(c.grounded?2:0)|(c.boostT>0||c.padT>0?4:0)]}
+  function pack(c){return [q(c.x,100),q(c.y,100),q(c.z,100),q(c.h,1000),q(c.pitch,1000),q(c.roll,1000),q(c.vx,100),q(c.vy,100),q(c.vz,100),(c.mode==='fly'?1:0)|(c.grounded?2:0)|(c.boostT>0||c.padT>0?4:0)|(c.shieldT>0?8:0)|(c.hitT>0?16:0)]}
   function unpack(a,o){o=o||{};o.x=a[0];o.y=a[1];o.z=a[2];o.h=a[3];o.pitch=a[4];o.roll=a[5];o.vx=a[6];o.vy=a[7];o.vz=a[8];
-    o.mode=a[9]&1?'fly':'car';o.grounded=!!(a[9]&2);o.boosting=!!(a[9]&4);return o}
+    o.mode=a[9]&1?'fly':'car';o.grounded=!!(a[9]&2);o.boosting=!!(a[9]&4);o.shield=!!(a[9]&8);o.hit=!!(a[9]&16);return o}
 
-  return {newCar,step,toFly,toCar,pad,pack,unpack};
+  return {newCar,step,toFly,toCar,pad,pack,unpack,turnRate,disrupt};
 })();
