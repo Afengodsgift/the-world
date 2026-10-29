@@ -160,7 +160,7 @@ const DuelistAI=(()=>{
     if(dist>R[pick]+(pick==='thrust'?.2:.1))return out;                                      // not in reach of the chosen move yet: keep closing
     return start(A,out,pick,pick==='fall'||pick==='slam'?Math.floor(A.r()*13):0,tick)}
   function start(A,out,m,hold,tick){A.last.push(m);if(A.last.length>3)A.last.shift();out.list.push({t:'atk',m,hold,e:tick});out.mx=out.mz=0;return out}
-  // the game calls this when the hunted player drinks a health flask (Vael / Skrag only punish it, at most once per 5 s)
-  const hunt=(A)=>{if(A.hcd<=0&&(A.foe==='stalker'||A.foe==='trapper')){A.hunt=true;A.cool=Math.min(A.cool,6);return true}return false};
+  // the game calls this when the hunted player drinks a health flask: every foe ends its rest and stops breathing (at most once per 5 s each); Vael blinks onto you, Skrag fires the heavy bolt
+  const hunt=(A)=>{if(A.hcd>0)return false;A.hcd=300;A.cool=Math.min(A.cool,6);A.breath=0;if(A.foe==='stalker'||A.foe==='trapper')A.hunt=true;return true};   // everyone cuts their rest short; the hunters have a special answer
   return{create,think,hunt,REACH:Object.assign({},REACH,HR),REACT,INTRO}})();
 if(typeof module!=='undefined')module.exports=DuelistAI;
