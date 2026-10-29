@@ -6,7 +6,7 @@ for(const P of [A,B]){P.Ship.build();P.Fleet.build();P.Voyage.build()}
 const Vy=A.Voyage,ST=Vy.ST,SM=Vy.SeaModes,DK=A.DOCK;
 const X=o=>Object.assign({sx:0,sz:0,speed:8,hull:1,sunk:0,live:0,distSite:900,distDock:600,boss:null,blk:null},o);
 const S0=o=>Object.assign({mode:'x',st:1,lvl:1,t:0,raidT:30,kills:0,bossKills:0,hullFrac:1,wave:0,wst:'break',wt:8,bank:0,eye:0,warnT:0,ambT:3},o);
-ok(SM.ORDER.length===5&&SM.ORDER.every(k=>SM.MODES[k]),'five missions are listed');
+ok(SM.ORDER.length===6&&SM.ORDER.every(k=>SM.MODES[k]),'six missions are listed');
 // ---- armada
 {const s=S0({mode:'armada',st:2});let ev=[];for(let i=0;i<20*9;i++)ev.push(...SM.core('armada',s,.05,X()));
   ok(ev.some(e=>e.e==='wave'&&e.n===1&&e.list.length===2),'wave 1 (2 ships) starts after the first breather');

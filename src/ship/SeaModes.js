@@ -14,10 +14,11 @@ const SeaModes=(()=>{
     blockade:{n:'Blockade Breaker',e:'⚓',d:'A pirate fleet seals the strait. Fight through (or sink the lot) and reach the far side. They keep sending ships.'},
     armada:{n:'Survive the Armada',e:'🏴‍☠️',d:'Endless waves from every side. Patch up between rounds. A flagship every 3rd wave. Coins banked each wave.'},
     hunt:{n:'Flagship Hunt',e:'🎯',d:'Admiral Calloway is running. Follow his wake, corner him and sink him before his escort wears you down.'},
+    assault:{n:'Island Assault',e:'🏝',d:'Anchor off a pirate island, go ashore with your marines and take the camp. Their ships still hunt yours.'},
     storm:{n:'Storm of the Century',e:'🌩',d:'A hurricane: lightning on deck, rogue waves, a leviathan. Reach the eye and hold it.'}
   };
-  const ORDER=['plunder','blockade','armada','hunt','storm'];
-  const PAY={plunder:1,blockade:1.6,hunt:2,storm:1.8,armada:0};
+  const ORDER=['plunder','blockade','armada','hunt','storm','assault'];
+  const PAY={plunder:1,blockade:1.6,hunt:2,storm:1.8,assault:1.7,armada:0};
   // ---------- shared ----------
   function pickClass(lvl,rnd,heavy){const w={skiff:3,barnacle:3,maiden:1+lvl*.5,whisper:1+lvl*.5};if(heavy){w.skiff=1;w.maiden+=2;w.whisper+=2}let t=0;for(const k in w)t+=w[k];let r=rnd()*t;for(const k in w){r-=w[k];if(r<=0)return k}return 'skiff'}
   const wrapA=a=>Math.atan2(Math.sin(a),Math.cos(a));
@@ -84,11 +85,22 @@ const SeaModes=(()=>{
     return ev}
   // sideways push on the ship (storm: a cross current that you must steer against)
   function drift(s,t){if(s.mode!=='storm'||s.st!==1)return null;const a=.9*Math.sin(t/37)+1.3;return {x:Math.sin(a)*STORM.drift,z:Math.cos(a)*STORM.drift}}
+  // ---------- assault ----------
+  const AS={arrive:70,reinforce:38};
+  function assault(s,dt,x){
+    const ev=[];s.t+=dt;s.hullFrac=clamp(x.hull,0,1);
+    if(x.sunk>0){s.st=5;s.end=8;ev.push({e:'fail'});return ev}
+    if(s.st===1){s.raidT-=dt;if(x.distDock>100&&s.raidT<=0){s.raidT=40;if(x.live<2)ev.push({e:'fleet',list:[{cls:pickClass(s.lvl,Math.random),ang:0,dist:130}],around:'ship',msg:'A scout ship spots you!'})}
+      if(x.distSite<AS.arrive){s.st=2;s.t=0;s.raidT=AS.reinforce;ev.push({e:'landing'})}}
+    else if(s.st===2){
+      s.raidT-=dt;if(s.raidT<=0){s.raidT=AS.reinforce;if(x.live<1+Math.min(2,Math.floor(s.lvl/2)))ev.push({e:'fleet',list:[{cls:pickClass(s.lvl,Math.random,true),ang:0,dist:150}],around:'ship',msg:'A pirate ship comes for your anchored galleon!'})}
+      if(x.land&&x.land.total>0&&x.land.alive===0&&s.t>6){s.st=4;s.end=12;s.res=payout(s,'assault')+250;ev.push({e:'done',pay:s.res,m:'The island is yours!'})}}
+    return ev}
   // ---------- payout ----------
   function payout(s,mode){
     const V=SHIP.voyage,m=PAY[mode===undefined?s.mode:mode];if(!m&&(mode||s.mode)==='armada')return s.bank||0;
     return Math.round(V.pay*m*(1+.5*(s.lvl-1))+V.perKill*(s.kills||0)+150*(s.bossKills||0)+V.hullBonus*clamp(s.hullFrac===undefined?1:s.hullFrac,0,1))}
-  function core(mode,s,dt,x){switch(mode){case 'armada':return armada(s,dt,x);case 'blockade':return blockade(s,dt,x);case 'hunt':return hunt(s,dt,x);case 'storm':return stormMode(s,dt,x)}return []}
-  return {MODES,ORDER,PAY,core,drift,payout,pickClass,armadaPlan,armadaSize,armadaPay,blockadePlan,BLK,HUNT,STORM,wrapA};
+  function core(mode,s,dt,x){switch(mode){case 'armada':return armada(s,dt,x);case 'blockade':return blockade(s,dt,x);case 'hunt':return hunt(s,dt,x);case 'storm':return stormMode(s,dt,x);case 'assault':return assault(s,dt,x)}return []}
+  return {MODES,ORDER,PAY,core,drift,payout,pickClass,armadaPlan,armadaSize,armadaPay,blockadePlan,BLK,HUNT,STORM,AS,wrapA};
 })();
 if(typeof module!=='undefined')module.exports=SeaModes;

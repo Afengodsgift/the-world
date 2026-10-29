@@ -79,6 +79,7 @@ const Crew=(()=>{
 
   // ---------- hits on pirates ----------
   function hit(id,d,zone){
+    if(typeof LandWar!=='undefined'&&LandWar.owns(id))return LandWar.hit(id,d,zone);
     if(!isHost()){Net.emit('flt',{k:'ch',id,d,z:zone});const c=list.get(id);if(c){c.flash=.12}return}
     const c=list.get(id);if(!c||c.dead)return;c.hp-=d;c.flash=.12;c.hitFx=1;c.stg=zone==='head'||d>=c.max*.4?.5:.18;
     if(c.hp<=0){c.dead=true;c.st=4;c.hp=0;c.deadT=0;const e=Fleet.ships.get(c.sid);Net.emit('flt',{k:'cd',id:c.id});
@@ -145,6 +146,7 @@ const Crew=(()=>{
     if(host){snT-=dt;if(snT<=0){snT=.125;if(list.size)Net.emit('flt',{k:'cr',a:snapshot()})}}
     if(gbtn){const gs=!!(Fleet.grappleTarget()&&(Ship.onDeck()||Ship.seated())&&!Ship.gunning());if(gs!==gshow){gshow=gs;gbtn.style.display=gs?'flex':'none'}}
     if(bbtn){const bs=!!Fleet.boardable();if(bs!==bshow){bshow=bs;bbtn.style.display=bs?'flex':'none'}}
+    if(typeof LandWar!=='undefined'&&LandWar.near())near=true;
     if(btn&&near!==vis){vis=near;btn.style.display=near?'flex':'none'}}
 
   // ---------- network ----------
@@ -181,6 +183,7 @@ const Crew=(()=>{
     slashCd=.4;combo=comboT>0?(combo%3)+1:1;comboT=1.3;try{me.userData.swing=1;swordT=4;sword(me,true)}catch(e){}
     let mt=null;if(!tg&&typeof Monster!=='undefined'){const l2=typeof LockOn!=='undefined'&&LockOn.target();
       if(l2&&l2.melee&&Math.hypot(l2.x-S.x,l2.z-S.z)<5.2)mt={x:l2.x,y:l2.y,z:l2.z,hit:l2.melee};else{const q=Monster.meleeTarget(S.x,S.y,S.z,3.8);if(q)mt={x:q.x,y:q.y,z:q.z,hit:d=>Monster.damage(q.part,d)}}}
+    if(!tg&&!mt&&typeof LandWar!=='undefined'){const q=LandWar.meleeTarget(S.x,S.y,S.z,fwd,3.6);if(q)mt={x:q.x,y:q.y,z:q.z,hit:d=>LandWar.hit(q.id,d,combo===3?'head':'torso')}}
     const ang=tg?Math.atan2(tg.B.x-S.x,tg.B.z-S.z):mt?Math.atan2(mt.x-S.x,mt.z-S.z):fwd;S.rot=ang;try{me.rotation.y=ang}catch(e){}
     // the arc
     if(haveVis()){const arc=new THREE.Mesh(new THREE.RingGeometry(.9,1.7,16,1,-1.1,2.2),new THREE.MeshBasicMaterial({color:combo===3?'#ffd24a':'#ffffff',transparent:true,opacity:.75,side:THREE.DoubleSide,depthWrite:false}));
@@ -200,6 +203,6 @@ const Crew=(()=>{
       const go=e=>{e.preventDefault();slash()};btn.addEventListener('pointerdown',go);addEventListener('keydown',e=>{if(e.code==='KeyF'&&!e.repeat)slash()})}catch(e){}}
 
   // pirates as extra targets for the player's guns (Outlaw.fire reads these like its own raiders)
-  const targets=()=>{const a=[];for(const c of list.values())if(!c.dead&&c.group&&c.group.userData.bones&&c.group.visible)a.push(c);return a};
+  const targets=()=>{const a=[];for(const c of list.values())if(!c.dead&&c.group&&c.group.userData.bones&&c.group.visible)a.push(c);if(typeof LandWar!=='undefined')for(const f of LandWar.targets())a.push(f);return a};
   return {walk,freeCells,sword,swingFx,build,spawn,clearShip,make,list,ofShip,alive,hit,splash,snapshot,apply,slash,targets,owns:id=>list.has(id),think,step,_net:onNet,KIND};
 })();

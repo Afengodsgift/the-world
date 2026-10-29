@@ -87,6 +87,7 @@ const Voyage=(()=>{
       else if(q.e==='leviathan'){try{if(typeof Leviathan!=='undefined')Leviathan.spawn()}catch(e){}}
       else if(q.e==='lightning'){const p=strikeSpot();if(p){send({k:'lt',x:p.x,z:p.z});strike(p.x,p.z)}}
       else if(q.e==='blockade'){blockadeMake(q.plan)}
+      else if(q.e==='landing'){if(v.land)LandWar.begin({beach:v.land.beach,camp:v.land.camp,lvl:v.lvl,nm:v.land.n})}
       else if(q.e==='boss'){const sp=ship(),e=Fleet.spawnNear('kraken',q.ang,q.dist);if(e){e.keep=1;e.flee=1;e.hunt=1;say(q.msg,'🎯 FLAGSHIP HUNT')}else v.bossOn=0}
       else if(q.e==='ping'){const b=huntBoss();if(b){v.ping={x:Math.round(b.sh.x+(Math.random()-.5)*SeaModes.HUNT.fuzz),z:Math.round(b.sh.z+(Math.random()-.5)*SeaModes.HUNT.fuzz)};send(pack());markSite();banner('A fisherman saw the flagship! Marked on your map.','🎯 FLAGSHIP HUNT')}}
       else if(q.e==='phase'){const sp=ship();for(const it of q.list)Fleet.spawnNear(it.cls,sp.h+it.ang,it.dist);say(q.n===1?'The Admiral calls his escort!':'The Admiral\'s last stand! More sails!','🎯 FLAGSHIP HUNT')}
@@ -151,31 +152,32 @@ const Voyage=(()=>{
     if(!isHost()){send({k:'go',m:mode});return}
     if(v.st!==ST.IDLE&&v.st!==ST.DONE&&v.st!==ST.FAIL)return;
     const M=SeaModes.MODES[mode],P=mode==='storm'?{site:[800,1000]}:mode==='blockade'?{site:[520,720]}:null;
-    let site=null;if(mode!=='armada'&&mode!=='hunt'){site=pickSite(H,dock(),Math.random,P);if(!site){banner('No safe waters found for a voyage.',M.e+' '+M.n.toUpperCase());return}}
+    let site=null;if(mode==='assault'){const pl=LandWar.plan(dock(),H,ISL,Math.random);if(!pl){banner('No island with a landing beach in range.',M.e+' '+M.n.toUpperCase());return}site=pl.anchor;v.land={beach:pl.beach,camp:pl.camp,n:pl.n}}
+    else if(mode!=='armada'&&mode!=='hunt'){site=pickSite(H,dock(),Math.random,P);if(!site){banner('No safe waters found for a voyage.',M.e+' '+M.n.toUpperCase());return}}
     Object.assign(v,{mode,st:ST.OUT,site,prog:0,t:0,cargo:0,kills:0,bossKills:0,raids:0,raidT:V.firstRaid,sq:0,sqT:0,krak:0,flag:0,end:0,res:0,warnT:0,hullFrac:1,wave:0,wst:'break',wt:8,bank:0,eye:0,bossOn:0,ph:0,pingT:0,ping:null,gate:null,lev:0,ambT:3,blkTotal:0,ltT:6,rwT:10});v.heat=heatOf(v);
     if(mode==='blockade'){const dx=site.x-DOCK.ship.x,dz=site.z-DOCK.ship.z,L=Math.hypot(dx,dz)||1;v.dir=[dx/L,dz/L];v.raidT=30;
       for(const da of [0,.35,-.35,.7,-.7,1.05,-1.05]){const a=Math.atan2(v.dir[0],v.dir[1])+da,g={x:Math.round(site.x+Math.sin(a)*SeaModes.BLK.gate),z:Math.round(site.z+Math.cos(a)*SeaModes.BLK.gate)};if(H(g.x,g.z)<-6){v.gate=g;break}}
       if(!v.gate)v.gate={x:Math.round(site.x+v.dir[0]*SeaModes.BLK.gate),z:Math.round(site.z+v.dir[1]*SeaModes.BLK.gate)}}
     if(mode==='armada'){v.st=ST.SIEGE;v.site=null;v.bank=0}
     saveTuning(mode);
-    say(M.e+' '+M.n.toUpperCase()+(mode==='armada'?'! Hold the line!':', Level '+v.lvl+'!')+' '+({plunder:'Sail to the wreck. The seas are not empty…',blockade:'A fleet blocks the strait ahead. Break through!',armada:'Wave 1 in 8 seconds. Gunners, to your posts!',hunt:'Find the Admiral\'s flagship!',storm:'Sail for the eye of the storm!'})[mode],M.e+' '+M.n.toUpperCase());
+    say(M.e+' '+M.n.toUpperCase()+(mode==='armada'?'! Hold the line!':', Level '+v.lvl+'!')+' '+({plunder:'Sail to the wreck. The seas are not empty…',blockade:'A fleet blocks the strait ahead. Break through!',armada:'Wave 1 in 8 seconds. Gunners, to your posts!',hunt:'Find the Admiral\'s flagship!',storm:'Sail for the eye of the storm!',assault:'Anchor off the island. Then go ashore and take the camp!'})[mode],M.e+' '+M.n.toUpperCase());
     if(mode==='storm'){v.sq=1;setSquall(true,true)}
     sendState(true);markSite()}
   function saveTuning(mode){const E=C.enemy;if(!saved)saved={cap:E.cap,spawnEvery:E.spawnEvery,minDock:E.minDock};E.spawnEvery=mode&&mode!=='plunder'?1e9:24;E.minDock=80}
   function restoreTuning(){if(saved){Object.assign(C.enemy,saved);saved=null}}
   function abort(){if(!isHost()){send({k:'ab'});return}if(v.st===ST.OUT||v.st===ST.SIEGE||v.st===ST.BACK){const bank=v.mode==='armada'?v.bank:0;cleanup();v.st=ST.IDLE;v.site=null;setSquall(false,true);restoreTuning();say('Voyage abandoned.'+(bank?' You keep '+bank+' 🪙 banked.':''),'💰 VOYAGE');if(bank){send({k:'pay',c:bank,l:v.lvl,arm:1});try{if(typeof Outlaw!=='undefined'&&Outlaw.earn)Outlaw.earn(bank)}catch(e){}}sendState(true);markSite()}}
   // the mission's leftovers (guarding fleets, the hunted flagship) are cut loose when it ends
-  function cleanup(){try{for(const e of Fleet.ships.values()){e.keep=0;e.guard=null;e.flee=0}}catch(e){}}
+  function cleanup(){try{LandWar.end(v.st===ST.DONE)}catch(e){}try{for(const e of Fleet.ships.values()){e.keep=0;e.guard=null;e.flee=0}}catch(e){}}
   function kill(boss){if(isHost()&&(v.st===ST.OUT||v.st===ST.SIEGE||v.st===ST.BACK)){v.kills++;if(boss)v.bossKills++}}
 
   // ---------- network ----------
-  const pack=()=>({k:'p',s:v.st,l:v.lvl,x:v.site&&v.site.x,z:v.site&&v.site.z,pr:+v.prog.toFixed(3),t:Math.round(v.t),c:v.cargo,kl:v.kills,bk:v.bossKills,rd:v.raids,sq:v.sq,hf:+v.hullFrac.toFixed(2),e:Math.round(v.end*10)/10,r:v.res,m:v.mode,w:v.wave,bn:v.bank,ey:+v.eye.toFixed(3),ph:v.ph,px:v.ping&&v.ping.x,pz:v.ping&&v.ping.z,gx:v.gate&&v.gate.x,gz:v.gate&&v.gate.z,bx:Math.round(v.bx),bz:Math.round(v.bz),bf:+v.bf.toFixed(2),ba:v.ba,bt:v.blkTotal,wt:Math.round(v.wt),ws:v.wst});
+  const pack=()=>({k:'p',s:v.st,l:v.lvl,x:v.site&&v.site.x,z:v.site&&v.site.z,pr:+v.prog.toFixed(3),t:Math.round(v.t),c:v.cargo,kl:v.kills,bk:v.bossKills,rd:v.raids,sq:v.sq,hf:+v.hullFrac.toFixed(2),e:Math.round(v.end*10)/10,r:v.res,m:v.mode,w:v.wave,bn:v.bank,ey:+v.eye.toFixed(3),ph:v.ph,lbx:v.land&&v.land.beach.x,lbz:v.land&&v.land.beach.z,lcx:v.land&&v.land.camp.x,lcz:v.land&&v.land.camp.z,ln:v.land&&v.land.n,px:v.ping&&v.ping.x,pz:v.ping&&v.ping.z,gx:v.gate&&v.gate.x,gz:v.gate&&v.gate.z,bx:Math.round(v.bx),bz:Math.round(v.bz),bf:+v.bf.toFixed(2),ba:v.ba,bt:v.blkTotal,wt:Math.round(v.wt),ws:v.wst});
   function sendState(force){if(force||isHost())send(pack())}
   function onNet(d,from){
     if(!d)return;
     switch(d.k){
       case 'p':{if(isHost())break;
-        const was=v.st;Object.assign(v,{st:d.s,lvl:d.l,prog:d.pr,t:d.t,cargo:d.c,kills:d.kl,bossKills:d.bk,raids:d.rd,hullFrac:d.hf,end:d.e,res:d.r,mode:d.m||'plunder',wave:d.w||0,bank:d.bn||0,eye:d.ey||0,ph:d.ph||0,bx:d.bx||0,bz:d.bz||0,bf:d.bf===undefined?1:d.bf,ba:d.ba||0,blkTotal:d.bt||0,wt:d.wt||0,wst:d.ws||'break'});v.site=d.x==null?null:{x:d.x,z:d.z};v.ping=d.px==null?null:{x:d.px,z:d.pz};v.gate=d.gx==null?null:{x:d.gx,z:d.gz};
+        const was=v.st;Object.assign(v,{st:d.s,lvl:d.l,prog:d.pr,t:d.t,cargo:d.c,kills:d.kl,bossKills:d.bk,raids:d.rd,hullFrac:d.hf,end:d.e,res:d.r,mode:d.m||'plunder',wave:d.w||0,bank:d.bn||0,eye:d.ey||0,ph:d.ph||0,bx:d.bx||0,bz:d.bz||0,bf:d.bf===undefined?1:d.bf,ba:d.ba||0,blkTotal:d.bt||0,wt:d.wt||0,wst:d.ws||'break'});v.site=d.x==null?null:{x:d.x,z:d.z};v.ping=d.px==null?null:{x:d.px,z:d.pz};v.land=d.lbx==null?null:{beach:{x:d.lbx,z:d.lbz},camp:{x:d.lcx,z:d.lcz},n:d.ln};v.gate=d.gx==null?null:{x:d.gx,z:d.gz};
         if(!!d.sq!==squallOn&&d.sq!==undefined)setSquall(!!d.sq,false);v.sq=d.sq;if(was!==v.st)markSite();break}
       case 'go':{if(isHost())start(d.m);break}
       case 'ab':{if(isHost())abort();break}
@@ -200,7 +202,7 @@ const Voyage=(()=>{
     try{const css=document.createElement('style');css.textContent='#voyhud{position:fixed;z-index:6;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 8px);max-width:92vw;padding:6px 14px;border-radius:14px;background:#000a;color:#fff;font:700 13px sans-serif;text-align:center;display:none;pointer-events:none;text-shadow:0 1px 2px #000}#voyhud .vb{height:7px;border-radius:4px;background:#fff3;margin-top:4px;overflow:hidden}#voyhud .vb i{display:block;height:100%;background:linear-gradient(90deg,#ffcf4a,#ff8a3d)}';
       (document.head||document.body).appendChild(css);hudEl=document.createElement('div');hudEl.id='voyhud';document.body.appendChild(hudEl)}catch(e){}
     // the MISSION BOARD on the pier (walk up to it): the clear, unmissable way to start a run (the ship-side prompt is shadowed by the helm / cannon prompts)
-    try{const D=DOCK,c=document.createElement('canvas');c.width=256;c.height=96;const g=c.getContext('2d');g.fillStyle='#3a2410';g.fillRect(0,0,256,96);g.strokeStyle='#ffcf4a';g.lineWidth=5;g.strokeRect(4,4,248,88);g.fillStyle='#ffcf4a';g.font='bold 30px sans-serif';g.textAlign='center';g.fillText('⚓ MISSION BOARD',128,42);g.fillStyle='#fff';g.font='20px sans-serif';g.fillText('5 sea missions',128,74);
+    try{const D=DOCK,c=document.createElement('canvas');c.width=256;c.height=96;const g=c.getContext('2d');g.fillStyle='#3a2410';g.fillRect(0,0,256,96);g.strokeStyle='#ffcf4a';g.lineWidth=5;g.strokeRect(4,4,248,88);g.fillStyle='#ffcf4a';g.font='bold 30px sans-serif';g.textAlign='center';g.fillText('⚓ MISSION BOARD',128,42);g.fillStyle='#fff';g.font='20px sans-serif';g.fillText('6 sea missions',128,74);
       const bm=new THREE.Mesh(new THREE.PlaneGeometry(3.4,1.28),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),side:THREE.DoubleSide})),post=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,2.6,6),new THREE.MeshStandardMaterial({color:'#5a3a1a'}));
       bm.position.set(board.x,D.top+2.6,board.z);post.position.set(board.x,D.top+1.3,board.z);scene.add(bm,post)}catch(e){}
     Net.on('voy',onNet);Systems.add('voyage',step)}
@@ -210,8 +212,9 @@ const Voyage=(()=>{
     if(v.st!==ST.OUT&&v.st!==ST.SIEGE)return null;
     if(v.mode==='blockade')return v.st===ST.OUT?v.site:v.gate;
     if(v.mode==='hunt')return v.ping||null;
-    if(v.mode==='storm')return v.site;return null};
-  const radius=()=>v.mode==='plunder'?(v.st===ST.BACK?V.rDock:V.r):v.mode==='blockade'?(v.st===ST.OUT?60:SeaModes.BLK.r):v.mode==='hunt'?SeaModes.HUNT.fuzz:SeaModes.STORM.r;
+    if(v.mode==='storm')return v.site;
+    if(v.mode==='assault')return v.st===ST.OUT||!v.land?v.site:v.land.camp;return null};
+  const radius=()=>v.mode==='plunder'?(v.st===ST.BACK?V.rDock:V.r):v.mode==='blockade'?(v.st===ST.OUT?60:SeaModes.BLK.r):v.mode==='hunt'?SeaModes.HUNT.fuzz:v.mode==='assault'?(v.st===ST.OUT?SeaModes.AS.arrive:30):SeaModes.STORM.r;
   function hud(){
     const sp=ship(),t=target(),flames='🔥'.repeat(Math.max(1,Math.ceil(v.heat||0)));let txt='';
     const arrow=q=>{const b=Math.atan2(q.x-sp.x,q.z-sp.z),rel=Math.atan2(Math.sin(b-sp.h),Math.cos(b-sp.h));return '<span style="display:inline-block;transform:rotate('+(rel*57.3).toFixed(0)+'deg)">▲</span>'};
@@ -220,6 +223,7 @@ const Voyage=(()=>{
       if(v.mode==='blockade')txt=v.st===ST.OUT?'⚓ BLOCKADE BREAKER · Lv '+v.lvl+'<br>⛵ Sail to the strait · '+dist(t)+' m '+arrowM(t):'⚓ BREAK THROUGH · '+Math.max(0,v.ba)+'/'+v.blkTotal+' ships left<br>🏁 Far side '+dist(t)+' m '+arrowM(t)+bar(v.blkTotal?1-v.ba/v.blkTotal:0);
       else if(v.mode==='armada')txt='🏴‍☠️ ARMADA · '+(v.wst==='break'?'WAVE '+(v.wave+1)+' in '+Math.max(0,v.wt)+'s — patch up!':'WAVE '+v.wave+(v.wave%3===0?' · FLAGSHIP':'')+' · '+v.ba+' sails')+'<br>🪙 Banked '+v.bank+' · Best '+(function(){try{return localStorage.getItem('voy_arm')||0}catch(e){return 0}})();
       else if(v.mode==='hunt')txt=v.st===ST.OUT?'🎯 FLAGSHIP HUNT<br>'+(v.ping?'Last sighting '+dist(v.ping)+' m '+arrowM(v.ping):'Searching…'):'🎯 CORNERED · Admiral '+Math.round(v.bf*100)+'%'+(v.ping?' · '+dist(v.ping)+' m '+arrowM(v.ping):'')+bar(v.bf);
+      else if(v.mode==='assault')txt=v.st===ST.OUT?'🏝 ISLAND ASSAULT · '+(v.land?v.land.n:'')+' · Lv '+v.lvl+'<br>⚓ Anchor at the beach · '+dist(t)+' m '+arrowM(t):'🏝 TAKE THE CAMP · '+Math.max(0,v.ba)+' pirates left<br>'+(Ship.onDeck()?'Tap 🏝 Go ashore!':'Camp '+dist(t)+' m '+arrowM(t));
       else if(v.mode==='storm')txt=v.st===ST.OUT?'🌩 STORM OF THE CENTURY · Lv '+v.lvl+'<br>Reach the eye · '+dist(t)+' m '+arrowM(t)+' · watch the red marks!':'🌩 HOLD THE EYE '+Math.round(v.eye*100)+'%'+(dist(t)>SeaModes.STORM.r*1.3?' <span style="color:#ff8a8a">BACK INSIDE '+arrowM(t)+'</span>':'')+bar(v.eye)}
     else if(v.st===ST.OUT&&t){const d=Math.round(Math.hypot(t.x-sp.x,t.z-sp.z));txt='💰 PLUNDER RUN · Lv '+v.lvl+' · '+flames+'<br>⛵ Sail to the wreck · '+d+' m '+arrow(t)}
     else if(v.st===ST.SIEGE&&t){const d=Math.hypot(t.x-sp.x,t.z-sp.z),inside=d<V.r*1.25,spd=Math.abs(sp.v||0),ok=inside&&spd<V.slow;
@@ -244,7 +248,8 @@ const Voyage=(()=>{
         x.blk=v.mode==='blockade'&&v.blkTotal?{alive:v.ba,total:v.blkTotal}:null;
         if(v.mode==='hunt'&&v.bossOn){const b=huntBoss();x.boss=b&&!b.sinking?{alive:true,frac:b.hp/b.K.hp,dist:Math.hypot(b.sh.x-sp.x,b.sh.z-sp.z),x:b.sh.x,z:b.sh.z}:{alive:false,frac:0,dist:1e9};
           if(b&&!b.sinking){v.bx=b.sh.x;v.bz=b.sh.z;v.bf=x.boss.frac;b.flee=v.st===ST.OUT?1:0;if(v.st===ST.SIEGE)v.ping={x:Math.round(b.sh.x),z:Math.round(b.sh.z)}}}
-        C.enemy.cap=v.mode==='armada'?9:6;
+        if(v.mode==='assault'&&v.st===ST.SIEGE){x.land={alive:LandWar.alive()+LandWar.W.queue.length,total:LandWar.W.total};v.ba=x.land.alive}
+        C.enemy.cap=v.mode==='armada'?9:v.mode==='assault'?4:6;
         ev=SeaModes.core(v.mode,v,dt,x)}
       apply(ev);
       if(ev.length||was!==v.st)sendState(true);
@@ -278,7 +283,7 @@ const Voyage=(()=>{
   Interaction.register('voy-start','⚓ Choose a mission',()=>built&&(v.st===ST.IDLE||v.st===ST.DONE||v.st===ST.FAIL)&&Ship.onDeck()&&distDock()<90,openMenu);
   Interaction.register('voy-abort','Abandon the voyage',()=>built&&(v.st===ST.OUT||v.st===ST.SIEGE||v.st===ST.BACK)&&Ship.onDeck()&&distDock()<70,abort);
 
-  return {build,start,abort,kill,onNet,marks:()=>{const t=target();if(!built||!t)return [];const m=v.mode,ic=m==='plunder'?(v.st===ST.BACK?'🏁':'💰'):m==='blockade'?(v.st===ST.OUT?'⚓':'🏁'):m==='hunt'?'🎯':'🌩',n=m==='plunder'?(v.st===ST.BACK?'Harbour':'Wreck site'):m==='blockade'?(v.st===ST.OUT?'The blockade':'Far side'):m==='hunt'?'Flagship sighting':'Eye of the storm';return [{n,x:t.x,z:t.z,r:radius(),icon:ic,dyn:true}]},
+  return {build,start,abort,kill,onNet,marks:()=>{const t=target();if(!built||!t)return [];const m=v.mode,ic=m==='plunder'?(v.st===ST.BACK?'🏁':'💰'):m==='blockade'?(v.st===ST.OUT?'⚓':'🏁'):m==='hunt'?'🎯':m==='assault'?(v.st===ST.OUT?'⚓':'🏴‍☠️'):'🌩',n=m==='plunder'?(v.st===ST.BACK?'Harbour':'Wreck site'):m==='blockade'?(v.st===ST.OUT?'The blockade':'Far side'):m==='hunt'?'Flagship sighting':m==='assault'?(v.st===ST.OUT?'Anchorage':'Pirate camp'):'Eye of the storm';return [{n,x:t.x,z:t.z,r:radius(),icon:ic,dyn:true}]},
     SeaModes,strikes:()=>strikes,_strike:strike,_strikesStep:strikesStep,menu:()=>openMenu(),
     ST,state:()=>v,pickSite,heatOf,capOf,intervalOf,raidSize,payout,pickClass,raidAngles,core,_step:step,_v:v,_pack:pack,_hud:hud};
 })();
