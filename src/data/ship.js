@@ -5,7 +5,7 @@
 // deckM = height of the main deck above the keel (model units x scale); the hull is sunk so the main deck stands `fb` metres above the sea (1.125 = level with the harbour pier, DOCK.top).
 const SHIP={
   sea:-.3,fb:1.125,
-  sailing:{vmax:13,accel:.45,coast:.32,turn:.62,turnV:.1,shore:-1.0,minWind:.8,boostMul:1.75,boostT:6,boostCd:14},     // vmax m/s; shore = sea floor must be below this. Hull probe points are generated from the hull size (Sailing.probes)
+  sailing:{vmax:13,accel:.6,coast:.32,turn:.62,turnV:.1,shore:-1.0,minWind:.8,boostMul:1.5,boostT:8,boostCd:14},     // vmax m/s; shore = sea floor must be below this. Hull probe points are generated from the hull size (Sailing.probes)
   wind:{strength:1,storm:.6},
   cannon:{pReload:1.3,aimYaw:.62,aimUp:.5,aimDown:.08,v:62,g:-14,reload:3.2,dmg:24,splash:4.2,pdmg:16,spread:.022,range:130,bro:{reload:4,range:110}},       // ballistic ball: speed, gravity, per-gun reload, hull damage, deck splash radius / damage to people, aim scatter
   net:{ship:12,enemies:8,aim:10},                    // snapshots per second
@@ -18,7 +18,7 @@ const SHIP={
 //   site = metres from the harbour; r = salvage ring; rDock = arrival ring at home; salvage = seconds of slow sailing inside the ring; slow = max speed (m/s) that still counts; pay = base coins (x1.5 per extra level)
 SHIP.voyage={site:[650,950],r:55,rDock:55,salvage:42,slow:5,pay:260,perKill:40,hullBonus:220,firstRaid:22,failShow:8};
 SHIP.cls={
-  galleon:{name:'Your galleon',file:'assets/ships/galleon.glb',grid:'galleon',scale:1,mdeck:7.8,hp:420,guns:5,helm:[0,-8.95],dais:{x:0,z:-8.6,r:1.3,h:10.2},gangway:{side:-1,z0:-1.6,z1:1.6,h:1.2},sprit:{hw:.42,z0:13.9,flat:15,z1:19.7,h0:8.4,h1:10.75,tip:18.9,tipHw:.8},mast:20,v:15,turn:.5},      // the player's own ship: the Sketchfab low-poly galleon (tools/prep_galleon.mjs): 32 m, main deck, raised stern deck with the wheel, bow deck
+  galleon:{name:'Your galleon',file:'assets/ships/galleon.glb',grid:'galleon',scale:1,mdeck:7.8,hp:420,guns:5,helm:[0,-8.95],dais:{x:0,z:-8.6,r:1.3,h:10.2},gangway:{side:-1,z0:-1.6,z1:1.6,h:1.2},sprit:{hw:.42,z0:13.9,flat:15,z1:19.7,h0:8.4,h1:10.75,tip:18.9,tipHw:.8},mast:20,v:21,turn:.62,minEff:.24},      // the player's own ship: the Sketchfab low-poly galleon (tools/prep_galleon.mjs): 32 m, main deck, raised stern deck with the wheel, bow deck
   sloop:{name:'Your ship',file:'assets/ships/ship-medium.glb',grid:'ship-medium',scale:2.2,mdeck:2.1,hp:240,guns:4,sails:/^sail/,flags:/^flag/,helm:[0,-3.35],mast:8},
   skiff:{name:'Reef Rat',file:'assets/ships/ship-pirate-small.glb',grid:'ship-pirate-small',scale:3.6,mdeck:2.1,hp:90,guns:2,sails:/^sail/,flags:/^flag/,
          v:9.5,turn:.8,reload:3.6,dmg:.8,crew:{cut:3,pis:1},style:'ram',coin:[60,100],

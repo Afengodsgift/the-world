@@ -90,11 +90,12 @@ const Deckhands=(()=>{
       else if(c.mode===1&&c.snap){const k=1-Math.exp(-12*dt),B=c.B,s=c.snap;B.x+=(s[0]-B.x)*k;B.y+=(s[1]-B.y)*k;B.z+=(s[2]-B.z)*k;B.rot+=wrapA(s[3]-B.rot)*k}
       if(haveVis()&&v.loaded!==false)visual(c);place(v,c,dt)}
     if(host){snT-=dt;if(snT<=0&&(away||wasAway)){snT=.2;Net.emit('flt',{k:'dhs',a:list.map(c=>[c.i,c.mode,+c.B.x.toFixed(2),+c.B.y.toFixed(2),+c.B.z.toFixed(2),+c.B.rot.toFixed(2),c.st,Math.round(c.hp),c.sid])})}wasAway=away}
-    if(on&&!sunk&&calm>4&&hullNeed())Ship.repair(dt*1.6);   // the carpenter patches the hull once it has been quiet for a few seconds
+    if(on&&!sunk&&order==='repair'&&hullNeed())Ship.repair(dt*18);   // REPAIR order: the whole crew drops everything and patches the hull (guns hold fire meanwhile)
+    else if(on&&!sunk&&calm>4&&hullNeed())Ship.repair(dt*1.6);   // the carpenter patches the hull once it has been quiet for a few seconds
     uiStep(dt)}
   function fired(gi){if(!on)return;const c=list.find(q=>q.role==='gun'&&q.g&&ready()&&ready().guns.indexOf(q.g)===gi);if(c)c.recoil=.35}
   // ---------- orders ----------
-  const LBL={fire:'Fire at will',hold:'Hold fire',board:'Board! Cutlasses out'};
+  const LBL={fire:'Fire at will',hold:'Hold fire',board:'Board! Cutlasses out',repair:'Repair the ship!'};
   function setOrder(o,isOn,quiet){
     const chg=o!==order||isOn!==on;order=o;on=isOn;
     if(chg&&!quiet)try{banner(on?('Crew: '+LBL[order]):'Crew: dismissed','⚓ CREW')}catch(e){}
@@ -106,18 +107,22 @@ const Deckhands=(()=>{
     if(d.k==='dho'){if(!LBL[d.o])return;if(d.o!==order||(!!d.on)!==on)setOrder(d.o,!!d.on)}
     else if(d.k==='dhs'&&!Fleet.isHost()){for(const r of d.a){const c=list[r[0]];if(!c)continue;if(r[1]===1&&c.mode!==1){c.B.x=r[2];c.B.y=r[3];c.B.z=r[4];c.B.rot=r[5]}c.mode=r[1];c.snap=[r[2],r[3],r[4],r[5]];c.st=r[6];if(r[7]<c.hp)c.stg=.2;c.hp=r[7];c.sid=r[8]}}
     else if(d.k==='dhw'){const c=list[d.i];if(c){c.swing=.3;if(c.mode===1)try{Crew.swingFx({B:c.B})}catch(e){}}}}
+  // a tap on a menu item: tapping the ACTIVE order again cancels it (back to fire at will; fire at will itself toggles to hold); 'recall' brings the boarders home
+  function tap(k){if(k==='crew')command(undefined,!on);else if(k==='recall')command('fire',true);else if(on&&order===k)command(k==='fire'?'hold':'fire',true);else command(k,true)}
   // ---------- the one button ----------
   function buildUI(){
     try{const css=document.createElement('style');css.textContent='#crewcmd{position:fixed;z-index:7;right:calc(env(safe-area-inset-right,0px) + 28px);bottom:calc(env(safe-area-inset-bottom,0px) + 244px);width:44px;height:44px;border-radius:50%;background:#1b3d5acc;color:#fff;font:700 21px sans-serif;border:2px solid #fff8;display:none;align-items:center;justify-content:center;touch-action:none;user-select:none}#crewmenu{position:fixed;z-index:8;right:calc(env(safe-area-inset-right,0px) + 82px);bottom:calc(env(safe-area-inset-bottom,0px) + 232px);display:none;flex-direction:column;gap:6px}#crewmenu div{padding:9px 14px;border-radius:18px;background:#10263acc;color:#fff;font:600 15px sans-serif;border:1.5px solid #fff6;white-space:nowrap;touch-action:none;user-select:none}#crewmenu div.cur{background:#2c7aa8e6;border-color:#fff}';
       (document.head||document.body).appendChild(css);
       btn=document.createElement('div');btn.id='crewcmd';btn.textContent='⚓';document.body.appendChild(btn);
       menu=document.createElement('div');menu.id='crewmenu';document.body.appendChild(menu);
-      const items=[['fire','🔥 Fire at will'],['hold','✋ Hold fire'],['board','⚔ Board them!'],['crew','👥 Crew on / off']];
+      const items=[['fire','🔥 Fire at will'],['hold','✋ Hold fire'],['repair','🔧 Repair the ship'],['board','⚔ Board them!'],['recall','↩ Back to the ship'],['crew','👥 Crew on / off']];
       for(const [k,l] of items){const d=document.createElement('div');d.dataset.k=k;d.textContent=l;menu.appendChild(d);
-        d.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(k==='crew')command(undefined,!on);else command(k,true);menuT=on?2.2:0;if(!on||k==='crew')menu.style.display='none'})}
+        d.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();tap(k);menuT=on?2.2:0;paint();if(!on||k==='crew'||k==='recall')menu.style.display='none'})}
       btn.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();const open=menu.style.display==='flex';menu.style.display=open?'none':'flex';menuT=open?0:6;paint()});
       addEventListener('keydown',e=>{if(e.repeat)return;if(e.code==='KeyH')toggle()})}catch(e){}}
-  function paint(){if(!menu)return;for(const d of menu.children){const k=d.dataset.k;d.className=(k===order&&on)||(k==='crew'&&!on)?'cur':'';if(k==='crew')d.textContent=on?'👥 Dismiss crew':'👥 Call the crew'}}
+  // tapping the ACTIVE order again cancels it (back to fire at will; fire at will itself toggles to hold); 'Back to the ship' recalls boarders
+  const ITEM={fire:'🔥 Fire at will',hold:'✋ Hold fire',repair:'🔧 Repair the ship',board:'⚔ Board them!',recall:'↩ Back to the ship'};
+  function paint(){if(!menu)return;for(const d of menu.children){const k=d.dataset.k,cur=k!=='recall'&&k!=='crew'&&k===order&&on;d.className=cur||(k==='crew'&&!on)?'cur':'';if(k==='crew')d.textContent=on?'👥 Dismiss crew':'👥 Call the crew';else d.textContent=ITEM[k]+(cur?'  ✓ tap to cancel':'')}}
   function uiStep(dt){
     if(!btn)return;const show=!!(typeof Ship!=='undefined'&&(Ship.onDeck()||Ship.seated()));
     if(show!==btnShow){btnShow=show;btn.style.display=show?'flex':'none';if(!show)menu.style.display='none'}
@@ -125,5 +130,5 @@ const Deckhands=(()=>{
     if(menu.style.display==='flex'){menuT-=dt;paint();if(menuT<=0)menu.style.display='none'}}
   function build(){
     if(built)return;built=true;Systems.add('deckhands',step);Net.on('flt',onNet);buildUI()}
-  return {build,step,list,fired,toggle,command,hurt,foes,hold:()=>order==='hold',order:()=>order,on:()=>on,_calm:()=>calm,_reset:()=>{list.length=0},_net:onNet};
+  return {build,step,list,fired,toggle,command,tap,hurt,foes,hold:()=>order==='hold',order:()=>order,on:()=>on,_calm:()=>calm,_reset:()=>{list.length=0},_net:onNet};
 })();

@@ -97,7 +97,7 @@ function duel(style,secs,ex,ez,eh){
 {place(A,SP[0],SP[1],0);place(B,SP[0],SP[1],0);PL.sunk=0;A.Ship._s.crew.helm='a';A.Ship._s.host='a';PL.v=0;PL.sail=1;PL.boost=0;A.Ship._s.boostCd=0;
   tick(40,.05);const base=PL.v;A.Ship.boost();ok(PL.boost>0,'the boost starts');tick(5,.05);const bst=PL.v;
   ok(bst>base*1.3,'boosting is much faster than plain sailing ('+base.toFixed(1)+' -> '+bst.toFixed(1)+' m/s)');
-  tick(3,.05);ok(PL.boost===0&&A.Ship._s.boostCd>0,'the boost runs out and recharges ('+A.Ship._s.boostCd.toFixed(0)+' s)');
+  tick(4,.05);ok(PL.boost===0&&A.Ship._s.boostCd>0,'the boost runs out and recharges ('+A.Ship._s.boostCd.toFixed(0)+' s)');
   A.Ship.boost();ok(PL.boost===0,'no second boost while it recharges');
   tick(20,.05);ok(PL.v<bst*.9,'speed settles back after the boost');
   ok(base>4,'the galleon sails at a decent pace even in light wind ('+base.toFixed(1)+' m/s)');}

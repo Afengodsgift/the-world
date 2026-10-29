@@ -10,7 +10,7 @@ const Ship=(()=>{
   const C=SHIP,D=DOCK,K=C.cls[C.player];
   const st={boostCd:0,host:null,role:null,crew:{helm:null,gun:null},t:0,sendT:0,hudKey:'',aboard:false,cam:'third',prevCam:'third',gun:null};
   const ship=Sailing.newShip(D.ship.x,D.ship.z,D.ship.h);ship.boost=0;                 // authoritative on the host, mirrored on the guest
-  let ctrPrev=null,camH=null,snap=null,snapAt=0,built=false,v=null,hud=null,remote={rud:0,trim:0},raw={x:0,y:0},sendIn=0,wakeT=0;
+  let btnF=null,ctrPrev=null,camH=null,snap=null,snapAt=0,built=false,v=null,hud=null,remote={rud:0,trim:0},raw={x:0,y:0},sendIn=0,wakeT=0;
   const pose={x:ship.x,z:ship.z,h:ship.h,y:C.sea-K.draft,pitch:0,roll:0};   // what is drawn (the vessel's pose; kept here for the tests / HUD)
   const now=()=>(typeof performance!=='undefined'?performance.now():Date.now())/1000;
   const isHost=()=>st.host===myId;
@@ -65,6 +65,11 @@ const Ship=(()=>{
     if(!isHost()||ship.sunk>0||!built)return;ship.hull=Math.max(0,ship.hull-n);if(!burn&&typeof Fires!=='undefined')try{Fires.ignite(n)}catch(e){}   // a hit can set the deck ablaze (src/ship/Fires.js)
     if(ship.hull<=0){ship.sunk=.001;ship.sail=0;broadcast();banner('Your ship is going down! Swim for it!','⛵ SHIP')}}
   function repair(n){if(!isHost()||ship.sunk>0||!built)return;ship.hull=Math.min(C.hull,ship.hull+n)}
+  // REPAIR BUTTON (aboard, hull damaged): +8% hull per tap with a short cooldown; the guest asks the host
+  function fix(){
+    if(!built||ship.sunk>0||ship.hull>=C.hull-1||st.fixCd>0)return false;st.fixCd=1.2;const n=Math.round(C.hull*.08);
+    if(isHost())repair(n);else send({k:'rep',n});
+    try{Fx.burst(S.x,S.y+1,S.z,'#c8a46a',6)}catch(e){}return true}
   // the wreck is gone: a fresh hull at the harbour; everybody who was near it washes up on the pier
   function reset(host){
     const wasNear=distShip()<60||onDeck();
@@ -88,6 +93,7 @@ const Ship=(()=>{
       case 'claim':{if(!isHost())break;const r=d.role;
         if(d.on){if(st.crew[r]==null||st.crew[r]===from){st.crew[r]=from}}else if(st.crew[r]===from)st.crew[r]=null;broadcast();break}
       case 'boost':{if(isHost()&&st.crew.helm===from)boost();break}
+      case 'rep':{if(isHost())repair(clamp(+d.n||0,0,60));break}
       case 'inp':{if(isHost()&&st.crew.helm===from){remote.rud=clamp(d.r,-1,1);remote.trim=clamp(d.t,-1,1)}break}
     }
   }
@@ -100,7 +106,7 @@ const Ship=(()=>{
   function build(){
     if(built)return;built=true;
     v=Vessel.create('ship',C.player,{x:ship.x,z:ship.z,h:ship.h});
-    ship.p=Object.assign(ship.p,{probe:Sailing.probes(v.hl*.97,v.hb*.97),vmax:K.v||ship.p.vmax,turn:K.turn||ship.p.turn});                // hull probe points from the real hull size
+    ship.p=Object.assign(ship.p,{probe:Sailing.probes(v.hl*.97,v.hb*.97),vmax:K.v||ship.p.vmax,turn:K.turn||ship.p.turn,minEff:K.minEff||0});                // hull probe points from the real hull size
     // pier: a ramp of deck circles from the beach up to deck height, tiles from the kit
     const ramp=[.3,.45,.6,.75];let i=0;
     for(let z=D.z0+1.25;z<D.z1;z+=2.5,i++){const h=i<ramp.length?ramp[i]:D.top;solids.push({x:D.x,z,r:1.25,h,pier:1});Vessel.track(Vessel.put('assets/ships/structure-platform.glb',D.x,h-.9,z,1,0))}
@@ -116,6 +122,7 @@ const Ship=(()=>{
       btnC=document.createElement('div');btnC.id='shcam';btnC.className='shbtn';btnC.textContent='📷';document.body.appendChild(btnC);btnC.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();toggleCam()});
       btnX=document.createElement('div');btnX.id='shexit';btnX.className='shbtn';btnX.textContent='✖ Leave helm';document.body.appendChild(btnX);btnX.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();leave()});
       const ub=document.getElementById('use');if(ub){ub.addEventListener('pointerdown',()=>{holdFire=!!st.gun});addEventListener('pointerup',()=>{holdFire=false});addEventListener('pointercancel',()=>{holdFire=false})}   // hold Fire! for rapid fire
+      btnF=document.createElement('div');btnF.id='shfix';btnF.className='shbtn';btnF.textContent='🔧';btnF.style.cssText='display:none;right:calc(env(safe-area-inset-right,0px) + 28px);bottom:calc(env(safe-area-inset-bottom,0px) + 296px);width:44px;min-width:44px;height:44px;padding:0;border-radius:50%;font-size:21px';document.body.appendChild(btnF);btnF.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();fix()});
       btnB=document.createElement('div');btnB.id='shbroad';btnB.className='shbtn';btnB.textContent='💥 All guns';document.body.appendChild(btnB);btnB.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(st.gun)Fleet.sideSalvo(st.gun.side)});
       ret=document.createElement('div');ret.id='shret';document.body.appendChild(ret);
       if(typeof HudMode!=='undefined')HudMode.extra.push(()=>!!(st.role||st.gun))}catch(e){}
@@ -182,6 +189,8 @@ const Ship=(()=>{
       const hs=!!(cfg&&cfg.eye&&!GN&&typeof CameraRig.eyeK==='function'&&CameraRig.eyeK()>.55);if(sailM&&hs!==sailHid){sailHid=hs;for(const m of sailM)m.visible=!hs}}catch(e){}
     try{me.userData.steer=st.role==='helm'?poseHelm:null}catch(e){}
     if(holdFire&&st.gun&&typeof Fleet!=='undefined')Fleet.playerFire(st.gun,true,true);
+    st.fixCd=Math.max(0,(st.fixCd||0)-dt);
+    if(btnF){const sf=(st.aboard||!!st.role)&&ship.sunk===0&&ship.hull<C.hull-1;if(sf!==btnF._v){btnF._v=sf;btnF.style.display=sf?'flex':'none'}btnF.style.opacity=st.fixCd>0?'.45':'1'}
     const lk=!!(st.role||st.gun);if(lk!==hudLk){hudLk=lk;if(btnX)btnX.style.display=lk?'flex':'none'}
     const hc=st.role==='helm';if(btnC&&hc!==hudHc){hudHc=hc;btnC.style.display=hc?'flex':'none'}
     if(btnX){const t=st.gun?'✖ Leave cannon':'✖ Leave helm';if(btnX._t!==t){btnX._t=t;btnX.textContent=t}}
@@ -198,6 +207,7 @@ const Ship=(()=>{
 
   return {build,damage,repair,boost,whenReady:()=>Vessel.whenReady(),seated:()=>!!st.role,role:()=>st.role,vessel:()=>v,onDeck:()=>!!st.aboard,speed:()=>Math.abs(ship.v||0),
     setInput(ix,iy){if(st.role==='helm'){raw.x=ix;raw.y=iy}},locked:()=>!!(st.role||st.gun),gunning:()=>!!st.gun,gun:()=>st.gun,aimGun,aimDir,leave,toggleCam,setCam,cam:()=>st.cam,                           // called by the controller while seated: the stick drives the ship
+    fix,
     marks:()=>built?[{n:'Your ship',x:pose.x,z:pose.z,r:6,icon:'⛵',dyn:true}]:[],
     _s:st,_ship:ship,_pose:pose,_step:step,_net:onNet,_claim:claim,_release:release,_board:board,_wind:windNow,_onDeck:onDeck,_helmPos:helmPos,_raw:raw,_deck:()=>v.deck};
 })();

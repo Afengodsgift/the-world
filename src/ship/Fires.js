@@ -31,7 +31,7 @@ const Fires=(()=>{
       if(f.hp<=0){list.splice(i,1);sendNow();try{banner(list.length?'One fire is out!':'All fires out!','🔥 FIRE')}catch(e){}send({k:'out',n:list.length})}}
     burnHull(dt);
     // the carpenter fights fires too when the crew is on
-    if(list.length&&typeof Deckhands!=='undefined'){helpT-=dt;if(helpT<=0){helpT=F.help;const f=list.reduce((a,b)=>a.hp<b.hp?a:b);f.hp-=F.tap;if(f.hp<=0)f.hp=0;sendNow()}}else helpT=F.help;
+    if(list.length&&typeof Deckhands!=='undefined'){helpT-=dt;if(helpT<=0){helpT=(Deckhands.order&&Deckhands.order()==='repair'&&Deckhands.on&&Deckhands.on())?F.help/3:F.help;const f=list.reduce((a,b)=>a.hp<b.hp?a:b);f.hp-=F.tap;if(f.hp<=0)f.hp=0;sendNow()}}else helpT=F.help;
     sendT-=dt;if(sendT<=0){sendT=.25;sendNow()}}
   const pack=()=>({k:'f',a:list.map(f=>[f.id,f.x,f.z,Math.round(f.hp),+f.age.toFixed(1)])});
   function sendNow(){if(isHost())send(pack())}

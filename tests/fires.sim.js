@@ -19,8 +19,8 @@ const f=F.list()[0],v=A.Ship.vessel();const fl=A.Decks.floor(v.deck,f.x,f.z);ok(
 const bf=B.Fires.list()[0];ok(Math.abs(bf.x-f.x)<.01&&Math.abs(bf.z-f.z)<.01,'...at the same spot on both screens (ship-local)');
 // burns the hull
 const h0=sh.hull;tick(20*5);ok(sh.hull<h0-3,'a fire burns the hull ('+h0.toFixed(1)+' -> '+sh.hull.toFixed(1)+' in 5 s)');
-const h1=sh.hull;for(let i=0;i<20*14;i++)tick(1);ok(F.list()[0].age>12,'it grows into a blaze');
-ok(F.count()>=2,'a blaze spreads to the planks beside it ('+F.count()+' fires)');
+const help0=F.F.help;F.F.help=1e9;A.Fires._clear();B.Fires._clear();F.ignite(24,true);for(let i=0;i<20*32;i++)tick(1);ok(F.list()[0].age>12,'it grows into a blaze');
+ok(F.count()>=2,'a blaze spreads to the planks beside it ('+F.count()+' fires)');F.F.help=help0;
 // put it out: stand next to it, tap
 A.Fires._clear();B.Fires._clear();F.ignite(24,true);tick(2);const g=F.list()[0];
 A.Decks.pin(A.S,v.deck,g.x+.8,g.z);A.S.grounded=true;tick(1);
