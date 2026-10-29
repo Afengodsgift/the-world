@@ -52,7 +52,7 @@ const SeaModes=(()=>{
       else if(x.blk&&x.blk.total>0&&x.blk.alive===0&&s.t>8){s.st=4;s.end=12;s.res=payout(s,'blockade')+200;ev.push({e:'done',pay:s.res,m:'The blockade is destroyed!'})}}
     return ev}
   // ---------- hunt ----------
-  const HUNT={engage:150,pingEvery:9,fuzz:110};
+  const HUNT={huntAfter:70,engage:150,pingEvery:9,fuzz:110};
   function hunt(s,dt,x){
     const ev=[];s.t+=dt;s.hullFrac=clamp(x.hull,0,1);
     if(x.sunk>0){s.st=5;s.end=8;ev.push({e:'fail'});return ev}
@@ -60,12 +60,13 @@ const SeaModes=(()=>{
     const b=x.boss;
     if(!b||!b.alive){if(b&&!b.alive&&s.t>3){s.st=4;s.end=12;s.res=payout(s,'hunt')+300;ev.push({e:'done',pay:s.res,m:'The Admiral\'s flagship goes down!'})}return ev}
     if(s.st===1){s.pingT-=dt;if(s.pingT<=0){s.pingT=HUNT.pingEvery;ev.push({e:'ping'})}
-      if(b.dist<HUNT.engage){s.st=2;s.t=0;s.ph=0;ev.push({e:'warn',m:'cornered'})}}
+      if(!s.hunting&&s.t>HUNT.huntAfter){s.hunting=1;ev.push({e:'warn',m:'hunted'})}                 // he picks up YOUR wake: the target does the hunting
+      if(b.dist<HUNT.engage||(s.hunting&&b.dist<260)){s.st=2;s.t=0;s.ph=0;ev.push({e:'warn',m:'cornered'})}}
     else if(s.st===2){
       s.raidT-=dt;
       if(s.ph<1&&b.frac<.66){s.ph=1;ev.push({e:'phase',n:1,list:[{cls:'maiden',ang:0,dist:120},{cls:'whisper',ang:2.2,dist:130}]})}
       if(s.ph<2&&b.frac<.33){s.ph=2;ev.push({e:'phase',n:2,list:[{cls:'barnacle',ang:1,dist:120},{cls:'barnacle',ang:-1.6,dist:130},{cls:'maiden',ang:3,dist:140}]})}
-      if(b.dist>420&&s.st===2){s.st=1;s.pingT=1}}                      // he got away from you: chase him again
+    }                                                                  // once the fight is on he never lets go: sailing away just drags him after you
     return ev}
   // ---------- storm ----------
   const STORM={r:70,hold:18,ltMin:7,ltMax:11,rwMin:9,rwMax:15,drift:3.2,levAt:40};

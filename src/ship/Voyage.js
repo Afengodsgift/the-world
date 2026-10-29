@@ -91,7 +91,8 @@ const Voyage=(()=>{
       else if(q.e==='boss'){const sp=ship(),e=Fleet.spawnNear('kraken',q.ang,q.dist);if(e){e.keep=1;e.flee=1;e.hunt=1;say(q.msg,'🎯 FLAGSHIP HUNT')}else v.bossOn=0}
       else if(q.e==='ping'){const b=huntBoss();if(b){v.ping={x:Math.round(b.sh.x+(Math.random()-.5)*SeaModes.HUNT.fuzz),z:Math.round(b.sh.z+(Math.random()-.5)*SeaModes.HUNT.fuzz)};send(pack());markSite();banner('A fisherman saw the flagship! Marked on your map.','🎯 FLAGSHIP HUNT')}}
       else if(q.e==='phase'){const sp=ship();for(const it of q.list)Fleet.spawnNear(it.cls,sp.h+it.ang,it.dist);say(q.n===1?'The Admiral calls his escort!':'The Admiral\'s last stand! More sails!','🎯 FLAGSHIP HUNT')}
-      else if(q.e==='warn'&&q.m==='cornered')say('CORNERED! The Admiral turns to fight!','🎯 FLAGSHIP HUNT')
+      else if(q.e==='warn'&&q.m==='hunted')say('The Admiral has found YOUR wake — he is hunting you now!','🎯 FLAGSHIP HUNT')
+      else if(q.e==='warn'&&q.m==='cornered')say('The Admiral turns to fight — sink him!','🎯 FLAGSHIP HUNT')
       else if(q.e==='warn'&&q.m==='eye')say('THE EYE! Hold the ring while the storm weakens!','🌩 STORM')}}
   const huntBoss=()=>{for(const e of Fleet.ships.values())if(e.hunt)return e;return null};
   function patch(f){try{Ship.repair(C.hull*f)}catch(e){}}
@@ -154,7 +155,7 @@ const Voyage=(()=>{
     const M=SeaModes.MODES[mode],P=mode==='storm'?{site:[800,1000]}:mode==='blockade'?{site:[520,720]}:null;
     let site=null;if(mode==='assault'){const pl=LandWar.plan(dock(),H,ISL,Math.random);if(!pl){banner('No island with a landing beach in range.',M.e+' '+M.n.toUpperCase());return}site=pl.anchor;v.land={beach:pl.beach,camp:pl.camp,n:pl.n}}
     else if(mode!=='armada'&&mode!=='hunt'){site=pickSite(H,dock(),Math.random,P);if(!site){banner('No safe waters found for a voyage.',M.e+' '+M.n.toUpperCase());return}}
-    Object.assign(v,{mode,st:ST.OUT,site,prog:0,t:0,cargo:0,kills:0,bossKills:0,raids:0,raidT:V.firstRaid,sq:0,sqT:0,krak:0,flag:0,end:0,res:0,warnT:0,hullFrac:1,wave:0,wst:'break',wt:8,bank:0,eye:0,bossOn:0,ph:0,pingT:0,ping:null,gate:null,lev:0,ambT:3,blkTotal:0,ltT:6,rwT:10});v.heat=heatOf(v);
+    Object.assign(v,{mode,st:ST.OUT,site,prog:0,t:0,cargo:0,kills:0,bossKills:0,raids:0,raidT:V.firstRaid,sq:0,sqT:0,krak:0,flag:0,end:0,res:0,warnT:0,hullFrac:1,wave:0,wst:'break',wt:8,bank:0,eye:0,bossOn:0,ph:0,pingT:0,ping:null,gate:null,lev:0,ambT:3,blkTotal:0,ltT:6,rwT:10,hunting:0});v.heat=heatOf(v);
     if(mode==='blockade'){const dx=site.x-DOCK.ship.x,dz=site.z-DOCK.ship.z,L=Math.hypot(dx,dz)||1;v.dir=[dx/L,dz/L];v.raidT=30;
       for(const da of [0,.35,-.35,.7,-.7,1.05,-1.05]){const a=Math.atan2(v.dir[0],v.dir[1])+da,g={x:Math.round(site.x+Math.sin(a)*SeaModes.BLK.gate),z:Math.round(site.z+Math.cos(a)*SeaModes.BLK.gate)};if(H(g.x,g.z)<-6){v.gate=g;break}}
       if(!v.gate)v.gate={x:Math.round(site.x+v.dir[0]*SeaModes.BLK.gate),z:Math.round(site.z+v.dir[1]*SeaModes.BLK.gate)}}
@@ -247,7 +248,7 @@ const Voyage=(()=>{
         const live=Fleet.live();x.live=live.length;v.ba=live.filter(e=>v.mode==='armada'?true:e.blk).length;
         x.blk=v.mode==='blockade'&&v.blkTotal?{alive:v.ba,total:v.blkTotal}:null;
         if(v.mode==='hunt'&&v.bossOn){const b=huntBoss();x.boss=b&&!b.sinking?{alive:true,frac:b.hp/b.K.hp,dist:Math.hypot(b.sh.x-sp.x,b.sh.z-sp.z),x:b.sh.x,z:b.sh.z}:{alive:false,frac:0,dist:1e9};
-          if(b&&!b.sinking){v.bx=b.sh.x;v.bz=b.sh.z;v.bf=x.boss.frac;b.flee=v.st===ST.OUT?1:0;if(v.st===ST.SIEGE)v.ping={x:Math.round(b.sh.x),z:Math.round(b.sh.z)}}}
+          if(b&&!b.sinking){v.bx=b.sh.x;v.bz=b.sh.z;v.bf=x.boss.frac;b.flee=v.st===ST.OUT&&!v.hunting?1:0;if(v.st===ST.SIEGE)v.ping={x:Math.round(b.sh.x),z:Math.round(b.sh.z)}}}
         if(v.mode==='assault'&&v.st===ST.SIEGE){x.land={alive:LandWar.alive()+LandWar.W.queue.length,total:LandWar.W.total};v.ba=x.land.alive}
         C.enemy.cap=v.mode==='armada'?9:v.mode==='assault'?4:6;
         ev=SeaModes.core(v.mode,v,dt,x)}

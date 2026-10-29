@@ -28,7 +28,8 @@ ok(SM.ORDER.length===6&&SM.ORDER.every(k=>SM.MODES[k]),'six missions are listed'
   ev=SM.core('hunt',s,.05,X({boss:{...far,dist:120,frac:.6}}));ok(ev.some(e=>e.e==='phase'&&e.n===1),'escort at 66%');
   ev=SM.core('hunt',s,.05,X({boss:{...far,dist:120,frac:.3}}));ok(ev.some(e=>e.e==='phase'&&e.n===2),'last stand at 33%');
   s.t=10;ev=SM.core('hunt',s,.05,X({boss:{alive:false,frac:0,dist:1e9}}));ok(s.st===4&&ev.some(e=>e.e==='done'&&e.pay>=300),'sinking him pays out');
-  const g=S0({mode:'hunt',st:2,bossOn:1});SM.core('hunt',g,.05,X({boss:{...far,dist:450}}));ok(g.st===1,'if he slips away you chase again')}
+  const g=S0({mode:'hunt',st:2,bossOn:1});SM.core('hunt',g,.05,X({boss:{...far,dist:450}}));ok(g.st===2,'sailing away does not end the fight: he follows');
+  const h=S0({mode:'hunt',st:1,bossOn:1,t:80,pingT:50});ev=SM.core('hunt',h,.05,X({boss:{...far,dist:240}}));ok(h.hunting===1&&ev.some(e=>e.e==='warn'&&e.m==='hunted')&&h.st===2,'after a while the Admiral hunts YOU and closes in')}
 // ---- storm
 {const s=S0({mode:'storm',st:1,ltT:.01,rwT:.01});let ev=SM.core('storm',s,.05,X());ok(ev.some(e=>e.e==='lightning')&&ev.some(e=>e.e==='rogue'),'lightning and rogue waves on the way');
   ok(!!SM.drift({mode:'storm',st:1},10)&&SM.drift({mode:'armada',st:1},10)===null,'a cross current pushes the ship in a storm');
@@ -53,7 +54,7 @@ ok(SM.ORDER.length===6&&SM.ORDER.every(k=>SM.MODES[k]),'six missions are listed'
   for(const e of g){e.hp=0;e.sinking=true}tick(20*10);ok(Vy.state().st===ST.DONE,'sinking the blockade completes the mission');
   reset();
   // hunt
-  Vy.start('hunt');tick(5);const hb=[...A.Fleet.ships.values()].find(e=>e.hunt);ok(!!hb&&hb.flee,'the Admiral flagship is out there and fleeing');
+  Vy.start('hunt');tick(5);const hb=[...A.Fleet.ships.values()].find(e=>e.hunt);ok(!!hb&&hb.flee,'the Admiral flagship is out there, roaming away');
   const d0=Math.hypot(hb.sh.x-sh.x,hb.sh.z-sh.z);tick(20*10);ok(Math.hypot(hb.sh.x-sh.x,hb.sh.z-sh.z)>=d0-80,'he runs from a stationary ship');
   hb.sh.x=sh.x+90;hb.sh.z=sh.z;tick(5);ok(Vy.state().st===ST.SIEGE&&!hb.flee,'cornered: he stops fleeing and fights');
   hb.hp=0;hb.sinking=true;tick(20*5);ok(Vy.state().st===ST.DONE,'the hunt is won');
