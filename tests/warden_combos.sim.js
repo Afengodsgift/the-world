@@ -50,7 +50,7 @@ for(const [gap,want] of [[12,'light2'],[45,'light']]){const {C,P}=mk();step(C,1,
 // no stamina: Light is refused
 {const {C,P}=mk();P.st=0;P.sr=0;const s=starts(step(C,20,L()));ok(s.length===0&&P.act==='free','with 0 stamina a Light does not start')}
 // new moves are player-only and add no Duelist moves
-ok(Object.keys(M).filter(k=>M[k]&&M[k].who==='D').length===29,'foe move count (14 melee + 4 ranged/magic + blink + snare + 5 Kage moves + 4 Penitent moves)');
+ok(Object.keys(M).filter(k=>M[k]&&M[k].who==='D').length===33,'foe move count (14 melee + 4 ranged/magic + blink + snare + 5 Kage moves + 4 Penitent moves + 4 Saint moves)');
 // every move has a clip mapping with one entry per phase (otherwise it would animate wrongly or not at all)
 {const src=fs.readFileSync(R+'src/combat/WardenAnim.js','utf8'),a=src.indexOf('const MAP={')+'const MAP='.length,b=src.indexOf('};\n  const NAMES'),MAP=(new Function('return '+src.slice(a,b+1)))();
  for(const id of Object.keys(M).filter(k=>M[k]&&M[k].phases&&k!=='dodge')){const key=id==='light'?'light_b':id;const mm=MAP[key];ok(mm&&mm.length===M[id].phases.length,'clip map for '+id+' has '+(mm?mm.length:0)+' entries for '+M[id].phases.length+' phases')}}

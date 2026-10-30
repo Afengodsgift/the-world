@@ -140,6 +140,11 @@ const WardenMX=(()=>{
   ROLES.samurai=Object.assign({},ROLES.vampire,{file:'assets/warden_mx_samurai.json',dorm:'idle',moves:Object.assign({},ROLES.vampire.moves,{
     sweep:{c:'slash3',t0:.2,h:[[.55,.85],[1.1,1.4]],e:1.6},twin:{c:'slash3',t0:.2,h:[[.55,.85],[1.1,1.4]],e:1.6},bash:{c:'kick',t0:.1,h:[[.5,.85]],e:1.15},riposte:{c:'kick',t0:.1,h:[[.5,.85]],e:1.15},spin:{c:'slash4',t0:.1,h:[[.55,1.0]],e:1.5},blink:{c:'power',t0:.3,e:.96},
     iai:{c:'slash5',t0:.05,h:[[.5,.82]],e:1.3},feint:{c:'slash5',t0:.05,e:.55},moon:{c:'slash4',t0:.3,h:[[.9,1.4]],e:1.9},counter:{c:'slash',t0:.1,h:[[.5,.8]],e:1.2},requiem:{c:'power',t0:.3,e:2.1}})});
+  // The Veil Dancer (uploaded hooded rig, Mixamo skeleton): Kage's clip set retargeted onto her
+  ROLES.veil=Object.assign({},ROLES.samurai,{file:'assets/warden_mx_veil.json'});
+  // The Veiled Saint (uploaded Queen of Swords rig, packed by tools/pack_ue_char.mjs): the Huntress's cast / kick / power-up set retargeted onto her; every area attack is a cast
+  ROLES.saint=Object.assign({},ROLES.archer,{file:'assets/warden_mx_saint.json',moves:Object.assign({},ROLES.archer.moves,{
+    lance:{c:'spell',t0:0,e:1.1},returning:{c:'spell',t0:0,e:1.1},consecrate:{c:'power',t0:.3,e:2.0},procession:{c:'power',t0:.3,e:2.0}})});
   // Skrag, the Snare-Trapper (uploaded goblin rig): the Longbow set (arrow cast, kick, power-up) retargeted onto his skeleton; the long power-up clip is his snare-laying
   ROLES.goblin=Object.assign({},ROLES.archer,{file:'assets/warden_mx_goblin.json',moves:Object.assign({},ROLES.archer.moves,{snare:{c:'power',t0:.3,e:1.6}})});
   // ---- the player's heavier weapons: the Great Sword pack (already baked onto the game rig for the Duelist) drives the Claymore and the Hand Axe ----

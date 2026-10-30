@@ -78,6 +78,15 @@ function simK(hpf,dist,ticks,seed,P0){const A=AI.create(seed,{foe:'samurai',intr
  ok(heavy>=20&&light===0,'the Penitent commits a heavy blow to a shadow ('+heavy+' heavy, '+light+' light)')}
 {let n0=0,n1=0;for(let s=1;s<=30;s++)for(const cov of [null,'veil']){const A=AI.create(s,{foe:'penitent',intro:0});A.cov=cov;if(cov)A.ph2=true;const D={id:'D',x:0,z:0,act:'free',hp:560,hpMax:560,rm:1},P={id:'P',x:0,z:2.4,act:'free',guard:false,hp:100};A.ph2=true;for(let t=0,b=0;t<2400;t++){if(D.act==='attack'&&t-b>90)D.act='free';const o=AI.think(A,P,D,[],t);for(const c of o.list)if(c.t==='atk'){if(c.m==='groundbreaker'||c.m==='march'){if(cov)n1++;else n0++}D.act='attack';b=t}}}
  ok(n1>n0*1.15,'when the Dancer falls first the Penitent throws more heavy blows ('+n0+' -> '+n1+')')}
+// ---- The Veiled Saint: area denial, token-bound signatures ----
+{const A=AI.create(4,{foe:'saint',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:480,hpMax:480,rm:1},P={id:'P',x:0,z:7,act:'free',guard:false,hp:100};const cnt={};
+ for(let s=1;s<=30;s++){const B=AI.create(s,{foe:'saint',intro:0});B.ph2=true;for(let t=0,b=0;t<3000;t++){if(D.act==='attack'&&t-b>100)D.act='free';const o=AI.think(B,P,D,[],t);for(const c of o.list)if(c.t==='atk'){cnt[c.m]=(cnt[c.m]||0)+1;D.act='attack';b=t}}}
+ ok(cnt.lance>20&&cnt.returning>10&&cnt.consecrate>10&&cnt.procession>5,'she fires lances and blades and lays both kinds of ring ('+JSON.stringify(cnt)+')');
+ let locked=0;for(let s=1;s<=30;s++){const B=AI.create(s,{foe:'saint',intro:0});B.ph2=true;for(let t=0,b=0;t<2000;t++){if(D.act==='attack'&&t-b>100)D.act='free';B.sigLock=true;const o=AI.think(B,P,D,[],t);for(const c of o.list)if(c.t==='atk'){if(c.m==='consecrate'||c.m==='procession')locked++;D.act='attack';b=t}}}
+ ok(locked===0,'she never lays rings while an ally holds the signature token');
+ const B=AI.create(1,{foe:'saint',intro:0});B.cool=0;const o=AI.think(B,{id:'P',x:0,z:1.8,act:'free',guard:false,hp:100},{id:'D',x:0,z:0,act:'free',hp:480,hpMax:480,rm:1},[],5);ok(o.list.some(c=>c.m==='cut'),'inside 2.6 m she kicks you away')}
+{const mv=M.consecrate;ok(mv.fx.length===5&&mv.fx.every(f=>f.k==='aoe'&&f.delay>=50),'Consecration: five rings, each shown at least 50 ticks (~0.8 s) before it erupts');
+ const rs=mv.fx.map(f=>[f.ox,f.oz]);let gap=true;for(const g of [[2.4,2.4],[-2.4,2.4],[2.4,-2.4],[-2.4,-2.4]]){if(rs.some(r=>Math.hypot(r[0]-g[0],r[1]-g[1])<mv.fx[0].r+.2))gap=false}ok(gap,'and there is a safe gap between the rings on every diagonal')}
 // ---- flask punishment: drinking a flask puts every foe back on you (Vael / Skrag with a special answer), at most once per 5 s each ----
 {const mk=(foe,dist)=>{const A=AI.create(3,{foe,intro:0}),D={id:'D',x:0,z:0,act:'free',hp:300,hpMax:300,rm:1},P={id:'P',x:0,z:dist,act:'free',guard:false,hp:100};return{A,D,P}};
  let a=mk('stalker',6);ok(AI.hunt(a.A)===true,'Vael accepts a flask hunt');let o=AI.think(a.A,a.P,a.D,[],5);ok(o.list.length===1&&o.list[0].m==='blink','far from you he blinks onto you');

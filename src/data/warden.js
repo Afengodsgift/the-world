@@ -23,7 +23,7 @@ const WARDEN={
     {id:'blackgate',n:"The Black Knight's Gate",x:-128,z:-28,R:22,y:2.5,fog:true,foes:[{t:'darkknight',dx:0,dz:-7}]},
     {id:'crimsonspire',n:"Vael's Crimson Spire",x:-80,z:125,R:22,y:2.5,fog:true,foes:[{t:'vampire',dx:0,dz:-7}]},
     {id:'ember',n:"Kage's Ember Dojo",x:-30,z:150,R:22,y:2.5,fog:true,foes:[{t:'samurai',dx:0,dz:-7}]},
-    {id:'oaths',n:'The Oath Chamber',x:-165,z:20,R:24,y:2.5,fog:true,hidden:true,req:4,foes:[{t:'penitent',dx:-5,dz:-8},{t:'veil',dx:5,dz:-8}]},
+    {id:'oaths',n:'The Oath Chamber',x:-165,z:20,R:24,y:2.5,fog:true,hidden:true,req:4,foes:[{t:'penitent',dx:-7,dz:-8},{t:'saint',dx:0,dz:-12},{t:'veil',dx:7,dz:-8}]},
     {id:'snarepit',n:"Skrag's Snare Pit",x:-142,z:-92,R:22,y:2.5,fog:true,foes:[{t:'goblin',dx:0,dz:-7}]},
     {id:'arena',n:'The Ashen Arena',x:60,z:105,R:26,y:2.5,fog:false,duel:true,foes:[{t:'shade',dx:0,dz:-9}]},
     {id:'camp3',n:'The Drowned Camp',x:-100,z:15,R:16,y:2.5,fog:false,foes:[{t:'soldier',dx:-4,dz:-2},{t:'soldier',dx:4,dz:-2},{t:'soldier',dx:0,dz:-6}]},
