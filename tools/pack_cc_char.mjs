@@ -62,7 +62,7 @@ const bones=[];for(const [name,par,cc] of TREE){const si=srcOf(cc);if(si<0){cons
 const byM=new Map(bones.map(b=>[b.m,b]));
 // ---- facing + scale: face +Z (Mixamo), hips at hipsCm
 const hipsW=Wsrc[byM.get('Hips').si],hp=new T.Vector3().setFromMatrixPosition(hipsW),toe=new T.Vector3().setFromMatrixPosition(Wsrc[byM.get('LeftToeBase').si]),foot=new T.Vector3().setFromMatrixPosition(Wsrc[byM.get('LeftFoot').si]);
-const flip=toe.z-foot.z<0,R=new T.Matrix4().makeRotationY(flip?Math.PI:0),sc=+hipsCm/hp.y;
+const flip=process.env.FLIP!==undefined?process.env.FLIP==="1":toe.z-foot.z<0,R=new T.Matrix4().makeRotationY(flip?Math.PI:0),sc=+hipsCm/hp.y;
 console.log('hips y',hp.y.toFixed(3),'scale to cm',sc.toFixed(3),flip?'(model faced -Z: turned around)':'(faces +Z)');
 const Wout=bones.map(b=>{const m=Wsrc[b.si].clone();m.premultiply(R);m.elements[12]*=sc;m.elements[13]*=sc;m.elements[14]*=sc;
   const p=new T.Vector3(),q=new T.Quaternion(),s=new T.Vector3();m.decompose(p,q,s);return new T.Matrix4().compose(p,q,new T.Vector3(1,1,1))});   // unit scale: bone frames stay rigid

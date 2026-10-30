@@ -35,7 +35,7 @@ const CombatCore=(()=>{
     const mv={id:(m.id||'fx'),dmg:d.dmg!==undefined?d.dmg:m.dmg,pdmg:d.pdmg!==undefined?d.pdmg:m.pdmg,hs:d.hs!==undefined?d.hs:m.hs,stun:d.stun!==undefined?d.stun:m.stun,kb:d.kb!==undefined?d.kb:m.kb,reach:0,w:0};
     const fx={id,o:a.id,team:a.team,k:d.k,x:a.x,z:a.z,dx:0,dz:0,spd:0,r:(d.r||.5)*(d.k==='aoe'?a.rm||1:1),life:d.life||60,delay:d.delay||0,dur:d.dur||3,live:false,done:{},mv};
     if(d.k==='proj'){let dx=Math.sin(a.face),dz=Math.cos(a.face);if(d.aim!=='face'&&t){const L=Math.hypot(t.x-a.x,t.z-a.z)||1;dx=(t.x-a.x)/L;dz=(t.z-a.z)/L}fx.dx=dx;fx.dz=dz;fx.x=a.x+dx*(d.off||.8);fx.z=a.z+dz*(d.off||.8);fx.spd=d.spd||.25}
-    else{const at=d.at||'self';if(at==='target'&&t){fx.x=t.x;fx.z=t.z}else if(at==='ahead'){fx.x=a.x+Math.sin(a.face)*(d.d||3);fx.z=a.z+Math.cos(a.face)*(d.d||3)}}
+    else{const at=d.at||'self';if(at==='target'&&t){fx.x=t.x;fx.z=t.z}else if(at==='ahead'){fx.x=a.x+Math.sin(a.face)*(d.d||3);fx.z=a.z+Math.cos(a.face)*(d.d||3)}fx.x+=d.ox||0;fx.z+=d.oz||0}
     C.fx.push(fx);emit(C,'fx',a.id,null,{fid:id,k:fx.k,x:fx.x,z:fx.z,dx:fx.dx,dz:fx.dz,r:fx.r,delay:fx.delay,dur:fx.dur,spd:fx.spd,life:fx.life,move:mv.id});return fx}
   function skipEmpty(f){while(f.act==='attack'&&f.ph[f.pi]&&f.pk>=f.ph[f.pi].n){f.pi++;f.pk=0}if(f.act==='attack'&&f.pi>=f.ph.length)f.act='free'}
   const recT=f=>{if(!f.ph||f.act!=='attack')return -1;const p=f.ph[f.pi];return p&&p.k==='recovery'?f.pk:-1};
@@ -73,7 +73,7 @@ const CombatCore=(()=>{
       else if(f.act==='dodge'){const D=Moves.dodge,i=f.pt-D.rootT0;if(i>=0&&i<Moves.dodgeRoot.length)moveBy(C,f,f.dir[0]*Moves.dodgeRoot[i],f.dir[1]*Moves.dodgeRoot[i])}
       if(f.kr>0){const s=Math.min(f.kr,.12);f.kr-=s;moveBy(C,f,f.kx*s,f.kz*s)}}
     // (3b) effects: `release` phases fire their effects on the first tick; live effects move / burst and add to the same outcome list as the sword
-    for(const aid of C.order){const a=C.F[aid];if(a.act!=='attack'||!a.mv||!a.mv.fx)continue;const p=a.ph[a.pi];if(p&&p.k==='release'&&a.pk===0)for(const d of a.mv.fx)if(d.on==='release')spawnFx(C,a,d)}
+    for(const aid of C.order){const a=C.F[aid];if(a.act!=='attack'||!a.mv||!a.mv.fx)continue;const p=a.ph[a.pi];if(p&&a.pk===0&&(p.k==='release'||p.k==='release2'))for(const d of a.mv.fx)if(d.on===p.k)spawnFx(C,a,d)}
     const out=[];
     if(C.fx.length)C.fx=C.fx.filter(fx=>{const own=C.F[fx.o]||{id:fx.o,team:fx.team},foes=C.order.map(i=>C.F[i]).filter(t=>t.act!=='dead'&&!(fx.team&&t.team===fx.team)&&t.id!==fx.o);
       const iframe=t=>t.act==='dodge'&&t.pt>=Moves.dodge.iStart&&t.pt<=Moves.dodge.iEnd;
