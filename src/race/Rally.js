@@ -326,7 +326,9 @@ const Rally=(()=>{
     BTN.boost=BTN.hand=BTN.rec=false;
     try{const a=SFX.eng;if(a&&SFX.ctx){const t=SFX.ctx.currentTime;a.v.gain.setTargetAtTime(0,t,.05);SFX.eng2.v.gain.setTargetAtTime(0,t,.05);SFX.wind.v.gain.setTargetAtTime(0,t,.05);if(SFX.skid)SFX.skid.v.gain.setTargetAtTime(0,t,.05)}}catch(e){}
   }
-  function ensureWorld(){if(!world&&T&&typeof scene!=='undefined'&&scene&&typeof RallyWorld!=='undefined'){try{world=TC[TRK].world=RallyWorld.build(T,scene,H)}catch(e){console.error('RallyWorld',e)}}}
+  let kitAsked=false;
+  function ensureWorld(){if(!kitAsked&&typeof RallyWorld!=='undefined'&&RallyWorld.loadKit){kitAsked=true;RallyWorld.loadKit('assets/rally/kit.json').catch(e=>console.warn('rally kit',e))}
+  if(!world&&T&&typeof scene!=='undefined'&&scene&&typeof RallyWorld!=='undefined'){try{world=TC[TRK].world=RallyWorld.build(T,scene,H)}catch(e){console.error('RallyWorld',e)}}}
   function pin(){ // the avatar rides along (so world streaming, culling and presence follow the car), invisible to us
     const c=ME.c;S.x=c.x;S.y=c.y;S.z=c.z;S.vy=0;S.grounded=true;S.flying=false;S.rot=c.h;
     if(me){me.position.set(c.x,c.y,c.z);me.visible=false}

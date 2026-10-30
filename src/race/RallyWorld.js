@@ -32,6 +32,8 @@ const RallyWorld=(()=>{
     return cv(64,64,(g,w,h)=>{g.fillStyle='#ffcf2e';g.fillRect(0,0,w,h);g.fillStyle='#1b1b1b';for(let i=-2;i<6;i++){g.beginPath();g.moveTo(i*16,0);g.lineTo(i*16+8,0);g.lineTo(i*16+8+h,h);g.lineTo(i*16+h,h);g.fill()}});
   }
 
+  const RW={kit:null,pending:[]};
+  function loadKit(url){return fetch(url).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).then(k=>{RW.kit=k;for(const f of RW.pending.splice(0))try{f(k)}catch(e){console.error('RallyWorld kit',e)}return k})}
   function build(T,scene,H){
     const _f={};
     const root=new THREE.Group();root.name='rally-world';
@@ -121,9 +123,48 @@ const RallyWorld=(()=>{
     for(const g of T.gates)if(g.k==='touchdown'){const d=new THREE.Mesh(new THREE.RingGeometry(10,14,40),new THREE.MeshBasicMaterial({color:0x6fe3ff,transparent:true,opacity:.5,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
       d.rotation.x=-Math.PI/2;d.position.set(g.x,g.y+.12,g.z);root.add(d);discs.push(d)}
     scene.add(root);
+
+    // ---- trackside dressing from the Modular Race Kart kit (assets/rally/kit.json, baked by tools/bake_rally_kit.js): finish/start banners, curve warning signs,
+    // hay bales on the outside of tight bends, rails along raised decks, rocks beside the road. Purely visual; added once the kit has loaded. ----
+    let dressed=false;
+    function dress(K){
+      if(dressed||!K)return;dressed=true;
+      const mat=new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide}),geos={},want={};
+      const geo=k=>geos[k]||(geos[k]=(()=>{const q=K[k];if(!q)return null;const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(q.p,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(q.n,3));g.setAttribute('color',new THREE.Float32BufferAttribute(q.c,3));return g})());
+      const put=(k,x,y,z,th,sx,sy,sz)=>{(want[k]||(want[k]=[])).push([x,y,z,th,sx,sy==null?sx:sy,sz==null?sx:sz])};
+      const pj={};let seed=12345;const rnd=()=>(seed=(seed*1664525+1013904223)>>>0)/4294967296;
+      // start / finish banners across the road
+      for(const g of T.gates){if(g.k!=='finish'&&g.k!=='start')continue;const p=T.project(g.x,g.z,pj,-1),W=T.roads[p.road].W[pj.i]||16,th=Math.atan2(-g.nz,g.nx),sc=Math.min(7,(W+3)/3.1),lat=.5*sc;
+        put('finish',g.x-Math.sin(th)*lat,g.y,g.z-Math.cos(th)*lat,th,sc)}
+      for(const r of T.roads){
+        const m=r.m;let lastBend=-1e9,lastRock=-1e9,rails=0;
+        for(let i=6;i<m-6;i++){
+          const nx=-r.TZ[i],nz=r.TX[i],W=r.W[i],th=Math.atan2(-r.TZ[i],r.TX[i]);
+          // tight bends: turn of the tangent across ~±8 samples
+          const a=Math.atan2(r.TX[i-6]*r.TZ[i+6]-r.TZ[i-6]*r.TX[i+6],r.TX[i-6]*r.TX[i+6]+r.TZ[i-6]*r.TZ[i+6]),span=r.S[i+6]-r.S[i-6];
+          if(Math.abs(a)>.5&&span<60&&r.S[i]-lastBend>55&&r.S[i]>40&&!r.alt){
+            lastBend=r.S[i];const outer=a>0?-1:1;   // a>0 turns one way; the outside of the bend is the other side
+            for(const k of [-1,0,1]){const j=Math.min(m-1,Math.max(0,i+k*3)),ox=-r.TZ[j]*outer,oz=r.TX[j]*outer,d=W/2+2.2;put('bale',r.X[j]+ox*d,r.Y[j],r.Z[j]+oz*d,Math.atan2(-r.TZ[j],r.TX[j])+(rnd()-.5)*.4,2.6)}
+            const b=Math.max(0,i-Math.round(38/Math.max(1,r.S[i]/i))),bx=-r.TZ[b],bz=r.TX[b];   // a warning sign ~38 m before the bend, on the right-hand verge
+            put(Math.abs(a)>1.9?'sign180':Math.abs(a)>.9?'sign90':'signS',r.X[b]-bx*(r.W[b]/2+2.2),r.Y[b],r.Z[b]-bz*(r.W[b]/2+2.2),Math.atan2(-r.TZ[b],r.TX[b]),3.4)
+          }
+          // rails on raised decks
+          if(i%5===0&&rails<300){const lx=r.X[i]+nx*W/2,lz=r.Z[i]+nz*W/2,rx=r.X[i]-nx*W/2,rz=r.Z[i]-nz*W/2;
+            if(r.Y[i]-Math.min(H(lx,lz),H(rx,rz))>3){put('rail',lx,r.Y[i]+.05,lz,th,5.2,2.2,2.2);put('rail',rx,r.Y[i]+.05,rz,th,5.2,2.2,2.2);rails+=2}}
+          // rocks beside the road, on land only
+          if(r.S[i]-lastRock>38&&rnd()<.55){lastRock=r.S[i];const sd=rnd()<.5?-1:1,d=W/2+9+rnd()*10,x=r.X[i]+nx*sd*d,z=r.Z[i]+nz*sd*d;
+            if(H(x,z)>.8&&r.Y[i]-H(x,z)<2)put(rnd()<.5?'rock':'rock2',x,H(x,z)-.2,z,rnd()*6.28,2+rnd()*3)}
+        }
+      }
+      const dm=new THREE.Object3D();
+      for(const k of Object.keys(want)){const g=geo(k);if(!g)continue;const L=want[k],im=new THREE.InstancedMesh(g,mat,L.length);im.frustumCulled=false;
+        L.forEach((q,n)=>{dm.position.set(q[0],q[1],q[2]);dm.rotation.set(0,q[3],0);dm.scale.set(q[4],q[5],q[6]);dm.updateMatrix();im.setMatrixAt(n,dm.matrix)});root.add(im)}
+      return Object.keys(want).map(k=>k+':'+want[k].length).join(' ');
+    }
+    if(RW.kit)dress(RW.kit);else RW.pending.push(dress);
     let lastNext=-1;
     const _h={};
-    return {root,
+    return {root,dress,
       // raceT: seconds on the hammers' clock; next: index of the next gate (highlighted), t: wall seconds for pulses
       update(raceT,next,t,bz){
         for(let i=0;i<bonusRings.length;i++){const m=bonusRings[i],got=bz&&bz.indexOf(i)>=0;m.material.opacity=got?.1:.7+.3*Math.sin(t*5+i);m.scale.setScalar(got?1:1+.05*Math.sin(t*4+i))}
@@ -136,5 +177,5 @@ const RallyWorld=(()=>{
       },
       dispose(){scene.remove(root);root.traverse(o=>{if(o.geometry)o.geometry.dispose()})}};
   }
-  return {build};
+  return {build,loadKit,get kit(){return RW.kit}};
 })();

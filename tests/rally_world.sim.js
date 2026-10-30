@@ -4,7 +4,7 @@ const fs=require('fs'),vm=require('vm'),R=require('path').join(__dirname,'..')+'
 const THREE=require('three');
 const g2d=new Proxy({},{get:(t,k)=>k==='measureText'?()=>({width:10}):k==='createLinearGradient'||k==='createRadialGradient'?()=>({addColorStop(){}}):()=>{},set:()=>true});
 const doc={createElement:()=>({width:0,height:0,getContext:()=>g2d,style:{}})};
-const ctx={Math,Object,Number,JSON,Array,isFinite,Map,Float32Array,Uint16Array,Uint32Array,console,THREE,document:doc,Set,String,Date};vm.createContext(ctx);
+const ctx={Math,Object,Number,JSON,Array,isFinite,Map,Float32Array,Uint16Array,Uint32Array,console,THREE,document:doc,Set,String,Date,Float32Array};vm.createContext(ctx);
 vm.runInContext(['src/data/rally.js','src/race/CarPhysics.js','src/data/tracks.js','src/race/Track.js','src/race/RallyWorld.js'].map(f=>fs.readFileSync(R+f,'utf8')).join('\n')+';this.TR=TRACKS;this.Tk=Track;this.RW=RallyWorld',ctx);
 const {TR,Tk,RW}=ctx;
 let fails=0;const ok=(c,m)=>{if(!c){fails++;console.log('FAIL',m)}else console.log('ok  ',m)};
@@ -18,5 +18,11 @@ for(const id of Object.keys(TR)){
   let meshes=0,tris=0;w.root.traverse(o=>{if(o.isMesh){meshes++;const g=o.geometry;tris+=(g.index?g.index.count:g.attributes.position.count)/3}});
   ok(meshes>T.gates.length&&tris>5000,`${id}: ${meshes} meshes, ${tris|0} triangles drawn`);
   ok(scene.children.includes(w.root),`${id}: world is in the scene`);
+  const kit=JSON.parse(fs.readFileSync(R+'assets/rally/kit.json','utf8')),before=meshes;let info=null,e2=null;
+  try{info=w.dress(kit);w.dress(kit)}catch(e){e2=e}
+  let m2=0;w.root.traverse(o=>{if(o.isMesh)m2++});
+  ok(!e2&&info,`${id}: kit dressing builds (${info||e2&&e2.message})`);
+  ok(m2>before&&m2-before<=16,`${id}: dressing adds a few instanced meshes only (${m2-before}), and dressing twice does nothing extra`);
+  ok(/finish:/.test(info||'')&&/bale:/.test(info||'')&&/sign/.test(info||''),`${id}: has finish banner, bales and signs`);
 }
 process.exit(fails?1:0);
