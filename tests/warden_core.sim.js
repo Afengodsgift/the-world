@@ -50,6 +50,15 @@ const duel2=(o)=>{o=o||{};const C=CC2.create({arena:o.arena||{x:0,z:0,R:14},soli
   ok(stag>=80,'and he is staggered for >= 80 ticks ('+stag+')');
   let cutF=null;for(let gt=1;gt<60&&!cutF;gt++){const r2=run1('cut',gt);if(r2.evs.some(e=>e.t==='deflect'))cutF=r2}
   ok(cutF&&!cutF.evs.some(e=>e.t==='brokenguard'),'deflecting an ordinary cut does not break his guard')}
+// ---------- E3. the Rise: a boss with .rise is felled at its phase line, lies down ~5.6 s untouchable, then gets up ----------
+{const{C,P,D}=duel2({D:{hp:200,pg:.5,rise:1}});D.hpMax=200;D.hp=200;let fell=null,evs=[];
+  for(let i=0;i<80&&!fell;i++){C.step(i===0?{P:{list:[{t:'heavyDown'}]}}:{});D.hp=Math.min(D.hp,101)}
+  // drive the damage directly through a light attack until the phase line fires
+  const{C:C2,P:P2,D:D2}=duel2({D:{hp:120,pg:.5,rise:1},P:{dm:8}});D2.hpMax=120;D2.hp=120;let ph=null;
+  for(let i=0;i<900&&!ph;i++){const cm={};if(P2.act==='free'&&i%40===0)cm.P={list:[{t:'light',e:C2.tick+1}]};const ev=C2.step(cm);for(const e of ev)if(e.t==='phase')ph=e}
+  ok(ph&&ph.rise===1,'crossing the phase line starts the Rise');ok(D2.act==='stun'&&D2.sk==='rise'&&D2.stun>=300,'he is down for >= 300 ticks ('+D2.stun+')');
+  const hp0=D2.hp;for(let i=0;i<120;i++){C2.step(P2.act==='free'&&i%30===0?{P:{list:[{t:'light',e:C2.tick+1}]}}:{})}ok(D2.hp===hp0,'nothing lands while he is down');
+  for(let i=0;i<260;i++)C2.step({});ok(D2.act==='free'||D2.act==='attack','then he is back on his feet');ok(D2.hp>0&&D2.hp<=Math.ceil(120*.5),'in his second phase, hp '+D2.hp)}
 // ---------- E. deflect window ----------
 {const res={};for(let d=0;d<=12;d++){const{C,P,D}=duel2({});const gt=tH-d;if(gt<1)continue;const evs=[];C.step({D:{list:[{t:'atk',m:'cut'}]},P:gt===1?{list:[{t:'guardDown'}]}:{}});
   for(let i=1;i<60;i++){const cm={};if(C.tick+1===gt)cm.P={list:[{t:'guardDown'}]};for(const e of C.step(cm))evs.push(e)}const e=evs.find(e=>['hit','block','deflect'].includes(e.t));res[d]=e?e.t:'none'}
