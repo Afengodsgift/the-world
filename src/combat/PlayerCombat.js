@@ -11,7 +11,7 @@ const PlayerCombat=(()=>{
   let mxSaid='',on=false,C=null,ST=null,P=null,D=null,t0=0,lx=0,lz=0,lock=false,lockI=0,pendFace=null,pendT=0;
   const down={guard:false,heavy:false};              // logical button state (what the sim was told)
   const ptr={};                                       // touch: button -> pointerId
-  let el=null,sword=null,swordTried=false,pAnim=null,site=null,foes=[],fightN=0,state='fight',stateT=0,lastEv=[],byId={},dFlashT=0,felled=0;
+  let el=null,sword=null,sword2=null,swordTried=false,pAnim=null,site=null,foes=[],fightN=0,state='fight',stateT=0,lastEv=[],byId={},dFlashT=0,felled=0;
   const RT={};                                        // site id -> {foes:[], cleared:bool}
   const pv={x:0,z:0,vf:0,vs:0,sp:0,init:false};
   const cur=WardenAnim.copy(WardenAnim.POSES.ready),tg=WardenAnim.copy(WardenAnim.POSES.ready);let stW=0,gT=0,msgT=0,lastTone=0;
@@ -71,10 +71,10 @@ const PlayerCombat=(()=>{
   let wst=WardenGear.stats();
   let myStyle=(()=>{try{const v=localStorage.getItem('wstyle');return WardenStyle.valid(v)?v:WardenStyle.DEFAULT}catch(e){return WardenStyle.DEFAULT}})(),pStyle=WardenStyle.DEFAULT,sty=WardenStyle.get(myStyle);
   const styId=()=>site&&site.duel?WardenStyle.DEFAULT:myStyle;   // duels ignore styles
-  function setStyle(id){if(!WardenStyle.valid(id))return false;myStyle=id;sty=WardenStyle.get(id);try{localStorage.setItem('wstyle',id)}catch(e){}if(on&&P)applyStats();try{if(NET.mode!=='solo')WardenNet.send({k:'sty',s:NET.site,y:id})}catch(e){}return true}
+  function setStyle(id){if(!WardenStyle.valid(id))return false;myStyle=id;if(id!=='twin'&&sword2){sword2.dead=true;try{sword2.grip&&sword2.grip.parent&&sword2.grip.parent.remove(sword2.grip)}catch(e){}sword2=null}sty=WardenStyle.get(id);try{localStorage.setItem('wstyle',id)}catch(e){}if(on&&P)applyStats();try{if(NET.mode!=='solo')WardenNet.send({k:'sty',s:NET.site,y:id})}catch(e){}return true}
   function applyStats(){const duel=site&&site.duel,st=duel?{hp:100,st:100,dm:1,belt:0}:PG.stats();wst=WardenGear.stats();sty=WardenStyle.get(styId());const m=WardenStyle.mix(wst,styId());wst=Object.assign({},wst,{flow:m.flow});const hp=Math.round(st.hp*m.hp);P.hpMax=hp;P.hp=hp;P.stMax=Math.round(st.st*(sty.st||1));P.st=P.stMax;baseDm=st.dm*m.dm;P.dm=baseDm;P.rm=wst.rm;P.sm=m.sm;P.pm=m.pm;P.dfl=m.dfl+(duel&&DU.pair?3:0);P.bk=sty.back||0}
   const pRole=()=>WardenGear.TYPES[WardenGear.equipped().ty].role||'player';
-  function swapModel(){if(pAnim){try{pAnim.off()}catch(e){}pAnim=null}if(sword){sword.dead=true;try{if(sword.grip&&sword.grip.parent)sword.grip.parent.remove(sword.grip)}catch(e){}}sword=null;swordTried=false}
+  function swapModel(){if(pAnim){try{pAnim.off()}catch(e){}pAnim=null}for(const w of [sword,sword2])if(w){w.dead=true;try{if(w.grip&&w.grip.parent)w.grip.parent.remove(w.grip)}catch(e){}}sword=null;sword2=null;swordTried=false}
   if(typeof AvatarKit!=='undefined')AvatarKit.onSwap(g=>{if(typeof me!=='undefined'&&g===me)swapModel()});   // the player's avatar body changed: drop the sword + clip layer built on the old rig (rebuilt on the next frame)
   function toast(t,sec){if(!toastEl){toastEl=document.createElement('div');toastEl.id='wtoast';document.body.appendChild(toastEl)}toastEl.textContent=t;toastEl.classList.add('on');toastT=sec||2.4}
   function say(t,sec){if(on&&el)msg(t,sec);else toast(t,sec)}
@@ -386,12 +386,14 @@ const PlayerCombat=(()=>{
   function ensureAvatars(){
     if(!pAnim&&me.userData.mixer)pAnim=WardenMX.make(me.userData,pRole());
     if(!sword&&!swordTried&&me.userData.bones){swordTried=true;{const WT=WardenGear.TYPES[WardenGear.equipped().ty];sword=attachSword(me,WT.file,WT.want,{len:WT.l0,set tried(v){swordTried=v}})}}
+    if(sword&&!sword2&&sty&&sty.dual&&me.userData.bones&&me.userData.bones.LeftHand){const WT=WardenGear.TYPES[WardenGear.equipped().ty];sword2=attachSword(me,WT.file,WT.want,{len:WT.l0},null,'LeftHand')}
+    if(sword2&&!(sty&&sty.dual)){sword2.dead=true;try{if(sword2.grip&&sword2.grip.parent)sword2.grip.parent.remove(sword2.grip)}catch(e){}sword2=null}
     for(const F of foes){const b=F.body;if(!b.u.mixer)continue;styleBody(b);if(!b.anims[F.T.role])b.anims[F.T.role]=WardenMX.make(b.u,F.T.role);F.anim=b.anims[F.T.role]}}
   function engage(s){
     try{if(typeof loadEmotes==='function')loadEmotes().catch(()=>{})}catch(e){}   // the 'playdead' fall clip lives in the emote library: without it corpses (and you) just stand there
     if(on)return;if(!el)build();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenFx.build();WardenVfx.build();WardenMX.fetch(pRole(),me.userData.av).catch(()=>{});
     site=s;fightN=0;const hh=WardenNet.hostFor(s.id);NET.joined=false;startFight();if(s.duel){}else if(hh)netJoin();else netHost();for(const F of foes)WardenMX.fetch(F.T.role).catch(()=>{});
-    lx=S.x;lz=S.z;on=true;document.body.classList.add('warden-fight');document.body.classList.toggle('warden-duel',!!s.duel);ensureAvatars();if(sword&&sword.grip)sword.grip.visible=true;
+    lx=S.x;lz=S.z;on=true;document.body.classList.add('warden-fight');document.body.classList.toggle('warden-duel',!!s.duel);ensureAvatars();if(sword&&sword.grip)sword.grip.visible=true;if(sword2&&sword2.grip)sword2.grip.visible=true;
     for(const F of foes)for(const k of['sword','sword2','shield'])if(F.body[k]){const o=F.body[k].grip||F.body[k];if(o)o.visible=true}
     arenaRes(true);msg(s.n+(typeof WardenKind==='function'?' · '+WardenKind(s).tag:''),2.2);try{if(s.fog)WardenIsles.fog(s.id,'sealed')}catch(e){}}
   // Who am I fighting? With 2+ foes alive a ring + chevron marks the one your swings go to (red while it winds up an attack), and any OTHER foe that is mid-attack gets a small red ring at its feet.
@@ -750,7 +752,7 @@ const PlayerCombat=(()=>{
     decoyTick(decoy,'Z',dt);decoyTick(rdecoy,'Y',dt);
     const b=el&&el.querySelector('#wShadow');if(b){const t=shCd>0?Math.ceil(shCd):0;if(b._c!==t){b._c=t;b.textContent=t?'Shadow '+t:'Shadow';b.classList.toggle('cd',t>0)}}}
   function leave(hold){   // hold: keep the corpses of a cleared site in the world
-    if(!on)return;endSet();trapsClear();try{blinkRing(0,0,false)}catch(e){}killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');document.body.classList.remove('warden-duel');if(sword&&sword.grip)sword.grip.visible=false;pendFace=null;
+    if(!on)return;endSet();trapsClear();try{blinkRing(0,0,false)}catch(e){}killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');document.body.classList.remove('warden-duel');if(sword&&sword.grip)sword.grip.visible=false;if(sword2&&sword2.grip)sword2.grip.visible=false;pendFace=null;
     if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
     try{if(site&&site.fog)WardenIsles.fog(site.id,rt(site).cleared?'gone':'idle')}catch(e){}}
