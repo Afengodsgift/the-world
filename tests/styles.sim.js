@@ -4,7 +4,7 @@ const c={console,Math};vm.createContext(c);
 vm.runInContext(['Moves','SwordHit','Combos','CombatCore','Styles'].map(n=>fs.readFileSync(R+'src/combat/'+n+'.js','utf8')).join('\n')+';this.M=Moves;this.CC=CombatCore;this.S=WardenStyle',c);
 const {M,CC,S}=c;let bad=0;const ok=(v,m)=>{if(!v){console.log('FAIL',m);bad++}else console.log('ok',m)};
 const w={hp:1,dm:1,pm:1,sm:1,dfl:0,flow:1};
-ok(S.IDS.length===3&&S.valid('wall')&&!S.valid('nope')&&S.get('nope')===S.get(S.DEFAULT),'three styles; unknown ids fall back to the default');
+ok(S.IDS.length===4&&S.get('twin').dual===1&&S.valid('wall')&&!S.valid('nope')&&S.get('nope')===S.get(S.DEFAULT),'four styles; unknown ids fall back to the default');
 const g=S.mix(w,'ginga'),a=S.mix(w,'wall'),h=S.mix(w,'shade');
 ok(a.hp>g.hp&&a.dfl>g.dfl&&a.dm<g.dm&&h.hp<g.hp&&h.dm>g.dm&&g.flow>1,'Iron Wall: tougher, wider deflect, softer hits; Shadow Edge: frailer, harder hits; Ginga: more Flow');
 ok(S.mix({hp:1.1,dm:1.2,pm:1,sm:.8,dfl:2,flow:1.3},'wall').dfl===2+S.get('wall').dfl,'styles stack on top of weapon + affix stats');
