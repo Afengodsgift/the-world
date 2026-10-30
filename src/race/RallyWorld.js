@@ -166,11 +166,12 @@ const RallyWorld=(()=>{
     const _h={};
     return {root,dress,
       // raceT: seconds on the hammers' clock; next: index of the next gate (highlighted), t: wall seconds for pulses
-      update(raceT,next,t,bz){
+      update(raceT,next,t,bz,cx,cz){
         for(let i=0;i<bonusRings.length;i++){const m=bonusRings[i],got=bz&&bz.indexOf(i)>=0;m.material.opacity=got?.1:.7+.3*Math.sin(t*5+i);m.scale.setScalar(got?1:1+.05*Math.sin(t*4+i))}
         for(const e of heads){T.hazardPos(e.h,raceT,_h);e.head.position.set(_h.x,_h.y+1.9,_h.z);e.head.rotation.y=Math.atan2(e.h.tx,e.h.tz);e.rod.position.set(_h.x,_h.y+5.1,_h.z)}
         const pulse=.6+.4*Math.sin(t*6);
-        for(let i=0;i<T.gates.length;i++){const o=arches[i]||rings[i];if(!o)continue;const isNext=i===next,u=o.userData;
+        for(let i=0;i<T.gates.length;i++){const o=arches[i]||rings[i];if(!o)continue;const isNext=i===next,u=o.userData;if(cx!==undefined){const g=u.gate,far=Math.hypot(g.x-cx,g.z-cz)>650&&!isNext;if(o.visible===far)o.visible=!far;if(far)continue}   // distant gates are not drawn: fewer draw calls
+          
           if(u.mat.emissiveIntensity!==undefined)u.mat.emissiveIntensity=isNext?.4+.6*pulse:.18;
           else{u.mat.opacity=isNext?.55+.45*pulse:i<next?.12:.38;u.mat.color.setHex(isNext?0xffd24a:i<next?0x4a6a7a:0x6fe3ff);o.scale.setScalar(isNext?1+.03*Math.sin(t*8):1)}}
         for(const d of discs){d.material.opacity=.35+.25*Math.sin(t*3)}

@@ -307,19 +307,32 @@ const Rally=(()=>{
     if(cfx){cfx.reset();cfx.root.visible=true}
     ST.partner=net?net.id:null;
     // teleport the avatar onto the grid slot, hide it, take over the stick
-    ST.mode='countdown';ST.t=0;ST.acc=0;ST.msg=null;ST.lastPl=0;document.body.classList.add('rally');
+    raceRes(true);ST.mode='countdown';ST.t=0;ST.acc=0;ST.msg=null;ST.lastPl=0;document.body.classList.add('rally');
     ST.startAt=performance.now()+(net?net.in:4800);camS.init=false;baseFov=camera.fov;
     ST.camKids=camera.children.map(k=>[k,k.visible]);for(const [k] of ST.camKids)k.visible=false;   // held-item view models etc. stay out of the chase view
     if(me)me.visible=false;pin();hud.classList.add('on');
     hud.querySelector('#rlBar').innerHTML='';lastHud=0;
     toast(cfg.solo?'TIME TRIAL':'GET READY',1500);
   }
+  // Racing is about frame rate: render at <=1.25x pixels (as the arenas do) and skip the sun's shadow pass while the race runs; both restored on exit.
+  let resPrev=null;
+  function raceRes(on){
+    try{
+      if(on&&!resPrev){resPrev={sun:typeof sun!=='undefined'&&sun?sun.castShadow:null,dpr:null};
+        if(typeof sun!=='undefined'&&sun&&sun.castShadow)sun.castShadow=false;
+        const st=typeof Perf!=='undefined'&&Perf.state;if(st&&st.r&&!st.fixed){resPrev.dpr={dpr:st.dpr,min:st.min,locked:st.locked};st.min=1;if(st.dpr>1.25){st.dpr=1.25;st.r.setPixelRatio(1.25)}st.locked=true}}
+      else if(!on&&resPrev){
+        if(resPrev.sun&&typeof sun!=='undefined'&&sun)sun.castShadow=true;
+        const st=typeof Perf!=='undefined'&&Perf.state,d=resPrev.dpr;if(st&&d){st.min=d.min;st.locked=d.locked;if(st.dpr!==d.dpr){st.dpr=d.dpr;st.r.setPixelRatio(d.dpr)}}
+        resPrev=null}
+    }catch(e){}
+  }
   function exit(again){
     if(ST.mode==='off')return;
     if(ST.partner)send('rl:l');
     for(const x of R)destroyCar(x.o);R=[];ME=null;ST.mode='off';ST.partner=null;ST.auto=false;
     if(IS)Items.reset(IS);IS=null;if(cfx){cfx.reset();cfx.root.visible=false}   // no projectiles, mines, pickups or status effects survive a race
-    closeLobby();if(hud)hud.classList.remove('on');document.body.classList.remove('rally');
+    raceRes(false);closeLobby();if(hud)hud.classList.remove('on');document.body.classList.remove('rally');
     if(ST.camKids){for(const [k,v] of ST.camKids)k.visible=v;ST.camKids=null}
     if(me)me.visible=true;camera.fov=baseFov;camera.updateProjectionMatrix();clearInterval(ST.resT);
     if(ST.ret){S.x=ST.ret.x;S.z=ST.ret.z;S.y=Math.max(ST.ret.y,H(ST.ret.x,ST.ret.z)+.2);S.vy=0;S.rot=ST.ret.rot||S.rot;S.flying=false;S.grounded=true}
@@ -463,7 +476,7 @@ const Rally=(()=>{
       if(cfx&&IS)cfx.update(IS,R,wall,dt);
       if(ST.warn&&wall-ST.warnT>.32){ST.warnT=wall;tone(1150,.07,'square',.09)}
       if((ST.sf=(ST.sf||0)+1)%180===0)syncSolids();
-      if(world)world.update(ST.mode==='race'||ST.mode==='finish'?ST.t:0,ME.r.next,wall,ME.r.bz);
+      if(world)world.update(ST.mode==='race'||ST.mode==='finish'?ST.t:0,ME.r.next,wall,ME.r.bz,ME.c.x,ME.c.z);
       if(ST.mode==='race'&&(ST.pc=(ST.pc||0)+1)%20===0){const pl=rank().indexOf(ME)+1;if(ST.lastPl&&pl&&pl!==ST.lastPl&&R.length>1){if(pl<ST.lastPl){toast('P'+pl+' ▲',700);tone(740,.08,'triangle',.08);setTimeout(()=>tone(990,.1,'triangle',.08),70)}else tone(260,.12,'sine',.06)}ST.lastPl=pl||ST.lastPl}
       countdownUI();hudUpdate(now);sfxUpdate(dt);netTick(now);
       if(ST.msg&&ST.t-ST.msg.t<.9){toast(ST.msg.s,800);ST.msg=null}
