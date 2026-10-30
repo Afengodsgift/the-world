@@ -38,6 +38,7 @@ const RallyWorld=(()=>{
       post:new THREE.MeshLambertMaterial({color:0xdfe6f5}),dark:new THREE.MeshLambertMaterial({color:0x252a36}),
       pad:new THREE.MeshBasicMaterial({map:padTexture('#6dffb0'),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}),
       stripe:new THREE.MeshLambertMaterial({map:stripeTexture()})};
+    M.dirt=new THREE.MeshLambertMaterial({map:M.road.map,color:0xd8a468});   // shortcuts are dirt: you can see the cut from the main road
     M.road.map.wrapT=THREE.RepeatWrapping;
     // ---- road ribbons + skirts ----
     for(const r of T.roads){
@@ -50,7 +51,7 @@ const RallyWorld=(()=>{
       }
       const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('uv',new THREE.BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();
       // winding: (left_i, right_i, left_i+1) with left=P-l*hw, l=(-tz,0,tx) gives a +Y normal for every road direction
-      const mesh=new THREE.Mesh(g,M.road);mesh.receiveShadow=false;root.add(mesh);
+      const mesh=new THREE.Mesh(g,r.alt?M.dirt:M.road);mesh.receiveShadow=false;root.add(mesh);
       // skirts: wherever the deck is well above the terrain, a concrete wall down to the ground on both sides (+ end caps)
       const sp=[],si=[];const side=(sgn)=>{
         let prev=-1;
@@ -87,6 +88,19 @@ const RallyWorld=(()=>{
       mesh.position.set(g.x,g.y,g.z);mesh.rotation.y=Math.atan2(g.nx,g.nz);mesh.userData={mat,gate:g};root.add(mesh);return mesh;
     };
     for(const g of T.gates){(g.type==='ground'?arches:rings)[g.i]=g.type==='ground'?archFor(g):ringFor(g)}
+    // ---- shortcut signs: an orange gantry over the main road where a cut leaves it; gold bonus rings off the racing line ----
+    for(const f of (T.forks||[])){
+      const grp=new THREE.Group(),half=f.w/2+1.5,mat=new THREE.MeshLambertMaterial({color:0xff8a1f});
+      for(const sg of [-1,1]){const p=new THREE.Mesh(new THREE.BoxGeometry(.9,7,.9),mat);p.position.set(sg*half,3.5,0);grp.add(p)}
+      const beam=new THREE.Mesh(new THREE.BoxGeometry(half*2+.9,1.1,1.1),mat);beam.position.y=7.2;grp.add(beam);
+      const tex=bannerTexture('↘ '+f.name,'#b4530c','#fff',false),bw=Math.min(half*2,15);
+      const ban=new THREE.Mesh(new THREE.PlaneGeometry(bw,bw*96/512),new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide}));ban.position.y=5.9;grp.add(ban);
+      const y=T.at?(T.at(f.main,f.s,_f),_f.y):0;
+      grp.position.set(f.x,y,f.z);grp.rotation.y=Math.atan2(f.tx,f.tz);root.add(grp);
+    }
+    const bonusRings=(T.bonus||[]).map(b=>{
+      const mat=new THREE.MeshBasicMaterial({color:0xffd24a,transparent:true,opacity:.9,depthWrite:false,fog:false});
+      const m=new THREE.Mesh(new THREE.TorusGeometry(b.r,1.3,8,32),mat);m.position.set(b.x,b.y,b.z);m.rotation.y=Math.atan2(b.nx,b.nz);root.add(m);return m});
     // ---- boost pads ----
     for(const p of T.pads){const mesh=new THREE.Mesh(new THREE.PlaneGeometry(p.hw*2,p.hl*2),M.pad);mesh.rotation.x=-Math.PI/2;
       mesh.rotation.order='YXZ';mesh.rotation.y=Math.atan2(p.tx,p.tz);mesh.position.set(p.x+(-p.tz)*p.lat,p.y+.09,p.z+p.tx*p.lat);root.add(mesh)}
@@ -107,10 +121,11 @@ const RallyWorld=(()=>{
       d.rotation.x=-Math.PI/2;d.position.set(g.x,g.y+.12,g.z);root.add(d);discs.push(d)}
     scene.add(root);
     let lastNext=-1;
-    const _h={};
+    const _h={},_f={};
     return {root,
       // raceT: seconds on the hammers' clock; next: index of the next gate (highlighted), t: wall seconds for pulses
-      update(raceT,next,t){
+      update(raceT,next,t,bz){
+        for(let i=0;i<bonusRings.length;i++){const m=bonusRings[i],got=bz&&bz.indexOf(i)>=0;m.material.opacity=got?.1:.7+.3*Math.sin(t*5+i);m.scale.setScalar(got?1:1+.05*Math.sin(t*4+i))}
         for(const e of heads){T.hazardPos(e.h,raceT,_h);e.head.position.set(_h.x,_h.y+1.9,_h.z);e.head.rotation.y=Math.atan2(e.h.tx,e.h.tz);e.rod.position.set(_h.x,_h.y+5.1,_h.z)}
         const pulse=.6+.4*Math.sin(t*6);
         for(let i=0;i<T.gates.length;i++){const o=arches[i]||rings[i];if(!o)continue;const isNext=i===next,u=o.userData;

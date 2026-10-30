@@ -8,22 +8,33 @@
 // Combat racing (Items.js + RallyCombatFx.js): pickups, six items, victim-authoritative hits over Net (rl:pk / rl:fire / rl:mine / rl:burst / rl:hit).
 // Globals used: THREE, scene, camera, renderer, S, me, others, H, keys, banner, Net, myId, myName, entered, Fx, $, CarPhysics, Track, Pilot, RallyWorld, RALLY, TRACKS.
 const Rally=(()=>{
-  const CP=CarPhysics,Tk=Track,DT=1/60,TRACK_ID='skybreak-1';
+  const CP=CarPhysics,Tk=Track,DT=1/60,TRACK_IDS=['skybreak-1','skybreak-2'];
   const clamp=(v,a,b)=>v<a?a:v>b?b:v,wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
   const ST={mode:'off',acc:0,startAt:0,t:0,go:false,cfg:null,ret:null,rid:null,partner:null,lastNet:0,finAt:0,shake:0,punch:0,flash:0,auto:false,err:0};
   const IN={ix:0,iy:0},BTN={boost:false,hand:false,rec:false,item:false},touch=matchMedia&&matchMedia('(pointer:coarse)').matches;
   let T=null,world=null,IS=null,cfx=null,R=[],ME=null,env=null,hud=null,fab=null,sheet=null,inv=null,lastHud=0,camS={yaw:0,x:0,y:0,z:0,fov:65,init:false},baseFov=65,lastClock=0;
-  const models={};
+  const models={},TC={};let TRK='skybreak-1';
   const best=()=>{try{return +localStorage.getItem('wrally_best')||0}catch(e){return 0}};
   const setBest=t=>{try{localStorage.setItem('wrally_best',String(t))}catch(e){}};
   const fmt=t=>{if(!(t>=0))return '--:--.-';const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(1)};
 
   // ---------------------------------------------------------------- track
+  // Every course is built once and cached with its own world meshes and combat visuals; switching hides one and shows the other.
+  function builtTrack(id){
+    if(typeof TRACKS==='undefined'||typeof H!=='function'||!TRACKS[id])return null;
+    let c=TC[id];if(!c){const t=Tk.build(TRACKS[id],{H});c=TC[id]={T:t,env:{ground:t.ground,surf:t.surf,landOK:t.landOK,block:t.block},world:null,cfx:null}}
+    return c;
+  }
   function ensureTrack(){
-    if(T||typeof TRACKS==='undefined'||typeof H!=='function')return T;
-    T=Tk.build(TRACKS[TRACK_ID],{H});env={ground:T.ground,surf:T.surf,landOK:T.landOK,block:T.block};
+    const c=builtTrack(TRK);if(!c)return T;
+    if(T!==c.T){T=c.T;env=c.env;world=c.world;cfx=c.cfx;ST.solN=-1}
     syncSolids();
     return T;
+  }
+  function setTrack(id){
+    if(ST.mode!=='off'||!TRACKS||!TRACKS[id]||id===TRK)return;
+    if(world)world.root.visible=false;if(cfx)cfx.root.visible=false;
+    TRK=id;T=null;ensureTrack();if(world)world.root.visible=true;
   }
   // The game's solid scenery (trunks, boulders, structures: the same circles the avatar collides with) becomes collision for the cars. setSolids rebuilds from
   // scratch each time, so reloading an island never duplicates anything; it is re-synced when the list changes size (islands stream their props in).
@@ -31,8 +42,10 @@ const Rally=(()=>{
   // vegetation / props keep clear of the roads (index.html's scatter add() asks). A corridor of half-width + margin around every road sample.
   let clearGrid=null;
   function clears(x,z){
-    if(!ensureTrack())return false;
-    if(!clearGrid){clearGrid=new Map();for(const r of T.roads)for(let i=0;i<r.m;i++){const k=Math.floor(r.X[i]/24)+','+Math.floor(r.Z[i]/24);let a=clearGrid.get(k);if(!a){a=[];clearGrid.set(k,a)}a.push(r.X[i],r.Z[i],r.W[i]/2+9)}}
+    if(!clearGrid){
+      for(const id of TRACK_IDS)if(!builtTrack(id))return false;
+      clearGrid=new Map();for(const id of TRACK_IDS)for(const r of TC[id].T.roads)for(let i=0;i<r.m;i++){const k=Math.floor(r.X[i]/24)+','+Math.floor(r.Z[i]/24);let a=clearGrid.get(k);if(!a){a=[];clearGrid.set(k,a)}a.push(r.X[i],r.Z[i],r.W[i]/2+9)}
+    }
     const cx=Math.floor(x/24),cz=Math.floor(z/24);
     for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const g=clearGrid.get((cx+a)+','+(cz+b));if(g)for(let i=0;i<g.length;i+=3){const dx=x-g[i],dz=z-g[i+1];if(dx*dx+dz*dz<g[i+2]*g[i+2])return true}}
     return false;
@@ -113,7 +126,8 @@ const Rally=(()=>{
 
   function onGate(R0,ev){
     const g=T.gates[ev.gate],c=R0.c,mine=R0===ME;
-    if(ev.skipped&&mine)toast('CHECKPOINT MISSED, SKIPPED');
+    if(ev.cut){if(mine){ST.punch=Math.max(ST.punch,.6);toast('SHORTCUT!  −'+ev.skipped+' GATES',1300);tone(520,.1,'square',.1);setTimeout(()=>tone(780,.14,'square',.1),90);setTimeout(()=>tone(1040,.2,'square',.1),190)}try{Fx.burst(c.x,c.y+1,c.z,'#ffd24a',16)}catch(e){}}
+    else if(ev.skipped&&mine)toast('CHECKPOINT MISSED, SKIPPED');
     if(g.mode==='fly'&&c.mode==='car'){CP.toFly(c);if(mine){ST.punch=1;ST.flash=1;transformFx(c);tone(220,.7,'sawtooth',.14,3.2);toast('SKYBREAK! FLY!',1400)}else transformFx(c)}
     if(ev.perfect&&g.type==='air'&&g.boost){CP.pad(c,1.2);if(mine){tone(880,.18,'triangle',.12);tone(1320,.22,'triangle',.1)}}
     else if(mine){tone(g.k==='finish'?660:520,.12,'triangle',.1)}
@@ -144,6 +158,8 @@ const Rally=(()=>{
       if(R0.hitCd<=0&&T.hitHazard(c.x,c.y,c.z,ST.t,1.65)>=0){R0.hitCd=1.2;c.vx*=.35;c.vz*=.35;if(R0===ME){ST.shake=.8;toast('SMASHED!',900);tone(70,.35,'square',.2,.5)}}
     }
     const g=Tk.advance(T,R0.r,c.x,c.y,c.z,ST.t);if(g.gate>=0)onGate(R0,g);
+    if(g.bonus>=0){const b=T.bonus[g.bonus];CP.pad(c,b.secs||2);try{Fx.burst(b.x,b.y,b.z,'#ffd24a',18)}catch(e){}
+      if(R0===ME){ST.flash=.6;ST.punch=Math.max(ST.punch,.5);toast('★ '+(b.name||'BONUS')+'  +BOOST',1100);tone(988,.1,'triangle',.12);setTimeout(()=>tone(1318,.16,'triangle',.12),80);setTimeout(()=>tone(1760,.24,'triangle',.1),170)}}
     const why=Tk.needsRecovery(T,R0.r,c,DT);if(why)recoverRacer(R0,why);
   }
 
@@ -177,7 +193,7 @@ const Rally=(()=>{
     // route bar: where everybody is along the whole course
     const bar=q('#rlBar');if(!bar.firstChild){for(let i=0;i<R.length;i++)bar.appendChild(el('i','rl-dot'))}
     const N=T.gates.length;
-    R.forEach((x,i)=>{const d=bar.children[i];if(!d)return;const g=T.gates[x.r.next],pg=T.gates[Math.max(0,x.r.next-1)];let f=x.r.passed;
+    R.forEach((x,i)=>{const d=bar.children[i];if(!d)return;const g=Tk.navGate(T,x.r),pg=T.gates[Math.max(0,x.r.next-1)];let f=x.r.passed;if(g&&g!==T.gates[x.r.next])f+=g.i-x.r.next;
       if(g&&!x.r.finished){const seg=Math.max(1,Math.hypot(g.x-pg.x,g.z-pg.z)),dd=Math.hypot(g.x-x.c.x,g.z-x.c.z);f+=clamp(1-dd/seg,0,.99)}else f=N;
       d.style.left=clamp(f/N,0,1)*100+'%';d.className='rl-dot '+(x===ME?'me':x.kind==='net'?'net':'ai')+(x.kind==='net'&&!x.seen?' hide':'')});
     // combat: the held item (button face), status chips, the soft lock-on reticle, the incoming-missile warning
@@ -191,7 +207,7 @@ const Rally=(()=>{
       const w=q('#rlWarn'),inc=IS&&IS.proj.find(p=>p.on&&p.kind==='rocket'&&p.tgt===ME.key);
       if(inc){const d=Math.hypot(inc.x-c.x,inc.y-c.y,inc.z-c.z);ST.warn=d<70;w.textContent='⚠ MISSILE '+Math.round(d)+' m';w.classList.toggle('on',ST.warn)}else{ST.warn=false;w.classList.remove('on')} }
     // arrow to the next gate
-    const g=T.gates[ME.r.next];if(g){const err=wrap(Math.atan2(g.x-c.x,g.z-c.z)-c.h);q('#rlArrow').style.transform='rotate('+(-err)+'rad)';q('#rlArrow').style.opacity=ST.mode==='race'?.85:0}
+    const g=Tk.navGate(T,ME.r);if(g){const err=wrap(Math.atan2(g.x-c.x,g.z-c.z)-c.h);q('#rlArrow').style.transform='rotate('+(-err)+'rad)';q('#rlArrow').style.opacity=ST.mode==='race'?.85:0}
   }
   // the nearest rival in front of the car (within range metres and a cone in radians): what a held blaster / rocket would pick
   function lockTarget(range,cone){
@@ -212,13 +228,15 @@ const Rally=(()=>{
   function openLobby(){
     if(ST.mode!=='off')return;ensureTrack();buildHud();
     sheet&&sheet.remove();sheet=el('div','sheet rl-sheet');
-    const partner=[...others.keys()][0],po=partner&&others.get(partner),pname=po&&(po.name||(po.group&&po.group.userData&&po.group.userData.nm))||'friend',cfg=openLobby.cfg||(openLobby.cfg={cls:'ace',mode:'ai',diff:'normal'});
+    const partner=[...others.keys()][0],po=partner&&others.get(partner),pname=po&&(po.name||(po.group&&po.group.userData&&po.group.userData.nm))||'friend',cfg=openLobby.cfg||(openLobby.cfg={cls:'ace',mode:'ai',diff:'normal',track:'skybreak-1'});if(cfg.track&&cfg.track!==TRK)setTrack(cfg.track);
     const stat=(k,v)=>`<div class="rl-st"><span>${k}</span><div><i style="width:${Math.round(v*100)}%"></i></div></div>`;
     const cars=Object.entries(RALLY.cls).map(([k,v])=>`<button class="chip rl-car ${cfg.cls===k?'on':''}" data-cls="${k}"><b>${v.n}</b>${stat('Speed',(v.vmax-38)/16)}${stat('Handling',(v.turn*v.grip/11-.6)/.7)}${stat('Boost',(v.charges*v.boostT*v.boostMul-7)/6)}</button>`).join('');
     const mode=(k,l,dis)=>`<button class="chip ${cfg.mode===k?'on':''}" data-mode="${k}" ${dis?'disabled':''}>${l}</button>`;
+    const trk=(k,l)=>`<button class="chip ${cfg.track===k?'on':''}" data-trk="${k}">${l}</button>`;
     const diff=(k,l)=>`<button class="chip ${cfg.diff===k?'on':''}" data-diff="${k}">${l}</button>`;
     sheet.innerHTML=`<h2>🏁 Skybreak Rally</h2>
-      <p class="rl-sub">Palm Atoll ➜ Storm Cay ➜ Frost Isle · ${(T.roads.reduce((a,r)=>a+r.len,0)/1000).toFixed(1)} km of road · 2 ramp launches · 10 sky rings · fly between the islands</p>
+      <div class="rl-row">${trk('skybreak-1','Skybreak Classic')}${trk('skybreak-2','Grand Circuit · long')}</div>
+      <p class="rl-sub">${cfg.track==='skybreak-2'?'Palm ➜ Storm ➜ Frost ➜ Palm · 3 sky crossings · a dirt shortcut (Cay Cut) and gold bonus rings for extra seconds · lands back on Palm for the finish':'Palm Atoll ➜ Storm Cay ➜ Frost Isle · 2 ramp launches · 10 sky rings · fly between the islands'} · ${(T.roads.reduce((a,r)=>a+(r.alt?0:r.len),0)/1000).toFixed(1)} km of main road</p>
       <div class="rl-row">${cars}</div>
       <div class="rl-row">${mode('solo','⏱ Time trial')}${mode('ai','🤖 vs AI')}${mode('star','👥 vs '+pname,!partner)}</div>
       <div class="rl-row" id="rlDiff" style="display:${cfg.mode==='ai'||cfg.mode==='star'?'flex':'none'}"><small>AI rivals:</small>${diff('none','None')}${diff('easy','Easy')}${diff('normal','Normal')}${diff('hard','Hard')}</div>
@@ -227,11 +245,12 @@ const Rally=(()=>{
       <p class="rl-best">Best time: ${best()?fmt(best()):'none yet'}</p>`;
     document.body.appendChild(sheet);
     sheet.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
-      if(b.dataset.cls){cfg.cls=b.dataset.cls;openLobby.refresh()}
+      if(b.dataset.trk){cfg.track=b.dataset.trk;setTrack(cfg.track);openLobby.refresh()}
+      else if(b.dataset.cls){cfg.cls=b.dataset.cls;openLobby.refresh()}
       else if(b.dataset.mode&&!b.disabled){cfg.mode=b.dataset.mode;if(cfg.mode==='solo')cfg.diff='none';else if(cfg.diff==='none')cfg.diff='normal';openLobby.refresh()}
       else if(b.dataset.diff){cfg.diff=b.dataset.diff;openLobby.refresh()}
       else if(b.classList.contains('rl-x'))closeLobby();
-      else if(b.classList.contains('rl-go')){sfxInit();closeLobby();if(cfg.mode==='star'&&partner)inviteStar(cfg,partner);else start({cls:cfg.cls,ai:cfg.mode==='solo'?'none':cfg.diff,solo:cfg.mode==='solo'})}});
+      else if(b.classList.contains('rl-go')){sfxInit();closeLobby();if(cfg.mode==='star'&&partner)inviteStar(cfg,partner);else start({cls:cfg.cls,ai:cfg.mode==='solo'?'none':cfg.diff,solo:cfg.mode==='solo',track:cfg.track})}});
   }
   openLobby.refresh=()=>{if(!sheet)return;sheet.remove();sheet=null;const s=ST.mode;ST.mode='off';openLobby();ST.mode=s};
   function closeLobby(){if(sheet){sheet.remove();sheet=null}}
@@ -261,7 +280,7 @@ const Rally=(()=>{
 
   // ---------------------------------------------------------------- lifecycle
   function start(cfg,net){
-    ensureTrack();if(!T||ST.mode!=='off')return;buildHud();closeLobby();ensureWorld();
+    if(ST.mode!=='off')return;if(cfg.track)setTrack(cfg.track);ensureTrack();if(!T)return;buildHud();closeLobby();ensureWorld();if(world)world.root.visible=true;
     ST.cfg=cfg;ST.seed=cfg.seed||(Math.random()*1e6|0);ST.rid=cfg.rid||null;
     ST.ret={x:S.x,y:S.y,z:S.z,rot:S.rot};
     const rivals={none:[],easy:['rookie','rookie','rookie'],normal:['steady','rookie','steady'],hard:['expert','steady','expert']}[cfg.ai||'none'];
@@ -274,7 +293,7 @@ const Rally=(()=>{
     rivals.forEach((sk,i)=>{R.push(newRacer('ai',names[i],cls[i],tints[i],slot++,sk,'a'+i))});
     // combat: collisions synced, a fresh item state, the pooled visuals shown
     syncSolids();IS=Items.make(T,ST.seed);ST.hits={taken:0,dealt:0};ST.uses={ai:0,hum:0};ST.tick=0;ST.warnT=0;
-    if(!cfx&&typeof RallyCombatFx!=='undefined'){try{cfx=RallyCombatFx.build(scene,T)}catch(e){console.error('RallyCombatFx',e)}}
+    if(!cfx&&typeof RallyCombatFx!=='undefined'){try{cfx=TC[TRK].cfx=RallyCombatFx.build(scene,T)}catch(e){console.error('RallyCombatFx',e)}}
     if(cfx){cfx.reset();cfx.root.visible=true}
     ST.partner=net?net.id:null;
     // teleport the avatar onto the grid slot, hide it, take over the stick
@@ -297,7 +316,7 @@ const Rally=(()=>{
     BTN.boost=BTN.hand=BTN.rec=false;
     try{const a=SFX.eng;if(a&&SFX.ctx){const t=SFX.ctx.currentTime;a.v.gain.setTargetAtTime(0,t,.05);SFX.eng2.v.gain.setTargetAtTime(0,t,.05);SFX.wind.v.gain.setTargetAtTime(0,t,.05)}}catch(e){}
   }
-  function ensureWorld(){if(!world&&T&&typeof scene!=='undefined'&&scene&&typeof RallyWorld!=='undefined'){try{world=RallyWorld.build(T,scene,H)}catch(e){console.error('RallyWorld',e)}}}
+  function ensureWorld(){if(!world&&T&&typeof scene!=='undefined'&&scene&&typeof RallyWorld!=='undefined'){try{world=TC[TRK].world=RallyWorld.build(T,scene,H)}catch(e){console.error('RallyWorld',e)}}}
   function pin(){ // the avatar rides along (so world streaming, culling and presence follow the car), invisible to us
     const c=ME.c;S.x=c.x;S.y=c.y;S.z=c.z;S.vy=0;S.grounded=true;S.flying=false;S.rot=c.h;
     if(me){me.position.set(c.x,c.y,c.z);me.visible=false}
@@ -432,7 +451,7 @@ const Rally=(()=>{
       if(cfx&&IS)cfx.update(IS,R,wall,dt);
       if(ST.warn&&wall-ST.warnT>.32){ST.warnT=wall;tone(1150,.07,'square',.09)}
       if((ST.sf=(ST.sf||0)+1)%180===0)syncSolids();
-      if(world)world.update(ST.mode==='race'||ST.mode==='finish'?ST.t:0,ME.r.next,wall);
+      if(world)world.update(ST.mode==='race'||ST.mode==='finish'?ST.t:0,ME.r.next,wall,ME.r.bz);
       countdownUI();hudUpdate(now);sfxUpdate(dt);netTick(now);
       if(ST.msg&&ST.t-ST.msg.t<.9){toast(ST.msg.s,800);ST.msg=null}
       document.body.classList.toggle('rl-flash',ST.flash>.5);
@@ -457,14 +476,14 @@ const Rally=(()=>{
   function netTick(now){if(!ST.partner)return;if(now-ST.lastNet>=100){ST.lastNet=now;send('rl:c')}}
   function inviteStar(cfg,partner){
     ST.rid=Math.random().toString(36).slice(2,8);ST.pendingCfg=cfg;
-    Net.emit('rl:inv',{rid:ST.rid,cls:cfg.cls,name:typeof myName==='string'?myName:'Friend',ai:cfg.diff==='none'?'none':cfg.diff});
+    Net.emit('rl:inv',{rid:ST.rid,tr:cfg.track,cls:cfg.cls,name:typeof myName==='string'?myName:'Friend',ai:cfg.diff==='none'?'none':cfg.diff});
     note('Invite sent. Waiting for your friend…');clearTimeout(ST.invT);ST.invT=setTimeout(()=>{if(ST.pendingCfg&&ST.mode==='off'){ST.pendingCfg=null;note('No answer. Try again or race the AI.')}},25000);
   }
   function showInvite(d,fromId){
     buildHud();inv&&inv.remove();inv=el('div','rl-inv',`<b>🏁 ${d.name||'A friend'} invites you to a Skybreak Rally</b><div><button class="btn rl-y">Join</button><button class="btn rl-n">No</button></div>`);document.body.appendChild(inv);
     const done=()=>{inv&&inv.remove();inv=null};
     inv.querySelector('.rl-n').onclick=done;
-    inv.querySelector('.rl-y').onclick=()=>{done();sfxInit();ST.joinCfg={rid:d.rid,from:fromId,cls:d.cls,name:d.name,ai:d.ai};ST.rid=d.rid;
+    inv.querySelector('.rl-y').onclick=()=>{done();sfxInit();ST.joinCfg={rid:d.rid,from:fromId,cls:d.cls,name:d.name,ai:d.ai,tr:d.tr};ST.rid=d.rid;
       Net.emit('rl:acc',{rid:d.rid,cls:openLobby.cfg?openLobby.cfg.cls:'comet',name:typeof myName==='string'?myName:'Friend'});note('Joined! Waiting for the start…')};
     setTimeout(done,30000);
   }
@@ -474,20 +493,22 @@ const Rally=(()=>{
     Net.on('rl:acc',(d,from)=>{
       if(!d||d.rid!==ST.rid||!ST.pendingCfg||ST.mode!=='off')return;const cfg=ST.pendingCfg;ST.pendingCfg=null;clearTimeout(ST.invT);
       const seed=Math.random()*1e6|0,inMs=6000;
-      Net.emit('rl:go',{rid:ST.rid,in:inMs,seed,ai:cfg.diff==='none'?'none':cfg.diff,hostCls:cfg.cls,guestCls:d.cls,hostName:typeof myName==='string'?myName:'Host'});
-      start({cls:cfg.cls,ai:cfg.diff==='none'?'none':cfg.diff,seed,rid:ST.rid,net:true},{id:from,hostFirst:true,cls:d.cls,name:d.name,in:inMs});
+      Net.emit('rl:go',{rid:ST.rid,tr:cfg.track,in:inMs,seed,ai:cfg.diff==='none'?'none':cfg.diff,hostCls:cfg.cls,guestCls:d.cls,hostName:typeof myName==='string'?myName:'Host'});
+      start({cls:cfg.cls,ai:cfg.diff==='none'?'none':cfg.diff,seed,rid:ST.rid,net:true,track:cfg.track},{id:from,hostFirst:true,cls:d.cls,name:d.name,in:inMs});
     });
     Net.on('rl:go',(d,from)=>{
       if(!d||!ST.joinCfg||d.rid!==ST.joinCfg.rid||ST.mode!=='off')return;
-      start({cls:d.guestCls,ai:d.ai,seed:d.seed,rid:d.rid,net:true},{id:from,hostFirst:false,cls:d.hostCls,name:d.hostName,in:d.in});ST.joinCfg=null;
+      start({cls:d.guestCls,ai:d.ai,seed:d.seed,rid:d.rid,net:true,track:d.tr||'skybreak-1'},{id:from,hostFirst:false,cls:d.hostCls,name:d.hostName,in:d.in});ST.joinCfg=null;
     });
     Net.on('rl:c',(d,from)=>{
       if(!d||ST.mode==='off'||d.rid!==ST.rid)return;const x=R.find(r=>r.kind==='net');if(!x)return;
       const p=CP.unpack(d.p,{});p.at=performance.now();x.pk=p;x.seen=1;
       if(x.cls!==d.c&&RALLY.cls[d.c]&&!x.clsSet){x.clsSet=1}
-      if(d.g>x.r.passed){x.r.passed=d.g;x.r.next=d.g;x.r.gT=0;x.splits.push(ST.t);
+      if(d.g>x.r.passed){const n=d.g-x.r.passed;x.r.passed=d.g;x.r.next=d.g;x.r.gT=0;
+        // a shortcut skips whole gates at once: they share one split, marked skipped, which the referee exempts
+        x.r.sk=x.r.sk||[];for(let k=0;k<n;k++){x.splits.push(ST.t);x.r.sk.push(k<n-1?1:0)}
         // referee: the partner's gate times must be physically possible (not tamper-proof, no server authority; see docs)
-        if(x.splits.length>1){const i=x.splits.length-1;if(i<T.gates.length&&x.splits[i]-x.splits[i-1]<Tk.minTime(T,i)-.6)x.cheat=true}}
+        if(n===1&&x.splits.length>1){const i=x.splits.length-1;if(i<T.gates.length&&x.splits[i]-x.splits[i-1]<Tk.minTime(T,i)-.6)x.cheat=true}}
       if(d.f&&!x.r.finished){x.r.finished=true;x.r.finishT=d.f}
       x.name=d.n||x.name;
     });

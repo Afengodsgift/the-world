@@ -124,7 +124,7 @@ const TRACKS={
   // ---- Palm south strip (the finale lands here, heading east) ----
   roads.push({id:'palm-c',o:[PALM.x,PALM.z],w:16,pts:[[-150,105,0,40],[-112,105,0,40],[-62,105,0,28],[0,105,0,20],[58,105,0,16],[108,105,0,16]]});
   // ---- the Cay Cut: a dirt shortcut across the island's hump, leaving the main road at control point 3 and rejoining it at 10 ----
-  roads.push({id:'storm-cut',o:[STORM.x,STORM.z],w:11,alt:true,shoulder:6,join:{road:'storm',p:10},pts:[[-6.3,34.8,0,11],[-18,34],[-42,26],[-72,16],[-100,8],[-122,0],[-134,-6],[-138,-12]]});
+  roads.push({id:'storm-cut',o:[STORM.x,STORM.z],w:11,alt:true,shoulder:6,join:{road:'storm',p:10},pts:[[-6.3,34.8,0,11],[-18,34],[-42,26],[-72,16],[-100,9],[-122,5],[-133,-2],[-137,-12]]});
   const gates=B.gates.slice(0,B.gates.length-1).map(g=>Object.assign({},g));            // everything but the old finish at the summit
   const gi=(road,p,extra)=>gates.findIndex(g=>g.road===road&&g.p===p);
   for(const g of gates){if(g.road==='storm'&&(g.p===5||g.p===8))g.opt=true}
