@@ -63,3 +63,9 @@ body.rl-flash::after{content:'';position:fixed;inset:0;background:radial-gradien
 .rl-warn.on{opacity:1;animation:rlblink .32s steps(2) infinite}
 @keyframes rlblink{50%{opacity:.25}}
 .rl-status{position:absolute;left:calc(env(safe-area-inset-left,0px) + 14px);top:calc(env(safe-area-inset-top,0px) + 124px);font-size:13px;font-weight:800;letter-spacing:.5px;pointer-events:none}
+
+/* speed lines: conic streaks masked to the screen edges; the jitter animation makes them shimmer like motion blur */
+.rl-lines{position:fixed;inset:-20%;pointer-events:none;z-index:9;opacity:0;transition:opacity .25s;
+  background:repeating-conic-gradient(from 0deg at 50% 50%,rgba(255,255,255,.0) 0deg 5deg,rgba(255,255,255,.5) 5.4deg 5.9deg,rgba(255,255,255,0) 6.4deg 11deg);
+  -webkit-mask-image:radial-gradient(circle at 50% 52%,transparent 42%,#000 78%);mask-image:radial-gradient(circle at 50% 52%,transparent 42%,#000 78%);animation:rlLines .32s steps(2) infinite}
+@keyframes rlLines{0%{transform:rotate(0deg) scale(1)}50%{transform:rotate(2.6deg) scale(1.03)}100%{transform:rotate(-1.4deg) scale(1)}}

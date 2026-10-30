@@ -52,7 +52,7 @@ const has=(evs,k)=>evs.some(e=>e.k===k);
 }
 
 // ======================= weapons =======================
-const SP=40;
+const SP=48;
 function duel(kind,opts){opts=opts||{};const w=arena(opts.solids),I=It.make(w.T,5),a=mk(w,'a','me',0,0,0),b=mk(w,'b',opts.bKind||'ai',opts.bx||0,opts.bz||40,0);
   a.c.vz=SP;b.c.vz=opts.bv||SP;b.c.vx=opts.bvx||0;a.item=kind;b.place=2;return {w,I,a,b,rs:[a,b]}}
 { // blaster
@@ -106,7 +106,8 @@ function duel(kind,opts){opts=opts||{};const w=arena(opts.solids),I=It.make(w.T,
   const out=run(d.w,d.I,d.rs,3,(r)=>({thr:1}));ok(has(out,'hit'),'and hits a car that just keeps driving (fired from a sensible 35 m)');
   // limited tracking: a car that turns hard away at the last moment is missed
   const w=arena(),I=It.make(w.T,6),a=mk(w,'a','me',0,0,0),v=mk(w,'v','ai',0,38,0);a.c.vz=SP;v.c.vz=SP;a.item='rocket';const rs=[a,v];It.use(I,a,rs);
-  const out2=run(w,I,rs,5,(r,t)=>r===v?{thr:1,steer:t>1.1?(t<1.7?1:0):0}:{thr:1});   // the rocket arrives at ~2.1 s; a swerve ~1 s before that clears it (the missile warning gives ~2.8 s of notice)
+  let tHit=null;{const w0=arena(),I0=It.make(w0.T,6),a0=mk(w0,'a','me',0,0,0),v0=mk(w0,'v','ai',0,38,0);a0.c.vz=SP;v0.c.vz=SP;a0.item='rocket';It.use(I0,a0,[a0,v0]);run(w0,I0,[a0,v0],5,(r)=>({thr:1}),(e,t)=>{if(e.k==='hit'&&tHit===null)tHit=t})}   // when does it arrive if you just drive?
+  const out2=run(w,I,rs,5,(r,t)=>r===v?{thr:1,steer:t>tHit-1.0?(t<tHit-.4?1:0):0}:{thr:1});   // a swerve ~1 s before it arrives clears it (the missile warning gives ~2.8 s of notice)
   ok(!has(out2,'hit'),'a rocket can be dodged: swerving about a second before impact beats its limited turn rate');
   ok(has(out2,'expire')||has(out2,'impact'),'a missed rocket always ends (it never chases forever)');
   const life=(()=>{const w=arena(),I=It.make(w.T,6),a=mk(w,'a','me',0,0,0),v=mk(w,'v','ai',0,60,0);v.c.vz=0;a.item='rocket';It.use(I,a,[a,v]);let t=0;for(let i=0;i<60*8;i++){if(!I.proj.length)break;It.step(I,DT,[a,v]);t+=DT}return t})();ok(life<=IT.rocket.life+.1,`a rocket lives at most ${IT.rocket.life} s (ended after ${life.toFixed(2)} s)`);
@@ -120,9 +121,9 @@ function duel(kind,opts){opts=opts||{};const w=arena(opts.solids),I=It.make(w.T,
   const w4=arena(),I4=It.make(w4.T,6),a4=mk(w4,'a','me',0,0,0),v4=mk(w4,'v','ai',80,20,0);a4.item='rocket';const e4=It.use(I4,a4,[a4,v4]);ok(!e4.tgt,'no rival in front: the rocket fires without a lock (and lock needs the rival ahead, within range)');
 }
 { // mine
-  const w=arena(),I=It.make(w.T,8),a=mk(w,'a','me',0,0,0),v=mk(w,'v','ai',0,-40,0);a.c.vz=SP;v.c.vz=SP+4;a.item='mine';const rs=[a,v];const e=It.use(I,a,rs);
+  const w=arena(),I=It.make(w.T,8),a=mk(w,'a','me',0,0,0),v=mk(w,'v','ai',0,-70,0);a.c.vz=SP;v.c.vz=SP+4;a.item='mine';const rs=[a,v];const e=It.use(I,a,rs);
   ok(e.k==='mine'&&e.z<a.c.z,'a mine is dropped BEHIND the car');
-  const out=run(w,I,rs,3,(r)=>({thr:1}));ok(has(out,'hit')&&out.find(x=>x.k==='hit').kind==='mine'&&out.find(x=>x.k==='hit').victim==='v','a rival following too closely hits it');
+  const out=run(w,I,rs,7,(r)=>r===a?{thr:.4}:{thr:1});ok(has(out,'hit')&&out.find(x=>x.k==='hit').kind==='mine'&&out.find(x=>x.k==='hit').victim==='v','a rival following too closely hits it');
   ok(I.mines.length===0&&!out.some(x=>x.victim==='a'),'the mine is used up and never hurts its owner');
   const w2=arena(),I2=It.make(w2.T,8),a2=mk(w2,'a','me',0,0,0),v2=mk(w2,'v','ai',0,-4.5,0);a2.item='mine';a2.c.vz=0;v2.c.vz=0;It.use(I2,a2,[a2,v2]);
   ok(!has(run(w2,I2,[a2,v2],.5,(r)=>({thr:0,brake:true})),'hit'),'a mine needs a moment to arm: a car already on top of it is not hit instantly (no unavoidable hits)');

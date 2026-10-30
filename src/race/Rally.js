@@ -183,7 +183,7 @@ const Rally=(()=>{
       <div class="rl-top"><div class="rl-pos"><b id="rlPos">1</b><span id="rlOf">/1</span></div>
         <div class="rl-mid"><div class="rl-time" id="rlTime">0:00.0</div><div class="rl-bar" id="rlBar"></div><div class="rl-gate" id="rlGate"></div></div>
         <div class="rl-spd"><b id="rlSpd">0</b><small>km/h</small><div class="rl-mode" id="rlMode">CAR</div><div class="rl-pips" id="rlPips"></div></div></div>
-      <div class="rl-arrow" id="rlArrow"><i></i></div><div class="rl-lock" id="rlLock"></div><div class="rl-warn" id="rlWarn"></div><div class="rl-status" id="rlStatus"></div>
+      <div class="rl-lines" id="rlLines"></div><div class="rl-arrow" id="rlArrow"><i></i></div><div class="rl-lock" id="rlLock"></div><div class="rl-warn" id="rlWarn"></div><div class="rl-status" id="rlStatus"></div>
       <div class="rl-msg"></div><div class="rl-count" id="rlCount"></div>
       <div class="rl-btns"><button id="rlItem" class="rl-b rl-item"><span class="rl-ic">·</span><small>ITEM</small></button><button id="rlBoost" class="rl-b rl-boost">BOOST</button><button id="rlHand" class="rl-b rl-hand">DRIFT</button><button id="rlRec" class="rl-b rl-rec">RECOVER</button><button id="rlExit" class="rl-b rl-exit">EXIT</button></div>`;
     document.body.appendChild(hud);
@@ -216,6 +216,8 @@ const Rally=(()=>{
       else lk.style.display='none';
       const w=q('#rlWarn'),inc=IS&&IS.proj.find(p=>p.on&&p.kind==='rocket'&&p.tgt===ME.key);
       if(inc){const d=Math.hypot(inc.x-c.x,inc.y-c.y,inc.z-c.z);ST.warn=d<70;w.textContent='⚠ MISSILE '+Math.round(d)+' m';w.classList.toggle('on',ST.warn)}else{ST.warn=false;w.classList.remove('on')} }
+    // speed lines: radial streaks at the screen edges that grow with speed and flare on boost
+    { const ln=q('#rlLines'),v=c.s,b=c.boostT>0||c.padT>0,o=ST.mode==='race'?clamp((v-34)/30,0,1)*.55+(b?.3:0):0;ln.style.opacity=o.toFixed(2);ln.style.animationDuration=(b?.18:.32)+'s' }
     // arrow to the next gate
     const g=Tk.navGate(T,ME.r);if(g){const err=wrap(Math.atan2(g.x-c.x,g.z-c.z)-c.h);q('#rlArrow').style.transform='rotate('+(-err)+'rad)';q('#rlArrow').style.opacity=ST.mode==='race'?.85:0}
   }
@@ -450,7 +452,7 @@ const Rally=(()=>{
     camera.position.set(camS.x+(Math.random()-.5)*sh,camS.y+(Math.random()-.5)*sh,camS.z+(Math.random()-.5)*sh);
     camera.lookAt(c.x+fx*5,c.y+1.3+(fly?c.pitch*-2:0),c.z+fz*5);
     ST.punch=Math.max(0,ST.punch-dt*1.6);ST.flash=Math.max(0,ST.flash-dt*2.5);
-    const fov=baseFov+Math.min(14,v*.16)+(boost?5:0)+ST.punch*9;if(Math.abs(fov-camS.fov)>.05||!camS.fovInit){camS.fov+=(fov-camS.fov)*(1-Math.exp(-dt*8));camS.fovInit=1;camera.fov=camS.fov;camera.updateProjectionMatrix()}
+    const fov=baseFov+Math.min(22,Math.max(0,v-18)*.28)+(boost?8:0)+ST.punch*10;if(Math.abs(fov-camS.fov)>.05||!camS.fovInit){camS.fov+=(fov-camS.fov)*(1-Math.exp(-dt*8));camS.fovInit=1;camera.fov=camS.fov;camera.updateProjectionMatrix()}
   }
   function frame(dt){
     ST.fc=(ST.fc||0)+1;

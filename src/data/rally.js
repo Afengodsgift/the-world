@@ -15,8 +15,8 @@ const RALLY={
     steerUp:30,steerDn:22,        // wheel response (1/s): fast when you ask for MORE lock or flick the other way, a touch softer when you let go
     brake:40,rev:11,vrev:12,      // braking decel, reverse accel, reverse top speed
     coast:3.2,drag:.012,          // engine braking, rolling resistance (x speed)
-    boostAccel:34,                // extra push while boosting (m/s^2), capped at vmax*boostMul
-    overspeed:1.8,                // how fast speed above the cap bleeds off (1/s): boost ends and landings coast down smoothly, never a jerk
+    boostAccel:42,                // extra push while boosting (m/s^2), capped at vmax*boostMul
+    overspeed:1.5,                // how fast speed above the cap bleeds off (1/s): boost ends and landings coast down smoothly, never a jerk
     handGrip:.12,handTurn:1.3,handLat:1.25,handSlipLoss:.3, // handbrake: lateral grip x.22 (the tail comes out), sharper wheel, a little more lateral authority: a controllable slide
     slipKeep:.55,handKeep:.9,     // fraction of the removed sideways ENERGY that becomes forward energy (the rest is scrubbed off)
     slipLoss:.22,                 // speed lost per m/s of sideways velocity the tyres scrub off
@@ -33,9 +33,9 @@ const RALLY={
   // ---- three launch classes. Bodies are the two supplied flying cars (baked by tools/build_rally_cars.mjs): 'aero' (futuristic, 4 hover pods) and 'retro' (50s fin car).
   // Comet has no third model: it re-uses the aero body with a paint tint (a stat/handling variant, honestly labelled). Models face +Z, Y up, belly on y=0. ----
   cls:{
-    ace:    {n:'Ace',    model:'assets/rally/car_aero.glb',                vmax:46,accel:22,turn:1.0,grip:11,boostMul:1.42,boostT:2.2,charges:3,mass:1.0},
-    comet:  {n:'Comet',  model:'assets/rally/car_aero.glb',tint:'#ff5a2a',vmax:52,accel:24,turn:.92,grip:8.8,boostMul:1.50,boostT:2.0,charges:3,mass:.85},
-    bruiser:{n:'Bruiser',model:'assets/rally/car_retro.glb',               vmax:42,accel:18,turn:.96,grip:13.5,boostMul:1.38,boostT:2.6,charges:4,mass:1.4},
+    ace:    {n:'Ace',    model:'assets/rally/car_aero.glb',                vmax:56,accel:27,turn:1.0,grip:11,boostMul:1.42,boostT:2.2,charges:3,mass:1.0},
+    comet:  {n:'Comet',  model:'assets/rally/car_aero.glb',tint:'#ff5a2a',vmax:63,accel:29,turn:.92,grip:8.8,boostMul:1.50,boostT:2.0,charges:3,mass:.85},
+    bruiser:{n:'Bruiser',model:'assets/rally/car_retro.glb',               vmax:51,accel:22,turn:.96,grip:13.5,boostMul:1.38,boostT:2.6,charges:4,mass:1.4},
   },
   // ---- flight mode (arcade plane). Gaps between islands are ~1000-2000 m, so a crossing is ~20-35 s at cruise ----
   fly:{
@@ -59,8 +59,8 @@ const RALLY={
     kinds:{blaster:{n:'Blaster',ic:'🔫'},burst:{n:'Burst',ic:'💥'},rocket:{n:'Rocket',ic:'🚀'},turbo:{n:'Turbo',ic:'⚡'},shield:{n:'Shield',ic:'🛡️'},mine:{n:'Mine',ic:'🪤'}},
     // what a hit does to the victim: t = disruption seconds, slow = speed cap multiplier while disrupted, kb = knockback impulse (m/s, horizontal)
     hit:{blaster:{t:.9,slow:.72,kb:1.5},rocket:{t:1.3,slow:.62,kb:7},burst:{t:.7,slow:.74,kb:9},mine:{t:1.2,slow:.58,kb:4}},
-    bolt:{speed:80,life:1.6,r:2.7},                       // blaster: fast, straight
-    rocket:{speed:56,add:16,life:3,r:3.2,turn:.5,range:85,cone:.55}, // homing: closing speed only ~16 m/s over the target and a 3 s life, so range and a swerve (or boost) matter; limited turn rate (rad/s), soft lock cone (rad)
+    bolt:{speed:96,life:1.6,r:2.7},                       // blaster: fast, straight
+    rocket:{speed:68,add:18,life:3,r:3.2,turn:.5,range:85,cone:.55}, // homing: closing speed only ~16 m/s over the target and a 3 s life, so range and a swerve (or boost) matter; limited turn rate (rad/s), soft lock cone (rad)
     burst:{r:14},mine:{life:28,arm:.8,r:3.2,back:4.5},
     // item roll weights by race position (0 = leader, 1 = last): the leader gets defence and utility, the back of the pack gets teeth
     weights:{blaster:[.24,.20],burst:[.14,.12],rocket:[.04,.30],turbo:[.16,.22],shield:[.26,.08],mine:[.16,.08]},

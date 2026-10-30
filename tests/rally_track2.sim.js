@@ -43,7 +43,7 @@ function race(skill,cls,seed){
 }
 {
   const out=[];
-  for(const [sk,cls,seed] of [['expert','ace',0],['expert','comet',3],['steady','ace',1],['steady','bruiser',5],['rookie','ace',2],['expert','bruiser',7]]){const o=race(sk,cls,seed);out.push(o);console.log(`     [${sk}/${cls}] ${o.fin?'finished '+o.time.toFixed(0)+' s':'DID NOT FINISH'} cuts ${o.cuts} bonus ${o.bonus} recoveries ${o.rec}`)}
+  for(const [sk,cls,seed] of [['expert','ace',0],['expert','comet',3],['steady','ace',1],['steady','bruiser',5],['rookie','ace',2],['expert','bruiser',7],['rookie','bruiser',9],['rookie','comet',4],['rookie','ace',6]]){const o=race(sk,cls,seed);out.push(o);console.log(`     [${sk}/${cls}] ${o.fin?'finished '+o.time.toFixed(0)+' s':'DID NOT FINISH'} cuts ${o.cuts} bonus ${o.bonus} recoveries ${o.rec}`)}
   ok(out.every(o=>o.fin),'every AI skill and car finishes the whole Grand Circuit');
   ok(out.every(o=>o.order),'gates are always passed in increasing order');
   ok(out.some(o=>o.cuts>0)&&out.some(o=>o.cuts===0),'the shortcut is a real choice: some drivers take it, some do not');
@@ -53,7 +53,7 @@ function race(skill,cls,seed){
     ok(n===1,'flying through a bonus ring collects it exactly once') }
   ok(out.every(o=>o.rec<=3),'no driver needs more than 3 recoveries');
   ok(out.filter(o=>o.fin).every(o=>Tk.plausible(T,o.r)),'splits stay plausible, skipped gates included');
-  const ex=out[0];ok(ex.time>100,`the race is long (${ex.time.toFixed(0)} s for an expert)`);
+  const ex=out[0];ok(ex.time>80,`the race is long (${ex.time.toFixed(0)} s for an expert)`);
 }
 // ---------- skip logic: crossing the merge gate skips the optional gates; missing it does not ----------
 {
