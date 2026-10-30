@@ -8,7 +8,7 @@ const OUT={x:-600,z:-1250,R:230,y:3.2,clear:175}; // clear: no trees/rocks withi
 ISL.push({n:'Outlaw Isle',x:OUT.x,z:OUT.z,R:OUT.R,pk:0,c:'#e0a040'});
 // WARDEN: The Warden Isles (combat island). Deliberately NOT in ISL: ISL drives world-gen scatter, shard/hunt placement and terrain() calls, and adding to it would shift the seeded rng stream.
 // Terrain is a blend appended to the end of H() (see index.html), gated by WRD.on (ON by default since the owner approved; ?warden=0 turns it off). reach = R + fall.
-const WRD={x:150,z:-2450,R:210,fall:24,reach:234,on:false};
+const WRD={x:150,z:-2450,R:300,fall:30,reach:330,on:false};
 try{WRD.on=!/[?&]warden=0(&|$)/.test(location.search)}catch(e){}
 const KT={x:760,z:1400,hw:95,hh:65,rc:34};
 // (The Floating Island's x/z below is a spot on its path, so Travel lands you on solid ground.)

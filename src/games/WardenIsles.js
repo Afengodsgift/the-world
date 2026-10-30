@@ -17,7 +17,7 @@ const WardenIsles=(()=>{
     if(h<-.6)c.lerp(new THREE.Color('#14587a'),Math.min(1,(-.6-h)/2.6));  // seabed fades to deep water
   }
   function terrainMesh(){
-    const size=(WRD.reach+8)*2,seg=110,geo=new THREE.PlaneGeometry(size,size,seg,seg);geo.rotateX(-Math.PI/2);
+    const size=(WRD.reach+8)*2,seg=140,geo=new THREE.PlaneGeometry(size,size,seg,seg);geo.rotateX(-Math.PI/2);
     const pos=geo.attributes.position,cols=new Float32Array(pos.count*3),c=new THREE.Color();
     for(let i=0;i<pos.count;i++){const x=pos.getX(i)+WRD.x,z=pos.getZ(i)+WRD.z,h=H(x,z);pos.setY(i,h);
       const sl=Math.hypot(H(x+2,z)-H(x-2,z),H(x,z+2)-H(x,z-2))/4;colour(h,x,z,sl,c);cols.set([c.r,c.g,c.b],i*3)}

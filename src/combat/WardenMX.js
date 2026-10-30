@@ -187,6 +187,8 @@ const WardenMX=(()=>{
       else if(f.act==='stun')I.sT+=dt;else I.sT=0;if(f.act==='dead')I.dT+=dt;else I.dT=0;
       if(I.mode&&f.act!=='dead'){}
       else if(R.native&&f.act==='dead'&&R.death&&A[R.death])put(R.death,I.dT);            // natively rigged foes have no game hit/death overlay: play the clip themselves
+      else if(R.native&&f.act==='stun'&&f.sk==='rise'&&R.death&&A[R.death]){   // the phase fall: he drops (death clip), lies there, then the clip plays BACKWARDS as he gets up
+        const D=Math.min(2.2,A[R.death].getClip().duration-.05),T=336/60,t=I.sT;put(R.death,t<D?t:t<T-D?D:Math.max(0,D-(t-(T-D))))}
       else if(R.native&&f.act==='stun'&&R.hit&&A[R.hit])put(R.hit,I.sT);
       else if(fight){
         const mv=f.mv,spec=mv&&R.moves[mv.id];
