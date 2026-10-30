@@ -33,6 +33,7 @@ const RallyWorld=(()=>{
   }
 
   function build(T,scene,H){
+    const _f={};
     const root=new THREE.Group();root.name='rally-world';
     const M={road:new THREE.MeshLambertMaterial({map:roadTexture()}),skirt:new THREE.MeshLambertMaterial({color:0x808592,side:THREE.DoubleSide}),
       post:new THREE.MeshLambertMaterial({color:0xdfe6f5}),dark:new THREE.MeshLambertMaterial({color:0x252a36}),
@@ -121,7 +122,7 @@ const RallyWorld=(()=>{
       d.rotation.x=-Math.PI/2;d.position.set(g.x,g.y+.12,g.z);root.add(d);discs.push(d)}
     scene.add(root);
     let lastNext=-1;
-    const _h={},_f={};
+    const _h={};
     return {root,
       // raceT: seconds on the hammers' clock; next: index of the next gate (highlighted), t: wall seconds for pulses
       update(raceT,next,t,bz){
