@@ -2,7 +2,7 @@
 // A dungeon is a CHAIN OF SEALED ROOMS joined by corridors, built on a flat terrace at the east rim of the isle. Every room is an ordinary Warden fight site (circular arena, fog gate, foes) so the
 // whole combat / co-op / progression stack already works in it; this file only says where the rooms are and generates the walls, doors, floors, torches, chests and the terrain pads.
 // Local frame: u = along the route (the entrance is at u=0 in the south, the route runs north = -z), v = lateral (east). Isle-local metres: x = ox + v, z = oz - u.
-//   gate > corridor > Guardroom (camp, soldiers) > door > Ossuary (2 Arena Shades) > door > Gaoler's Hall (miniboss) > door > Hollow Court (Ganfaul + Morvane, the dungeon's boss) > door > Ash Treasury (chest, lever out)
+//   gate > corridor > Guardroom (camp, soldiers) > door > Ossuary (2 Arena Shades) > door > Gaoler's Hall (miniboss) > door > Hollow Court (Ganfaul + Artorias, the dungeon's boss) > door > Ash Treasury (chest, lever out)
 //   side branch: bars off the corridor after the Ossuary open to the Vault (a Vault Warden guards a chest).
 const DUNGEON=(()=>{
   const D={id:'catacombs',n:'The Ashen Catacombs',ox:150,oz:112,y:2.5,K:1.4,HW:1.6,WALLW:2.95,EDGE:3.0,BAND:2.8,WALLH:4.3,SOLID_R:.8,SOLID_STEP:1.2};
