@@ -59,6 +59,7 @@ const Rally=(()=>{
       SFX.eng=mk('sawtooth');SFX.eng2=mk('square');
       const nb=c.createBuffer(1,c.sampleRate,c.sampleRate),d=nb.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
       const ns=c.createBufferSource();ns.buffer=nb;ns.loop=true;const nf=c.createBiquadFilter();nf.type='bandpass';nf.frequency.value=900;const ng=c.createGain();ng.gain.value=0;ns.connect(nf);nf.connect(ng);ng.connect(c.destination);ns.start();SFX.wind={f:nf,v:ng};
+      const ns2=c.createBufferSource();ns2.buffer=nb;ns2.loop=true;ns2.playbackRate.value=.7;const sf=c.createBiquadFilter();sf.type='bandpass';sf.frequency.value=2300;sf.Q.value=1.6;const sg2=c.createGain();sg2.gain.value=0;ns2.connect(sf);sf.connect(sg2);sg2.connect(c.destination);ns2.start();SFX.skid={f:sf,v:sg2};
     }catch(e){SFX.ctx=null}
   }
   function tone(f,d,type,vol,slide){
@@ -71,7 +72,9 @@ const Rally=(()=>{
     SFX.eng.o.frequency.setTargetAtTime(f,t,.06);SFX.eng2.o.frequency.setTargetAtTime(f*.5,t,.06);
     SFX.eng.f.frequency.setTargetAtTime(500+v*22,t,.1);
     const g=on?(ST.mode==='countdown'?.025:fly?.035:.05):0;SFX.eng.v.gain.setTargetAtTime(g,t,.1);SFX.eng2.v.gain.setTargetAtTime(g*.7,t,.1);
-    SFX.wind.v.gain.setTargetAtTime(on?clamp((v-30)/60,0,1)*(fly?.09:.035):0,t,.15);SFX.wind.f.frequency.setTargetAtTime(500+v*14,t,.2);
+    SFX.wind.v.gain.setTargetAtTime(on?clamp((v-30)/60,0,1)*(fly?.09:.035):0,t,.15);
+    // tyre squeal: scales with sideways speed while grounded and moving (drifts, handbrake slides, hard cornering)
+    if(SFX.skid){const sl=ME.c.mode==='car'&&ME.c.grounded&&on?clamp((Math.abs(ME.c.slip)-4)/10,0,1)*clamp(v/30,0,1):0;SFX.skid.v.gain.setTargetAtTime(sl*.06,t,.05);SFX.skid.f.frequency.setTargetAtTime(1900+sl*900+v*6,t,.1)}SFX.wind.f.frequency.setTargetAtTime(500+v*14,t,.2);
   }
 
   // ---------------------------------------------------------------- cars (visuals)
@@ -152,6 +155,13 @@ const Rally=(()=>{
     if(wasFly&&c.mode==='car'&&ev.land)onLand(R0);
     if(ev.bump>7&&R0===ME){ST.shake=Math.max(ST.shake,clamp(ev.bump/40,.15,.7));tone(90,.2,'square',.16,.5)}
     if(ev.boost&&R0===ME){tone(300,.5,'sawtooth',.1,2.2);ST.punch=.6}
+    // tyre smoke while sliding, exhaust sparks while boosting: throttled, and only for cars you can see
+    R0.fxT=(R0.fxT||0)-DT;
+    if(R0.fxT<=0&&ST.mode!=='off'&&(R0===ME||ME&&Math.hypot(c.x-ME.c.x,c.z-ME.c.z)<70)){
+      const slide=c.mode==='car'&&c.grounded&&Math.abs(c.slip)>6&&c.s>14,fire=(c.boostT>0||c.padT>0)&&c.s>20;
+      if(slide){R0.fxT=.06;try{Fx.burst(c.x-Math.sin(c.h)*1.6,c.y+.25,c.z-Math.cos(c.h)*1.6,'#c9c9c9',3)}catch(e){}}
+      else if(fire){R0.fxT=.05;try{Fx.burst(c.x-Math.sin(c.h)*2.1,c.y+.7,c.z-Math.cos(c.h)*2.1,Math.random()<.5?'#ffb347':'#ff6a3d',2)}catch(e){}}
+    }
     if(c.mode==='car'&&c.grounded){
       if(T.padAt(c.x,c.y,c.z)>=0){if(c.padT<.8&&R0===ME){tone(500,.4,'sawtooth',.1,2.6);ST.punch=Math.max(ST.punch,.5)}CP.pad(c,1.4)}
       R0.hitCd-=DT;
@@ -297,7 +307,7 @@ const Rally=(()=>{
     if(cfx){cfx.reset();cfx.root.visible=true}
     ST.partner=net?net.id:null;
     // teleport the avatar onto the grid slot, hide it, take over the stick
-    ST.mode='countdown';ST.t=0;ST.acc=0;ST.msg=null;document.body.classList.add('rally');
+    ST.mode='countdown';ST.t=0;ST.acc=0;ST.msg=null;ST.lastPl=0;document.body.classList.add('rally');
     ST.startAt=performance.now()+(net?net.in:4800);camS.init=false;baseFov=camera.fov;
     ST.camKids=camera.children.map(k=>[k,k.visible]);for(const [k] of ST.camKids)k.visible=false;   // held-item view models etc. stay out of the chase view
     if(me)me.visible=false;pin();hud.classList.add('on');
@@ -314,7 +324,7 @@ const Rally=(()=>{
     if(me)me.visible=true;camera.fov=baseFov;camera.updateProjectionMatrix();clearInterval(ST.resT);
     if(ST.ret){S.x=ST.ret.x;S.z=ST.ret.z;S.y=Math.max(ST.ret.y,H(ST.ret.x,ST.ret.z)+.2);S.vy=0;S.rot=ST.ret.rot||S.rot;S.flying=false;S.grounded=true}
     BTN.boost=BTN.hand=BTN.rec=false;
-    try{const a=SFX.eng;if(a&&SFX.ctx){const t=SFX.ctx.currentTime;a.v.gain.setTargetAtTime(0,t,.05);SFX.eng2.v.gain.setTargetAtTime(0,t,.05);SFX.wind.v.gain.setTargetAtTime(0,t,.05)}}catch(e){}
+    try{const a=SFX.eng;if(a&&SFX.ctx){const t=SFX.ctx.currentTime;a.v.gain.setTargetAtTime(0,t,.05);SFX.eng2.v.gain.setTargetAtTime(0,t,.05);SFX.wind.v.gain.setTargetAtTime(0,t,.05);if(SFX.skid)SFX.skid.v.gain.setTargetAtTime(0,t,.05)}}catch(e){}
   }
   function ensureWorld(){if(!world&&T&&typeof scene!=='undefined'&&scene&&typeof RallyWorld!=='undefined'){try{world=TC[TRK].world=RallyWorld.build(T,scene,H)}catch(e){console.error('RallyWorld',e)}}}
   function pin(){ // the avatar rides along (so world streaming, culling and presence follow the car), invisible to us
@@ -452,6 +462,7 @@ const Rally=(()=>{
       if(ST.warn&&wall-ST.warnT>.32){ST.warnT=wall;tone(1150,.07,'square',.09)}
       if((ST.sf=(ST.sf||0)+1)%180===0)syncSolids();
       if(world)world.update(ST.mode==='race'||ST.mode==='finish'?ST.t:0,ME.r.next,wall,ME.r.bz);
+      if(ST.mode==='race'&&(ST.pc=(ST.pc||0)+1)%20===0){const pl=rank().indexOf(ME)+1;if(ST.lastPl&&pl&&pl!==ST.lastPl&&R.length>1){if(pl<ST.lastPl){toast('P'+pl+' ▲',700);tone(740,.08,'triangle',.08);setTimeout(()=>tone(990,.1,'triangle',.08),70)}else tone(260,.12,'sine',.06)}ST.lastPl=pl||ST.lastPl}
       countdownUI();hudUpdate(now);sfxUpdate(dt);netTick(now);
       if(ST.msg&&ST.t-ST.msg.t<.9){toast(ST.msg.s,800);ST.msg=null}
       document.body.classList.toggle('rl-flash',ST.flash>.5);
