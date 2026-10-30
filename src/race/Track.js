@@ -59,7 +59,7 @@ const Track=(()=>{
     }
     for(let i=0;i<m;i++){const a=Math.max(0,i-1),b=Math.min(m-1,i+1),tx=X[b]-X[a],tz=Z[b]-Z[a],l=Math.hypot(tx,tz)||1;TX[i]=tx/l;TZ[i]=tz/l}
     const cs=ctl.map(k=>cum[k]); // arclength of each control point (gates / pads / hazards reference control points)
-    return {id:rd.id,m,X,Z,Y,W,S,TX,TZ,len,cs,sh:rd.shoulder==null?5:rd.shoulder,lipV:rd.lipV||0};
+    return {id:rd.id,m,X,Z,Y,W,S,TX,TZ,len,cs,sh:rd.shoulder==null?5:rd.shoulder,lipV:rd.lipV||0,alt:!!rd.alt,joinDef:rd.join||null,join:null};
   }
 
   function build(def,env){
@@ -100,9 +100,9 @@ const Track=(()=>{
     T.surf=(x,z)=>{T.deck(x,z,1e4,_o);return _o.onRoad?ROAD:ROUGH};
     T.landOK=(x,z)=>{for(const L of T.landing){if(Math.hypot(x-L.x,z-L.z)<=L.r)return true}return false};
     // nearest road sample (for AI, progress, off-track detection). hint = road index to prefer.
-    T.project=(x,z,out,hintRoad)=>{
+    T.project=(x,z,out,hintRoad,skipAlt)=>{
       out=out||{};let bd=1e18;
-      for(let ri=0;ri<T.roads.length;ri++){const r=T.roads[ri];
+      for(let ri=0;ri<T.roads.length;ri++){const r=T.roads[ri];if(skipAlt&&r.alt&&ri!==hintRoad)continue;
         for(let i=0;i<r.m;i+=1){const dx=x-r.X[i],dz=z-r.Z[i],dd=dx*dx+dz*dz-(ri===hintRoad?400:0);if(dd<bd){bd=dd;out.road=ri;out.i=i}}}
       const r=T.roads[out.road],i=out.i;out.s=r.S[i];out.x=r.X[i];out.y=r.Y[i];out.z=r.Z[i];out.tx=r.TX[i];out.tz=r.TZ[i];out.w=r.W[i];
       out.d=(x-r.X[i])*-r.TZ[i]+(z-r.Z[i])*r.TX[i];out.dist=Math.hypot(x-r.X[i],z-r.Z[i]);return out;
@@ -125,8 +125,16 @@ const Track=(()=>{
       }else{ // aerial ring: explicit position + heading
         G={x:g.x,y:g.y,z:g.z,nx:Math.sin(g.h),nz:Math.cos(g.h),r:g.r||16,loose:g.loose||2.2,mode:g.mode||'fly',type:'air',k:g.k||'ring',boost:g.boost!==false};
       }
-      G.i=gi;G.finish=!!g.finish;T.gates.push(G);
+      G.i=gi;G.finish=!!g.finish;G.opt=!!g.opt;T.gates.push(G);
     });
+    // ---- ALTERNATE ROUTES. An alt road (road.alt) is a shortcut: it leaves a main road at control point fork.at and rejoins road.join = {road, p}. The main route's gates inside the
+    // fork are `opt` gates: they may be skipped, as a group, by crossing a later gate (the merge). Bonus rings (def.bonus) are NOT in the gate chain: fly through one and you get a
+    // boost, once per race. T.forks lists the shortcuts so the AI and the HUD can use them. ----
+    T.hasAlt=T.roads.some(r=>r.alt);
+    T.roads.forEach(r=>{if(r.joinDef){const jr=byId[r.joinDef.road];r.join={road:jr,s:sOf(T.roads[jr],r.joinDef.p)}}});
+    T.forks=[];
+    (def.forks||[]).forEach(f=>{const mi=byId[f.road],ai=byId[f.alt];T.at(mi,sOf(T.roads[mi],f.at),_p);T.forks.push({main:mi,alt:ai,s:sOf(T.roads[mi],f.at),x:_p.x,z:_p.z,tx:_p.tx,tz:_p.tz,w:_p.w,name:f.name||'SHORTCUT',len:T.roads[ai].len,ai:f.ai==null?.5:f.ai})});
+    T.bonus=(def.bonus||[]).map((b,i)=>({x:b.x,y:b.y,z:b.z,nx:Math.sin(b.h),nz:Math.cos(b.h),r:b.r||14,i,secs:b.secs||2.2,name:b.name||'HIGH LINE'}));
     (def.pads||[]).forEach(p=>{const ri=byId[p.road],r=T.roads[ri];T.at(ri,sOf(r,p.p),_p);
       T.pads.push({x:_p.x,y:_p.y,z:_p.z,tx:_p.tx,tz:_p.tz,hl:(p.len||14)/2,hw:(p.w||8)/2,lat:p.lat||0})});
     (def.hazards||[]).forEach(h=>{const ri=byId[h.road],r=T.roads[ri];T.at(ri,sOf(r,h.p),_p);
@@ -215,42 +223,53 @@ const Track=(()=>{
   const ROAD={rough:false},ROUGH={rough:true};
 
   // ---------------- racer progress (one per competitor; the host runs the same code to validate) ----------------
-  function racer(){return {gT:0,next:0,passed:0,splits:[],sk:[],perfect:0,finished:false,finishT:0,px:NaN,py:0,pz:0,stuckT:0,lostT:0,rec:0,ev:{gate:-1,perfect:false,mode:null,finish:false,t:0}}}
+  function racer(){return {bz:[],alt:false,gT:0,next:0,passed:0,splits:[],sk:[],perfect:0,finished:false,finishT:0,px:NaN,py:0,pz:0,stuckT:0,lostT:0,rec:0,ev:{gate:-1,perfect:false,mode:null,finish:false,t:0}}}
   // Called every frame with the new position. A gate counts when the segment prev->cur crosses its plane FORWARD inside its radius (so no
   // tunnelling at 100+ m/s, no backwards passes, strictly in order). Within `loose`*r counts too (a near miss still progresses) but is not 'perfect'.
   function advance(T,r,x,y,z,t){
-    const ev=r.ev;ev.gate=-1;ev.perfect=false;ev.mode=null;ev.finish=false;ev.skipped=0;
+    const ev=r.ev;ev.gate=-1;ev.perfect=false;ev.mode=null;ev.finish=false;ev.skipped=0;ev.cut=false;ev.bonus=-1;
     if(r.finished){r.px=x;r.py=y;r.pz=z;return ev}
     if(r.px===r.px){
       // does the segment prev->cur cross gate g's plane forward, inside its (loose) radius? returns 0 no, 1 near miss, 2 perfect
       const cross=g=>{
         const d0=(r.px-g.x)*g.nx+(r.pz-g.z)*g.nz,d1=(x-g.x)*g.nx+(z-g.z)*g.nz;if(!(d0<0&&d1>=0))return 0;
         const f=d0/(d0-d1),dist=Math.hypot(r.px+(x-r.px)*f-g.x,r.py+(y-r.py)*f-g.y,r.pz+(z-r.pz)*f-g.z);
-        return dist<=g.r?2:dist<=g.r*g.loose?1:0;
+        return dist<=g.r?2:dist<=g.r*(g.loose||1.5)?1:0;
       };
       const g=T.gates[r.next];
       if(g){
-        let q=cross(g),take=0;
+        let q=cross(g),take=0,skip=0;
         if(q)take=1;
-        else{ // skip tolerance: an ordinary gate or ring missed by a few metres does not end your race if you pass the NEXT gate (never the start, lips, touchdowns or finish)
+        else if(g.opt){ // a fork: the main route's own gates are optional. Crossing a LATER gate of the fork (up to and including the merge) takes the shortcut: all gates before it count as passed
+          for(let k=r.next+1;k<T.gates.length;k++){const gk=T.gates[k];if(q=cross(gk)){take=1;skip=k-r.next;ev.cut=true;break}if(!gk.opt)break}
+        }else{ // skip tolerance: an ordinary gate or ring missed by a few metres does not end your race if you pass the NEXT gate (never the start, lips, touchdowns or finish)
           const g2=T.gates[r.next+1];
-          if(g2&&(g.k==='gate'||g.k==='ring')&&(q=cross(g2))){take=2}
+          if(g2&&(g.k==='gate'||g.k==='ring')&&(q=cross(g2))){take=1;skip=1}
         }
         if(take){
-          if(take===2){r.splits.push(t);r.sk.push(1);r.passed++;r.next++;ev.skipped=1}       // the skipped gate counts, at the same time as the one after it
+          for(let k=0;k<skip;k++){r.splits.push(t);r.sk.push(1);r.passed++;r.next++;ev.skipped++}
           const gi=T.gates[r.next];
-          ev.gate=gi.i;ev.perfect=q===2&&take===1;ev.mode=gi.mode;ev.finish=gi.finish;ev.t=t;
+          ev.gate=gi.i;ev.perfect=q===2&&skip===0;ev.mode=gi.mode;ev.finish=gi.finish;ev.t=t;
           r.splits.push(t);r.sk.push(0);r.passed++;r.next++;r.gT=0;if(ev.perfect)r.perfect++;
           if(gi.finish||r.next>=T.gates.length){r.finished=true;r.finishT=t;ev.finish=true}
         }
       }
+      // bonus rings: off the gate chain, once each per race
+      if(T.bonus&&T.bonus.length&&!r.finished)for(const b of T.bonus){if(r.bz.indexOf(b.i)>=0)continue;if(cross(b)){r.bz.push(b.i);ev.bonus=b.i;break}}
+      if(T.hasAlt)r.alt=y<T.ground(x,z,y+1.5)+3&&T.roads[T.project(x,z,_pj,-1).road].alt&&_pj.dist<T.roads[_pj.road].W[_pj.i]*.9;   // on a shortcut road right now (used for navigation and rank)
     }
     r.px=x;r.py=y;r.pz=z;return ev;
   }
+  const _pj={};
+  // the gate to steer at: while you are ON a shortcut, the optional gates of the main route are not your target, the merge gate is
+  function navGate(T,r){
+    let k=r.next;const g=T.gates[k];if(!g||!g.opt||!r.alt)return g;
+    while(k<T.gates.length-1&&T.gates[k].opt)k++;return T.gates[k]}
   // ranking key: gates passed first, then (closer to the next gate) is ahead; finishers by time
   function score(T,r,x,y,z){
     if(r.finished)return 1e9-r.finishT;
-    const g=T.gates[r.next];return r.passed*1e5-(g?Math.hypot(x-g.x,y-g.y,z-g.z):0);
+    const g=navGate(T,r);let p=r.passed;if(g&&g!==T.gates[r.next])p+=g.i-r.next;   // on a shortcut you are already "through" the main route's optional gates
+    return p*1e5-(g?Math.hypot(x-g.x,y-g.y,z-g.z):0);
   }
   // host-side plausibility: minimum possible time between gate i-1 and i (straight line at an absolute top speed). Not tamper-proof (no server
   // authority) but rejects teleports / impossible splits in a friends game.
@@ -271,5 +290,5 @@ const Track=(()=>{
     return null;
   }
 
-  return {build,racer,advance,score,minTime,plausible,needsRecovery,wrap};
+  return {build,racer,advance,score,navGate,minTime,plausible,needsRecovery,wrap};
 })();

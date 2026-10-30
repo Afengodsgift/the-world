@@ -9,11 +9,11 @@
 const Pilot=(()=>{
   const clamp=(v,a,b)=>v<a?a:v>b?b:v,wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
   const SKILL={
-    rookie:{v:.74,util:.6,aBrake:10,look:.55,noise:.10,boost:false,dodge:.6},
-    steady:{v:.88,util:.72,aBrake:13,look:.5,noise:.05,boost:true,dodge:.85},
-    expert:{v:.97,util:.85,aBrake:16,look:.45,noise:.02,boost:true,dodge:1},
+    rookie:{v:.74,util:.6,aBrake:10,look:.55,noise:.10,boost:false,dodge:.6,cut:.12},
+    steady:{v:.88,util:.72,aBrake:13,look:.5,noise:.05,boost:true,dodge:.85,cut:.45},
+    expert:{v:.97,util:.85,aBrake:16,look:.45,noise:.02,boost:true,dodge:1,cut:.8},
   };
-  function make(T,skill,seed){return {T,k:typeof skill==='string'?SKILL[skill]:skill||SKILL.steady,road:0,lane:0,laneT:0,rng:(seed||1)>>>0,noise:0}}
+  function make(T,skill,seed){return {T,k:typeof skill==='string'?SKILL[skill]:skill||SKILL.steady,road:0,lane:0,laneT:0,rng:(seed||1)>>>0,noise:0,alt:null,dec:{}}}
   const rnd=p=>(p.rng=(p.rng*1664525+1013904223)>>>0)/4294967296;
   const _pr={},_a={},_b={};
   // the fastest the CAR can take a bend of radius R using only `util` of its steering: solves v / (turnRate(v) * util) = R with the physics' own
@@ -23,7 +23,11 @@ const Pilot=(()=>{
   // point `dist` metres ahead of (road,s); continues onto the next road (across a jump gap) when this one ends
   function ahead(T,ri,s,dist,out){
     let r=ri,x=s+dist;
-    while(x>T.roads[r].len&&r<T.roads.length-1&&T.roads[r+1].X[0]!==undefined&&Math.hypot(T.roads[r+1].X[0]-T.roads[r].X[T.roads[r].m-1],T.roads[r+1].Z[0]-T.roads[r].Z[T.roads[r].m-1])<60){x-=T.roads[r].len;r++}
+    for(let guard=0;guard<8&&x>T.roads[r].len;guard++){
+      const rd=T.roads[r];
+      if(rd.join){x=rd.join.s+(x-rd.len);r=rd.join.road;continue}                                     // a shortcut flows back into its main road
+      if(r<T.roads.length-1&&!T.roads[r+1].alt&&Math.hypot(T.roads[r+1].X[0]-rd.X[rd.m-1],T.roads[r+1].Z[0]-rd.Z[rd.m-1])<60){x-=rd.len;r++;continue}
+      break}
     return T.at(r,x,out);
   }
 
@@ -35,7 +39,12 @@ const Pilot=(()=>{
   function ground(p,c,racer,t,dt,inp){
     const T=p.T,k=p.k;
     if(!c.grounded){inp.thr=1;return inp}                       // airborne as a car (kicker): hold the line, nothing to steer
-    const pr=T.project(c.x,c.z,_pr,p.road);p.road=pr.road;
+    const pr=T.project(c.x,c.z,_pr,p.road,p.alt==null);p.road=pr.road;
+    // shortcuts: arriving at a fork, roll once (by skill) whether to take it; on the shortcut keep following it until we are back on a main road
+    if(T.forks&&T.forks.length){
+      if(p.alt==null){for(const f of T.forks){if(pr.road!==f.main)continue;const d=f.s-pr.s;if(d>-2&&d<24){if(p.dec[f.alt]===undefined)p.dec[f.alt]=rnd(p)<k.cut;if(p.dec[f.alt]){p.alt=f.alt;p.road=f.alt;T.project(c.x,c.z,_pr,p.road,false);break}}}}
+      else if(pr.road!==p.alt)p.alt=null;
+    }
     const v=Math.hypot(c.vx,c.vz),L=Math.max(9,v*k.look);
     // swinging hazards ahead on this road: of the candidate lanes, take the nearest one that every hammer ahead will be clear of when we get
     // there (hammer positions are a pure function of race time, so we can predict them; a +-0.2 s window covers our own timing error)
@@ -65,7 +74,7 @@ const Pilot=(()=>{
     }
     if(hz.length)vt=Math.min(vt,24+6*k.dodge);                   // ease off near swinging hammers: a steady speed makes the arrival time (and so the gap) predictable
     // the last 50 m of a road that ends in a jump (the kicker, the launch ramp) are taken flat out; the corner before them is where we slow
-    const rd=T.roads[pr.road],nearEnd=pr.road<T.roads.length-1&&pr.s>rd.len-50;
+    const rd=T.roads[pr.road],nearEnd=pr.road<T.roads.length-1&&!rd.join&&pr.s>rd.len-50;
     const vt2=nearEnd?(rd.lipV?Math.min(vt,rd.lipV*Math.min(1,k.v+.05)):top*1.3):vt;   // roads can name the speed their jump wants (rd.lipV); ramps are flat out
     inp.thr=clamp((vt2-v)*.5,-1,1);
     if(v>vt2+7)inp.brake=true;

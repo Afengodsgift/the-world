@@ -100,3 +100,49 @@ const TRACKS={
     landing:[{x:63.5,z:1727.9,r:80},{x:FROST.x+165,z:FROST.z+51,r:90}],
   },
 };
+
+// ======================================================================================================================================================
+// GRAND CIRCUIT: the classic route, longer, with shortcuts. Built from skybreak-1 so the two never drift apart:
+//   - two SHORTCUT roads (alt roads, dirt-coloured, narrower): the Cay Cut across Storm Cay (skips the S-bend) and the Summit Dash over the shoulder of Frost
+//     (skips the bridge). Each rejoins the main road at its own control point; the main route's gates inside the fork are `opt` (skipped by taking the shortcut).
+//   - bonus rings in the sky (a high line and a low dive on every flight): off the gate chain, fly through for a boost, once each.
+//   - the climb does not end at the Frost summit any more: the spiral keeps winding up to the top, a launch ramp points back across the sea, and a third flight
+//     (~1.6 km, the longest) glides home to Palm Atoll's south beach, where a wide strip carries you to the finish.
+// ======================================================================================================================================================
+(()=>{
+  const B=TRACKS['skybreak-1'],K=76/450;
+  const fpt=(f,dy,w)=>{const r=136-K*(f-17),a=f*Math.PI/180,o=[r*Math.cos(a),r*Math.sin(a),dy||0];if(w)o.push(w);return o};
+  const roads=B.roads.map(r=>r.id==='frost-b'?Object.assign({},r):r);
+  // ---- Frost: the spiral carries on to the summit (3 more quarter turns), then a straight run and a launch ramp aimed at Palm ----
+  const fb=roads.find(r=>r.id==='frost-b'),baseN=fb.pts.length,ext=[];
+  const extA=[];for(let f=479;f<=647;f+=12){extA.push(f);ext.push(fpt(f,0))}
+  {const e=fpt(647,0),t=[.956,.292];   // spiral heading at the top of the climb (east-north-east: toward Palm)
+    for(let k=1;k<=4;k++)ext.push([e[0]+t[0]*k*12,e[1]+t[1]*k*12,0,k>=3?20:16]);
+    const b=ext[ext.length-1];for(let k=1;k<=6;k++){const dd=[.5,3.2,7.6,12,16.4,20.3][k-1];ext.push([b[0]+t[0]*k*7,b[1]+t[1]*k*7,dd,20])}}
+  fb.pts=fb.pts.concat(ext);
+  const FLIP=ext[ext.length-1],FLIPW={x:FROST.x+FLIP[0],z:FROST.z+FLIP[1]},_t=[.956,.292];
+  // ---- Palm south strip (the finale lands here, heading east) ----
+  roads.push({id:'palm-c',o:[PALM.x,PALM.z],w:16,pts:[[-150,105,0,40],[-112,105,0,40],[-62,105,0,28],[0,105,0,20],[58,105,0,16],[108,105,0,16]]});
+  // ---- the Cay Cut: a dirt shortcut across the island's hump, leaving the main road at control point 3 and rejoining it at 10 ----
+  roads.push({id:'storm-cut',o:[STORM.x,STORM.z],w:11,alt:true,shoulder:6,join:{road:'storm',p:10},pts:[[-6.3,34.8,0,11],[-18,34],[-42,26],[-72,16],[-100,8],[-122,0],[-134,-6],[-138,-12]]});
+  const gates=B.gates.slice(0,B.gates.length-1).map(g=>Object.assign({},g));            // everything but the old finish at the summit
+  const gi=(road,p,extra)=>gates.findIndex(g=>g.road===road&&g.p===p);
+  for(const g of gates){if(g.road==='storm'&&(g.p===5||g.p===8))g.opt=true}
+  // the new Frost gates (the extra spiral), the launch lip, three flights of rings, the Palm touchdown and the finish
+  const BF=baseN;[491,551,611].forEach(f=>gates.push({road:'frost-b',p:BF+extA.indexOf(f)}));
+  const LIP=BF+ext.length-1;gates.push({road:'frost-b',p:LIP,r:22,loose:1.6,mode:'fly',k:'lip'});
+  const TD3={x:PALM.x-128,z:PALM.z+105},D3=[1,0],_L3=FLIPW,_RD3=_t;
+  const ringsU=[[.1,80],[.22,74],[.34,66],[.46,57],[.58,47],[.7,36],[.82,26],[.92,17]];
+  const rings3=_air(_L3,_RD3,TD3,D3,ringsU);rings3.forEach(q=>{q.r=18});gates.push(...rings3);
+  gates.push({road:'palm-c',p:0.5,r:34,mode:'car',k:'touchdown'},{road:'palm-c',p:3},{road:'palm-c',p:5,r:16,finish:true,k:'finish'});
+  // bonus rings: high line and low dive on every flight
+  const bonus=[];
+  for(const [L,d0,T3,d3,hi,lo] of [[_LIP1,_D1,_TD1,_D1,[.36,84],[.64,12]],[_LIP2,_RD2,_TD2,_D2T,[.38,82],[.66,12]],[_L3,_RD3,TD3,D3,[.3,104],[.64,14]]]){
+    const q=_air(L,d0,T3,d3,[hi,lo]);q[0].name='HIGH LINE';q[1].name='LOW DIVE';for(const b of q)bonus.push({x:b.x,y:b.y,z:b.z,h:b.h,r:13,secs:2.4,name:b.name})}
+  const pads=B.pads.concat([{road:'storm-cut',p:3,len:14,w:7},{road:'storm-cut',p:6,len:14,w:7},{road:'palm-c',p:3,len:16,w:10}]);
+  const items=B.items.concat([{road:'storm-cut',p:3.5,lat:[-2,2]},{road:'palm-c',p:2.5,lat:[-8,0,8]},
+    {x:rings3[3].x,y:rings3[3].y+22,z:rings3[3].z},{x:rings3[5].x,y:rings3[5].y-14,z:rings3[5].z}]);
+  TRACKS['skybreak-2']={id:'skybreak-2',name:'Skybreak Grand Circuit: Palm - Storm - Frost - Palm',mode:'p2p',roads,gates,pads,hazards:B.hazards,items,bonus,
+    forks:[{road:'storm',at:3,alt:'storm-cut',name:'CAY CUT'}],
+    landing:B.landing.concat([{x:PALM.x-60,z:PALM.z+105,r:110}])};
+})();
