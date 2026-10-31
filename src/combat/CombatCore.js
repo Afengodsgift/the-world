@@ -6,11 +6,11 @@
 //   proj = a travelling bolt (blockable/deflectable, dodgeable, stopped by solids), aoe = a ground circle that telegraphs for `delay` ticks and then bursts for `dur` ticks (unblockable, dodgeable by i-frames or by leaving it).
 //   They resolve through the same outcome list as sword hits, so hit-stop freezes them and every event keeps its shape (hit/block/deflect/dodged/dead).
 const CombatCore=(()=>{
-  const SPEED=.05,SUBM=.1,GUARD_ARC=1.2,REARM=14,DEFL=7,BUF=6,PARRY_T=26,PARRY_W=13;
+  const SPEED=.05,SUBM=.1,GUARD_ARC=1.2,REARM=14,DEFL=7,BUF=6,PARRY_T=26,PARRY_W=13,PERFECT=4;
   const PHI=42,RISE=336;   // RISE: a boss that 'rises' is felled at its phase line, lies down ~5.6 s (untouchable), then gets up in its second phase
      // ticks of invulnerability while a boss changes phase (0.7 s)
   function mkFighter(id,o){o=o||{};return{id,x:o.x||0,z:o.z||0,y:0,r:.45,face:o.face||0,hp:o.hp||100,hpMax:o.hp||100,st:100,stMax:100,po:0,poMax:100,
-    team:o.team||null,sa:o.sa||0,pg:o.pg||0,rise:o.rise||0,tm:o.tm||1,pgd:false,inv:0,sm:1,pm:1,dfl:0,bk:0,dm:o.dm||1,rm:o.rm||1,act:'free',pt:0,ph:null,pi:0,pk:0,mv:null,hold:0,done:{},sk:null,stun:0,kx:0,kz:0,kr:0,dir:null,guard:false,pry:0,gpt:99,rel:99,sr:99,pr:99,c:0,rel2:false,buf:null,q:[],ex:0,ez:0,lc:0,lcT:-999,dEnd:-999}}
+    team:o.team||null,sa:o.sa||0,pg:o.pg||0,rise:o.rise||0,tm:o.tm||1,pgd:false,inv:0,sm:1,pm:1,dfl:0,bk:0,dm:o.dm||1,rm:o.rm||1,act:'free',pt:0,ph:null,pi:0,pk:0,mv:null,hold:0,done:{},sk:null,stun:0,kx:0,kz:0,kr:0,dir:null,guard:false,pry:0,pfs:0,pfT:0,gpt:99,rel:99,sr:99,pr:99,c:0,rel2:false,buf:null,q:[],ex:0,ez:0,lc:0,lcT:-999,dEnd:-999}}
   function create(o){o=o||{};const C={tick:0,hs:0,ev:[],fx:[],fxN:0,F:{},solids:(o.solids||[]).slice(),arena:o.arena||{x:0,z:0,R:1e9},order:[]};
     C.add=(id,fo)=>{C.F[id]=mkFighter(id,fo);C.order.push(id);return C.F[id]};
     C.step=cmds=>step(C,cmds||{});C.start=(id,m,hold)=>{const f=C.F[id];if(f&&Moves[m])startMove(C,f,m,hold|0)};return C}
@@ -106,7 +106,11 @@ const CombatCore=(()=>{
     for(const o of out){const{a,t,mv}=o;
       if(o.k==='dodged'){emit(C,'dodged',a.id,t.id,{seg:o.seg});if(!o.fx&&mv&&mv.per&&a.act==='attack'&&!a.sa){stunF(a,46,'recoil');emit(C,'perdodge',a.id,t.id)}continue}
       if(!o.fx)a.done[o.seg]=true;const sc=!o.fx&&a.mv&&a.mv.id==='heavy'?1+.5*(a.chg||0):1;
-      if(o.k==='deflect'){if(!o.fx){addPo(C,a,mv.pdmg*1.6);if(mv.bg&&a.act==='attack'){stunF(a,84,'stagger');emit(C,'brokenguard',a.id,t.id)}else if(a.act==='attack')stunF(a,16,'recoil')}addPo(C,t,mv.pdmg*.15);emit(C,'deflect',a.id,t.id,{seg:o.seg});hs=Math.max(hs,5)}
+      if(o.k==='deflect'){if(!o.fx){addPo(C,a,mv.pdmg*1.6);if(mv.bg&&a.act==='attack'){stunF(a,84,'stagger');emit(C,'brokenguard',a.id,t.id)}else if(a.act==='attack')stunF(a,16,'recoil')}addPo(C,t,mv.pdmg*.15);
+        // PERFECT PARRY (the first PERFECT ticks of the window): a longer recoil for the attacker; three in a row inside 5 s breaks the boss open (Phantom Blade style sequence)
+        const pf=!o.fx&&t.pry>0&&t.gpt<=PERFECT+(t.dfl||0);let sq=0;
+        if(pf){t.pfs=(t.pfT>0?t.pfs:0)+1;t.pfT=300;if(a.act==='attack'&&!a.sa&&!mv.bg)stunF(a,30,'recoil');if(t.pfs>=3){t.pfs=0;sq=1;if(!a.sa&&a.act!=='dead')stunF(a,96,'stagger')}}
+        emit(C,'deflect',a.id,t.id,{seg:o.seg,pf:pf?1:0,sq});hs=Math.max(hs,pf?8:5)}
       else if(o.k==='block'){t.st=mv.gb?0:Math.max(0,t.st-mv.dmg*.8*sc);t.sr=0;addPo(C,t,mv.pdmg*.7*sc);emit(C,'block',a.id,t.id,{seg:o.seg});hs=Math.max(hs,3);
         if(t.st<=0&&t.act==='free'){stunF(t,45,'stagger');emit(C,'guardbreak',a.id,t.id)}}
       else if(t.inv>0){emit(C,'immune',a.id,t.id,{seg:o.seg})}   // the phase roar: nothing lands (a few ticks, see below)
@@ -122,7 +126,7 @@ const CombatCore=(()=>{
     // (6) advance counters (not reached during hit-stop)
     for(const id of C.order){const f=C.F[id];if(f.act==='dead')continue;
       if(f.guard)f.gpt=Math.min(99,f.gpt+1);else f.rel=Math.min(99,f.rel+1);
-      if(f.pry>0){f.pry--;if(f.pry===0){f.guard=false;f.rel=0}}
+      if(f.pfT>0)f.pfT--;if(f.pry>0){f.pry--;if(f.pry===0){f.guard=false;f.rel=0}}
       f.sr=Math.min(999,f.sr+1);f.pr=Math.min(999,f.pr+1);
       if(f.sr>=30&&f.st<f.stMax)f.st=Math.min(f.stMax,f.st+(f.guard?.15:.4));
       if(f.pr>=90&&f.po>0)f.po=Math.max(0,f.po-.35);
@@ -139,4 +143,4 @@ const CombatCore=(()=>{
       for(let i=0;i<n;i++){const nt=C.tick+1,cm={},held=getHeld?getHeld(nt):{};for(const id in held)cm[id]=Object.assign({list:[]},held[id]);
         for(const p of S.pend)if(p.tick<=nt){(cm[p.id]=cm[p.id]||{list:[]}).list.push(p.cmd)}S.pend=S.pend.filter(p=>p.tick>nt);
         for(const e of C.step(cm))evs.push(e);if(post)post(nt)}return evs};return S}
-  return{create,stepper,mkFighter,moveBy,stun:stunF,CONST:{SPEED,SUBM,GUARD_ARC,REARM,DEFL,BUF,PARRY_T,PARRY_W}}})();
+  return{create,stepper,mkFighter,moveBy,stun:stunF,CONST:{SPEED,SUBM,GUARD_ARC,REARM,DEFL,BUF,PARRY_T,PARRY_W,PERFECT}}})();

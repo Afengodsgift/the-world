@@ -608,7 +608,7 @@ const PlayerCombat=(()=>{
   function bossReel(B,rw){if(!B||B.f.act==='dead')return;B.f.hp=Math.max(1,B.f.hp-B.f.hpMax*.1*rw);B.f.po=Math.min(B.f.poMax*.97,B.f.po+B.f.poMax*.6*rw)}   // host / solo only: the boss is the host's
   function spMsg(p){
     if(!on||!site||p.s!==site.id)return;
-    if(p.t==='tp'||p.t==='tx'||p.t==='vh'||p.t==='br'||p.t==='fk'||p.t==='bg'){trickSp(p);return}
+    if(p.t==='tp'||p.t==='tx'||p.t==='vh'||p.t==='br'||p.t==='fk'||p.t==='bg'||p.t==='pf'){trickSp(p);return}
     if(p.t==='bs'&&NET.mode==='guest'&&!ult&&state==='fight'&&P.act!=='dead'&&!CineCam.busy()){const B=byId[p.b];if(B&&B.f.act!=='dead')startBarrage(B,{a0:p.a,co:true})}
     else if(p.t==='es'&&NET.mode==='guest'&&!ult&&state==='fight'&&P.act!=='dead'&&!CineCam.busy()){const B=byId[p.b];if(B&&B.f.act!=='dead')startEcho(B,{co:true,seed:p.seed,st:p.st})}
     else if(p.t==='ef'&&NET.mode==='host'&&ult&&ult.kind==='echo')echoFound(true)
@@ -686,6 +686,7 @@ const PlayerCombat=(()=>{
     else if(p.t==='fk'&&NET.mode==='host'){for(const F of foes)if(F.awake&&F.f.act==='free'&&!F.ghost&&!F.script)DuelistAI.hunt(F.ai)}
     else if(p.t==='tx'){const t=traps.find(q=>q.id===p.i);if(t){trapDel(t);try{WardenVfx.spawn(t.x,H(t.x,t.z)+.6,t.z,2,3,2,Math.random()*6.28,24)}catch(e){}}}
     else if(p.t==='vh'&&NET.mode==='host'){const A=byId[p.b];if(A&&A.f.act!=='dead'&&A.T.vamp){const h=Math.min(+p.h||0,A.f.hpMax*.1);A.f.hp=Math.min(A.f.hpMax,A.f.hp+h);A.drunk=(A.drunk||0)+h}}
+    else if(p.t==='pf'&&NET.mode==='host'){const F=byId[p.b];if(F&&F.f.act!=='dead'&&!F.f.sa)CombatCore.stun(F.f,p.q?96:30,p.q?'stagger':'recoil')}
     else if(p.t==='bg'&&NET.mode==='host'){const F=byId[p.b];if(F&&F.f.act==='attack'&&F.f.mv&&F.f.mv.bg)CombatCore.stun(F.f,84,'stagger')}
     else if(p.t==='br'&&NET.mode==='guest'){const F=byId[p.b];if(F&&F.f.act==='attack'&&F.f.mv&&F.f.mv.id==='blink')blinkRing(p.x,p.z,true)}}
   let pun=null;
@@ -814,7 +815,9 @@ const PlayerCombat=(()=>{
       WardenVfx.spawn(f.x,y,f.z,3,3,big?3.2:2.2,Math.random()*6.28,30);if(big)WardenVfx.spawn(f.x,y,f.z,0,3,3.8,Math.random()*6.28,26);
       flash(big?.55:.26);try{CameraRig.shake(big?.5:.22)}catch(x){}}
     else if(e.t==='brokenguard'&&e.d==='P'){flash(.6,'rgba(255,220,140,.9)');try{CameraRig.shake(.5)}catch(x){}if(NET.mode==='guest'){try{WardenNet.send({k:'sp',t:'bg',b:e.a})}catch(x){}}}
-    else if(e.t==='deflect'&&e.d==='P'){flash(.4,'rgba(190,225,255,.85)');try{CameraRig.shake(.42)}catch(x){}parryFx(e)}
+    else if(e.t==='deflect'&&e.d==='P'){flash(.4,'rgba(190,225,255,.85)');try{CameraRig.shake(.42)}catch(x){}parryFx(e);
+      if(e.pf&&!ult){hsT=Math.max(hsT,e.sq?.6:.22);flash(.45,'rgba(255,215,120,.8)');msg(e.sq?'PERFECT SEQUENCE':'PERFECT',e.sq?1.6:.7);try{sfx('clash',.6,1.7,()=>tone(1900,1100,.22,'sine',.1));if(e.sq)CameraRig.shake(.7)}catch(x){}
+        if(NET.mode==='guest'){try{WardenNet.send({k:'sp',t:'pf',b:e.a,q:e.sq?1:0})}catch(x){}}}}
     else if(e.t==='dodge'&&e.a==='P'){WardenVfx.spawn(P.x,H(P.x,P.z)+1,P.z,2,4,2.8,-P.face+Math.PI/2,30)}}
   // PARRY: a real sweep of the sword (pAnim.flick, alternating sides), a short hit-stop so you SEE the clash, a double burst of sparks between you and him, a bright ring and a rising ring tone
   let parryAlt=0,hsT=0;
