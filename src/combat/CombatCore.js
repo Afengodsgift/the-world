@@ -10,7 +10,7 @@ const CombatCore=(()=>{
   const PHI=42,RISE=336;   // RISE: a boss that 'rises' is felled at its phase line, lies down ~5.6 s (untouchable), then gets up in its second phase
      // ticks of invulnerability while a boss changes phase (0.7 s)
   function mkFighter(id,o){o=o||{};return{id,x:o.x||0,z:o.z||0,y:0,r:.45,face:o.face||0,hp:o.hp||100,hpMax:o.hp||100,st:100,stMax:100,po:0,poMax:100,
-    team:o.team||null,sa:o.sa||0,pg:o.pg||0,rise:o.rise||0,pgd:false,inv:0,sm:1,pm:1,dfl:0,bk:0,dm:o.dm||1,rm:o.rm||1,act:'free',pt:0,ph:null,pi:0,pk:0,mv:null,hold:0,done:{},sk:null,stun:0,kx:0,kz:0,kr:0,dir:null,guard:false,gpt:99,rel:99,sr:99,pr:99,c:0,rel2:false,buf:null,q:[],ex:0,ez:0,lc:0,lcT:-999,dEnd:-999}}
+    team:o.team||null,sa:o.sa||0,pg:o.pg||0,rise:o.rise||0,tm:o.tm||1,pgd:false,inv:0,sm:1,pm:1,dfl:0,bk:0,dm:o.dm||1,rm:o.rm||1,act:'free',pt:0,ph:null,pi:0,pk:0,mv:null,hold:0,done:{},sk:null,stun:0,kx:0,kz:0,kr:0,dir:null,guard:false,gpt:99,rel:99,sr:99,pr:99,c:0,rel2:false,buf:null,q:[],ex:0,ez:0,lc:0,lcT:-999,dEnd:-999}}
   function create(o){o=o||{};const C={tick:0,hs:0,ev:[],fx:[],fxN:0,F:{},solids:(o.solids||[]).slice(),arena:o.arena||{x:0,z:0,R:1e9},order:[]};
     C.add=(id,fo)=>{C.F[id]=mkFighter(id,fo);C.order.push(id);return C.F[id]};
     C.step=cmds=>step(C,cmds||{});C.start=(id,m,hold)=>{const f=C.F[id];if(f&&Moves[m])startMove(C,f,m,hold|0)};return C}
@@ -27,7 +27,7 @@ const CombatCore=(()=>{
   function addPo(C,f,v){if(f.act==='dead')return;f.po=Math.min(f.poMax,f.po+v);f.pr=0;
     if(f.po>=f.poMax&&!(f.act==='stun'&&(f.sk==='stagger'||f.sk==='rise'))){f.po=0;stunF(f,60,'stagger');emit(C,'posturebreak',null,f.id)}}
   function stunF(f,n,kind){f.act='stun';f.sk=kind;f.stun=n;f.guard=false;f.ph=null;f.mv=null;f.buf=null;f.rel2=false;f.c=0}
-  function startMove(C,f,id,hold){const m=Moves[id];f.act='attack';f.mv=m;f.ph=Moves.expand(id,hold);f.hold=hold|0;f.pi=0;f.pk=0;f.pt=0;f.done={};f.guard=false;if(m.stam)spend(f,m.stam);emit(C,'start',f.id,null,{move:id});
+  function startMove(C,f,id,hold){const m=Moves[id];f.act='attack';f.mv=m;f.ph=Moves.expand(id,hold,f.tm);f.hold=hold|0;f.pi=0;f.pk=0;f.pt=0;f.done={};f.guard=false;if(m.stam)spend(f,m.stam);emit(C,'start',f.id,null,{move:id});
     if(m.fx)for(const d of m.fx)if(d.on==='start')spawnFx(C,f,d);skipEmpty(f)}
   const enemyOf=(a,t)=>t!==a&&t.act!=='dead'&&!(a.team&&t.team===a.team);
   function nearestFoe(C,a){let best=null,bd=1e9;for(const id of C.order){const t=C.F[id];if(!enemyOf(a,t))continue;const d=Math.hypot(t.x-a.x,t.z-a.z);if(d<bd){bd=d;best=t}}return best}
@@ -40,6 +40,7 @@ const CombatCore=(()=>{
     C.fx.push(fx);emit(C,'fx',a.id,null,{fid:id,k:fx.k,x:fx.x,z:fx.z,dx:fx.dx,dz:fx.dz,r:fx.r,delay:fx.delay,dur:fx.dur,spd:fx.spd,life:fx.life,move:mv.id});return fx}
   function skipEmpty(f){while(f.act==='attack'&&f.ph[f.pi]&&f.pk>=f.ph[f.pi].n){f.pi++;f.pk=0}if(f.act==='attack'&&f.pi>=f.ph.length)f.act='free'}
   const recT=f=>{if(!f.ph||f.act!=='attack')return -1;const p=f.ph[f.pi];return p&&p.k==='recovery'?f.pk:-1};
+  const DG=t=>t.side?Moves.sidestep:Moves.dodge,iframe=t=>t.act==='dodge'&&t.pt>=DG(t).iStart&&t.pt<=DG(t).iEnd;
   function canCancel(f,to){const r=recT(f);if(r<0||!f.mv||!f.mv.cancel)return false;const t=f.mv.cancel[to];return t!==undefined&&r>=t}
   function tryCmd(C,f,c){
     if(f.act==='dead')return true;
@@ -48,7 +49,7 @@ const CombatCore=(()=>{
       case'light':{const from=f.act==='attack'&&f.mv?f.mv.id:null;if(!(f.act==='free'||canCancel(f,'light'))||f.st<=0)return false;
         const id=Combos.light({air:(f.y||0)>.7,guard:f.guard,from:f.act==='free'?null:from,adv:!!c.adv,far:!!c.far,chain:C.tick-f.lcT<=Combos.CHAIN_GAP?f.lc:0,sinceDodge:C.tick-f.dEnd});startMove(C,f,id);f.lc=Moves[id].chain||0;return true}
       case'atk':if(f.act==='free'){startMove(C,f,c.m,c.hold||0);return true}return false;
-      case'dodge':{if((f.act==='free'||f.act==='charge'||canCancel(f,'dodge'))&&f.st>0){const D=Moves.dodge;let dx=c.dx,dz=c.dz;if(!(Math.hypot(dx||0,dz||0)>.01)){dx=-Math.sin(f.face);dz=-Math.cos(f.face)}const L=Math.hypot(dx,dz);f.dir=[dx/L,dz/L];f.act='dodge';f.pt=0;f.guard=false;f.ph=null;f.mv=null;f.c=0;spend(f,D.stam);emit(C,'dodge',f.id,null);return true}return false}
+      case'dodge':{if((f.act==='free'||f.act==='charge'||canCancel(f,'dodge'))&&f.st>0){const D=c.side?Moves.sidestep:Moves.dodge;f.side=c.side?1:0;let dx=c.dx,dz=c.dz;if(!(Math.hypot(dx||0,dz||0)>.01)){dx=-Math.sin(f.face);dz=-Math.cos(f.face)}const L=Math.hypot(dx,dz);f.dir=[dx/L,dz/L];f.act='dodge';f.pt=0;f.guard=false;f.ph=null;f.mv=null;f.c=0;spend(f,D.stam);emit(C,'dodge',f.id,null);return true}return false}
       case'guardDown':if(f.act==='free'||canCancel(f,'guard')){if(f.act==='attack'){f.act='free';f.ph=null;f.mv=null}f.guard=true;f.gpt=f.rel>=REARM?0:99;return true}return false;
       case'guardUp':if(f.guard){f.guard=false;f.rel=0}return true;
       case'heavyDown':{const from=f.act==='attack'&&f.mv?f.mv.id:null;
@@ -71,13 +72,13 @@ const CombatCore=(()=>{
     for(const id of C.order){const f=C.F[id];if(f.act==='dead')continue;if(f.inv>0)f.inv--;
       if(f.act==='free'||f.act==='charge'){const k=(f.act==='charge'?.4:f.guard?.5:1)*(f.spd||1),L=Math.hypot(f.ex,f.ez),s=L>1?1/L:1;moveBy(C,f,f.ex*s*SPEED*k,f.ez*s*SPEED*k)}
       else if(f.act==='attack'){const p=f.ph[f.pi];if(p&&p.move){const d=p.move/p.n,[fx,fz]=faceV(f);moveBy(C,f,fx*d,fz*d)}}
-      else if(f.act==='dodge'){const D=Moves.dodge,i=f.pt-D.rootT0;if(i>=0&&i<Moves.dodgeRoot.length)moveBy(C,f,f.dir[0]*Moves.dodgeRoot[i],f.dir[1]*Moves.dodgeRoot[i])}
+      else if(f.act==='dodge'){const D=f.side?Moves.sidestep:Moves.dodge,R=f.side?Moves.sideRoot:Moves.dodgeRoot,i=f.pt-D.rootT0;if(i>=0&&i<R.length)moveBy(C,f,f.dir[0]*R[i],f.dir[1]*R[i])}
       if(f.kr>0){const s=Math.min(f.kr,.12);f.kr-=s;moveBy(C,f,f.kx*s,f.kz*s)}}
     // (3b) effects: `release` phases fire their effects on the first tick; live effects move / burst and add to the same outcome list as the sword
     for(const aid of C.order){const a=C.F[aid];if(a.act!=='attack'||!a.mv||!a.mv.fx)continue;const p=a.ph[a.pi];if(p&&a.pk===0&&(p.k==='release'||p.k==='release2'))for(const d of a.mv.fx)if(d.on===p.k)spawnFx(C,a,d)}
     const out=[];
     if(C.fx.length)C.fx=C.fx.filter(fx=>{const own=C.F[fx.o]||{id:fx.o,team:fx.team},foes=C.order.map(i=>C.F[i]).filter(t=>t.act!=='dead'&&!(fx.team&&t.team===fx.team)&&t.id!==fx.o);
-      const iframe=t=>t.act==='dodge'&&t.pt>=Moves.dodge.iStart&&t.pt<=Moves.dodge.iEnd;
+
       if(fx.k==='proj'){fx.x+=fx.dx*fx.spd;fx.z+=fx.dz*fx.spd;fx.life--;
         for(const s of C.solids){if(s.nb&&!s.wall)continue;if(Math.hypot(fx.x-s.x,fx.z-s.z)<s.r){emit(C,'fxend',fx.o,null,{fid:fx.id,why:'wall',x:fx.x,z:fx.z});return false}}
         for(const t of foes){if(fx.done[t.id]||Math.hypot(t.x-fx.x,t.z-fx.z)>=fx.r+t.r)continue;fx.done[t.id]=true;
@@ -95,7 +96,7 @@ const CombatCore=(()=>{
     for(const aid of C.order){const a=C.F[aid];if(a.act!=='attack')continue;const p=a.ph[a.pi];if(!p||p.k!=='active'||a.done[p.seg])continue;
       for(const tid of C.order){if(tid===aid)continue;const t=C.F[tid];if(t.act==='dead'||(a.team&&t.team===a.team))continue;
         const hit=SwordHit.tickHits(snap[aid],a.face,a.mv,p,a.pk,p.n,snap[tid],C.solids,a.y,t.y);if(!hit)continue;
-        if(t.act==='dodge'&&t.pt>=Moves.dodge.iStart&&t.pt<=Moves.dodge.iEnd){out.push({k:'dodged',a,t,seg:p.seg});continue}
+        if(iframe(t)){out.push({k:'dodged',a,t,seg:p.seg});continue}
         const br=Math.atan2(snap[aid].x-snap[tid].x,snap[aid].z-snap[tid].z);
         if(t.guard&&t.act==='free'&&SwordHit.angd(t.face,br)<=GUARD_ARC)out.push({k:t.gpt<=DEFL+(t.dfl||0)?'deflect':'block',a,t,seg:p.seg,mv:a.mv,br});
         else out.push({k:'hit',a,t,seg:p.seg,mv:a.mv,br})}}
@@ -124,7 +125,7 @@ const CombatCore=(()=>{
       if(f.sr>=30&&f.st<f.stMax)f.st=Math.min(f.stMax,f.st+(f.guard?.15:.4));
       if(f.pr>=90&&f.po>0)f.po=Math.max(0,f.po-.35);
       if(f.act==='attack'){f.lcT=C.tick;f.pt++;f.pk++;skipEmpty(f);if(f.act==='free'){f.ph=null;f.mv=null}}
-      else if(f.act==='dodge'){f.pt++;if(f.pt>=Moves.dodge.total){f.act='free';f.pt=0;f.dEnd=C.tick}}
+      else if(f.act==='dodge'){f.pt++;if(f.pt>=(f.side?Moves.sidestep:Moves.dodge).total){f.act='free';f.pt=0;f.dEnd=C.tick}}
       else if(f.act==='charge')f.c++;
       else if(f.act==='stun'){f.stun--;if(f.stun<=0){f.act='free';f.sk=null}}}
     return C.ev}

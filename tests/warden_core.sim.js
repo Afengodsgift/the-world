@@ -7,7 +7,7 @@ const duel=(o)=>{o=o||{};const C=CC.create({arena:o.arena||{x:0,z:0,R:14},solids
 const run=(C,n,fn)=>{const ev=[];for(let i=0;i<n;i++){const cm=fn?fn(C.tick+1):{};for(const e of C.step(cm))ev.push(e)}return ev};
 // ---------- A. fairness data rules (no exceptions) ----------
 const EXCEPTIONS=[];ok(EXCEPTIONS.length===0,'fairness exceptions list is empty');
-const dm=Object.keys(M).filter(k=>M[k]&&M[k].who==='D');ok(dm.length===37,'37 foe moves (5 Duelist + 3 Hollow Warden + 2 gap closers + 4 ranged/magic + bash + riposte + 3 capoeira + blink + snare + Kage: iai, feint, moon, counter, requiem + Gwyn: ashwave, crossflame, kingsfall, flurry): '+dm.join(','));
+const dm=Object.keys(M).filter(k=>M[k]&&M[k].who==='D');ok(dm.length===38,'38 foe moves (5 Duelist + 3 Hollow Warden + 2 gap closers + 4 ranged/magic + bash + riposte + 3 capoeira + blink + snare + Kage: iai, feint, moon, counter, requiem + Gwyn: ashwave, crossflame, kingsfall, flurry + Kage: hundred): '+dm.join(','));
 for(const id of dm){let worst=1e9,rec=M.endRecovery(id);for(let h=0;h<=M.HOLD_MAX;h++)for(const t of M.tells(id,h))worst=Math.min(worst,t);
   ok(worst>=M.TELL_MIN,id+': every hit has a tell >= '+M.TELL_MIN+' ticks for hold 0..12 (min '+worst+')');
   ok(rec>=M.REC_MIN,id+': ends in >= '+M.REC_MIN+' uncancellable recovery ('+rec+')');
@@ -24,6 +24,8 @@ ok(actTick('light',true)===20,'player light: acts again after exactly 20 ticks (
 ok(actTick('cut',false)===44,'Duelist cut: acts again after exactly 44 ticks (20+4+20)');
 ok(actTick('riposte',false)===48&&actTick('thrust',false)===68,'riposte 48, thrust 68');
 {const{C,P}=duel({D:{x:0,z:50}});C.step({P:{list:[{t:'dodge',dx:1,dz:0}]}});let n=1;while(P.act!=='free'&&n<100){C.step({});n++}ok(n===22,'dodge: acts again after exactly 22 ticks')}
+{const{C,P}=duel({D:{x:0,z:50}});C.step({P:{list:[{t:'dodge',dx:1,dz:0,side:1}]}});let n=1;while(P.act!=='free'&&n<100){C.step({});n++}ok(n===16&&P.x>1.5&&P.x<3,'sidestep: acts again after 16 ticks and hops ~2.3 m (x='+P.x.toFixed(2)+')')}
+ok(M.expand('cut',0,1.3)[0].n<M.expand('cut',0)[0].n&&M.expand('cut',0,1.3).every(p=>p.k==='active'||p.n>=14)&&M.expand('requiem',0,1.3)[0].n===M.expand('requiem',0)[0].n&&M.expand('cut',0,1.3).find(p=>p.k==='active').n===4,'tempo 1.3 speeds windups / recoveries (never under 14), leaves active frames and ground-telegraph moves alone')
 // ---------- C. first-overlap tick for a Duelist cut at a stationary player ----------
 function firstHit(setup){const{C,P,D}=duel(setup);C.step({D:{list:[{t:'atk',m:'cut'}]}});for(let i=0;i<60;i++){const ev=C.step({});if(ev.some(e=>e.t==='hit'))return C.tick}return -1}
 const tH=firstHit();ok(tH>0,'a stationary player is hit by the cut at tick '+tH+' (pt '+(tH-1)+')');

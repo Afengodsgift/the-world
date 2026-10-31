@@ -6,11 +6,11 @@
 // they enter a second phase (faster, shorter rests, more gap closers). Moods (Duelist) vary the pacing; a turtling guard is punished; a visibly recovering player is punished.
 // Adaptive difficulty (learning your habits) is a separate layer, off by default, and is NOT in this file.
 const DuelistAI=(()=>{
-  const REACH={ashwave:16,crossflame:16,kingsfall:7,flurry:3,cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4,dash:2.4,leap:3.0,bash:2.3,orb:12,bolt:16,spin:2.9,hammer:2.7,lowsweep:3.1,blink:30,snare:30,lance:20,returning:18,consecrate:12,procession:11,march:2.7,groundbreaker:3.9,verdict:2.8,pursuit:3.1,iai:3.4,feint:3.4,moon:3.7,counter:2.9,requiem:5.2},REACT=14,INTRO=90;
+  const REACH={hundred:3.2,ashwave:16,crossflame:16,kingsfall:7,flurry:3,cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4,dash:2.4,leap:3.0,bash:2.3,orb:12,bolt:16,spin:2.9,hammer:2.7,lowsweep:3.1,blink:30,snare:30,lance:20,returning:18,consecrate:12,procession:11,march:2.7,groundbreaker:3.9,verdict:2.8,pursuit:3.1,iai:3.4,feint:3.4,moon:3.7,counter:2.9,requiem:5.2},REACT=14,INTRO=90;
   const HR={sweep:3.0,slam:3.0,triple:2.8,quake:4.2};
   function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
   function create(seed,o){o=o||{};const r=mulberry(seed|0);return{foe:o.foe||'duelist',noAtk:false,gcool:0,r,t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,mood:'patient',moodT:90,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null,
-    bcd:240,scd:100,hcd:0,hunt:false,follow:null,adaptCd:0,adapt:null,ph3:false,att:0,ccd:300,rcd:0,chain:0,moves:0,nextBreath:3+Math.floor(r()*3),breath:0,ph2:false,closeP:0}}
+    bcd:240,scd:100,hcd:0,hcd2:0,hunt:false,follow:null,adaptCd:0,adapt:null,ph3:false,att:0,ccd:300,rcd:0,chain:0,moves:0,nextBreath:3+Math.floor(r()*3),breath:0,ph2:false,closeP:0}}
   const key=P=>P.act==='attack'&&P.ph&&P.ph[P.pi]?'a'+P.ph[P.pi].k:P.act==='stun'?'stun':P.act==='dodge'?'dodge':P.act==='charge'?'charge':P.guard?'guard':'free';
   const rest=(A,lo,span)=>Math.max(20,Math.floor((lo+Math.floor(A.r()*span))*(A.ph3?.58:A.ph2?.75:1)));
   // A = ai state, P/D = sim fighters, evs = events of the previous tick. Returns {face,mx,mz,list}
@@ -22,7 +22,7 @@ const DuelistAI=(()=>{
     const k=key(P);if(k!==A.seenKey){A.seenKey=k;A.see=0}else A.see++;
     A.gP=P.guard&&P.act==='free'?A.gP+1:0;if(A.cool>0)A.cool--;if(A.gcool>0)A.gcool--;if(A.rip>1)A.rip--;if(A.breath>0)A.breath--;if(A.bcd>0)A.bcd--;if(A.scd>0)A.scd--;if(A.hcd>0)A.hcd--;
     if(!A.ph2&&D.hp<D.hpMax*.5)A.ph2=true;if(SM&&!A.ph3&&D.hp<D.hpMax*.22){A.ph3=true;A.ph2=true;A.rcd=0;A.req=true}   // Kage has a third phase
-    if(VL)veilTally(A,P,k,tick);if(GW){if(A.wcd>0)A.wcd--;if(A.kcd>0)A.kcd--}if(SM){if(A.adaptCd>0)A.adaptCd--;if(A.ccd>0)A.ccd--;if(A.rcd>0)A.rcd--;if((k==='astartup'||k==='aactive'||k==='acharge')&&dist<3.4)A.att++;else A.att=Math.max(0,A.att-.5)}                                 // second phase: the game announces it by reading A.ph2
+    if(VL)veilTally(A,P,k,tick);if(A.hcd2>0)A.hcd2--;if(GW){if(A.wcd>0)A.wcd--;if(A.kcd>0)A.kcd--}if(SM){if(A.adaptCd>0)A.adaptCd--;if(A.ccd>0)A.ccd--;if(A.rcd>0)A.rcd--;if((k==='astartup'||k==='aactive'||k==='acharge')&&dist<3.4)A.att++;else A.att=Math.max(0,A.att-.5)}                                 // second phase: the game announces it by reading A.ph2
     for(const e of evs||[])if((e.t==='block'||e.t==='deflect')&&e.d===D.id&&A.rip===0)A.rip=REACT;   // we just blocked something: counter-attack soon
     if(D.act!=='free'){A.busy=true;return out}
     if(A.busy){A.busy=false;A.moves++;
@@ -132,7 +132,7 @@ const DuelistAI=(()=>{
     if(A.follow){const m=A.follow;A.follow=null;if(dist<REACH[m]+.8)return start(A,out,m,0,tick)}
     const L0=A.last[A.last.length-1];
     if(A.hunt){A.hunt=false;A.hcd=300;if(dist>2.6&&L0!=='blink'){A.bcd=A.ph2?220:330;return start(A,out,'blink',0,tick)}if(dist<=REACH.thrust)return start(A,out,'thrust',0,tick)}   // you drank a flask: he is on you
-    if(A.bcd<=0&&L0!=='blink'&&(dist>=3.6&&dist<=10||A.gP>25&&dist<3.2)){A.closeP+=A.ph2?.09:.05;if(A.r()<A.closeP||A.gP>40){A.closeP=0;A.bcd=A.ph2?220:330;return start(A,out,'blink',0,tick)}}
+    if(A.bcd<=0&&L0!=='blink'&&(dist>=3.6&&dist<=10||A.gP>25&&dist<3.2)){A.closeP+=A.ph3?.16:A.ph2?.12:.06;if(A.r()<A.closeP||A.gP>40){A.closeP=0;A.bcd=A.ph2?220:330;return start(A,out,'blink',0,tick)}}
     if(dist>=3.6&&dist<=10&&L0!=='dash'){return out}
     if(dist>REACH.thrust+.2)return out;
     const w={cut:3,twin:2.6,triple:1.8,thrust:1.4,spin:1.1,lowsweep:1.2,fall:.9};
@@ -162,13 +162,14 @@ const DuelistAI=(()=>{
     if(A.follow){const m=A.follow;A.follow=null;if(dist<REACH[m]+.8)return start(A,out,m,m==='fall'?12:0,tick)}
     const L0=A.last[A.last.length-1];
     if(A.req&&dist<5){A.req=false;A.rcd=A.ph3?900:0;A.follow='moon';return start(A,out,'requiem',0,tick)}   // the last phase opens with the final technique (ring on the ground, then a crescent)
-    if(A.hunt){A.hunt=false;A.hcd=300;if(dist>2.8&&L0!=='blink'){A.bcd=A.ph2?220:330;return start(A,out,'blink',0,tick)}if(dist<=REACH.iai)return start(A,out,'iai',0,tick)}
-    if(A.bcd<=0&&L0!=='blink'&&(dist>=3.6&&dist<=10||A.gP>25&&dist<3.2)){A.closeP+=A.ph2?.09:.05;if(A.r()<A.closeP||A.gP>40){A.closeP=0;A.bcd=A.cov?140:A.ph3?170:A.ph2?220:330;return start(A,out,'blink',0,tick)}}
+    if(A.hunt){A.hunt=false;A.hcd=300;if(dist>2.8&&L0!=='blink'){A.bcd=A.ph2?150:260;return start(A,out,'blink',0,tick)}if(dist<=REACH.iai)return start(A,out,'iai',0,tick)}
+    if(A.bcd<=0&&L0!=='blink'&&(dist>=3.6&&dist<=10||A.gP>25&&dist<3.2)){A.closeP+=A.ph2?.09:.05;if(A.r()<A.closeP||A.gP>40){A.closeP=0;A.bcd=A.cov?140:A.ph3?100:A.ph2?150:260;return start(A,out,'blink',0,tick)}}
     if(dist>=3.6&&dist<=10&&L0!=='iai'){if(A.ph2&&A.r()<.012)return start(A,out,'iai',0,tick);return out}
     if(dist>REACH.moon+.2)return out;
     if(A.ph3&&A.rcd<=0&&dist<5&&A.r()<.02){A.rcd=900;A.follow='moon';return start(A,out,'requiem',0,tick)}
     if(A.ph2&&A.ccd<=0&&A.att>=70&&dist<REACH.counter+.4){A.ccd=A.ph3?420:600;A.att=0;return start(A,out,'counter',0,tick)}   // you keep swinging at him: he waits for it
-    const w={cut:3,twin:2.4,triple:1.2,iai:1.6,moon:.8,fall:.9};
+    const w={cut:3,twin:2.4,triple:1.2,iai:1.6,moon:.8,fall:.9,hundred:0};
+    if(A.foe==='samurai'&&A.ph2&&A.hcd2<=0&&L0!=='hundred'&&dist<=3.2){w.hundred=A.ph3?2.6:1.5}
     if(L0==='cut')w.twin*=1.8;else if(L0==='twin'){w.triple*=2;w.fall*=1.5}else if(L0==='blink'){w.iai*=2}else if(L0==='moon')w.cut*=1.6;
     if(A.gP>20){w.fall+=3.5;w.moon+=2;w.cut*=.3;w.twin*=.4}                                      // the guard punisher: a heavy overhead for turtling
     if((k==='arecovery'||k==='stun')&&A.see>=REACT){w.cut+=3;w.twin+=3;w.triple+=2}                  // you are recovering: punish it
@@ -176,7 +177,7 @@ const DuelistAI=(()=>{
     if(A.ph3){w.iai+=1.6;w.triple+=1.2;w.moon+=.6;w.feint=L0==='feint'?0:1.1}
     if(dist>2.7){w.cut=0;w.twin=0;w.triple=0;w.fall*=.4;if(dist>3.5){w.iai=0}}else if(dist<1.6){w.iai*=.3}
     const pick=choose(A,out,w,dist,tick,REACH);
-    const m=pick.list[pick.list.length-1];if(m&&m.m==='feint'){A.follow=A.r()<.62?'iai':'twin'}     // the empty sheath: sometimes the real draw follows, sometimes a quick pair
+    const m=pick.list[pick.list.length-1];if(m&&m.m==='hundred')A.hcd2=A.ph3?500:760;if(m&&m.m==='feint'){A.follow=A.r()<.62?'iai':'twin'}     // the empty sheath: sometimes the real draw follows, sometimes a quick pair
     if(m&&m.m==='fall')m.hold=A.ph2?8+Math.floor(A.r()*5):Math.floor(A.r()*13);                      // his overhead lands on a different beat each time
     return pick}
   // Gwyn, Lord of Cinder (a major boss): long waves from range, a leaping Kingsfall onto your mark, cuts that end in a guard-breaking Verdict, a Waterfowl-style flurry (phase 2), and the Last Fire at 22%: the Requiem ring then a rain of cinders.

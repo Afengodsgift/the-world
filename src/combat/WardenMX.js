@@ -143,7 +143,8 @@ const WardenMX=(()=>{
   // Kage, the Shadowflame Samurai (uploaded CC rig, packed by tools/pack_cc_char.mjs): the Oathbound set retargeted onto his skeleton (no spin / crouch clips there, so the sweep reuses a slash and the blink uses the power-up crouch)
   ROLES.samurai=Object.assign({},ROLES.vampire,{file:'assets/warden_mx_samurai.json',dorm:'idle',moves:Object.assign({},ROLES.vampire.moves,{
     sweep:{c:'slash3',t0:.2,h:[[.55,.85],[1.1,1.4]],e:1.6},twin:{c:'slash3',t0:.2,h:[[.55,.85],[1.1,1.4]],e:1.6},bash:{c:'kick',t0:.1,h:[[.5,.85]],e:1.15},riposte:{c:'kick',t0:.1,h:[[.5,.85]],e:1.15},spin:{c:'slash4',t0:.1,h:[[.55,1.0]],e:1.5},blink:{c:'power',t0:.3,e:.96},
-    iai:{c:'slash5',t0:.05,h:[[.5,.82]],e:1.3},feint:{c:'slash5',t0:.05,e:.55},moon:{c:'slash4',t0:.3,h:[[.9,1.4]],e:1.9},counter:{c:'slash',t0:.1,h:[[.5,.8]],e:1.2},requiem:{c:'power',t0:.3,e:2.1}})});
+    iai:{c:'slash5',t0:.05,h:[[.5,.82]],e:1.3},feint:{c:'slash5',t0:.05,e:.55},moon:{c:'slash4',t0:.3,h:[[.9,1.4]],e:1.9},counter:{c:'slash',t0:.1,h:[[.5,.8]],e:1.2},requiem:{c:'power',t0:.3,e:2.1},
+    hundred:{seq:[{c:'slash3',t0:.2,h:[.55,.85],e:1.0},{c:'slash5',t0:.1,h:[.5,.82],e:.95},{c:'slash3',t0:.2,h:[.55,.85],e:1.0},{c:'slash4',t0:.4,h:[.9,1.4],e:1.6}]}})});
   // The Veil Dancer (uploaded hooded rig, Mixamo skeleton): Kage's clip set retargeted onto her
   ROLES.veil=Object.assign({},ROLES.samurai,{file:'assets/warden_mx_veil.json'});
   // The Veiled Saint (uploaded Queen of Swords rig, packed by tools/pack_ue_char.mjs): the Huntress's cast / kick / power-up set retargeted onto her; every area attack is a cast
@@ -200,6 +201,7 @@ const WardenMX=(()=>{
         else if(f.act==='charge'){const m=R.moves.heavy;if(m&&m.ch)put(m.c,m.ch[0]+(m.ch[1]-m.ch[0])*ease(f.c/16))}
         else if(f.act==='attack'&&f.ph&&f.ph[f.pi]&&mv){const pl=planOf(mv),e=pl&&pl[f.pi];
           if(e){const n=f.ph[f.pi].n||1,p=Math.min(1,(f.pk+fr)/n);let a=e.a;if(spec&&spec.ch&&f.pi===0)a=Math.max(a,spec.ch[1]);put(e.c,a+(e.b-a)*p)}}
+        else if(I.flick&&f.act==='free'&&A[I.flick.c]&&(I.flick.t+=dt)<I.flick.d){const k=I.flick;put(k.c,k.a+(k.b-k.a)*ease(k.t/k.d))}   // a parry: a quick sword sweep out of the guard (the game sets I.flick on a deflect)
         else if(f.guard&&f.act==='free'&&R.guard&&A[R.guard]){I.gT+=dt;put(R.guard,Math.min(I.gT,A[R.guard].getClip().duration-.05))}
         else{I.gT=0;
           const L=R.loco,sp=loco&&loco.moving?Math.max(.01,Math.hypot(loco.vf,loco.vs)):0;
