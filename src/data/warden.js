@@ -25,6 +25,7 @@ const WARDEN={
     {id:'ember',n:"Kage's Ember Dojo",x:-30,z:150,R:22,y:2.5,fog:true,foes:[{t:'samurai',dx:0,dz:-7}]},
     {id:'oaths',n:'The Oath Chamber',x:-165,z:20,R:24,y:2.5,fog:true,hidden:true,req:4,foes:[{t:'penitent',dx:-7,dz:-8},{t:'saint',dx:0,dz:-12},{t:'veil',dx:7,dz:-8}]},
     {id:'cinder',n:"Gwyn's Cinder Throne",x:-185,z:-60,R:24,y:2.5,fog:true,foes:[{t:'gwyn',dx:0,dz:-8}]},
+    {id:'sanctum',n:"The Dark Sun Sanctum",x:60,z:190,R:24,y:2.5,fog:true,foes:[{t:'gdn',dx:0,dz:-8}]},
     {id:'snarepit',n:"Skrag's Snare Pit",x:-142,z:-92,R:22,y:2.5,fog:true,foes:[{t:'goblin',dx:0,dz:-7}]},
     {id:'arena',n:'The Ashen Arena',x:60,z:105,R:26,y:2.5,fog:false,duel:true,foes:[{t:'shade',dx:0,dz:-9}]},
     {id:'camp3',n:'The Drowned Camp',x:-100,z:15,R:16,y:2.5,fog:false,foes:[{t:'soldier',dx:-4,dz:-2},{t:'soldier',dx:4,dz:-2},{t:'soldier',dx:0,dz:-6}]},
@@ -79,7 +80,7 @@ function WardenProps(){
   // far mountains on the landward rim, none across the south (landing beach side)
   for(let i=0,n=0;n<9&&i<400;i++){const d=150+r()*40,an=r()*Math.PI*2,wx=Math.sin(an)*d,wz=Math.cos(an)*d;if(wz>60||WardenH(wx,wz)<1.2)continue;put(pick(MTN),wx,wz,5.5+r()*4,{sink:-2.5});n++}
   // each boss site is a PLACE: a broken ring of landmarks just outside the fight circle, themed per site (ruin pillars / boulders / dead woods), with a gap where the fog gate faces the island centre
-  const THEME={crimsonspire:{l:PIL,n:6,s:3.4,v:1.5,tilt:.25},oaths:{l:PIL,n:9,s:3.6,v:1.6,tilt:.2},cinder:{l:PIL,n:8,s:3.2,v:1.4,tilt:.25},ember:{l:PIL,n:8,s:2.8,v:1.2,tilt:.3},snarepit:{l:TRE,n:7,s:2.2,v:1,tilt:.15},blackgate:{l:PIL,n:9,s:3.2,v:1.4,tilt:.3},cathedral:{l:PIL,n:10,s:3.6,v:1.6,tilt:.2},brokengate:{l:PIL,n:8,s:3.0,v:1.2,tilt:.4},ridgeshot:{l:PIL,n:7,s:2.8,v:1.2,tilt:.3},maw:{l:BLD,n:9,s:3.4,v:2.2,tilt:.4},hollowkeep:{l:BLD,n:8,s:3.0,v:2,tilt:.4},den:{l:TRE,n:10,s:2.1,v:.9,tilt:.12},glade:{l:TRE,n:9,s:1.9,v:.8,tilt:.12}};
+  const THEME={crimsonspire:{l:PIL,n:6,s:3.4,v:1.5,tilt:.25},oaths:{l:PIL,n:9,s:3.6,v:1.6,tilt:.2},sanctum:{l:PIL,n:5,s:3.2,v:1.4,tilt:.2},cinder:{l:PIL,n:5,s:3.2,v:1.4,tilt:.25},ember:{l:PIL,n:8,s:2.8,v:1.2,tilt:.3},snarepit:{l:TRE,n:7,s:2.2,v:1,tilt:.15},blackgate:{l:PIL,n:9,s:3.2,v:1.4,tilt:.3},cathedral:{l:PIL,n:10,s:3.6,v:1.6,tilt:.2},brokengate:{l:PIL,n:8,s:3.0,v:1.2,tilt:.4},ridgeshot:{l:PIL,n:7,s:2.8,v:1.2,tilt:.3},maw:{l:BLD,n:9,s:3.4,v:2.2,tilt:.4},hollowkeep:{l:BLD,n:8,s:3.0,v:2,tilt:.4},den:{l:TRE,n:10,s:2.1,v:.9,tilt:.12},glade:{l:TRE,n:9,s:1.9,v:.8,tilt:.12}};
   for(const q of W.sites){if(!q.fog||q.dg)continue;const th=THEME[q.id]||{l:PIL,n:8,s:2.6,v:1.2,tilt:.3},gate=Math.atan2(-q.x,-q.z);
     for(let i=0;i<th.n;i++){const an=i/th.n*Math.PI*2+(r()-.5)*.25;if(Math.abs(Math.atan2(Math.sin(an-gate),Math.cos(an-gate)))<.3)continue;
       const d=q.R+2+r()*3,wx=q.x+Math.sin(an)*d,wz=q.z+Math.cos(an)*d;if(WardenH(wx,wz)<.5)continue;put(pick(th.l),wx,wz,th.s+r()*th.v,{tilt:th.tilt,sink:-.25})}}
