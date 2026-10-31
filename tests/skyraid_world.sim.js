@@ -29,6 +29,10 @@ if(W){
     run.drones.push({id:'dd',x:1,y:2,z:3,vx:1,vy:0,vz:0,hp:24,max:24,alive:1});let e4=null;try{W.sync(run,view,null,7,1/60)}catch(e){e4=e}ok(!e4,'and draws') }
   { const geo=new THREE.BoxGeometry(8,3,20);geo.setAttribute('color',new THREE.BufferAttribute(new Float32Array(geo.attributes.position.count*3).fill(.4),3));W.useShip(geo);ok(W.shipModel,'a loaded ship model replaces the placeholder galleon');
     let e5=null;try{view.roll=.3;W.sync(run,view,{yaw:.2,pit:.1},8,1/60)}catch(e){e5=e}ok(!e5,'and the model ship draws with the turret barrel'+(e5?' ('+e5.message+')':'')) }
+  // v3 visuals: balloons, repair kits, flak, the boss laser
+  { SC.startStage(run,3);run.state='raid';run.balloons.push({id:'bb',x:20,y:30,z:20,hp:100,max:150,h:1,alive:1});run.picks.push({id:'pp',x:5,y:5,z:5,t:9});run.flak.push({x:7,y:7,z:7,t:.5});run.fort.lz.st=2;run.fort.lz.a=.5;let e6=null;
+    try{W.sync(run,view,null,9,1/60);W.fx({k:'pick',x:1,y:1,z:1},run,9)}catch(e){e6=e}ok(!e6,'balloon, repair kit, flak and laser draw'+(e6?' ('+e6.message+')':''));
+    const b=new THREE.BoxGeometry(5,5,5);b.setAttribute('color',new THREE.BufferAttribute(new Float32Array(b.attributes.position.count*3).fill(.5),3));W.useBalloon(b);let e7=null;try{W.sync(run,view,null,10,1/60)}catch(e){e7=e}ok(!e7,'a loaded balloon model swaps in') }
   // kill everything: the destroyed parts disappear
   for(const t of run.fort.turrets)t.alive=0;for(const g of run.fort.gens)g.alive=0;W.sync(run,view,null,9,1/60);
   let vis=0;W.fortress.turrets.forEach(t=>{if(t.o.visible)vis++});ok(vis===0,'destroyed turrets are hidden');ok(!W.fortress.shield.visible,'the shield bubble drops with the generators');

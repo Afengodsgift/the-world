@@ -3,7 +3,7 @@
 // to a function(THREE) returning a Group (+x right, +z forward, y up, ~18 m long for the ship, ~5 m for a drone) and it is used instead of the built-in one.
 // Cheap by design: shared materials, flat shading, no shadows, small pools, only ONE fortress is ever built.
 const SkyRaidWorld=(()=>{
-  const models={ship:null,drone:null},built=[];let droneGeo=null,droneAsked=false;
+  const models={ship:null,drone:null},built=[];let droneGeo=null,droneAsked=false,balGeo=null,balAsked=false;
   // The drone model (assets/sky/drone.glb: your assault drone, baked to ~3.5k vertex-coloured triangles by tools/lowpoly_glb.py) is fetched once and swapped in
   // for the placeholder drones of every built world. Any failure just keeps the placeholder.
   function loadGeo(url,gain,off,done){
@@ -16,6 +16,7 @@ const SkyRaidWorld=(()=>{
     }).catch(e=>console.warn('SkyRaid: model not loaded, using the placeholder',url,e&&e.message))}
   let shipGeo=null,shipAsked=false;
   function loadDrone(url){if(droneAsked)return;droneAsked=true;loadGeo(url,1.5,.03,geo=>{droneGeo=geo;for(const w of built)try{w.useDrone(geo)}catch(e){console.error('SkyRaid drone model',e)}})}
+  function loadBalloon(url){if(balAsked)return;balAsked=true;loadGeo(url,1.05,.02,geo=>{balGeo=geo;for(const w of built)try{w.useBalloon(geo)}catch(e){console.error('SkyRaid balloon model',e)}})}
   function loadShip(url){if(shipAsked)return;shipAsked=true;loadGeo(url,1,0,geo=>{shipGeo=geo;for(const w of built)try{w.useShip(geo)}catch(e){console.error('SkyRaid ship model',e)}})}
   // merges many small coloured primitives into ONE vertex-coloured mesh (one draw call instead of dozens)
   const _m4=new THREE.Matrix4(),_p=new THREE.Vector3(),_qq=new THREE.Quaternion(),_sc=new THREE.Vector3(),_e=new THREE.Euler(),_c=new THREE.Color();
@@ -33,10 +34,10 @@ const SkyRaidWorld=(()=>{
   const B=(c,o)=>new THREE.MeshBasicMaterial(Object.assign({color:c},o||{}));
   const mesh=(g,m,x,y,z,p)=>{const o=new THREE.Mesh(g,m);o.position.set(x||0,y||0,z||0);if(p)p.add(o);return o};
   function build(scene){
-    loadDrone('assets/sky/drone.glb');loadShip('assets/sky/ship.glb');
+    loadDrone('assets/sky/drone.glb');loadShip('assets/sky/ship.glb');loadBalloon('assets/sky/balloon.glb');
     const root=new THREE.Group();root.name='sky-raid';root.visible=false;scene.add(root);
     const M={hull:L(0x7a5130),hullDark:L(0x4a3320),deck:L(0xb08a58),metal:L(0x4b5260),metalDark:L(0x2a2f3a),red:L(0xc43c3c),white:L(0xf2efe6),rock:L(0x6b6458),rockDark:L(0x4a453d),
-      glowRed:B(0xff5a3c),glowBlue:B(0x5fe3ff),glowGold:B(0xffd24a),shield:B(0x5fb8ff,{transparent:true,opacity:.18,depthWrite:false,side:THREE.DoubleSide}),
+      glowRed:B(0xff5a3c),glowBlue:B(0x5fe3ff),glowGold:B(0xffd24a),glowGreen:B(0x5dff9a),kitHalo:B(0x5dff9a,{transparent:true,opacity:.14,depthWrite:false}),flak:B(0xff3a2a,{transparent:true,opacity:.3,depthWrite:false}),laser:B(0xff2a2a,{transparent:true,opacity:.5,depthWrite:false,blending:THREE.AdditiveBlending}),shield:B(0x5fb8ff,{transparent:true,opacity:.18,depthWrite:false,side:THREE.DoubleSide}),
       balloon:new THREE.MeshLambertMaterial({map:cv(256,64,(g,w,h)=>{for(let i=0;i<8;i++){g.fillStyle=i%2?'#f4f0e2':'#c43c3c';g.fillRect(i*w/8,0,w/8,h)}}),flatShading:false}),
       shot:B(0xff7a2a),shotD:B(0xff4a8a),tracer:B(0xfff2a0,{transparent:true,opacity:.9}),boom:B(0xffa030,{transparent:true,opacity:.8,depthWrite:false}),beacon:B(0xffd24a,{transparent:true,opacity:.16,depthWrite:false,side:THREE.DoubleSide})};
     const G={sph:new THREE.SphereGeometry(1,14,10),cyl:new THREE.CylinderGeometry(1,1,1,10),box:new THREE.BoxGeometry(1,1,1),cone:new THREE.ConeGeometry(1,1,10),oct:new THREE.OctahedronGeometry(1,0)};
@@ -83,6 +84,15 @@ const SkyRaidWorld=(()=>{
     for(let i=0;i<12;i++){const s=new THREE.Sprite(new THREE.SpriteMaterial({transparent:true,depthWrite:false,fog:false}));s.visible=false;s.userData={t:9};root.add(s);pops.push(s)}
     const mslP=[];for(let i=0;i<9;i++){const g=new THREE.Group(),b=mesh(G.cyl,M.white,0,0,0,g);b.scale.set(.55,4.6,.55);mesh(G.cone,M.glowGold,0,-2.9,0,g).scale.set(.8,2.6,.8);g.visible=false;root.add(g);mslP.push(g)}
     const samP=[];for(let i=0;i<4;i++){const g=new THREE.Group();mesh(G.sph,M.shotD,0,0,0,g).scale.set(1.7,1.7,1.7);mesh(G.cyl,M.glowRed,0,0,-2.6,g).scale.set(.7,4,.7);g.children[1].rotation.x=Math.PI/2;g.visible=false;root.add(g);samP.push(g)}
+    // war balloons (assets/sky/balloon.glb, else a striped envelope + gondola), repair kits, flak markers, the boss laser
+    const balP=[],BM=new THREE.MeshLambertMaterial({vertexColors:true,flatShading:true,side:THREE.DoubleSide});
+    function procBalloon(){const m=merger();m.add(G.sph,0xb03a3a,0,5,0,9,11,12);m.add(G.box,0x3a2a1c,0,-8,0,4,3,7);m.add(G.cyl,0x2a2f3a,0,-3,0,.5,6,.5);m.add(G.cyl,0x4b5260,0,-8,-8,.8,.8,3,Math.PI/2,0,0);return m.geometry()}
+    let bGeo=null;
+    for(let i=0;i<3;i++){const g=new THREE.Group();g.add(new THREE.Mesh(bGeo||(bGeo=procBalloon()),BM));g.visible=false;root.add(g);balP.push(g)}
+    function useBalloon(geo){bGeo=geo;for(const g of balP){while(g.children.length)g.remove(g.children[0]);g.add(new THREE.Mesh(geo,BM))}}
+    const kitP=[];for(let i=0;i<4;i++){const g=new THREE.Group();mesh(G.oct,M.glowGreen,0,0,0,g).scale.set(3.2,4.4,3.2);mesh(G.sph,M.kitHalo,0,0,0,g).scale.set(11,11,11);g.visible=false;root.add(g);kitP.push(g)}
+    const flakP=[];for(let i=0;i<3;i++){const m=mesh(G.sph,M.flak.clone(),0,0,0,root);m.visible=false;flakP.push(m)}
+    const laser=mesh(G.box,M.laser.clone(),0,0,0,root);laser.visible=false;
     let bi=0,ti=0,pi=0;
 
     // ---------------- the fortress (built when a stage starts) ----------------
@@ -133,6 +143,10 @@ const SkyRaidWorld=(()=>{
       }else if(fort)clearFort();
       // drones
       for(let i=0;i<drones.length;i++){const d=run.drones[i],m=drones[i];if(!d||!d.alive){m.visible=false;continue}m.visible=true;m.position.set(d.x,d.y,d.z);const sp=Math.hypot(d.vx,d.vz);if(sp>1)m.rotation.set(0,Math.atan2(d.vx,d.vz),Math.sin(t*4+i)*.2,'YXZ')}
+      for(let i=0;i<balP.length;i++){const b=run.balloons&&run.balloons[i],m=balP[i];if(!b||!b.alive){m.visible=false;continue}m.visible=true;m.position.set(b.x,b.y,b.z);m.rotation.set(0,b.h||0,Math.sin(t*.8+i)*.04,'YXZ')}
+      for(let i=0;i<kitP.length;i++){const p=run.picks&&run.picks[i],m=kitP[i];if(!p){m.visible=false;continue}m.visible=true;m.position.set(p.x,p.y+Math.sin(t*2+i)*1.2,p.z);m.rotation.y+=dt*2;m.children[1].scale.setScalar(10+Math.sin(t*4)*1.2)}
+      for(let i=0;i<flakP.length;i++){const p=run.flak&&run.flak[i],m=flakP[i];if(!p){m.visible=false;continue}m.visible=true;m.position.set(p.x,p.y,p.z);const k=1-Math.min(1,p.t/1.1);m.scale.setScalar(6+k*18);m.material.opacity=.15+k*.4*(Math.floor(t*14)%2?1:.6)}
+      {const L=run.fort&&run.fort.lz;if(L&&L.st&&run.fort.core.alive){laser.visible=true;const c=run.fort.core,len=SkyCore.LASER.len,w=L.st===2?7+Math.sin(t*40)*1.2:.9;laser.position.set(c.x+Math.sin(L.a)*len/2,c.y,c.z+Math.cos(L.a)*len/2);laser.rotation.set(0,L.a,0);laser.scale.set(w,w,len);laser.material.opacity=L.st===2?.65:.28+Math.sin(t*18)*.1}else laser.visible=false}
       for(let i=0;i<mslP.length;i++){const p=run.msl[i],m=mslP[i];if(!p){m.visible=false;continue}m.visible=true;m.position.set(p.x,p.y,p.z);_d.set(p.vx,p.vy,p.vz).normalize();m.quaternion.setFromUnitVectors(_up,_d)}
       for(let i=0;i<samP.length;i++){const p=run.sams[i],m=samP[i];if(!p){m.visible=false;continue}m.visible=true;m.position.set(p.x,p.y,p.z);m.lookAt(p.x+p.vx,p.y+p.vy,p.z+p.vz);m.children[0].scale.setScalar(1.6+Math.sin(t*20+i)*.25)}
       for(let i=0;i<shotsP.length;i++){const p=run.shots[i],m=shotsP[i];if(!p){m.visible=false;continue}m.visible=true;m.position.set(p.x,p.y,p.z);m.lookAt(p.x+p.vx,p.y+p.vy,p.z+p.vz)}
@@ -152,13 +166,14 @@ const SkyRaidWorld=(()=>{
         case 'boom':boom(e.x,e.y,e.z,6+e.s*9,.5+e.s*.25);if(e.s>=1){boom(e.x,e.y+2,e.z,3+e.s*5,.8,0xffe39a)}break;
         case 'dmg':pop(e.x,e.y,e.z,e.kind==='sam'?'INTERCEPT':String(e.n),e.kind==='core'?'#ffd24a':e.kind==='gen'?'#8fe8ff':e.kind==='sam'?'#ff8a5a':'#ffffff');break;
         case 'hurt':hurtMat.opacity=.45;break;
+        case 'pick':boom(e.x,e.y,e.z,14,.4,0x5dff9a);break;
       }
     }
     function boom(x,y,z,r,dur,col){const m=booms[bi++%booms.length];m.position.set(x,y,z);m.userData={t:0,dur:dur||.5,r};m.material.color.setHex(col||0xffa030);m.visible=true;m.scale.setScalar(r*.35)}
     function pop(x,y,z,txt,col){const s=pops[pi++%pops.length];const key=txt+col;s.material.map=popCache.get(key)||(popCache.size<80?(popCache.set(key,popTex(txt,col)),popCache.get(key)):popTex(txt,col));s.material.needsUpdate=true;s.position.set(x,y,z);s.scale.set(11,4.1,1);s.userData.t=0;s.material.opacity=1;s.visible=true}
     function hide(){root.visible=false;clearFort()}
-    const api={root,sync,fx,hide,boom,pop,useDrone,useShip,get fortress(){return fort},get droneModel(){return modelDrone},get shipModel(){return modelShip}};built.push(api);if(droneGeo)useDrone(droneGeo);if(shipGeo)useShip(shipGeo);
+    const api={root,sync,fx,hide,boom,pop,useDrone,useShip,useBalloon,get fortress(){return fort},get droneModel(){return modelDrone},get shipModel(){return modelShip}};built.push(api);if(droneGeo)useDrone(droneGeo);if(shipGeo)useShip(shipGeo);if(balGeo)useBalloon(balGeo);
     return api;
   }
-  return {build,models,loadDrone,loadShip};
+  return {build,models,loadDrone,loadShip,loadBalloon};
 })();

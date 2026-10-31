@@ -102,7 +102,7 @@ body.skyraid #stick,body.skyraid .stick,body.skyraid #joy{display:none!important
     q('#skMsl').textContent=run.mCd>0?Math.ceil(run.mCd)+'s':'MISSILES';q('#skMsl').classList.toggle('cd',run.mCd>0);
     const co=run.combo||{n:0};q('#skCombo').classList.toggle('on',co.n>=2);if(co.n>=2)q('#skCombo').innerHTML='x'+co.n+' COMBO<small>+'+Math.min(co.n,8)+' 🪙 per kill</small>';
     q('#skRole').textContent=(g?'🔫 GUNNER':'🛩 PILOT')+(ST.partner?'':g?' · autopilot flying':' · AI gunner');
-    const sam=run.sams&&run.sams.some(p=>Math.hypot(p.x-s.x,p.y-s.y,p.z-s.z)<300),near=sam||run.shots.some(p=>Math.hypot(p.x-s.x,p.y-s.y,p.z-s.z)<85);q('#skWarn').textContent=sam?'⚠ MISSILE! ROLL / TURN / SHOOT IT':'⚠ INCOMING';q('#skWarn').classList.toggle('on',near);if(near&&performance.now()-ST.warn>(sam?260:420)){ST.warn=performance.now();tone(sam?1400:1000,.06,'square',.06)}
+    const sam=run.sams&&run.sams.some(p=>Math.hypot(p.x-s.x,p.y-s.y,p.z-s.z)<300),near=sam||(run.flak&&run.flak.some(p=>Math.hypot(p.x-s.x,p.y-s.y,p.z-s.z)<70))||run.shots.some(p=>Math.hypot(p.x-s.x,p.y-s.y,p.z-s.z)<85);q('#skWarn').textContent=sam?'⚠ MISSILE! ROLL / TURN / SHOOT IT':'⚠ INCOMING';q('#skWarn').classList.toggle('on',near);if(near&&performance.now()-ST.warn>(sam?260:420)){ST.warn=performance.now();tone(sam?1400:1000,.06,'square',.06)}
     drag.classList.toggle('on',ST.mode==='race');
   }
 
@@ -140,7 +140,7 @@ body.skyraid #stick,body.skyraid .stick,body.skyraid #joy{display:none!important
   function begin(c){
     if(ST.mode!=='off'||!SC||typeof SKY==='undefined')return;
     buildHud();closeLobby();if(!W)W=SkyRaidWorld.build(scene);
-    ST.host=c.host;ST.role=c.role;ST.partner=c.partner;ST.rid=c.rid||null;ST.paid=false;ST.err=0;ST.acc=0;pend=[];aim={yaw:0,pit:.12};look.yaw=look.pit=0;look.t=0;ST.swapAt=0;remote.b=remote.r=remote.m=0;
+    ST.host=c.host;ST.role=c.role;ST.partner=c.partner;ST.rid=c.rid||null;ST.paid=false;ST.err=0;ST.acc=0;pend=[];aim={yaw:0,pit:.12};look.yaw=look.pit=0;look.t=0;ST.swapAt=0;ST.slow=0;remote.b=remote.r=remote.m=0;
     const hasGunner=!!c.partner||c.role==='gunner';
     run=SC.newRun({seed:c.seed,cx:SKY.x,cz:SKY.z,base:SKY.base,hasGunner});
     if(ST.host)SC.step(run,.0001,{});   // starts stage 1 so the first frame already has a fortress
@@ -179,11 +179,15 @@ body.skyraid #stick,body.skyraid .stick,body.skyraid #joy{display:none!important
       case 'sam':say('⚠ MISSILE LAUNCH',1000);tone(1100,.15,'square',.08);break;
       case 'dmg':if(ST.role==='gunner')hitMark(e.kind);break;
       case 'combo':comboFx(e);break;
+      case 'laser':say('⚠ LASER SWEEP: GO ABOVE OR BELOW IT',1700);tone(220,.9,'sawtooth',.1,3);break;
+      case 'flak':if(ST.role==='pilot')tone(900,.08,'square',.05);break;
+      case 'drop':say('REPAIR KIT DROPPED: FLY THROUGH IT',1500);tone(880,.15,'triangle',.1);break;
+      case 'pick':say('+HULL',900);tone(700,.12,'triangle',.12);tone(1050,.2,'triangle',.1);break;
       case 'overheat':say('OVERHEAT!',1100);tone(160,.4,'square',.1,.5);break;
       case 'gen':say(e.left?'GENERATOR DOWN · '+e.left+' left':'SHIELD DOWN! HIT THE CORE',1600);tone(520,.2,'triangle',.12);tone(780,.3,'triangle',.1);break;
       case 'phase':say('⚠ THE CORE FIGHTS BACK',1800);tone(150,.6,'sawtooth',.14,.5);break;
       case 'stage':if(typeof banner==='function')banner(e.name.toUpperCase(),e.boss?'☠ BOSS FORTRESS':'🏰 FORTRESS '+(e.stage+1));break;
-      case 'cleared':say(e.boss?'':'FORTRESS DESTROYED',1800);tone(660,.2,'triangle',.14);tone(990,.4,'triangle',.12);break;
+      case 'cleared':ST.slow=1.3;say(e.boss?'':'FORTRESS DESTROYED',1800);tone(660,.2,'triangle',.14);tone(990,.4,'triangle',.12);break;
       case 'win':say('RAID COMPLETE!',2400);ST.endT=performance.now();break;
       case 'fail':say('SHIP LOST',2400);ST.endT=performance.now();break;
     }
@@ -271,7 +275,7 @@ body.skyraid #stick,body.skyraid .stick,body.skyraid #joy{display:none!important
     try{
       if(typeof entered==='undefined'||!entered)return;ensureFab();
       if(ST.mode==='off'||!run)return;
-      dt=Math.min(dt,.05);
+      dt=Math.min(dt,.05);if(ST.slow>0){ST.slow-=dt;dt*=.35}   // the core going down plays in slow motion
       if(ST.host)hostStep(dt);
       if(ST.role==='gunner'){const a=padAxes();aim.yaw=wrap(aim.yaw-a.ix*dt*1.9);aim.pit=clamp(aim.pit-a.iy*dt*1.3,-.9,1.45)}
       pin();updateView(dt);

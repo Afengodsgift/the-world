@@ -96,12 +96,12 @@ function raid(withGunner,seed,skill){
   for(let i=0;i<30*60*16;i++){
     const m=SC.marker(r)||{x:O.cx,z:O.cz,y:O.base+60},dx=m.x-s.x,dz=m.z-s.z,dist=Math.hypot(dx,dz);
     let want=Math.atan2(dx,dz);if(r.state==='raid'&&dist<170)want+=Math.PI/2*cl((170-dist)/60,0,1)*(r.t%40<20?1:-1);   // orbit about 170 m out
-    const ix=-cl(wrap(want-s.h)*2.2,-1,1),tgtY=m.y+(r.state==='raid'?46+Math.sin(r.t/3)*12:60),iy=-cl((tgtY-s.y)*.06,-1,1);
+    const ix=-cl(wrap(want-s.h)*2.2,-1,1),tgtY=(r.fort&&r.fort.lz&&r.fort.lz.st&&r.state==='raid'?r.fort.core.y+17:m.y+(r.state==='raid'?46+Math.sin(r.t/3)*12:60)),iy=-cl((tgtY-s.y)*.06,-1,1);
     // evade: sidestep when a shot is close
-    let ev=0;for(const p of r.shots){if(Math.hypot(p.x-s.x,p.y-s.y,p.z-s.z)<60)ev=1}
-    const inp={ix:ev?(i%60<30?.9:-.9):ix,iy,boost:ev&&s.boostCd<=0&&skill>.8};
+    let ev=0;for(const p of r.shots){if(Math.hypot(p.x-s.x,p.y-s.y,p.z-s.z)<60)ev=1}for(const p of r.flak){if(Math.hypot(p.x-s.x,p.y-s.y,p.z-s.z)<75)ev=1}
+    const inp={ix:ev?(i%60<30?.9:-.9):ix,iy,boost:ev&&s.boostCd<=0&&skill>.8,roll:ev&&skill>.8&&s.rollCd<=0&&r.flak.concat(r.sams,r.shots).some(p=>Math.hypot(p.x-s.x,p.y-s.y,p.z-s.z)<30)};
     if(withGunner){const L=SC.targets(r).filter(q=>q.kind!=='shield').sort((a,b)=>Math.hypot(a.o.x-s.x,a.o.y-s.y,a.o.z-s.z)-Math.hypot(b.o.x-s.x,b.o.y-s.y,b.o.z-s.z))[0];
-      if(L){const ddx=L.o.x-s.x,ddy=L.o.y-(s.y+6),ddz=L.o.z-s.z;inp.aim={yaw:wrap(Math.atan2(ddx,ddz)-s.h),pit:Math.atan2(ddy,Math.hypot(ddx,ddz))};inp.fire=Math.hypot(ddx,ddy,ddz)<320&&r.lock<=0&&r.heat<.9}}
+      if(L){const ddx=L.o.x-s.x,ddy=L.o.y-(s.y+6),ddz=L.o.z-s.z;inp.aim={yaw:wrap(Math.atan2(ddx,ddz)-s.h),pit:Math.atan2(ddy,Math.hypot(ddx,ddz))};inp.fire=Math.hypot(ddx,ddy,ddz)<320&&r.lock<=0&&r.heat<.9;inp.missile=Math.hypot(ddx,ddy,ddz)<300}}
     SC.step(r,DT,inp);t=r.t;if(r.state==='win'||r.state==='fail')break;
   }
   return {r,t};
@@ -161,4 +161,31 @@ function raid(withGunner,seed,skill){
   ok(outs.some(r=>r.state==='win')||outs.every(r=>r.stage>=2),'a player gunner with the autopilot can clear the raid solo');
   ok(outs.every(r=>r.ship.y>O.base-130&&Math.hypot(r.ship.x-O.cx,r.ship.z-O.cz)<SC.SHIP.leash+60),'and the autopilot keeps the ship in the arena');
 }
+// ---------- v3: war balloons, repair kits, flak, boss laser ----------
+{
+  const r=SC.newRun(O);SC.startStage(r,1);r.state='raid';ok(r.balloons.length===1&&SC.FORTS[0].bal===0,'the Bastion brings a war balloon, the Outpost none');
+  const b=r.balloons[0],s=r.ship;s.x=b.x+100;s.z=b.z;s.y=b.y;let shots=0;for(let i=0;i<30*30;i++){s.hull=s.hullMax;for(const e of SC.step(r,DT,{}))if(e.k==='eshot'&&e.kind==='b')shots++}
+  ok(shots>=2,`the balloon lobs shells at the ship (${shots})`);
+  ok(SC.targets(r).some(q=>q.kind==='balloon'),'balloons are targets');
+  s.x=b.x+60;s.y=b.y;s.z=b.z;const hp0=b.hp;SC.shoot(r,{x:s.x,y:s.y,z:s.z},(()=>{const dx=b.x-s.x,dy=b.y-s.y,dz=b.z-s.z,l=Math.hypot(dx,dy,dz);return {x:dx/l,y:dy/l,z:dz/l}})(),15,false);ok(b.hp<hp0||!b.alive,'and can be shot');
+  b.hp=1;SC.damage&&0;const ev=(()=>{const d={x:b.x-s.x,y:b.y-s.y,z:b.z-s.z},l=Math.hypot(d.x,d.y,d.z);SC.shoot(r,{x:s.x,y:s.y,z:s.z},{x:d.x/l,y:d.y/l,z:d.z/l},15,false);return r.ev})();
+  ok(!b.alive&&r.picks.length===1&&ev.some(e=>e.k==='drop'),'a dead balloon drops a repair kit');
+  s.hull=100;s.x=r.picks[0].x;s.y=r.picks[0].y;s.z=r.picks[0].z;SC.step(r,DT,{});ok(s.hull>100+s.hullMax*.2&&r.picks.length===0,'flying through the kit repairs the hull');
+}
+{ // flak: marker, then a burst
+  const r=SC.newRun(O);SC.startStage(r,2);r.state='raid';const s=r.ship;r.flakT=.1;s.x=r.fort.site.x+300;s.z=r.fort.site.z;s.y=r.fort.site.y+40;let fl=0,seen=0;
+  for(let i=0;i<30*12;i++){s.hull=s.hullMax;for(const e of SC.step(r,DT,{}))if(e.k==='flak')fl++;seen=Math.max(seen,r.flak.length);if(fl&&r.flak.length&&r.flak[0].t<.5)break}
+  ok(fl>=1&&seen>=1,'the Citadel drops flak markers');
+  const f0=r.flak[0];if(f0){f0.x=s.x;f0.y=s.y;f0.z=s.z;f0.t=.01}s.hull=s.hullMax;const h=s.hull;s.inv=0;SC.step(r,DT,{});ok(s.hull<h,'flak that bursts on you hurts');
+  const o=SC.newRun(O);SC.startStage(o,0);o.state='raid';for(let i=0;i<30*30;i++)SC.step(o,DT,{});ok(o.flak.length===0,'no flak at the Outpost');
+}
+{ // laser sweep
+  const r=SC.newRun(O);SC.startStage(r,3);r.state='raid';const f=r.fort,s=r.ship;f.lz.t=.05;s.x=f.site.x+120;s.z=f.site.z;s.y=f.core.y;s.hull=s.hullMax=9999;
+  let warn=false;for(let i=0;i<10&&!warn;i++)for(const e of SC.step(r,DT,{}))if(e.k==='laser')warn=true;ok(warn&&f.lz.st===1,'the Dreadnought warns before it sweeps');
+  f.lz.st=2;f.lz.t=3;f.lz.a=Math.atan2(s.x-f.core.x,s.z-f.core.z);f.lz.dir=0;s.inv=0;const h=s.hull;SC.step(r,DT,{});ok(s.hull<h,'standing in the beam hurts');
+  s.y=f.core.y+40;s.inv=0;const h2=s.hull;SC.step(r,DT,{});ok(s.hull===h2,'flying over the beam is safe');
+  s.y=f.core.y;s.inv=1;const h3=s.hull;SC.step(r,DT,{});ok(s.hull===h3,'a barrel roll goes through it');
+  const sn=SC.snapshot(r),b2=SC.newRun(O);SC.apply(b2,JSON.parse(JSON.stringify(sn)));ok(b2.fort.lz.st===2,'guests see the laser state');
+}
+{ const a=SC.newRun(O),b=SC.newRun(O);SC.startStage(a,1);a.state='raid';a.picks.push({id:'p',x:1,y:2,z:3,t:9});a.flak.push({x:4,y:5,z:6,t:.5});SC.apply(b,JSON.parse(JSON.stringify(SC.snapshot(a))));ok(b.balloons.length===1&&b.picks.length===1&&b.flak.length===1,'guests mirror balloons, repair kits and flak');ok(JSON.stringify(SC.snapshot(a)).length<3600,'snapshot still small') }
 console.log(fails?`\n${fails} FAILED`:'\nall ok');process.exit(fails?1:0);
