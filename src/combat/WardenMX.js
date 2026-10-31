@@ -11,7 +11,7 @@ const WardenMX=(()=>{
   // move spec: {c: clip, t0: clip time where the move starts, h: [[swingStart,swingEnd],...] one per sim `active` phase, e: clip time where the recovery ends, ch: [a,b] charge pose range (heavy)}
   //            or {seq:[{c,h:[a,b],t0,e},...]} when the active phases come from different clips (Hollow triple).
   const ROLES={
-    player:{file:'assets/warden_mx_player.json',guard:'guard',
+    player:{file:'assets/warden_mx_player.json',guard:'guard',parry:[{c:'slash',a:.2,b:.72},{c:'atk4',a:.04,b:.58}],
       loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
       moves:{
         cinder:{c:'slash3',t0:.3,h:[[.66,.94]],e:1.5},armada:{c:'armada',t0:0,h:[[.6,1.05]],e:1.6},meia:{c:'meia',t0:0,h:[[.6,1.05]],e:1.7},
@@ -156,7 +156,7 @@ const WardenMX=(()=>{
   // Skrag, the Snare-Trapper (uploaded goblin rig): the Longbow set (arrow cast, kick, power-up) retargeted onto his skeleton; the long power-up clip is his snare-laying
   ROLES.goblin=Object.assign({},ROLES.archer,{file:'assets/warden_mx_goblin.json',moves:Object.assign({},ROLES.archer.moves,{snare:{c:'power',t0:.3,e:1.6}})});
   // ---- the player's heavier weapons: the Great Sword pack (already baked onto the game rig for the Duelist) drives the Claymore and the Hand Axe ----
-  ROLES.player_gs={file:'assets/warden_mx_duelist.json',guard:'guard',loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
+  ROLES.player_gs={file:'assets/warden_mx_duelist.json',guard:'guard',parry:[{c:'slash',a:.05,b:.6},{c:'slash5',a:.15,b:.62}],loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
     moves:{
       light:{c:'slash',t0:.05,h:[[.45,.8]],e:1.2},light2:{c:'slash5',t0:.15,h:[[.5,.82]],e:1.3},light3:{c:'slash3',t0:.3,h:[[.6,1.0]],e:1.6},
       advance:{c:'slash4',t0:.3,h:[[.6,.85]],e:1.6},rush:{c:'slash4',t0:.3,h:[[.6,.85]],e:1.6},evade:{c:'slash',t0:.1,h:[[.45,.8]],e:1.2},rising:{c:'slash2',t0:.35,h:[[.62,.92]],e:1.5},
@@ -178,7 +178,7 @@ const WardenMX=(()=>{
     I.mode=null;I.mt=0;I.wakeP=0;I.wakeDone=false;I.setMode=m=>{I.mode=m;I.mt=0;I.wakeP=m==='wake'?0:1;I.wakeDone=false};
     I.pickAlt=()=>{};I.nextLight=()=>'light_b';
     let names=[];
-    const init=s=>{const used=new Set(Object.values(R.loco));if(R.guard)used.add(R.guard);if(R.dorm)used.add(R.dorm);if(R.wake)used.add(R.wake.c);if(R.death)used.add(R.death);if(R.hit)used.add(R.hit);
+    const init=s=>{const used=new Set(Object.values(R.loco));if(R.guard)used.add(R.guard);if(R.parry)for(const q of R.parry)used.add(q.c);if(R.dorm)used.add(R.dorm);if(R.wake)used.add(R.wake.c);if(R.death)used.add(R.death);if(R.hit)used.add(R.hit);
       for(const m of Object.values(R.moves))for(const g of norm(m))used.add(g.c);
       names=[...used].filter(n=>s.clips[n]);I.names=names;I.S=s;
       for(const n of names){const a=q.mixer.clipAction(s.clips[n]);a.enabled=false;a.setEffectiveWeight(.0001);I.A[n]=a;I.ws[n]=0}I.st='ready'};
@@ -204,6 +204,8 @@ const WardenMX=(()=>{
         else if(f.act==='charge'){const m=R.moves.heavy;if(m&&m.ch)put(m.c,m.ch[0]+(m.ch[1]-m.ch[0])*ease(f.c/16))}
         else if(f.act==='attack'&&f.ph&&f.ph[f.pi]&&mv){const pl=planOf(mv),e=pl&&pl[f.pi];
           if(e){const n=f.ph[f.pi].n||1,p=Math.min(1,(f.pk+fr)/n);let a=e.a;if(spec&&spec.ch&&f.pi===0)a=Math.max(a,spec.ch[1]);put(e.c,a+(e.b-a)*p)}}
+        else if(f.pry>0&&f.act==='free'&&R.parry&&A[R.parry[0].c]){   // PARRY: a full sweep of the blade across the body (alternating sides), snapping in over the first 60% of the window, then held in guard
+          if(f.pry>(I.lp||0))I.pa=(I.pa||0)^1;I.lp=f.pry;const q=R.parry[I.pa],u=(26-f.pry)/26,k=ease(Math.min(1,u/.55));put(q.c,q.a+(q.b-q.a)*k)}
         else if(I.flick&&f.act==='free'&&A[I.flick.c]&&(I.flick.t+=dt)<I.flick.d){const k=I.flick;put(k.c,k.a+(k.b-k.a)*ease(k.t/k.d))}   // a parry: a quick sword sweep out of the guard (the game sets I.flick on a deflect)
         else if(f.guard&&f.act==='free'&&R.guard&&A[R.guard]){I.gT+=dt;put(R.guard,Math.min(I.gT,A[R.guard].getClip().duration-.05))}
         else{I.gT=0;
