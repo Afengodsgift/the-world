@@ -53,7 +53,7 @@ const clock={t:1000},wrapA=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=
     const ra=A.SR.state().run,rb=B.SR.state().run;if(!ra||!rb)break;
     const s=ra.ship,m=SCa.marker(ra)||{x:-1900,z:2350,y:490};let want=Math.atan2(m.x-s.x,m.z-s.z);const dist=Math.hypot(m.x-s.x,m.z-s.z);if(ra.state==='raid'&&dist<170)want+=Math.PI/2;
     const wrap=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a};
-    {const ix=-Math.max(-1,Math.min(1,wrap(want-s.h)*2.2)),iy=-Math.max(-1,Math.min(1,((m.y+45)-s.y)*.06));const k=A.ctx.keys;k.ArrowRight=ix>.25;k.ArrowLeft=ix<-.25;k.ArrowUp=iy<-.25;k.ArrowDown=iy>.25;}   // the pilot works the arrow pad
+    A.SR.setInput(-Math.max(-1,Math.min(1,wrap(want-s.h)*2.2)),-Math.max(-1,Math.min(1,((m.y+45)-s.y)*.06)));   // the pilot works the arrow pad
     // guest aims at the nearest target in ITS mirrored run, holds fire
     const tg=B.SC.targets(rb).filter(q=>q.kind!=='shield').sort((a,b)=>Math.hypot(a.o.x-s.x,a.o.y-s.y,a.o.z-s.z)-Math.hypot(b.o.x-s.x,b.o.y-s.y,b.o.z-s.z))[0];
     if(tg){const ax=B.SR._t().aim,bs=rb.ship,dx=tg.o.x-bs.x,dy=tg.o.y-(bs.y+6),dz=tg.o.z-bs.z;ax.yaw=wrap(Math.atan2(dx,dz)-bs.h);ax.pit=Math.atan2(dy,Math.hypot(dx,dz));B.ctx.keys.Space=rb.heat<.85}
@@ -87,7 +87,7 @@ const clock={t:1000},wrapA=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=
   const step=n=>{for(let f=0;f<n;f++){clock.t+=1000/60;A.SR.frame(1/60)}};
   step(30);
   // pad: pressing left turns the ship left (heading grows)
-  const h0=run().ship.h;A.ctx.keys.ArrowLeft=true;step(60);A.ctx.keys.ArrowLeft=false;ok(((run().ship.h-h0+Math.PI*3)%(Math.PI*2)-Math.PI)>.25,'the ◀ button turns the ship left');
+  const h0=run().ship.h;A.SR.setInput(-1,0);step(60);A.SR.setInput(0,0);ok(((run().ship.h-h0+Math.PI*3)%(Math.PI*2)-Math.PI)>.25,'the stick turns the ship left');
   // roll
   T.BTN.roll=true;step(3);ok(run().ship.rollT>0&&run().ship.inv>0,'ROLL gives the pilot a barrel roll with i-frames');
   const sh=A.SR._t().view();step(10);ok(Math.abs(sh.spin)>0,'and the ship visibly spins');step(60);

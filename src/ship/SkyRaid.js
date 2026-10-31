@@ -1,7 +1,7 @@
 // SKY RAID controller (browser only): the lobby (a 🛩 button), seats (pilot / gunner), input, the pilot's chase camera and the gunner's turret camera, HUD,
 // sound, the host-authoritative simulation (SkyRaidCore.js) and its Net sync (channel 'sky'). Visuals are in SkyRaidWorld.js.
 //
-// One co-op airship, two seats: the PILOT flies (arrow pad ◀▶ turn, ▲▼ climb/dive, BOOST, ROLL = barrel-roll dodge), the GUNNER swings the turret (pad or drag = aim,
+// One co-op airship, two seats: the PILOT flies (analog stick: turn and climb/dive, BOOST, ROLL = barrel-roll dodge), the GUNNER swings the turret (pad or drag = aim,
 // FIRE; the gun overheats; MISSILES = homing salvo). Buttons only, like the Rally. Drag = free-look (pilot orbit camera / gunner aim). SWAP SEAT trades seats;
 // solo, the empty seat is an AI: the crew mate guns when you fly, the autopilot flies (and orbits the fortress) when you gun. The player who starts the raid is the HOST and simulates everything; the guest sends only its seat's input
 // (15 Hz) and mirrors the host's snapshots (10 Hz). Like the Rally it follows the Ship precedent: `SkyRaid.locked()` takes over the stick in tick(),
@@ -10,7 +10,7 @@
 const SkyRaid=(()=>{
   const SC=typeof SkyCore!=='undefined'?SkyCore:null,DT=1/30;
   const ST={mode:'off',role:'pilot',host:true,partner:null,rid:null,acc:0,lastNet:0,lastSnap:0,lastStep:0,ret:null,shake:0,flash:0,paid:false,endT:0,warn:0,err:0};
-  const BTN={boost:false,fire:false,roll:false,missile:false,l:false,r:false,u:false,d:false},touch=typeof matchMedia!=='undefined'&&matchMedia('(pointer:coarse)').matches;
+  const IN={ix:0,iy:0},BTN={boost:false,fire:false,roll:false,missile:false,l:false,r:false,u:false,d:false},touch=typeof matchMedia!=='undefined'&&matchMedia('(pointer:coarse)').matches;
   let run=null,W=null,hud=null,fab=null,sheet=null,inv=null,drag=null,aim={yaw:0,pit:.12},view=null,pend=[],resPrev=null,lastHud=0,lastH=0;
   const look={yaw:0,pit:0,t:0},cmb={n:0,t:0};
   const remote={ix:0,iy:0,b:0,r:0,m:0,yw:0,pt:.1,f:0,t:0},camS={yaw:0,init:false,x:0,y:0,z:0,fov:65},baseFov=65;
@@ -57,7 +57,6 @@ body.skyraid .dk,body.skyraid .dk-menu,body.skyraid #jump,body.skyraid #boost,bo
 .sk-ar{width:66px;height:66px;font-size:24px;border-radius:18px}.sk-pad .sk-u{left:70px;top:0}.sk-pad .sk-l{left:0;bottom:0}.sk-pad .sk-d{left:70px;bottom:0}.sk-pad .sk-r{left:140px;bottom:0}
 .sk-combo{position:absolute;left:12px;top:calc(env(safe-area-inset-top,0px) + 140px);font-size:22px;color:#ffd24a;opacity:0;transition:opacity .3s}.sk-combo.on{opacity:1}.sk-combo small{display:block;font-size:11px;color:#fff;opacity:.85}
 .sk-cross.hit{border-color:#ffd24a;transform:scale(1.25);transition:transform .08s}.sk-hm{position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px;border:3px solid #ffd24a;border-radius:50%;opacity:0;transform:scale(.6);pointer-events:none}.sk-hm.on{opacity:.9;transform:scale(1);transition:transform .12s,opacity .3s}
-body.skyraid #stick,body.skyraid .stick,body.skyraid #joy{display:none!important}
 @media (max-height:420px){.sk-ar{width:58px;height:58px}.sk-pad{width:182px;height:122px}.sk-pad .sk-u,.sk-pad .sk-d{left:62px}.sk-pad .sk-r{left:124px}}
 .sk-exit{right:14px;top:calc(env(safe-area-inset-top,0px) + 64px);width:38px;height:38px;border-radius:50%;font-size:16px}
 .sk-role{position:absolute;left:12px;top:calc(env(safe-area-inset-top,0px) + 100px);font-size:11px;opacity:.85}
@@ -69,7 +68,6 @@ body.skyraid #stick,body.skyraid .stick,body.skyraid #joy{display:none!important
       <div class="sk-arrow"><b id="skArrow">▲</b><span id="skDist"></span></div><div class="sk-cross" id="skCross"></div><div class="sk-warn" id="skWarn">⚠ INCOMING</div><div class="sk-msg" id="skMsg"></div>
       <div class="sk-heat" id="skHeat"><div class="sk-bar"><i id="skHeatB"></i></div></div>
       <div class="sk-combo" id="skCombo"></div><div class="sk-hm" id="skHm"></div>
-      <div class="sk-pad"><button class="sk-btn sk-ar sk-u" id="skU">▲</button><button class="sk-btn sk-ar sk-l" id="skL">◀</button><button class="sk-btn sk-ar sk-d" id="skD">▼</button><button class="sk-btn sk-ar sk-r" id="skR">▶</button></div>
       <button class="sk-btn sk-boost" id="skBoost">BOOST</button><button class="sk-btn sk-roll" id="skRoll">ROLL</button><button class="sk-btn sk-fire" id="skFire">FIRE</button><button class="sk-btn sk-msl" id="skMsl">MISSILES</button><button class="sk-btn sk-swap" id="skSwap">⇄ SEAT</button><button class="sk-btn sk-exit" id="skExit">✕</button>`);
     document.body.appendChild(hud);
     const flash=el('div','sk-flash');flash.id='skFlash';document.body.appendChild(flash);
@@ -78,7 +76,6 @@ body.skyraid #stick,body.skyraid .stick,body.skyraid #joy{display:none!important
     const hold=(b,on,off)=>{b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();on()});for(const t of ['pointerup','pointercancel','pointerleave'])b.addEventListener(t,off)};
     hold(hud.querySelector('#skBoost'),()=>{BTN.boost=true},()=>{});hold(hud.querySelector('#skFire'),()=>{BTN.fire=true},()=>{BTN.fire=false});
     hold(hud.querySelector('#skRoll'),()=>{BTN.roll=true},()=>{});hold(hud.querySelector('#skMsl'),()=>{BTN.missile=true},()=>{});hold(hud.querySelector('#skSwap'),()=>{swapSeat()},()=>{});
-    for(const [id,k] of [['#skL','l'],['#skR','r'],['#skU','u'],['#skD','d']])hold(hud.querySelector(id),()=>{BTN[k]=true},()=>{BTN[k]=false});
     hud.querySelector('#skExit').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();leave(true)});
     // drag anywhere to aim the turret (gunner), and tap-hold to fire with a mouse
     let last=null;drag.addEventListener('pointerdown',e=>{last={x:e.clientX,y:e.clientY,id:e.pointerId};if(!touch&&ST.role==='gunner')BTN.fire=true});
@@ -144,7 +141,7 @@ body.skyraid #stick,body.skyraid .stick,body.skyraid #joy{display:none!important
       <div class="rl-row">${chip('pilot','🛩 I fly')}${chip('gunner','🔫 I man the turret',!pid)}</div>
       <p class="rl-help">${pid?'Your friend gets the other seat. Start the raid and they will get an invite.':'Solo: you fly and an AI crew mate works the turret. With a friend online, one of you flies and the other shoots.'}</p>
       <div class="rl-row"><button class="btn rl-go">${pid?'INVITE '+pname.toUpperCase():'TAKE OFF'}</button><button class="btn rl-hg">🔧 Hangar</button><button class="btn rl-x">Close</button></div>
-      <p class="rl-help">${touch?'Pad ◀▶▲▼ steers (pilot) or aims (gunner). Pilot: BOOST sprints, ROLL dodges everything for a moment. Gunner: hold FIRE (the gun overheats), MISSILES fires a homing salvo. Drag the screen to look around. ⇄ SEAT swaps seats, solo too.':'Arrows/WASD steer or aim. Pilot: Shift boost, Q roll. Gunner: Space fires, E missiles. Drag to look around. R swaps seats.'}</p>`;
+      <p class="rl-help">${touch?'The stick steers (pilot) or aims (gunner). Pilot: BOOST sprints, ROLL dodges everything for a moment. Gunner: hold FIRE (the gun overheats), MISSILES fires a homing salvo. Drag the screen to look around. ⇄ SEAT swaps seats, solo too.':'Arrows/WASD steer or aim. Pilot: Shift boost, Q roll. Gunner: Space fires, E missiles. Drag to look around. R swaps seats.'}</p>`;
     document.body.appendChild(sheet);
     sheet.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
       if(b.dataset.role&&!b.disabled){cfg.role=b.dataset.role;openLobby.again()}
@@ -215,10 +212,10 @@ body.skyraid #stick,body.skyraid .stick,body.skyraid #joy{display:none!important
   }
 
   // ---------------------------------------------------------------- per frame
-  // the arrow pad (or arrow keys / WASD): ix>0 = right, iy>0 = down. Pilot: steer + climb/dive. Gunner: swing the turret.
+  // the analog stick (or arrow keys / WASD): ix>0 = right, iy>0 = down. Pilot: steer + climb/dive. Gunner: swing the turret.
   function padAxes(){
-    const L=BTN.l||keys.ArrowLeft||keys.KeyA,Rr=BTN.r||keys.ArrowRight||keys.KeyD,U=BTN.u||keys.ArrowUp||keys.KeyW,D=BTN.d||keys.ArrowDown||keys.KeyS;
-    return {ix:(Rr?1:0)-(L?1:0),iy:(D?1:0)-(U?1:0)};
+    const L=keys.ArrowLeft||keys.KeyA,Rr=keys.ArrowRight||keys.KeyD,U=keys.ArrowUp||keys.KeyW,D=keys.ArrowDown||keys.KeyS,kx=(Rr?1:0)-(L?1:0),ky=(D?1:0)-(U?1:0);
+    return {ix:kx||IN.ix,iy:ky||IN.iy};
   }
   function localInput(){
     const inp={},g=ST.role==='gunner',a=padAxes();
@@ -343,6 +340,6 @@ body.skyraid #stick,body.skyraid .stick,body.skyraid #joy{display:none!important
   }
 
   function build(){netInit();if(typeof Systems!=='undefined'&&Systems.add)Systems.add('skyraid-fab',()=>{if(typeof entered!=='undefined'&&entered)ensureFab()})}
-  return {build,frame,locked,setInput:()=>{},open:()=>{sfxInit();openLobby()},leave,
+  return {build,frame,locked,setInput:(ix,iy)=>{IN.ix=ix;IN.iy=iy},open:()=>{sfxInit();openLobby()},leave,
     state:()=>({mode:ST.mode,role:ST.role,host:ST.host,run}),_t:()=>({UP,openHangar,begin,hostStep,swapSeat,doSwap,ST,aim,look,BTN,remote,view:()=>view,world:()=>W})};
 })();
