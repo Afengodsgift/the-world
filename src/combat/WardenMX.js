@@ -170,19 +170,27 @@ const WardenMX=(()=>{
       shove:{c:'kick',t0:.5,h:[[.88,1.28]],e:1.5},lunge:{c:'slash4',t0:.3,h:[[.6,.85]],e:1.6},whirl:{c:'spin',t0:0,h:[[.5,1.25]],e:1.85}}};
   ROLES.player_axe=Object.assign({},ROLES.player_gs,{moves:Object.assign({},ROLES.player_gs.moves,{
     light:{c:'atk',t0:0,h:[[.37,.52]],e:1.0},light2:{c:'slash',t0:.05,h:[[.45,.8]],e:1.2},rising:{c:'slash3',t0:.2,h:[[.6,1.0]],e:1.6}})});
+  // the Phantom-Blade pack (assets/warden_px_<role>.json, tools/bake_pack.mjs): reactions every role with .px shares - knock-back, hurt loop, two flinches, three deaths
+  const PXN=['p_knock','p_hurt','p_hitc','p_hith','p_deathA','p_deathB','p_deathC'],PXD=['p_deathA','p_deathB','p_deathC'];
+  for(const r of['penitent','gwyn','saint','veil','samurai','vampire','paladin','arissa','archer','gdn','ganfaul']){const R=ROLES[r];if(!R)continue;R.px='assets/warden_px_'+r+'.json';const M=R.moves=Object.assign({},R.moves);
+    if(M.bash)M.bash={c:'p_kick',t0:.25,h:[[.46,.68]],e:1.2};
+    if(M.flurry)M.flurry={c:'p_combo',t0:0,h:[[.2,.32],[.68,.8],[1.48,1.6]],e:2.3};if(M.dash)M.dash={c:'p_dash',t0:.05,h:[[.28,.42]],e:1.1}}
+  // The Unbroken Oath (Three Oaths stage 4): the Penitent's body and clips with Gwyn's waves + the Saint's blades + the Dancer's chain
+  ROLES.oath4=Object.assign({},ROLES.penitent,{px:'assets/warden_px_penitent.json',moves:Object.assign({},ROLES.gwyn.moves,{bladestorm:{c:'power',t0:.3,e:2.0},swordring:{c:'power',t0:.3,e:2.0},
+    hundred:{seq:[{c:'slash3',t0:.2,h:[.55,.85],e:1.0},{c:'slash5',t0:.1,h:[.5,.82],e:.95},{c:'slash3',t0:.2,h:[.55,.85],e:1.0},{c:'slash4',t0:.4,h:[.9,1.4],e:1.6}]}})});
   const BUILD='mx3';const SH={};      // role -> {st,clips,p}
   // a dropped request is retried (3 times, growing gaps) before the role is declared failed: a role that failed once never recovers within a session
   const tryFetch=(u,n)=>fetch(u,n<6?{cache:'reload'}:undefined).then(r=>{if(!r.ok)throw new Error('http '+r.status);return r}).catch(e=>n>0?new Promise(r=>setTimeout(r,1500*(7-n))).then(()=>tryFetch(u,n-1)):Promise.reject(e));
   // av = a human avatar id (AvatarKit): the same role file baked for that avatar's proportions lives in assets/avatars/<name>/ (tools/avatar/retarget_clips.mjs); native (own-rig) roles never use it
   function fetchRole(role,av){const key=av?role+'@'+av:role,s=SH[key]||(SH[key]={st:'none',clips:null,meta:null,p:null}),file=av&&typeof AvatarKit!=='undefined'&&AvatarKit.CAT[av]&&!ROLES[role].native?AURL+AvatarKit.CAT[av].dir+ROLES[role].file.replace(/^.*\//,'')+AvatarKit.ASSET_V:ROLES[role].file,tag=(av?av+'/':'')+role;
-    if(!s.p)s.p=tryFetch(file,6).then(r=>r.json()).then(j=>{s.clips={};s.meta={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=tag+':'+c.name;ac.uuid=tag+':'+c.name;s.clips[c.name]=ac;   // unique uuid per role: three.js caches actions by clip uuid, and the game's own clips are also called idle/walk/jump (sharing one action stole the game's base layer -> T-pose on hit)
+    if(!s.p)s.p=Promise.all([tryFetch(file,6).then(r=>r.json()),ROLES[role].px&&!av?tryFetch(ROLES[role].px,6).then(r=>r.json()).catch(()=>[]):[]]).then(([a,x])=>a.concat(x)).then(j=>{s.clips={};s.meta={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=tag+':'+c.name;ac.uuid=tag+':'+c.name;s.clips[c.name]=ac;   // unique uuid per role: three.js caches actions by clip uuid, and the game's own clips are also called idle/walk/jump (sharing one action stole the game's base layer -> T-pose on hit)
       s.meta[c.name]={dur:c.duration,v:Math.hypot(c.trav?c.trav[0]:0,c.trav?c.trav[1]:0)/Math.max(.1,c.duration)}}s.st='ready';return s}).catch(e=>{s.st='failed';s.err=String(e&&e.message||e);s.p=null;throw e});return s.p}
   function make(q,role){
     const R=ROLES[role],I={st:'none',role,A:{},ws:{},gT:0,sT:0,dT:0,sw:0,lastLight:-1e9,ready:()=>I.st==='ready',variant:'light_b',alt:{},plans:{},tmem:{}};
     I.mode=null;I.mt=0;I.wakeP=0;I.wakeDone=false;I.setMode=m=>{I.mode=m;I.mt=0;I.wakeP=m==='wake'?0:1;I.wakeDone=false};
     I.pickAlt=()=>{};I.nextLight=()=>'light_b';
     let names=[];
-    const init=s=>{const used=new Set(Object.values(R.loco));if(R.guard)used.add(R.guard);if(R.parry)for(const q of R.parry)used.add(q.c);if(R.dorm)used.add(R.dorm);if(R.wake)used.add(R.wake.c);if(R.death)used.add(R.death);if(R.hit)used.add(R.hit);
+    const init=s=>{const used=new Set(Object.values(R.loco));if(R.guard)used.add(R.guard);if(R.parry)for(const q of R.parry)used.add(q.c);if(R.dorm)used.add(R.dorm);if(R.wake)used.add(R.wake.c);if(R.death)used.add(R.death);if(R.hit)used.add(R.hit);if(R.px)for(const n of PXN)used.add(n);
       for(const m of Object.values(R.moves))for(const g of norm(m))used.add(g.c);
       names=[...used].filter(n=>s.clips[n]);I.names=names;I.S=s;
       for(const n of names){const a=q.mixer.clipAction(s.clips[n]);a.enabled=false;a.setEffectiveWeight(.0001);I.A[n]=a;I.ws[n]=0}I.st='ready'};
@@ -196,11 +204,15 @@ const WardenMX=(()=>{
         if(I.mode==='sleep'&&R.dorm&&A[R.dorm]){I.mt+=dt;put(R.dorm,I.mt%Math.max(.1,A[R.dorm].getClip().duration-.02))}
         else if(I.mode==='wake'&&R.wake&&A[R.wake.c]){I.mt+=dt*R.wake.rate;const W=R.wake;I.wakeP=Math.min(1,(I.mt)/(W.t1-W.t0));put(W.c,W.t0+I.mt);if(W.t0+I.mt>=W.t1){I.mode=null;I.wakeDone=true}}
         else I.mode=null}
-      else if(f.act==='stun')I.sT+=dt;else I.sT=0;if(f.act==='dead')I.dT+=dt;else I.dT=0;
+      else if(f.act==='stun')I.sT+=dt;else I.sT=0;if(f.act==='dead')I.dT+=dt;else{I.dT=0;I.dv=-1}
       if(I.mode&&f.act!=='dead'){}
+      else if(R.native&&f.act==='dead'&&R.px&&A.p_deathA){   // a random one of the three pack deaths (or his own) each time he falls
+        if(I.dv===undefined||I.dv<0){const L=PXD.filter(n=>A[n]).concat(R.death&&A[R.death]?[R.death]:[]);I.dvL=L;I.dv=Math.floor(Math.random()*L.length)}put(I.dvL[I.dv],I.dT)}
       else if(R.native&&f.act==='dead'&&R.death&&A[R.death])put(R.death,I.dT);            // natively rigged foes have no game hit/death overlay: play the clip themselves
       else if(R.native&&f.act==='stun'&&f.sk==='rise'&&R.death&&A[R.death]){   // the phase fall: he drops (death clip), lies there, then the clip plays BACKWARDS as he gets up
         const D=Math.min(2.2,A[R.death].getClip().duration-.05),T=336/60,t=I.sT;put(R.death,t<D?t:t<T-D?D:Math.max(0,D-(t-(T-D))))}
+      else if(R.native&&f.act==='stun'&&R.px&&A.p_knock&&f.sk==='stagger'){const kd=A.p_knock.getClip().duration;if(I.sT<kd)put('p_knock',I.sT);else put('p_hurt',(I.sT-kd)%1.6)}   // a stagger: thrown back, then the hurt loop
+      else if(R.native&&f.act==='stun'&&R.px&&A.p_hitc&&f.sk!=='rise'){if(I.sT<=dt*1.5)I.hv=(I.hv||0)^1;put(I.hv?'p_hith':'p_hitc',I.sT)}   // flinches alternate chest / head
       else if(R.native&&f.act==='stun'&&R.hit&&A[R.hit])put(R.hit,I.sT);
       else if(fight){
         const mv=f.mv,spec=mv&&R.moves[mv.id];
