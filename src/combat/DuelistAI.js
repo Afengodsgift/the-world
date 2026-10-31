@@ -194,6 +194,9 @@ const DuelistAI=(()=>{
   function gwyn(A,P,D,out,tick,dist,k){
     if(A.follow){const m=A.follow;A.follow=null;if(dist<REACH[m]+.8)return start(A,out,m,m==='verdict'?(A.ph2?6+Math.floor(A.r()*7):Math.floor(A.r()*13)):0,tick)}
     const L0=A.last[A.last.length-1];
+    if(A.kid==='oath4'){   // the Unbroken Oath: all three oaths' arts on top of Gwyn's kit (Saint's blades from range, the Dancer's chain up close)
+      if(A.scd<=0&&dist>=3.4&&dist<=11&&L0!=='bladestorm'&&L0!=='swordring'){A.scd=A.ph3?260:A.ph2?340:480;return start(A,out,A.ph2&&dist<6.5&&A.r()<.5?'swordring':'bladestorm',0,tick)}
+      if(A.ph2&&A.hcd<=0&&dist<=3.6&&L0!=='hundred'){A.hcd=A.ph3?280:420;return start(A,out,'hundred',0,tick)}}
     if(A.req&&dist<6){A.req=false;A.rcd=900;A.follow='consecrate';return start(A,out,'requiem',0,tick)}
     if(A.hunt){A.hunt=false;A.hcd=300;if(dist>3.4)return start(A,out,'ashwave',0,tick);return start(A,out,'march',0,tick)}
     if(A.ph3&&A.rcd<=0&&dist<12&&A.r()<.015){A.rcd=A.ph3?700:900;return start(A,out,'consecrate',0,tick)}

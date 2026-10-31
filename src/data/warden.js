@@ -23,7 +23,7 @@ const WARDEN={
     {id:'blackgate',n:"The Black Knight's Gate",x:-128,z:-28,R:22,y:2.5,fog:true,foes:[{t:'darkknight',dx:0,dz:-7}]},
     {id:'crimsonspire',n:"Vael's Crimson Spire",x:-80,z:125,R:22,y:2.5,fog:true,foes:[{t:'vampire',dx:0,dz:-7}]},
     {id:'ember',n:"Kage's Ember Dojo",x:-30,z:150,R:22,y:2.5,fog:true,foes:[{t:'samurai',dx:0,dz:-7}]},
-    {id:'oaths',n:'The Oath Chamber',x:-165,z:20,R:24,y:2.5,fog:true,hidden:true,req:4,foes:[{t:'penitent',dx:-7,dz:-8},{t:'saint',dx:0,dz:-12},{t:'veil',dx:7,dz:-8}]},
+    {id:'oaths',n:'The Oath Chamber',x:-165,z:20,R:24,y:2.5,fog:true,hidden:true,req:4,foes:[{t:'penitent',dx:-7,dz:-8},{t:'saint',dx:0,dz:-12},{t:'veil',dx:7,dz:-8},{t:'oath4',dx:0,dz:-2,late:true,last:true}]},
     {id:'cinder',n:"Gwyn's Cinder Throne",x:-185,z:-60,R:24,y:2.5,fog:true,foes:[{t:'gwyn',dx:0,dz:-8}]},
     {id:'sanctum',n:"The Dark Sun Sanctum",x:60,z:190,R:24,y:2.5,fog:true,foes:[{t:'gdn',dx:0,dz:-8}]},
     {id:'snarepit',n:"Skrag's Snare Pit",x:-142,z:-92,R:22,y:2.5,fog:true,foes:[{t:'goblin',dx:0,dz:-7}]},
