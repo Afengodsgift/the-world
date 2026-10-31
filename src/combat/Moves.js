@@ -89,6 +89,9 @@ const TEMPO={start:.62,rec:.6,minStart:4,minRec:6,step:{light:.55,light2:.55,lig
 for(const k of Object.keys(Moves)){const m=Moves[k];if(!m||m.who!=='P'||!m.phases)continue;
   m.phases=m.phases.map(p=>{if(p.k==='startup'){const q=Object.assign({},p,{n:Math.max(TEMPO.minStart,Math.round(p.n*TEMPO.start))});if(TEMPO.step[k]&&!q.move)q.move=TEMPO.step[k];return q}
     if(p.k==='recovery')return Object.assign({},p,{n:Math.max(TEMPO.minRec,Math.round(p.n*TEMPO.rec))});return p})}
+// PERILOUS attacks (Sekiro): the boss's few unblockable-feeling finishers. A red warning and a freeze-frame announce them; deflecting one breaks the boss's guard (84 ticks), dodging one staggers it (46 ticks) - both open a real punish window.
+Moves.PERILOUS=['verdict','kingsfall','eclipse','bladestorm','hundred','maul','requiem'];
+for(const id of Moves.PERILOUS)if(Moves[id]){Moves[id].per=1;Moves[id].bg=1}
 Moves.TEMPO=TEMPO;
 // expand a move into concrete phases (hold ticks decided at start, clamped to HOLD_MAX)
 // tm = a fighter's tempo (Kage's 1.3): windups, rechambers and recoveries run that much faster. Active frames, holds, travelling phases and moves with a ground telegraph (fx) keep their timing, and no tell drops under 14 ticks.
