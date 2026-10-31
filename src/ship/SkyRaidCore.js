@@ -34,9 +34,9 @@ const SkyCore=(()=>{
     return out;
   }
   function newRun(o){
-    o=o||{};const r=rng(o.seed||1),S=sites(o),a0=o.a0!=null?o.a0:.7,sx=o.cx-Math.sin(a0)*270,sz=o.cz-Math.cos(a0)*270;
-    const run={o,t:0,rnd:r,sites:S,stage:-1,state:'ready',hasGunner:!!o.hasGunner,
-      ship:{x:sx,y:o.base+85,z:sz,h:a0,p:0,roll:0,v:SHIP.cruise,hull:Math.round(SHIP.hull*(o.hasGunner?1:1.35)),hullMax:Math.round(SHIP.hull*(o.hasGunner?1:1.35)),inv:0,boost:0,boostCd:0,hitT:0,turnR:0,rollT:0,rollCd:0,rollDir:1},
+    o=o||{};const up=Object.assign({hull:0,gun:0,msl:0,roll:0,wing:0},o.up||{}),r=rng(o.seed||1),S=sites(o),a0=o.a0!=null?o.a0:.7,sx=o.cx-Math.sin(a0)*270,sz=o.cz-Math.cos(a0)*270;
+    const run={o,up,t:0,rnd:r,sites:S,stage:-1,state:'ready',hasGunner:!!o.hasGunner,
+      ship:{x:sx,y:o.base+85,z:sz,h:a0,p:0,roll:0,v:SHIP.cruise,hull:Math.round(SHIP.hull*(o.hasGunner?1:1.35)*(1+.1*up.hull)),hullMax:Math.round(SHIP.hull*(o.hasGunner?1:1.35)*(1+.1*up.hull)),inv:0,boost:0,boostCd:0,hitT:0,turnR:0,rollT:0,rollCd:0,rollDir:1},
       fort:null,drones:[],shots:[],msl:[],sams:[],balloons:[],imps:[],impT:10,allies:[{id:'a0',x:0,y:0,z:0,vx:0,vy:0,vz:0,cd:.3,slot:-1},{id:'a1',x:0,y:0,z:0,vx:0,vy:0,vz:0,cd:.6,slot:1}],picks:[],flak:[],flakT:6,mCd:0,combo:{n:0,t:0},droneT:0,heat:0,lock:0,gunCd:0,autoCd:0,autoAim:null,score:{kills:0,turrets:0,drones:0,hits:0,taken:0,shots:0,bonus:0,best:0,sams:0},tDone:0,ev:[]};
     if(o.noAllies)run.allies=[];
     return run;
@@ -68,7 +68,7 @@ const SkyCore=(()=>{
     const s=run.ship;if(s.hull<=0)return;
     inp=inp||{};const ix=clamp(inp.ix||0,-1,1),iy=clamp(inp.iy||0,-1,1);
     s.boostCd=Math.max(0,s.boostCd-dt);s.inv=Math.max(0,s.inv-dt);s.hitT=Math.max(0,s.hitT-dt);s.rollCd=Math.max(0,s.rollCd-dt);s.rollT=Math.max(0,s.rollT-dt);
-    if(inp.roll&&s.rollT<=0&&s.rollCd<=0){s.rollT=SHIP.rollT;s.rollCd=SHIP.rollCd;s.rollDir=ix<-.2?-1:1;s.inv=Math.max(s.inv,SHIP.rollT);run.ev.push({k:'roll'})}
+    if(inp.roll&&s.rollT<=0&&s.rollCd<=0){s.rollT=SHIP.rollT;s.rollCd=SHIP.rollCd*(1-.1*(run.up.roll||0));s.rollDir=ix<-.2?-1:1;s.inv=Math.max(s.inv,SHIP.rollT);run.ev.push({k:'roll'})}
     if(inp.boost&&s.boost<=0&&s.boostCd<=0){s.boost=SHIP.boostT;s.boostCd=SHIP.boostCool+SHIP.boostT;run.ev.push({k:'boost'})}
     if(s.boost>0)s.boost=Math.max(0,s.boost-dt);
     const tgtV=(s.boost>0?SHIP.vmax*SHIP.boostMul:SHIP.cruise+(iy<-.2?(-iy-.2)*8:0)-(iy>.2?(iy-.2)*10:0)),tv=clamp(tgtV,SHIP.vmin,SHIP.vmax*SHIP.boostMul);
@@ -218,7 +218,7 @@ const SkyCore=(()=>{
       for(const q of targets(run)){if(q.kind==='shield'||q.kind==='gen'||q.kind==='core')continue;const dd=Math.hypot(q.o.x-a.x,q.o.y-a.y,q.o.z-a.z)+rank[q.kind]*40;if(dd<bd){bd=dd;best=q}}
       if(best){a.cd=ALLY.rate*(.8+run.rnd()*.4);const t=best.o,l=Math.hypot(t.x-a.x,t.y-a.y,t.z-a.z)||1;let dx=(t.x-a.x)/l,dy=(t.y-a.y)/l,dz=(t.z-a.z)/l;const hit=run.rnd()<ALLY.acc;
         if(!hit){dx+=(run.rnd()-.5)*.25;dy+=(run.rnd()-.5)*.25;dz+=(run.rnd()-.5)*.25;const m=Math.hypot(dx,dy,dz);dx/=m;dy/=m;dz/=m}
-        const n0=run.ev.length;shoot(run,a,{x:dx,y:dy,z:dz},ALLY.dmg,hit);for(let i=n0;i<run.ev.length;i++)if(run.ev[i].k==='tracer')run.ev[i].src='a'}}
+        const n0=run.ev.length;shoot(run,a,{x:dx,y:dy,z:dz},ALLY.dmg*(1+.25*(run.up.wing||0)),hit);for(let i=n0;i<run.ev.length;i++)if(run.ev[i].k==='tracer')run.ev[i].src='a'}}
   }
   function missilesStep(run,dt){
     const s=run.ship;balloonsStep(run,dt);impsStep(run,dt);
@@ -230,7 +230,7 @@ const SkyCore=(()=>{
     for(let i=run.msl.length-1;i>=0;i--){const m=run.msl[i];m.life-=dt;const q=L.find(x=>x.o.id===m.tid&&x.kind!=='shield');
       if(q)steerTo(m,q.o.x,q.o.y,q.o.z,MSL.turn,MSL.speed,dt);else{const l=Math.hypot(m.vx,m.vy,m.vz)||1,v=Math.min(MSL.speed,l+MSL.speed*1.6*dt);m.vx*=v/l;m.vy*=v/l;m.vz*=v/l}
       m.x+=m.vx*dt;m.y+=m.vy*dt;m.z+=m.vz*dt;
-      if(q&&Math.hypot(m.x-q.o.x,m.y-q.o.y,m.z-q.o.z)<q.r+2.5){run.ev.push({k:'boom',x:m.x,y:m.y,z:m.z,s:.8});damage(run,q,MSL.dmg);run.msl.splice(i,1);continue}
+      if(q&&Math.hypot(m.x-q.o.x,m.y-q.o.y,m.z-q.o.z)<q.r+2.5){run.ev.push({k:'boom',x:m.x,y:m.y,z:m.z,s:.8});damage(run,q,MSL.dmg*(1+.12*(run.up.gun||0)));run.msl.splice(i,1);continue}
       if(m.life<=0){run.ev.push({k:'boom',x:m.x,y:m.y,z:m.z,s:.4});run.msl.splice(i,1)}}
   }
   function enemiesStep(run,dt){
@@ -267,7 +267,7 @@ const SkyCore=(()=>{
   function launchSalvo(run,pos,d){
     const s=run.ship,yw=Math.atan2(d.x,d.z),C=[];
     for(const q of targets(run)){if(q.kind==='shield'||q.kind==='sam')continue;const v={x:q.o.x-pos.x,y:q.o.y-pos.y,z:q.o.z-pos.z},l=Math.hypot(v.x,v.y,v.z);if(l>MSL.range||l<10)continue;const c=(v.x*d.x+v.y*d.y+v.z*d.z)/l;if(c>MSL.cone)C.push({q,c})}
-    C.sort((x,y)=>y.c-x.c);run.mCd=MSL.cd;run.ev.push({k:'msl'});
+    C.sort((x,y)=>y.c-x.c);run.mCd=MSL.cd*(1-.08*(run.up.msl||0));run.ev.push({k:'msl'});
     for(let i=0;i<MSL.n;i++){const tg=C.length?C[i%C.length].q:null,sp=(i-1)*.18;
       run.msl.push({x:pos.x,y:pos.y+1,z:pos.z,vx:(d.x+Math.cos(yw)*sp)*MSL.speed*.5+Math.sin(s.h)*s.v*.5,vy:(d.y+(i===1?.12:0))*MSL.speed*.5,vz:(d.z-Math.sin(yw)*sp)*MSL.speed*.5+Math.cos(s.h)*s.v*.5,tid:tg?tg.o.id:null,life:MSL.life})}
   }
@@ -281,7 +281,7 @@ const SkyCore=(()=>{
       if(inp&&inp.fire&&run.gunCd<=0&&run.lock<=0&&run.heat<1){
         const a=inp.aim||{yaw:0,pit:0},yw=s.h+a.yaw,cp=Math.cos(a.pit);
         run.gunCd=GUN.rate;run.heat+=GUN.heat;if(run.heat>=1){run.heat=1;run.lock=GUN.lock;run.ev.push({k:'overheat'})}
-        shoot(run,pos,{x:Math.sin(yw)*cp,y:Math.sin(a.pit),z:Math.cos(yw)*cp},GUN.dmg)}
+        shoot(run,pos,{x:Math.sin(yw)*cp,y:Math.sin(a.pit),z:Math.cos(yw)*cp},GUN.dmg*(1+.12*(run.up.gun||0)))}
     }else if(run.autoCd<=0&&(run.fort&&!run.fort.done||run.drones.length)){
       // AI crew mate: picks the nearest live target (turrets that can shoot us first), shoots a bit wide
       let best=null,bd=GUN.autoRange;for(const q of targets(run)){if(q.kind==='shield')continue;const d=dist3(pos,q.o)-(q.kind==='turret'||q.kind==='drone'?30:q.kind==='balloon'?45:0);if(d<bd){bd=d;best=q}}
@@ -342,7 +342,7 @@ const SkyCore=(()=>{
   function snapshot(run){
     const s=run.ship,f=run.fort;
     return {t:q(run.t,100),st:run.state,sg:run.stage,hg:run.hasGunner?1:0,
-      s:[q(s.x,10),q(s.y,10),q(s.z,10),q(s.h,1000),q(s.p,1000),q(s.roll,1000),q(s.v,10),Math.round(s.hull),s.boost>0?1:0,q(s.boostCd,10),q(s.rollT,100),q(s.rollCd,10),s.rollDir],
+      s:[q(s.x,10),q(s.y,10),q(s.z,10),q(s.h,1000),q(s.p,1000),q(s.roll,1000),q(s.v,10),Math.round(s.hull),s.boost>0?1:0,q(s.boostCd,10),q(s.rollT,100),q(s.rollCd,10),s.rollDir,s.hullMax],
       f:f?{k:f.k,t:f.turrets.map(x=>x.alive?Math.round(x.hp):0),g:f.gens.map(x=>x.alive?Math.round(x.hp):0),c:Math.round(f.core.alive?f.core.hp:0),ph:f.ph,dn:f.done?1:0}:null,
       d:run.drones.map(d=>[d.id,q(d.x,10),q(d.y,10),q(d.z,10),Math.round(d.hp)]),
       e:run.shots.map(p=>[q(p.x,10),q(p.y,10),q(p.z,10),q(p.vx,10),q(p.vy,10),q(p.vz,10)]),
@@ -353,7 +353,7 @@ const SkyCore=(()=>{
   }
   function apply(run,sn){
     run.t=sn.t;run.state=sn.st;run.hasGunner=!!sn.hg;const s=run.ship,a=sn.s;
-    s.x=a[0];s.y=a[1];s.z=a[2];s.h=a[3];s.p=a[4];s.roll=a[5];s.v=a[6];s.hull=a[7];s.boost=a[8]?1:0;s.boostCd=a[9];s.rollT=a[10]||0;s.rollCd=a[11]||0;s.rollDir=a[12]||1;
+    s.x=a[0];s.y=a[1];s.z=a[2];s.h=a[3];s.p=a[4];s.roll=a[5];s.v=a[6];s.hull=a[7];s.boost=a[8]?1:0;s.boostCd=a[9];s.rollT=a[10]||0;s.rollCd=a[11]||0;s.rollDir=a[12]||1;if(a[13])s.hullMax=a[13];
     if(sn.f){if(!run.fort||run.fort.k!==sn.f.k){run.fort=buildFort(run,sn.f.k)}const f=run.fort;
       f.turrets.forEach((t,i)=>{t.hp=sn.f.t[i]||0;t.alive=t.hp>0?1:0});f.gens.forEach((g,i)=>{g.hp=sn.f.g[i]||0;g.alive=g.hp>0?1:0});f.core.hp=sn.f.c;f.core.alive=sn.f.c>0?1:0;f.ph=sn.f.ph;f.done=sn.f.dn}
     else run.fort=null;

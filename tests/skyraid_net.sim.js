@@ -17,7 +17,7 @@ function phone(id,name,partnerId,clock){
   const ctx={Math,Object,Number,JSON,Array,isFinite,Map,Float32Array,Set,String,Date,setTimeout:()=>0,clearTimeout(){},console:{log(){},warn(){},error:(...a)=>errs.push(a.join(' '))},THREE,document:doc,
     performance:{now:()=>clock.t},matchMedia:()=>({matches:true}),innerWidth:800,innerHeight:400,window:{},
     scene:new THREE.Scene(),camera:new THREE.PerspectiveCamera(65,2,.1,5000),S:{x:0,y:2,z:0,rot:0,vy:0,grounded:true,flying:false},me:null,others:new Map(),keys:{},entered:true,myId:id,myName:name,
-    SKY:{x:-1900,z:2350,R:140,base:430},banner(){},H:()=>0,Outlaw:{coins:0,earn(c){this.coins+=c}},
+    SKY:{x:-1900,z:2350,R:140,base:430},banner(){},H:()=>0,Outlaw:{coins:0,earn(c){this.coins+=c},coins_(){return this.coins},spend(c){if(this.coins<c)return false;this.coins-=c;return true}},
     Net:{on:(t,f)=>{handlers[t]=f},emit:(t,d)=>{for(const c of bus.clients)if(c.id!==id)try{c.handlers[t]&&c.handlers[t](JSON.parse(JSON.stringify(d)),id)}catch(e){errs.push('handler '+e.message)}}},
     Systems:{add(){}}};
   if(partnerId)ctx.others.set(partnerId,{name:'P',group:{userData:{}}});
@@ -114,5 +114,15 @@ const clock={t:1000},wrapA=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=
   B.SR._t().BTN.roll=true;step(30);ok(A.SR.state().run.ship.rollCd>0||A.SR.state().run.ship.rollT>0,'the guest pilot\'s roll reaches the host simulation');
   clock.t+=3000;A.SR._t().swapSeat();step(10);ok(A.SR.state().role==='pilot'&&B.SR.state().role==='gunner','host presses SWAP SEAT: seats trade back');
   ok(A.errs.length===0&&B.errs.length===0,`co-op swap: no errors (${A.errs.concat(B.errs)[0]||''})`);
+}
+// ---------- v5: hangar ----------
+{
+  const A=phone('hg','H',null,clock);A.ctx.Outlaw.coins=1000;A.ctx.Outlaw.coins=function(){return 1000};   // coins() returns the wallet
+  let wallet=1000;A.ctx.Outlaw.coins=()=>wallet;A.ctx.Outlaw.spend=c=>{if(wallet<c)return false;wallet-=c;return true};
+  A.SR.open();const T=A.SR._t();T.openHangar();const sh=A.doc.body.children[A.doc.body.children.length-1];
+  sh.ls.click[0]({target:{closest:()=>({classList:{contains:()=>false},dataset:{up:'hull'}})}});ok(T.UP.hull===1&&wallet===1000-150,'buying a hangar upgrade spends coins and levels it up');
+  for(let i=0;i<10;i++){const s2=A.doc.body.children[A.doc.body.children.length-1];s2.ls.click[0]({target:{closest:()=>({classList:{contains:()=>false},dataset:{up:'hull'}})}})}
+  ok(T.UP.hull<=5,'upgrades cap at level 5');
+  T.begin({seed:4,role:'pilot',host:true,partner:null});ok(A.SR.state().run.ship.hullMax>Math.round(380*1.35),'the raid starts with the upgraded hull');A.SR.leave(false);ok(A.errs.length===0,`hangar: no errors (${A.errs[0]||''})`);
 }
 process.exit(fails?1:0);

@@ -106,6 +106,25 @@ body.skyraid #stick,body.skyraid .stick,body.skyraid #joy{display:none!important
     drag.classList.toggle('on',ST.mode==='race');
   }
 
+  // ---------------------------------------------------------------- hangar: spend coins (the shared Outlaw coins) on permanent upgrades. Saved on this phone; the host's upgrades apply to the raid.
+  const UPG=[{k:'hull',n:'🛡 Armor plating',d:'+10% hull per level',base:150},{k:'gun',n:'🔫 Gun & missile damage',d:'+12% damage per level',base:180},{k:'msl',n:'🚀 Missile reload',d:'-8% cooldown per level',base:140},
+    {k:'roll',n:'🌀 Roll drive',d:'-10% roll cooldown per level',base:120},{k:'wing',n:'🛩 Wingmen firepower',d:'+25% per level',base:160}],MAXL=5;
+  const UP={hull:0,gun:0,msl:0,roll:0,wing:0};try{Object.assign(UP,JSON.parse(localStorage.getItem('skyup')||'{}'))}catch(e){}
+  const saveUp=()=>{try{localStorage.setItem('skyup',JSON.stringify(UP))}catch(e){}};
+  const coinsNow=()=>typeof Outlaw!=='undefined'&&Outlaw.coins?Outlaw.coins():0;
+  let hangar=null;
+  function openHangar(back){
+    hangar&&hangar.remove();hangar=el('div','sheet rl-sheet');
+    const rows=UPG.map(u=>{const L=UP[u.k],cost=u.base*(L+1),pips='●'.repeat(L)+'○'.repeat(MAXL-L);
+      return `<div class="rl-row" style="justify-content:space-between;gap:8px"><div style="text-align:left"><b>${u.n}</b><br><small>${u.d} · ${pips}</small></div>${L>=MAXL?'<b>MAX</b>':`<button class="btn gold${coinsNow()>=cost?'':' off'}" data-up="${u.k}">${cost} 🪙</button>`}</div>`}).join('');
+    hangar.innerHTML=`<h2>🔧 Hangar</h2><p class="rl-sub">Your coins: <b>${coinsNow()} 🪙</b>. Upgrades are permanent.</p>${rows}<div class="rl-row"><button class="btn rl-hx">Back</button></div>`;
+    document.body.appendChild(hangar);
+    hangar.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+      if(b.classList.contains('rl-hx')){hangar.remove();hangar=null;if(back)back();return}
+      const k=b.dataset.up,u=UPG.find(x=>x.k===k);if(!u||UP[k]>=MAXL)return;const cost=u.base*(UP[k]+1);
+      if(typeof Outlaw!=='undefined'&&Outlaw.spend&&Outlaw.spend(cost)){UP[k]++;saveUp();tone(700,.15,'triangle',.1);tone(1000,.2,'triangle',.1)}else{tone(150,.2,'square',.08);note('Not enough coins')}
+      openHangar(back)});
+  }
   // ---------------------------------------------------------------- lobby
   let fabMade=false;
   function ensureFab(){
@@ -124,11 +143,12 @@ body.skyraid #stick,body.skyraid .stick,body.skyraid #joy{display:none!important
       <p class="rl-sub">Fly the sky galleon between the floating fortresses and bring them down: shoot the shield generators, then the core. Four fortresses, the last one a boss. Fly or gun: swap seats any time, and when you are alone the other seat is an AI.</p>
       <div class="rl-row">${chip('pilot','🛩 I fly')}${chip('gunner','🔫 I man the turret',!pid)}</div>
       <p class="rl-help">${pid?'Your friend gets the other seat. Start the raid and they will get an invite.':'Solo: you fly and an AI crew mate works the turret. With a friend online, one of you flies and the other shoots.'}</p>
-      <div class="rl-row"><button class="btn rl-go">${pid?'INVITE '+pname.toUpperCase():'TAKE OFF'}</button><button class="btn rl-x">Close</button></div>
+      <div class="rl-row"><button class="btn rl-go">${pid?'INVITE '+pname.toUpperCase():'TAKE OFF'}</button><button class="btn rl-hg">🔧 Hangar</button><button class="btn rl-x">Close</button></div>
       <p class="rl-help">${touch?'Pad ◀▶▲▼ steers (pilot) or aims (gunner). Pilot: BOOST sprints, ROLL dodges everything for a moment. Gunner: hold FIRE (the gun overheats), MISSILES fires a homing salvo. Drag the screen to look around. ⇄ SEAT swaps seats, solo too.':'Arrows/WASD steer or aim. Pilot: Shift boost, Q roll. Gunner: Space fires, E missiles. Drag to look around. R swaps seats.'}</p>`;
     document.body.appendChild(sheet);
     sheet.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
       if(b.dataset.role&&!b.disabled){cfg.role=b.dataset.role;openLobby.again()}
+      else if(b.classList.contains('rl-hg')){closeLobby();openHangar(openLobby)}
       else if(b.classList.contains('rl-x'))closeLobby();
       else if(b.classList.contains('rl-go')){sfxInit();closeLobby();if(pid)invite(pid);else begin({seed:Math.random()*1e6|0,role:'pilot',host:true,partner:null})}});
   }
@@ -142,7 +162,7 @@ body.skyraid #stick,body.skyraid .stick,body.skyraid #joy{display:none!important
     buildHud();closeLobby();if(!W)W=SkyRaidWorld.build(scene);
     ST.host=c.host;ST.role=c.role;ST.partner=c.partner;ST.rid=c.rid||null;ST.paid=false;ST.err=0;ST.acc=0;pend=[];aim={yaw:0,pit:.12};look.yaw=look.pit=0;look.t=0;ST.swapAt=0;ST.slow=0;remote.b=remote.r=remote.m=0;
     const hasGunner=!!c.partner||c.role==='gunner';
-    run=SC.newRun({seed:c.seed,cx:SKY.x,cz:SKY.z,base:SKY.base,hasGunner});
+    run=SC.newRun({seed:c.seed,cx:SKY.x,cz:SKY.z,base:SKY.base,hasGunner,up:UP});
     if(ST.host)SC.step(run,.0001,{});   // starts stage 1 so the first frame already has a fortress
     view={x:run.ship.x,y:run.ship.y,z:run.ship.z,h:run.ship.h,p:0,roll:0,spin:0};lastH=run.ship.h;
     ST.ret={x:S.x,y:S.y,z:S.z,rot:S.rot};camS.init=false;ST.lastSnap=ST.lastStep=performance.now();
@@ -153,7 +173,7 @@ body.skyraid #stick,body.skyraid .stick,body.skyraid #joy{display:none!important
   }
   function leave(notify){
     if(ST.mode==='off')return;if(notify&&ST.partner&&ST.rid)Net.emit('sky',{k:'end',rid:ST.rid});
-    ST.mode='off';ST.partner=null;ST.rid=null;raceRes(false);closeLobby();if(hud)hud.classList.remove('on');if(drag)drag.classList.remove('on');document.body.classList.remove('skyraid');
+    ST.mode='off';ST.partner=null;ST.rid=null;raceRes(false);closeLobby();if(hangar){hangar.remove();hangar=null}if(hud)hud.classList.remove('on');if(drag)drag.classList.remove('on');document.body.classList.remove('skyraid');
     if(W)W.hide();run=null;
     if(ST.ret){S.x=ST.ret.x;S.z=ST.ret.z;S.y=Math.max(ST.ret.y,(typeof H==='function'?H(ST.ret.x,ST.ret.z):0)+.2);S.vy=0;S.rot=ST.ret.rot||S.rot;S.flying=false;S.grounded=true}
     camera.fov=baseFov;camera.updateProjectionMatrix();BTN.boost=BTN.fire=false;
@@ -266,10 +286,11 @@ body.skyraid #stick,body.skyraid .stick,body.skyraid #joy{display:none!important
     closeLobby();sheet=el('div','sheet rl-sheet rl-res');const win=run.state==='win',sc=run.score;
     sheet.innerHTML=`<h2>${win?'🏆 Raid complete!':'💥 Ship lost'}</h2><p class="rl-sub">${win?'All four fortresses are wreckage.':'You cleared '+Math.max(0,run.stage)+' of 4 fortresses.'}</p>
       <div class="rl-row"><b>+${c} 🪙</b></div><p class="rl-help">Turrets ${sc.turrets} · Drones ${sc.drones} · Hits ${sc.hits} · Damage taken ${Math.round(sc.taken)} · Time ${Math.round(run.t)} s</p>
-      <div class="rl-row"><button class="btn rl-again">Fly again</button><button class="btn rl-x">Back to the island</button></div>`;
+      <div class="rl-row"><button class="btn rl-again">Fly again</button><button class="btn rl-hg">🔧 Hangar</button><button class="btn rl-x">Back to the island</button></div>`;
     document.body.appendChild(sheet);
     sheet.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
-      if(b.classList.contains('rl-x')){leave(true)}
+      if(b.classList.contains('rl-hg')){sheet.remove();sheet=null;openHangar(()=>{leave(true);openLobby()})}
+      else if(b.classList.contains('rl-x')){leave(true)}
       else if(b.classList.contains('rl-again')){const wasHost=ST.host,p=ST.partner;leave(true);if(wasHost){if(p)invite(p);else begin({seed:Math.random()*1e6|0,role:'pilot',host:true,partner:null})}else openLobby()}});
   }
   function frame(dt){
@@ -323,5 +344,5 @@ body.skyraid #stick,body.skyraid .stick,body.skyraid #joy{display:none!important
 
   function build(){netInit();if(typeof Systems!=='undefined'&&Systems.add)Systems.add('skyraid-fab',()=>{if(typeof entered!=='undefined'&&entered)ensureFab()})}
   return {build,frame,locked,setInput:()=>{},open:()=>{sfxInit();openLobby()},leave,
-    state:()=>({mode:ST.mode,role:ST.role,host:ST.host,run}),_t:()=>({begin,hostStep,swapSeat,doSwap,ST,aim,look,BTN,remote,view:()=>view,world:()=>W})};
+    state:()=>({mode:ST.mode,role:ST.role,host:ST.host,run}),_t:()=>({UP,openHangar,begin,hostStep,swapSeat,doSwap,ST,aim,look,BTN,remote,view:()=>view,world:()=>W})};
 })();

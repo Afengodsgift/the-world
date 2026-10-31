@@ -204,4 +204,16 @@ function raid(withGunner,seed,skill){
   ok(tr>=1,`wingmen shoot nearby enemies (${tr} shots)`);ok(!imp.alive,'and shoot down the little ones');
   const b=SC.newRun(O);SC.apply(b,JSON.parse(JSON.stringify(SC.snapshot(r))));ok(Math.abs(b.allies[0].x-r.allies[0].x)<.2,'guests see the wingmen');
 }
+// ---------- v5: hangar upgrades ----------
+{
+  const b=SC.newRun(Object.assign({noAllies:1},O)),u=SC.newRun(Object.assign({noAllies:1,up:{hull:5,gun:5,msl:5,roll:5,wing:5}},O));
+  ok(u.ship.hullMax>b.ship.hullMax*1.4,`hull upgrade: ${b.ship.hullMax} -> ${u.ship.hullMax}`);
+  SC.step(b,DT,{});SC.step(u,DT,{});
+  const tg=r=>r.fort.turrets[0];const aim=r=>{const s=r.ship,t=tg(r);return {yaw:Math.atan2(t.x-s.x,t.z-s.z)-s.h,pit:Math.atan2(t.y-(s.y+6),Math.hypot(t.x-s.x,t.z-s.z))}};
+  for(const r of [b,u]){const s=r.ship,t=tg(r);s.x=t.x+120;s.z=t.z;s.y=t.y;s.h=-Math.PI/2;SC.step(r,DT,{fire:true,aim:aim(r)})}
+  ok(tg(u).hp<tg(b).hp,'gun upgrade: more damage per shot');
+  for(const r of [b,u]){r.ship.x=tg(r).x+120;r.ship.z=tg(r).z;SC.step(r,DT,{missile:true,aim:aim(r)})}ok(u.mCd<b.mCd,'missile upgrade: shorter cooldown');
+  SC.step(b,DT,{roll:true});SC.step(u,DT,{roll:true});ok(u.ship.rollCd<b.ship.rollCd,'roll upgrade: shorter cooldown');
+  const sn=JSON.parse(JSON.stringify(SC.snapshot(u))),g=SC.newRun(O);SC.apply(g,sn);ok(g.ship.hullMax===u.ship.hullMax,'guests learn the host\'s max hull');
+}
 console.log(fails?`\n${fails} FAILED`:'\nall ok');process.exit(fails?1:0);
