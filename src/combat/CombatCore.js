@@ -27,7 +27,7 @@ const CombatCore=(()=>{
   function addPo(C,f,v){if(f.act==='dead')return;f.po=Math.min(f.poMax,f.po+v);f.pr=0;
     if(f.po>=f.poMax&&!(f.act==='stun'&&(f.sk==='stagger'||f.sk==='rise'))){f.po=0;stunF(f,60,'stagger');emit(C,'posturebreak',null,f.id)}}
   function stunF(f,n,kind){f.act='stun';f.sk=kind;f.stun=n;f.guard=false;f.ph=null;f.mv=null;f.buf=null;f.rel2=false;f.c=0}
-  function startMove(C,f,id,hold){const m=Moves[id];f.act='attack';f.mv=m;f.ph=Moves.expand(id,hold,f.tm);f.hold=hold|0;f.pi=0;f.pk=0;f.pt=0;f.done={};f.guard=false;if(m.stam)spend(f,m.stam);emit(C,'start',f.id,null,{move:id});
+  function startMove(C,f,id,hold){const m=Moves[id];f.act='attack';f.mv=m;f.ph=Moves.expand(id,hold,f.tm);f.hold=hold|0;f.pi=0;f.pk=0;f.pt=0;f.done={};f.guard=false;if(m.stam)spend(f,m.stam);emit(C,'start',f.id,null,{move:id,per:m.per?1:0});
     if(m.fx)for(const d of m.fx)if(d.on==='start')spawnFx(C,f,d);skipEmpty(f)}
   const enemyOf=(a,t)=>t!==a&&t.act!=='dead'&&!(a.team&&t.team===a.team);
   function nearestFoe(C,a){let best=null,bd=1e9;for(const id of C.order){const t=C.F[id];if(!enemyOf(a,t))continue;const d=Math.hypot(t.x-a.x,t.z-a.z);if(d<bd){bd=d;best=t}}return best}
@@ -97,14 +97,14 @@ const CombatCore=(()=>{
     for(const aid of C.order){const a=C.F[aid];if(a.act!=='attack')continue;const p=a.ph[a.pi];if(!p||p.k!=='active'||a.done[p.seg])continue;
       for(const tid of C.order){if(tid===aid)continue;const t=C.F[tid];if(t.act==='dead'||(a.team&&t.team===a.team))continue;
         const hit=SwordHit.tickHits(snap[aid],a.face,a.mv,p,a.pk,p.n,snap[tid],C.solids,a.y,t.y);if(!hit)continue;
-        if(iframe(t)){out.push({k:'dodged',a,t,seg:p.seg});continue}
+        if(iframe(t)){out.push({k:'dodged',a,t,seg:p.seg,mv:a.mv});continue}
         const br=Math.atan2(snap[aid].x-snap[tid].x,snap[aid].z-snap[tid].z);
         if(t.guard&&t.act==='free'&&SwordHit.angd(t.face,br)<=GUARD_ARC)out.push({k:t.gpt<=(t.pry>0?PARRY_W:DEFL)+(t.dfl||0)?'deflect':'block',a,t,seg:p.seg,mv:a.mv,br});
         else out.push({k:'hit',a,t,seg:p.seg,mv:a.mv,br})}}
     // (5) resolve (all outcomes were decided from the pre-resolution state, so simultaneous hits both land)
     let hs=0;const stag0={};for(const id of C.order)stag0[id]=C.F[id].act==='stun'&&C.F[id].sk==='stagger';
     for(const o of out){const{a,t,mv}=o;
-      if(o.k==='dodged'){emit(C,'dodged',a.id,t.id,{seg:o.seg});continue}
+      if(o.k==='dodged'){emit(C,'dodged',a.id,t.id,{seg:o.seg});if(!o.fx&&mv&&mv.per&&a.act==='attack'&&!a.sa){stunF(a,46,'recoil');emit(C,'perdodge',a.id,t.id)}continue}
       if(!o.fx)a.done[o.seg]=true;const sc=!o.fx&&a.mv&&a.mv.id==='heavy'?1+.5*(a.chg||0):1;
       if(o.k==='deflect'){if(!o.fx){addPo(C,a,mv.pdmg*1.6);if(mv.bg&&a.act==='attack'){stunF(a,84,'stagger');emit(C,'brokenguard',a.id,t.id)}else if(a.act==='attack')stunF(a,16,'recoil')}addPo(C,t,mv.pdmg*.15);emit(C,'deflect',a.id,t.id,{seg:o.seg});hs=Math.max(hs,5)}
       else if(o.k==='block'){t.st=mv.gb?0:Math.max(0,t.st-mv.dmg*.8*sc);t.sr=0;addPo(C,t,mv.pdmg*.7*sc);emit(C,'block',a.id,t.id,{seg:o.seg});hs=Math.max(hs,3);

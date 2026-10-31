@@ -467,6 +467,26 @@ const PlayerCombat=(()=>{
       const T=ult.sl[ult.roles[k]],dx=T.x-F.f.x,dz=T.z-F.f.z,L=Math.hypot(dx,dz);if(L<.3){l.visible=false;continue}
       l.visible=true;l.position.set(F.f.x+dx/2,H(T.x,T.z)+.14,F.f.z+dz/2);l.rotation.set(-Math.PI/2,0,0);l.rotation.y=Math.atan2(dx,dz);l.scale.set(.75,L,1);
       const hot=cl((tk-4)/18,0,1),go=Barrage.inWindow(tk);l.material.color.setHex(go?0xffe27a:hot>.6?0xff3a3a:0xc08aff);l.material.opacity=ph==='pop'?.5:(.35+.3*hot)*(go?1:.85+.15*Math.sin(performance.now()/60))}}
+  // RISE CINEMATIC: the felled boss lies still, the camera sinks to the ground beside it, circles in, then cranes up as it stands (5 s, matches CombatCore RISE)
+  function riseCine(T){
+    try{
+      if(ult||CineCam.busy()||P.act==='dead')return;
+      if(foes.some(o=>o!==T&&o.f.act!=='dead'&&o.T.boss))return;
+      const t0=performance.now(),h0=1.75*T.T.scale,a0=Math.atan2(S.x-T.f.x,S.z-T.f.z);
+      const ease=u=>u*u*(3-2*u),seg=(t,a,b)=>ease(cl((t-a)/(b-a),0,1));
+      CineCam.PRESETS.rise={dur:4.9,freeze:false,noskip:true,shots:[]};
+      const drive=()=>{
+        const t=(performance.now()-t0)/1000,bx=T.f.x,bz=T.f.z,gy=H(bx,bz);
+        const u1=seg(t,0,2.2),u2=seg(t,2.2,3.9),u3=seg(t,3.9,4.9);
+        // 0-2.2 s low circling push-in on the fallen boss; 2.2-3.9 s drop to the dirt and tilt up as it stirs; 3.9-4.9 s crane back to reveal the full height
+        const ang=a0+mixn(.9,-.2,u1)+mixn(0,-.35,u2)+mixn(0,.5,u3);
+        const d=(mixn(9.5,6.2,u1)-mixn(0,2.4,u2)+mixn(0,9.5,u3))*Math.max(1,T.T.scale*.8);
+        const cy=gy+h0*(mixn(.55,.18,u1)-mixn(0,.1,u2)+mixn(0,.8,u3));
+        const ly=gy+h0*(mixn(.12,.15,u1)+mixn(0,.5,u2)+mixn(0,.25,u3));
+        const sh=t>2.6&&t<4.2?Math.sin(t*38)*.035*(1-Math.abs(t-3.4)/.9):0;
+        return{px:bx+Math.sin(ang)*d+sh,py:Math.max(cy,H(bx+Math.sin(ang)*d,bz+Math.cos(ang)*d)+.5),pz:bz+Math.cos(ang)*d,lx:bx,ly:ly,lz:bz,fov:mixn(54,46,u1)+mixn(0,16,u2)-mixn(0,6,u3)}};
+      CineCam.play('rise',{x:()=>T.f.x,z:()=>T.f.z,h:h0,drive},{force:true});
+    }catch(x){}}
   function barCam(){
     const U=ult,rn=performance.now();
     if(!bc){bc={t:rn,p:camera.position.clone(),l:camera.position.clone().add(new THREE.Vector3(0,0,-8).applyQuaternion(camera.quaternion)),fov:camera.fov,sh:0,hits:0,res:null,lastP:{x:S.x,z:S.z}}}
@@ -815,6 +835,8 @@ const PlayerCombat=(()=>{
       flowEv(e,T);
       if(e.t==='fx'||e.t==='fxburst'||e.t==='fxend')WardenFx.event(e);
       {const fp=e.t==='hit'||e.t==='block'||e.t==='deflect'||e.t==='posturebreak'||e.t==='guardbreak'?(T?T.f:(e.d==='P'?P:null)):null;if(fp){vfxAt(e,fp);punch(e,fp)}else if(e.t==='dodge')punch(e,P)}
+      if(e.t==='start'&&e.per&&e.a!=='P'&&!ult){hsT=Math.max(hsT,.3);flash(.5,'rgba(255,40,40,.55)');msg('危  PERILOUS',.9);try{sfx('heavy',.7,.7,()=>tone(520,260,.35,'square',.1));CameraRig.shake(.25)}catch(x){}}
+      else if(e.t==='perdodge'&&!ult){hsT=Math.max(hsT,.2);msg('OPENING!',.9);flash(.35,'rgba(255,230,160,.6)')}
       if(e.t==='start'){if(e.a==='P'||A&&e.move&&A.f){const q=e.a==='P'?P:A.f;if(q&&(e.a==='P'||/atk|cut|slam|sweep|swipe|heavy|light/.test(e.move)))WardenVfx.slash(q.x,H(q.x,q.z)+1.2,q.z,q.face,/heavy|slam/.test(e.move),e.a==='P'?0:1)}if(e.a==='P'){if(e.move==='rush'){WardenVfx.spawn(P.x,H(P.x,P.z)+1,P.z,2,4,3.4,-P.face+Math.PI/2,32);flash(.22,'rgba(200,225,255,.7)')}if(e.move==='light'&&pAnim)pAnim.nextLight(performance.now()/1000);sfx('whoosh',.4,e.move==='heavy'?.75:1.1,()=>tone(e.move==='heavy'?220:380,e.move==='heavy'?90:150,e.move==='heavy'?.18:.1,'triangle',.1))}else{try{telegraph(A,e.move)}catch(x){}if(A&&A.anim&&A.anim.pickAlt)A.anim.pickAlt(e.move,Math.random());sfx('whoosh',.35,.8,()=>tone(160,70,.16,'sawtooth',.07))}}
       else if(e.t==='dodge'&&e.a==='P')tone(200,80,.14,'sine',.08);
       else if(e.t==='hit'){if(T&&e.a==='P'){if(wst.bleed&&T.f.act!=='dead')T.bleed={t:4,dps:wst.bleed};if(wst.vamp&&P.hp>0)P.hp=Math.min(P.hpMax,P.hp+e.dmg*wst.vamp)}if(T){T.flash=1;T.lh=performance.now();wake(T,true);sfx(e.dmg>=20||e.crit?'heavy':'strike',.8,e.crit?.85:1,()=>tone(140,50,.14,'square',.14));if(e.crit)msg('CRITICAL');if(T.body.T.body==='avatar')T.body.u.hitReq=1}else{sfx(e.dmg>=20?'heavy':'strike',.9,.9,()=>tone(110,40,.18,'square',.16));if(e.d==='P'&&P.hp>0){hurt=true;msg('',0);hitFrom(A,e.move)}}}
@@ -823,7 +845,7 @@ const PlayerCombat=(()=>{
       else if(e.t==='deflect'){sfx('clash',.52,1.4,()=>tone(1500,900,.18,'sine',.09));msg(T?'':'DEFLECTED',.5)}
       else if(e.t==='posturebreak'&&T){if(T.T.boss)msg('POSTURE BROKEN');sfx('heavy',.8,1.1,()=>tone(500,120,.3,'sawtooth',.12))}
       else if(e.t==='posturebreak'&&e.d==='P'){msg('POSTURE BROKEN',.8);sfx('heavy',.9,.8,()=>tone(300,90,.3,'sawtooth',.12))}
-      else if(e.t==='phase'&&T){T.flash=1.2;sfx('heavy',.8,.5,()=>tone(90,50,.5,'sawtooth',.16));if(e.rise){try{CameraRig.shake(.7)}catch(x){}flash(.5,'rgba(255,255,255,.5)');setTimeout(()=>{if(on&&T.f.act!=='dead'){sfx('heavy',.9,.4,()=>tone(70,35,.8,'sawtooth',.18));try{CameraRig.shake(.8)}catch(x){}flash(.45,'rgba(255,200,120,.6)')}},4100)}}
+      else if(e.t==='phase'&&T){T.flash=1.2;sfx('heavy',.8,.5,()=>tone(90,50,.5,'sawtooth',.16));if(e.rise){riseCine(T);try{CameraRig.shake(.7)}catch(x){}flash(.5,'rgba(255,255,255,.5)');setTimeout(()=>{if(on&&T.f.act!=='dead'){sfx('heavy',.9,.4,()=>tone(70,35,.8,'sawtooth',.18));try{CameraRig.shake(.8)}catch(x){}flash(.45,'rgba(255,200,120,.6)')}},4100)}}
       else if(e.t==='guardbreak'){sfx('heavy',.9,.85,()=>tone(250,70,.3,'sawtooth',.14));if(e.d==='P')msg('GUARD BROKEN',.8)}
       else if(e.t==='dead'&&T){if(T.T.oath&&!oathFirst){const rest=foes.filter(o=>o!==T&&o.T.oath&&o.f.act!=='dead');if(rest.length){oathFirst=T.T.ai;for(const o of rest){o.ai.cov=T.T.ai;o.ai.ph2=true}setTimeout(()=>{if(on)msg('THE COVENANT BREAKS',2.4)},900)}}if(!T.human&&!site.duel)flaskDrop(T.T);sfx('heavy',.7,.7,()=>tone(200,40,.5,'sawtooth',.14));if(T.body.T.body==='avatar')T.body.u.emoteReq='playdead';if(T.T.boss){CineCam.play('death',{x:T.f.x,z:T.f.z,h:1.2*T.T.scale,sc:Math.max(1,T.T.scale*.9)},{id:T.T.id});msg(T.T.name.toUpperCase()+' IS FELLED',3);setTimeout(()=>WardenSfx.play(hurt?'vo_winner':'vo_flawless_victory',.8,1,{nojit:1}),700)}
         if(lock&&lockI===T.i){const n=nearest();if(n&&n!==T)lockI=n.i;else{lock=false;el.querySelector('#wLock').classList.remove('on')}}
