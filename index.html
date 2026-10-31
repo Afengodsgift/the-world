@@ -285,6 +285,9 @@ addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').ca
 <script src="src/race/RallyWorld.js"></script>
 <script src="src/race/RallyCombatFx.js"></script>
 <script src="src/race/Rally.js"></script>
+<script src="src/ship/SkyRaidCore.js"></script>
+<script src="src/ship/SkyRaidWorld.js"></script>
+<script src="src/ship/SkyRaid.js"></script>
 <script>
 const SUPABASE_URL='https://lzqnxawxehmqgswuzpyn.supabase.co';
 const SUPABASE_KEY='sb_publishable_bAm2KsLV8__Y4nWSFesZeQ_38-Ly6DE';
@@ -777,7 +780,7 @@ function buildWorld(code){
   while(pts.length<40){const a=rng()*6.283,r=12+rng()*195,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<40&&dist(x,z)>45)pts.push([x,z])}
   for(const I of ISL)for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
-  buildRace();buildHunt();buildSeaLife();buildKartTrack();Tag.build();Outlaw.build();WardenIsles.build();Surf.build();Farm.build();Soccer.build();Ship.build();Fleet.build();LandWar.build();Voyage.build();Fires.build();LockOn.build();Crew.build();Deckhands.build();Monster.build();Leviathan.build();Bowsprit.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
+  buildRace();buildHunt();buildSeaLife();buildKartTrack();Tag.build();Outlaw.build();WardenIsles.build();Surf.build();Farm.build();Soccer.build();Ship.build();Fleet.build();LandWar.build();Voyage.build();if(typeof SkyRaid!=='undefined')SkyRaid.build();Fires.build();LockOn.build();Crew.build();Deckhands.build();Monster.build();Leviathan.build();Bowsprit.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
 }
 const S={x:0,y:0,z:0,vy:0,rot:0,yaw:0,pitch:.35,grounded:true,state:'idle',flying:false,kx:0,kz:0,hurt:0,iframe:0};
 
@@ -1240,7 +1243,7 @@ let smk=null,edgeHinted=false,climbHinted=false;const _sv=new THREE.Vector3();
 function edgeHint(){if(edgeHinted)return;edgeHinted=true;banner('The sea goes on, but the way out is up. Climb, and the world opens.','⬆ THE WAY OUT')}
 function spaceTrack(){
   if(!smk)smk=document.getElementById('smk');if(!smk)return;
-  const busy=(typeof Ship!=='undefined'&&Ship.locked())||(typeof Rally!=='undefined'&&Rally.locked());
+  const busy=(typeof Ship!=='undefined'&&Ship.locked())||(typeof Rally!=='undefined'&&Rally.locked())||(typeof SkyRaid!=='undefined'&&SkyRaid.locked());
   const nx=(Space.f.stars>.45||(S.flying&&S.y>250&&!busy))&&typeof SpaceObjects!=='undefined'&&SpaceObjects.next?SpaceObjects.next():null;
   if(nx&&!climbHinted&&S.flying&&S.y>5000&&nx.id==='satellite'){climbHinted=true;banner('Keep climbing. Past 60 km the world opens, and something is up there.','⬆ KEEP GOING')}
   if(!nx||nx.dist<400){smk.style.display='none';return}
@@ -1322,6 +1325,7 @@ function tickFrame(t){
   if(keys.KeyW||keys.ArrowUp)iy-=1;if(keys.KeyS||keys.ArrowDown)iy+=1;
   if(typeof Ship!=='undefined'&&Ship.locked()){Ship.setInput(ix,iy);ix=0;iy=0}              // seated at the helm: the stick steers the ship
   if(typeof Rally!=='undefined'&&Rally.locked()){Rally.setInput(ix,iy);ix=0;iy=0;jumpQ=false}   // Skybreak Rally: the stick drives / flies the race car
+  if(typeof SkyRaid!=='undefined'&&SkyRaid.locked()){SkyRaid.setInput(ix,iy);ix=0;iy=0;jumpQ=false}   // Sky Raid: the stick flies the airship (pilot) or aims the turret (gunner)
   if(typeof Surf!=='undefined'&&Surf.on()){Surf.setInput(ix,iy,jumpQ);ix=0;iy=0;jumpQ=false}   // Surfing (src/surf/): the board takes over the stick and Jump
   if(S.flying&&Boost.driving()&&Math.hypot(ix,iy)<.05)iy=-1;                // the burst drives you forward even if the stick is idle (steering still works)
   const len=Math.hypot(ix,iy);if(len>1){ix/=len;iy/=len}
@@ -1371,7 +1375,7 @@ function tickFrame(t){
     RemoteSmooth.target(o,nowT,H);const p=o.group.position;p.x+=(o.tx-p.x)*k;p.y+=(o.ty-p.y)*k;p.z+=(o.tz-p.z)*k;
     o.group.rotation.y=lerpAngle(o.group.rotation.y,o.tr,k);animate(o.group,dt,o.st);
   }
-  vegCull();CameraRig.update(dt);if(typeof CineCam!=='undefined')CineCam.apply(dt);if(typeof Rally!=='undefined')Rally.frame(dt);
+  vegCull();CameraRig.update(dt);if(typeof CineCam!=='undefined')CineCam.apply(dt);if(typeof Rally!=='undefined')Rally.frame(dt);if(typeof SkyRaid!=='undefined')SkyRaid.frame(dt);
   {const uT=clamp((-.25-camera.position.y)/.5,0,1);S.under=(S.under||0)+(uT-(S.under||0))*Math.min(1,dt*10)}   // 0 above water .. 1 camera fully submerged (drives fog, sound muffle, bubbles)                                                         // orbit / first-person / shoulder + flight FOV, roll, shake (src/camera/CameraRig.js)
   Boost.update(S,dt);me.userData.bc=Boost.view.charge;boostUI(Boost.view);
   Space.update(dt,t);Env.tick(dt,t);SpaceEnv.update(dt,t);Ocean.tick(dt,Env.state.wx);Ocean.updateUniforms(camera.position.x,camera.position.z,Space.f.above);skyTick(t);Fishing.tick(dt,t);
