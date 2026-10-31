@@ -139,6 +139,8 @@ const WardenMX=(()=>{
   // The Iron Penitent (Three Oaths, uploaded Artorias rig via tools/pack_bip_char.mjs, his own sword is part of the body): Morvane's Great Sword clips retargeted; the Sentence is two cuts then the delayed overhead (verdict), the floor-breaker is the stomp, the march a slow lunge
   ROLES.penitent=Object.assign({},ROLES.darkknight,{file:'assets/warden_mx_penitent.json',moves:Object.assign({},ROLES.darkknight.moves,{
     march:{c:'slash4',t0:.3,h:[[.9,1.3]],e:1.7},groundbreaker:{c:'power',t0:.3,e:2.0},verdict:{c:'atk',t0:.1,ch:[.4,.6],h:[[.55,.9]],e:1.2},pursuit:{c:'slash5',t0:0,h:[[.5,.82]],e:1.3}})});
+  // Artorias' second-phase Waterfowl dance (three quick cuts, then the long opening)
+  ROLES.penitent.moves.flurry={c:'slash4',t0:.1,h:[[.3,.5],[.8,1.0],[1.3,1.5]],e:1.78};
   // Gwyn, Lord of Cinder (uploaded DS3-style rig via tools/pack_bip_char.mjs, his greatsword is part of the body): Artorias's retargeted set plus waves / Kingsfall / flurry
   ROLES.gwyn=Object.assign({},ROLES.penitent,{file:'assets/warden_mx_gwyn.json',moves:Object.assign({},ROLES.penitent.moves,{
     ashwave:{c:'slash',t0:.1,e:1.1},crossflame:{c:'slash3',t0:.1,e:1.4},kingsfall:{c:'power',t0:.3,e:2.0},flurry:{c:'slash4',t0:.1,h:[[.3,.5],[.8,1.0],[1.3,1.5]],e:1.78},

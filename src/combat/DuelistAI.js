@@ -105,6 +105,7 @@ const DuelistAI=(()=>{
       if(A.gP>20&&dist<3.1&&A.last[A.last.length-1]!=='verdict')return start(A,out,'verdict',Math.floor(A.r()*13),tick)}   // turtling behind your guard: the Wall Breaker
     const gc=A.ph2&&A.last[A.last.length-1]!=='leap'&&dist>=3.6&&dist<=7&&A.r()<.05?'leap':null;if(gc)return start(A,out,gc,0,tick);
     if(dist>REACH.thrust+.2)return out;
+    if(A.foe==='blackknight'&&A.ph2&&A.scd<=0&&dist<=3.4&&A.last[A.last.length-1]!=='flurry'&&A.r()<.07){A.scd=330;return start(A,out,'flurry',0,tick)}   // Artorias' Waterfowl dance (phase 2)
     const w={cut:3,thrust:2,twin:2,fall:1.2,bash:.6};
     if(A.gP>20){w.bash+=4;w.fall+=2.5;w.cut*=.3;w.twin*=.4}                                    // you hide behind your own guard: he breaks it
     if((k==='arecovery'||k==='stun')&&A.see>=REACT){w.cut+=4;w.twin+=2.5;w.fall*=.4}              // a visibly recovering player is punished
