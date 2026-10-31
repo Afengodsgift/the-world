@@ -192,7 +192,8 @@ const PlayerCombat=(()=>{
   // The Ashen Arena is for duels only: you cannot walk in without another player close by, there is no bot, and a Leave button always works (also while the connection is flaky).
   let exitLock=null,duelHint=0,waitMsg=0;
   // a hidden chamber opens once enough Warden bosses have fallen
-  function hiddenOpen(q){let n=0;for(const s of SITES())if(s.fog&&!s.dg&&!s.hidden&&(rt(s).cleared||PG.S.done&&PG.S.done[s.id]))n++;   // counted from the SAVED record (WardenProg), not only from this visitif(n>=q.req)return true;
+  function hiddenOpen(q){let n=0;for(const s of SITES())if(s.fog&&!s.dg&&!s.hidden&&(rt(s).cleared||PG.S.done&&PG.S.done[s.id]))n++;   // counted from the SAVED record (WardenProg), not only from this visit
+    if(n>=q.req)return true;
     const wx=S.x-WRD.x,wz=S.z-WRD.z;if(Math.hypot(wx-q.x,wz-q.z)<q.R-1&&performance.now()-hidHint>7000){hidHint=performance.now();toast('The chamber is sealed \u00b7 fell '+q.req+' Warden bosses ('+n+'/'+q.req+')',3.6)}return false}
   let hidHint=0,oathFirst=null;
   function duelPartnerNear(q){if(typeof others==='undefined')return false;const cx=WRD.x+q.x,cz=WRD.z+q.z;for(const o of others.values()){const g=o&&o.group;if(g&&g.position&&Math.hypot(g.position.x-cx,g.position.z-cz)<q.R+35)return true}return false}
