@@ -93,7 +93,9 @@ for(const {n,i} of meshNodes){const M=J.meshes[n.mesh];
   for(const p of M.primitives){
     const pos=read(p.attributes.POSITION),nor=read(p.attributes.NORMAL),uv=read(p.attributes.TEXCOORD_0),jt=read(p.attributes.JOINTS_0),wt=read(p.attributes.WEIGHTS_0),idx=Uint32Array.from(read(p.indices)),nv=pos.length/3;
     const P=new Float32Array(nv*3),N=new Float32Array(nv*3),JJ=new Uint8Array(nv*4),WW=new Float32Array(nv*4),v=new T.Vector3(),nm=new T.Matrix3().setFromMatrix4(R);
+    const TS=+(process.env.TENT||.5),hipO=new T.Vector3().setFromMatrixPosition(Wout[byM.get('Hips').i]);   // the snake / lope parts are shrunk toward the pelvis (they were enormous at boss scale)
     for(let k=0;k<nv;k++){v.set(pos[k*3],pos[k*3+1],pos[k*3+2]).applyMatrix4(R).multiplyScalar(sc);P.set([v.x,v.y,v.z],k*3);v.set(nor[k*3],nor[k*3+1],nor[k*3+2]).applyMatrix3(nm).normalize();N.set([v.x,v.y,v.z],k*3);
+      {let bj=-1,bw=0;for(let c=0;c<4;c++)if(wt[k*4+c]>bw){bw=wt[k*4+c];bj=jt[k*4+c]}if(bj>=0&&/snake|lope|tongue|foot[12]/i.test(jn[bj])){P[k*3]=hipO.x+(P[k*3]-hipO.x)*TS;P[k*3+1]=hipO.y+(P[k*3+1]-hipO.y)*TS;P[k*3+2]=hipO.z+(P[k*3+2]-hipO.z)*TS}}
       const acc4=new Map();for(let c=0;c<4;c++){const w=wt[k*4+c];if(w<=0)continue;const o=toOut[jt[k*4+c]];acc4.set(o,(acc4.get(o)||0)+w)}
       const top=[...acc4.entries()].sort((a,b)=>b[1]-a[1]).slice(0,4);let tot=0;for(const [,w] of top)tot+=w;if(!top.length)top.push([0,1]),tot=1;top.forEach(([o,w],c)=>{JJ[k*4+c]=o;WW[k*4+c]=w/tot})}
     const attr=new Float32Array(nv*5);for(let k=0;k<nv;k++){attr[k*5]=uv[k*2];attr[k*5+1]=uv[k*2+1];for(let c=0;c<3;c++)attr[k*5+2+c]=WW[k*4+c]}
