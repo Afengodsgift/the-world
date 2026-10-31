@@ -73,7 +73,7 @@ const SkyRaidWorld=(()=>{
     // your ship model (assets/sky/ship.glb: the wing cruiser from the fleet pack, painted navy / orange / gold) replaces the placeholder galleon
     function useShip(geo){if(models.ship)return;const old=ship.children[0];if(old)ship.remove(old);props.length=0;
       const g=new THREE.Group();g.add(new THREE.Mesh(geo,VM));for(const sx of [-1,1])mesh(G.sph,M.glowBlue,sx*4.1,0,-7.9,g).scale.set(.55,.55,1.1);mesh(G.sph,M.glowBlue,0,-.1,-10.2,g).scale.set(.6,.5,1.3);ship.add(g);
-      barrel.position.set(0,1.9,1.5);hurtMesh.scale.set(9,4,14);hurtMesh.position.y=0;modelShip=true}
+      barrel.position.set(0,1.9,1.5);hurtMesh.scale.set(9,4,14);hurtMesh.position.y=0;modelShip=true;placeAllies()}
     function useDrone(geo){if(models.drone)return;modelDrone=true;for(const d of drones){while(d.children.length)d.remove(d.children[0]);const m=new THREE.Mesh(geo,DM);m.scale.setScalar(2.5);m.rotation.y=-Math.PI/2;d.add(m);mesh(G.sph,M.glowRed,0,.1,3.0,d).scale.set(.32,.32,.32)}}
     for(let i=0;i<7;i++){const d=makeDrone();d.visible=false;root.add(d);drones.push(d)}
     // ---------------- enemy shots, tracers, explosions, damage numbers ----------------
@@ -90,6 +90,13 @@ const SkyRaidWorld=(()=>{
     let bGeo=null;
     for(let i=0;i<3;i++){const g=new THREE.Group();g.add(new THREE.Mesh(bGeo||(bGeo=procBalloon()),BM));g.visible=false;root.add(g);balP.push(g)}
     function useBalloon(geo){bGeo=geo;for(const g of balP){while(g.children.length)g.remove(g.children[0]);g.add(new THREE.Mesh(geo,BM))}}
+    // imps (little red darts) and your two wingmen (mini copies of your ship)
+    const impM=merger();impM.add(G.cone,0xc23a2a,0,0,.6,.9,3.4,.9,Math.PI/2,0,0);impM.add(G.box,0x2a2f3a,0,0,-.2,3.6,.12,1.1);impM.add(G.sph,0xffcf4a,0,.25,.3,.35,.3,.6);const impG=impM.geometry();
+    const impP=[];for(let i=0;i<9;i++){const m=new THREE.Mesh(impG,VM);m.visible=false;root.add(m);impP.push(m)}
+    const allyP=[];function allyMesh(geo){const g=new THREE.Group();const m=new THREE.Mesh(geo,VM);m.scale.setScalar(geo===shipGeo?.42:1);g.add(m);mesh(G.sph,M.glowBlue,0,0,-4.2,g).scale.set(.5,.5,.9);return g}
+    function placeAllies(){for(const g of allyP)root.remove(g);allyP.length=0;for(let i=0;i<2;i++){const g=allyMesh(shipGeo||procAllyGeo());g.visible=false;root.add(g);allyP.push(g)}}
+    function procAllyGeo(){const m=merger();m.add(G.cone,0x2b4c7e,0,0,2,1.1,5,1.1,Math.PI/2,0,0);m.add(G.box,0xf07a1a,0,0,-1,7,.2,2);return m.geometry()}
+    placeAllies();
     const kitP=[];for(let i=0;i<4;i++){const g=new THREE.Group();mesh(G.oct,M.glowGreen,0,0,0,g).scale.set(3.2,4.4,3.2);mesh(G.sph,M.kitHalo,0,0,0,g).scale.set(11,11,11);g.visible=false;root.add(g);kitP.push(g)}
     const flakP=[];for(let i=0;i<3;i++){const m=mesh(G.sph,M.flak.clone(),0,0,0,root);m.visible=false;flakP.push(m)}
     const laser=mesh(G.box,M.laser.clone(),0,0,0,root);laser.visible=false;
@@ -144,6 +151,8 @@ const SkyRaidWorld=(()=>{
       // drones
       for(let i=0;i<drones.length;i++){const d=run.drones[i],m=drones[i];if(!d||!d.alive){m.visible=false;continue}m.visible=true;m.position.set(d.x,d.y,d.z);const sp=Math.hypot(d.vx,d.vz);if(sp>1)m.rotation.set(0,Math.atan2(d.vx,d.vz),Math.sin(t*4+i)*.2,'YXZ')}
       for(let i=0;i<balP.length;i++){const b=run.balloons&&run.balloons[i],m=balP[i];if(!b||!b.alive){m.visible=false;continue}m.visible=true;m.position.set(b.x,b.y,b.z);m.rotation.set(0,b.h||0,Math.sin(t*.8+i)*.04,'YXZ')}
+      for(let i=0;i<impP.length;i++){const p=run.imps&&run.imps[i],m=impP[i];if(!p){m.visible=false;continue}m.visible=true;m.position.set(p.x,p.y,p.z);if(Math.abs(p.vx)+Math.abs(p.vz)>1)m.lookAt(p.x+p.vx,p.y+p.vy,p.z+p.vz)}
+      for(let i=0;i<allyP.length;i++){const a=run.allies&&run.allies[i],m=allyP[i];if(!a||!a.init&&run.state==='ready'){m.visible=false;continue}m.visible=true;m.position.set(a.x,a.y,a.z);m.rotation.set(-view.p,view.h,Math.sin(t*1.3+i*2)*.15+(view.roll||0)*.8,'YXZ')}
       for(let i=0;i<kitP.length;i++){const p=run.picks&&run.picks[i],m=kitP[i];if(!p){m.visible=false;continue}m.visible=true;m.position.set(p.x,p.y+Math.sin(t*2+i)*1.2,p.z);m.rotation.y+=dt*2;m.children[1].scale.setScalar(10+Math.sin(t*4)*1.2)}
       for(let i=0;i<flakP.length;i++){const p=run.flak&&run.flak[i],m=flakP[i];if(!p){m.visible=false;continue}m.visible=true;m.position.set(p.x,p.y,p.z);const k=1-Math.min(1,p.t/1.1);m.scale.setScalar(6+k*18);m.material.opacity=.15+k*.4*(Math.floor(t*14)%2?1:.6)}
       {const L=run.fort&&run.fort.lz;if(L&&L.st&&run.fort.core.alive){laser.visible=true;const c=run.fort.core,len=SkyCore.LASER.len,w=L.st===2?7+Math.sin(t*40)*1.2:.9;laser.position.set(c.x+Math.sin(L.a)*len/2,c.y,c.z+Math.cos(L.a)*len/2);laser.rotation.set(0,L.a,0);laser.scale.set(w,w,len);laser.material.opacity=L.st===2?.65:.28+Math.sin(t*18)*.1}else laser.visible=false}
@@ -172,7 +181,7 @@ const SkyRaidWorld=(()=>{
     function boom(x,y,z,r,dur,col){const m=booms[bi++%booms.length];m.position.set(x,y,z);m.userData={t:0,dur:dur||.5,r};m.material.color.setHex(col||0xffa030);m.visible=true;m.scale.setScalar(r*.35)}
     function pop(x,y,z,txt,col){const s=pops[pi++%pops.length];const key=txt+col;s.material.map=popCache.get(key)||(popCache.size<80?(popCache.set(key,popTex(txt,col)),popCache.get(key)):popTex(txt,col));s.material.needsUpdate=true;s.position.set(x,y,z);s.scale.set(11,4.1,1);s.userData.t=0;s.material.opacity=1;s.visible=true}
     function hide(){root.visible=false;clearFort()}
-    const api={root,sync,fx,hide,boom,pop,useDrone,useShip,useBalloon,get fortress(){return fort},get droneModel(){return modelDrone},get shipModel(){return modelShip}};built.push(api);if(droneGeo)useDrone(droneGeo);if(shipGeo)useShip(shipGeo);if(balGeo)useBalloon(balGeo);
+    const api={root,sync,fx,hide,boom,pop,useDrone,useShip,useBalloon,get fortress(){return fort},get droneModel(){return modelDrone},get shipModel(){return modelShip}};built.push(api);if(droneGeo)useDrone(droneGeo);if(shipGeo){useShip(shipGeo);placeAllies()}if(balGeo)useBalloon(balGeo);
     return api;
   }
   return {build,models,loadDrone,loadShip,loadBalloon};

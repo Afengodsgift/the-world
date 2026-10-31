@@ -11,6 +11,8 @@ const SkyCore=(()=>{
   const BAL={hp:150,r:11,speed:15,orbit:135,range:270,cd:3.4,dmg:13,shell:72,life:5,err:.035,max:2};
   const FLAK={cd:7,bossCd:4.8,tele:1.1,r:24,dmg:14,lead:1.2,max:2};
   const LASER={len:170,warn:2,fire:3.2,cycle:11,cycleP:7.5,rate:.55,dmg:11,half:4.5,dy:10};
+  const IMP={hp:9,r:2.6,speed:64,dmg:6,wave:19,pack:3,max:9,fireCd:1.3,shot:92,shotDmg:5};
+  const ALLY={n:2,rate:.8,dmg:5,range:240,acc:.65};
   const PICK={r:15,heal:.25,life:28};
   const GUN={dmg:15,rate:.2,range:340,cone:.9962,heat:.13,cool:.4,lock:1.6,autoDmg:12,autoRate:.45,autoAcc:.6,autoRange:300};
   const TURRET={hp:46,r:4.2,range:290,minCd:1.7,maxCd:3.0,speed:92,dmg:10,life:4.2,err:.045};
@@ -35,7 +37,8 @@ const SkyCore=(()=>{
     o=o||{};const r=rng(o.seed||1),S=sites(o),a0=o.a0!=null?o.a0:.7,sx=o.cx-Math.sin(a0)*270,sz=o.cz-Math.cos(a0)*270;
     const run={o,t:0,rnd:r,sites:S,stage:-1,state:'ready',hasGunner:!!o.hasGunner,
       ship:{x:sx,y:o.base+85,z:sz,h:a0,p:0,roll:0,v:SHIP.cruise,hull:Math.round(SHIP.hull*(o.hasGunner?1:1.35)),hullMax:Math.round(SHIP.hull*(o.hasGunner?1:1.35)),inv:0,boost:0,boostCd:0,hitT:0,turnR:0,rollT:0,rollCd:0,rollDir:1},
-      fort:null,drones:[],shots:[],msl:[],sams:[],balloons:[],picks:[],flak:[],flakT:6,mCd:0,combo:{n:0,t:0},droneT:0,heat:0,lock:0,gunCd:0,autoCd:0,autoAim:null,score:{kills:0,turrets:0,drones:0,hits:0,taken:0,shots:0,bonus:0,best:0,sams:0},tDone:0,ev:[]};
+      fort:null,drones:[],shots:[],msl:[],sams:[],balloons:[],imps:[],impT:10,allies:[{id:'a0',x:0,y:0,z:0,vx:0,vy:0,vz:0,cd:.3,slot:-1},{id:'a1',x:0,y:0,z:0,vx:0,vy:0,vz:0,cd:.6,slot:1}],picks:[],flak:[],flakT:6,mCd:0,combo:{n:0,t:0},droneT:0,heat:0,lock:0,gunCd:0,autoCd:0,autoAim:null,score:{kills:0,turrets:0,drones:0,hits:0,taken:0,shots:0,bonus:0,best:0,sams:0},tDone:0,ev:[]};
+    if(o.noAllies)run.allies=[];
     return run;
   }
   function buildFort(run,k){
@@ -48,7 +51,7 @@ const SkyCore=(()=>{
   function shield(f){return f.gens.some(g=>g.alive)}
 
   function startStage(run,k){
-    run.stage=k;run.fort=buildFort(run,k);run.shots.length=0;run.msl.length=0;run.sams.length=0;run.balloons.length=0;run.picks.length=0;run.flak.length=0;run.flakT=7;run.drones.length=0;run.droneT=6;run.state='raid';
+    run.stage=k;run.fort=buildFort(run,k);run.shots.length=0;run.msl.length=0;run.sams.length=0;run.balloons.length=0;run.imps.length=0;run.impT=9;run.picks.length=0;run.flak.length=0;run.flakT=7;run.drones.length=0;run.droneT=6;run.state='raid';
     run.ev.push({k:'stage',stage:k,name:FORTS[k].n,boss:!!FORTS[k].boss});
     for(let i=0;i<FORTS[k].drones;i++)spawnDrone(run);
     for(let i=0;i<(FORTS[k].bal||0);i++)spawnBalloon(run);
@@ -102,6 +105,7 @@ const SkyCore=(()=>{
       if(f.core.alive)L.push({o:f.core,r:shield(f)?13:9,kind:shield(f)?'shield':'core'})}
     for(const d of run.drones)if(d.alive)L.push({o:d,r:DRONE.r+.6,kind:'drone'});
     for(const b of run.balloons)if(b.alive)L.push({o:b,r:BAL.r,kind:'balloon'});
+    for(const m of run.imps)if(m.alive)L.push({o:m,r:IMP.r+.6,kind:'imp'});
     for(const m of run.sams)if(m.alive)L.push({o:m,r:3.8,kind:'sam'});
     return L;
   }
@@ -122,6 +126,7 @@ const SkyCore=(()=>{
     const t=q.o;if(q.kind==='shield'){run.ev.push({k:'spark',x:t.x,y:t.y,z:t.z});return}
     t.hp-=n;run.score.hits++;run.ev.push({k:'dmg',n:Math.round(n),x:t.x,y:t.y+3,z:t.z,kind:q.kind});
     if(t.hp>0)return;t.alive=0;t.hp=0;if(q.kind!=='core')kill(run,q.kind);
+    if(q.kind==='imp'){run.ev.push({k:'boom',x:t.x,y:t.y,z:t.z,s:.5});return}
     if(q.kind==='balloon'){run.ev.push({k:'boom',x:t.x,y:t.y,z:t.z,s:2.2});run.picks.push({id:'p'+(run.nid=(run.nid||0)+1),x:t.x,y:t.y,z:t.z,t:PICK.life});run.ev.push({k:'drop',x:t.x,y:t.y,z:t.z});return}
     if(q.kind==='sam'){run.score.sams++;run.ev.push({k:'boom',x:t.x,y:t.y,z:t.z,s:.6});return}
     if(q.kind==='turret'){run.score.turrets++;run.ev.push({k:'boom',x:t.x,y:t.y,z:t.z,s:1})}
@@ -186,8 +191,37 @@ const SkyCore=(()=>{
       if(L.st===2){const dx=s.x-f.core.x,dz=s.z-f.core.z,ux=Math.sin(L.a),uz=Math.cos(L.a),al=dx*ux+dz*uz,pe=Math.abs(dx*uz-dz*ux);
         if(al>0&&al<LASER.len&&pe<LASER.half+SHIP.r*.5&&Math.abs(s.y-f.core.y)<LASER.dy+SHIP.r*.4)hurt(run,LASER.dmg,'laser')}}
   }
+  // imps: small fast interceptors that arrive in packs of 3, dive at the ship, take a pass-by shot and break away. Easy to kill (one hit), nasty in numbers.
+  function impsStep(run,dt){
+    const s=run.ship,f=run.fort;
+    if(f&&!f.done&&run.state==='raid'){run.impT-=dt;if(run.impT<=0){run.impT=Math.max(11,IMP.wave-run.stage*2);
+      for(let i=0;i<IMP.pack&&run.imps.length<IMP.max;i++){const a=run.rnd()*Math.PI*2;run.imps.push({id:'i'+(run.nid=(run.nid||0)+1),x:s.x+Math.sin(a)*280,y:s.y+(run.rnd()-.5)*50,z:s.z+Math.cos(a)*280,vx:0,vy:0,vz:0,hp:IMP.hp,max:IMP.hp,alive:1,mode:0,t:0,cd:.6+run.rnd()*1.2,off:run.rnd()*6.28})}
+      if(run.imps.length)run.ev.push({k:'imps'})}}
+    for(const m of run.imps){if(!m.alive)continue;m.t-=dt;m.cd-=dt;
+      let tx=s.x,ty=s.y,tz=s.z;
+      if(m.mode===0){const lead=.35;tx+=Math.sin(s.h)*s.v*lead;tz+=Math.cos(s.h)*s.v*lead}
+      else{tx=s.x+Math.sin(m.off)*230;tz=s.z+Math.cos(m.off)*230;ty=s.y+30*Math.sin(m.off*3)}
+      let ax=tx-m.x,ay=ty-m.y,az=tz-m.z;const l=Math.hypot(ax,ay,az)||1;const k=1-Math.exp(-dt*(m.mode===0?3.2:1.8));
+      m.vx+=(ax/l*IMP.speed-m.vx)*k;m.vy+=(ay/l*IMP.speed-m.vy)*k;m.vz+=(az/l*IMP.speed-m.vz)*k;m.x+=m.vx*dt;m.y+=m.vy*dt;m.z+=m.vz*dt;
+      const d=Math.hypot(m.x-s.x,m.y-s.y,m.z-s.z);
+      if(m.mode===0){if(m.cd<=0&&d<140&&d>45){m.cd=IMP.fireCd;enemyShot(run,m,IMP.shot,IMP.shotDmg,2.2,.03,'i')}
+        if(d<SHIP.r+3){if(s.inv<=0)hurt(run,IMP.dmg,'imp');m.mode=1;m.off=run.rnd()*6.28;m.t=3}}
+      else if(m.t<=0||d>210){m.mode=0;m.cd=.5}}
+    run.imps=run.imps.filter(m=>m.alive);
+    // wingmen: two friendly fighters hold formation off the ship's wings and shoot the nearest small enemy (then turrets, then balloons)
+    for(const a of run.allies){
+      const fx=Math.sin(s.h),fz=Math.cos(s.h),rx=Math.cos(s.h),rz=-Math.sin(s.h),tx=s.x+rx*a.slot*30-fx*16,ty=s.y+7+(a.slot>0?5:-2),tz=s.z+rz*a.slot*30-fz*16;
+      if(!a.init){a.x=tx;a.y=ty;a.z=tz;a.init=1}
+      const kk=1-Math.exp(-dt*2.6);a.vx=(tx-a.x)*2.6;a.vy=(ty-a.y)*2.6;a.vz=(tz-a.z)*2.6;a.x+=(tx-a.x)*kk;a.y+=(ty-a.y)*kk;a.z+=(tz-a.z)*kk;
+      a.cd-=dt;if(a.cd>0||s.hull<=0)continue;
+      let best=null,bd=ALLY.range;const rank={imp:0,drone:0,sam:1,balloon:2,turret:3,gen:9,core:9,shield:99};
+      for(const q of targets(run)){if(q.kind==='shield'||q.kind==='gen'||q.kind==='core')continue;const dd=Math.hypot(q.o.x-a.x,q.o.y-a.y,q.o.z-a.z)+rank[q.kind]*40;if(dd<bd){bd=dd;best=q}}
+      if(best){a.cd=ALLY.rate*(.8+run.rnd()*.4);const t=best.o,l=Math.hypot(t.x-a.x,t.y-a.y,t.z-a.z)||1;let dx=(t.x-a.x)/l,dy=(t.y-a.y)/l,dz=(t.z-a.z)/l;const hit=run.rnd()<ALLY.acc;
+        if(!hit){dx+=(run.rnd()-.5)*.25;dy+=(run.rnd()-.5)*.25;dz+=(run.rnd()-.5)*.25;const m=Math.hypot(dx,dy,dz);dx/=m;dy/=m;dz/=m}
+        const n0=run.ev.length;shoot(run,a,{x:dx,y:dy,z:dz},ALLY.dmg,hit);for(let i=n0;i<run.ev.length;i++)if(run.ev[i].k==='tracer')run.ev[i].src='a'}}
+  }
   function missilesStep(run,dt){
-    const s=run.ship;balloonsStep(run,dt);
+    const s=run.ship;balloonsStep(run,dt);impsStep(run,dt);
     for(let i=run.sams.length-1;i>=0;i--){const m=run.sams[i];if(!m.alive){run.sams.splice(i,1);continue}
       m.life-=dt;steerTo(m,s.x,s.y,s.z,SAM.turn,SAM.speed,dt);m.x+=m.vx*dt;m.y+=m.vy*dt;m.z+=m.vz*dt;
       if(s.hull>0&&Math.hypot(m.x-s.x,m.y-s.y,m.z-s.z)<SHIP.r+2.5){if(s.inv<=0)hurt(run,SAM.dmg,'sam');run.ev.push({k:'boom',x:m.x,y:m.y,z:m.z,s:.8});run.sams.splice(i,1);continue}
@@ -279,6 +313,7 @@ const SkyCore=(()=>{
     let off=0;if(orbit){off=Math.PI/2*clamp((300-d)/110,0,1);if(d<170)off+=(170-d)/170*.9}
     let want=brg+off;
     for(const p of run.sams){const l=Math.hypot(p.x-s.x,p.y-s.y,p.z-s.z);if(l<150){want+=((p.x-s.x)*Math.cos(s.h)-(p.z-s.z)*Math.sin(s.h)>0?-.5:.5);if(l<48&&s.rollCd<=0)out.roll=true}}
+    for(const m of run.imps){if(m.mode===0&&Math.hypot(m.x-s.x,m.y-s.y,m.z-s.z)<26&&s.rollCd<=0)out.roll=true}
     for(const p of run.shots){const l=Math.hypot(p.x-s.x,p.y-s.y,p.z-s.z);if(l<34&&s.rollCd<=0&&s.hull<s.hullMax*.7)out.roll=true}
     for(const p of run.flak){if(p.t<.7&&Math.hypot(p.x-s.x,p.y-s.y,p.z-s.z)<30&&s.rollCd<=0)out.roll=true}
     const ty=(orbit?f.site.y+30:m.y+35)+(orbit?Math.sin(run.t/3)*10:0)+(orbit&&f.lz&&f.lz.st?(f.core.y+16)-(f.site.y+30):0);
@@ -311,6 +346,7 @@ const SkyCore=(()=>{
       f:f?{k:f.k,t:f.turrets.map(x=>x.alive?Math.round(x.hp):0),g:f.gens.map(x=>x.alive?Math.round(x.hp):0),c:Math.round(f.core.alive?f.core.hp:0),ph:f.ph,dn:f.done?1:0}:null,
       d:run.drones.map(d=>[d.id,q(d.x,10),q(d.y,10),q(d.z,10),Math.round(d.hp)]),
       e:run.shots.map(p=>[q(p.x,10),q(p.y,10),q(p.z,10),q(p.vx,10),q(p.vy,10),q(p.vz,10)]),
+      im:run.imps.map(m=>[m.id,q(m.x,10),q(m.y,10),q(m.z,10),q(m.vx,1),q(m.vy,1),q(m.vz,1)]),al:run.allies.map(a=>[q(a.x,10),q(a.y,10),q(a.z,10),q(a.vx,1),q(a.vy,1),q(a.vz,1)]),
       ba:run.balloons.map(b=>[b.id,q(b.x,10),q(b.y,10),q(b.z,10),Math.round(b.hp),q(b.h,100)]),pk:run.picks.map(p=>[p.id,q(p.x,10),q(p.y,10),q(p.z,10)]),fk:run.flak.map(p=>[q(p.x,10),q(p.y,10),q(p.z,10),q(p.t,100)]),lz:f?[f.lz.st,q(f.lz.a,100)]:0,
       ml:run.msl.map(m=>[q(m.x,10),q(m.y,10),q(m.z,10),q(m.vx,10),q(m.vy,10),q(m.vz,10)]),sm:run.sams.map(m=>[m.id,q(m.x,10),q(m.y,10),q(m.z,10),q(m.vx,10),q(m.vy,10),q(m.vz,10)]),mc:q(run.mCd,10),cb:[run.combo.n,q(run.combo.t,10)],
       h:q(run.heat,100),lk:run.lock>0?1:0,sc:run.score,tr:q(run.transit||0,10)};
@@ -324,13 +360,14 @@ const SkyCore=(()=>{
     run.stage=sn.sg;
     const old=new Map(run.drones.map(d=>[d.id,d]));run.drones=sn.d.map(r=>{const d=old.get(r[0])||{id:r[0],vx:0,vy:0,vz:0,ph:0,max:DRONE.hp,alive:1};d.x=r[1];d.y=r[2];d.z=r[3];d.hp=r[4];return d});
     run.shots=sn.e.map(r=>({x:r[0],y:r[1],z:r[2],vx:r[3],vy:r[4],vz:r[5],life:1}));
+    run.imps=(sn.im||[]).map(r=>({id:r[0],x:r[1],y:r[2],z:r[3],vx:r[4],vy:r[5],vz:r[6],hp:IMP.hp,alive:1}));(sn.al||[]).forEach((r,i)=>{const a=run.allies[i];if(a){a.x=r[0];a.y=r[1];a.z=r[2];a.vx=r[3];a.vy=r[4];a.vz=r[5]}});
     run.balloons=(sn.ba||[]).map(r=>({id:r[0],x:r[1],y:r[2],z:r[3],hp:r[4],max:BAL.hp,h:r[5],alive:1}));run.picks=(sn.pk||[]).map(r=>({id:r[0],x:r[1],y:r[2],z:r[3],t:9}));run.flak=(sn.fk||[]).map(r=>({x:r[0],y:r[1],z:r[2],t:r[3]}));
     if(run.fort&&sn.lz){run.fort.lz.st=sn.lz[0];run.fort.lz.a=sn.lz[1]}
     run.msl=(sn.ml||[]).map(r=>({x:r[0],y:r[1],z:r[2],vx:r[3],vy:r[4],vz:r[5],life:1}));run.sams=(sn.sm||[]).map(r=>({id:r[0],x:r[1],y:r[2],z:r[3],vx:r[4],vy:r[5],vz:r[6],hp:1,alive:1}));run.mCd=sn.mc||0;run.combo={n:sn.cb?sn.cb[0]:0,t:sn.cb?sn.cb[1]:0};
     run.heat=sn.h;run.lock=sn.lk?1:0;run.score=sn.sc;run.transit=sn.tr;
   }
 
-  const API={damage,BAL,FLAK,LASER,PICK,MSL,SAM,COMBO,autoPilot,SHIP,GUN,TURRET,DRONE,FORTS,PAY,sites,newRun,step,shoot,targets,objective,marker,payout,snapshot,apply,hurt,shield,buildFort,startStage};
+  const API={IMP,ALLY,damage,BAL,FLAK,LASER,PICK,MSL,SAM,COMBO,autoPilot,SHIP,GUN,TURRET,DRONE,FORTS,PAY,sites,newRun,step,shoot,targets,objective,marker,payout,snapshot,apply,hurt,shield,buildFort,startStage};
   if(typeof module!=='undefined')module.exports=API;
   return API;
 })();

@@ -169,7 +169,8 @@ body.skyraid #stick,body.skyraid .stick,body.skyraid #joy{display:none!important
     if(W)W.fx(e,run,performance.now()/1000);
     const s=run&&run.ship,near=s&&e.x!==undefined&&Math.hypot(e.x-s.x,e.y-s.y,e.z-s.z)<260;
     switch(e.k){
-      case 'tracer':tone(ST.role==='gunner'?420:300,.07,'square',ST.role==='gunner'?.07:.035,.5);break;
+      case 'tracer':if(e.src==='a')tone(640,.04,'square',.018,.6);else tone(ST.role==='gunner'?420:300,.07,'square',ST.role==='gunner'?.07:.035,.5);break;
+      case 'imps':say('⚠ IMPS INBOUND',1100);tone(1300,.12,'square',.06);break;
       case 'eshot':if(near)tone(180,.1,'sawtooth',.04,.6);break;
       case 'boom':if(near)tone(e.s>=1?70:110,.35,'sawtooth',e.s>=1?.16:.09,.4);if(near)ST.shake=Math.max(ST.shake,Math.min(.8,e.s*.25));break;
       case 'hurt':ST.shake=Math.max(ST.shake,.5);ST.flash=1;tone(90,.25,'square',.16,.5);break;
