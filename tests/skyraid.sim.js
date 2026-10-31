@@ -114,4 +114,51 @@ function raid(withGunner,seed,skill){
   ok(solo.some(o=>o.r.state==='win'||o.r.stage>=2),'solo with the AI crew mate is playable: it clears at least two fortresses');
   const idle=SC.newRun(O);for(let i=0;i<30*600&&idle.state!=='fail'&&idle.state!=='win';i++)SC.step(idle,DT,{});ok(idle.state!=='win','an idle ship cannot win');
 }
+// ---------- v2: barrel roll, missile salvo, SAMs, combo, autopilot ----------
+{
+  const r=SC.newRun(O);SC.step(r,DT,{});const s=r.ship;
+  let ev=SC.step(r,DT,{roll:true,ix:1});ok(ev.some(e=>e.k==='roll')&&s.rollT>.5&&s.inv>.5,'barrel roll starts and grants invulnerability');
+  const h0=s.hull;SC.hurt(r,40,'shot');ok(s.hull===h0,'a shot during the roll does nothing');
+  for(let i=0;i<30;i++)SC.step(r,DT,{});ok(s.rollT===0&&s.rollCd>2,'roll ends, then has a cooldown');
+  SC.step(r,DT,{roll:true});ok(s.rollT===0,'cannot roll again during the cooldown');
+}
+{ // missile salvo kills turrets by itself
+  const r=SC.newRun(O);SC.step(r,DT,{});const f=r.fort,s=r.ship;s.x=f.site.x+140;s.z=f.site.z;s.y=f.site.y+30;s.h=-Math.PI/2;s.hull=s.hullMax=9999;
+  const tg=f.turrets[0];const a={yaw:wrap(Math.atan2(tg.x-s.x,tg.z-s.z)-s.h),pit:Math.atan2(tg.y-(s.y+6),Math.hypot(tg.x-s.x,tg.z-s.z))};
+  const ev=SC.step(r,DT,{missile:true,aim:a});ok(ev.some(e=>e.k==='msl')&&r.msl.length===3&&r.mCd>8,'missile salvo launches 3 homing missiles and goes on cooldown');
+  const alive0=f.turrets.filter(t=>t.alive).length;for(let i=0;i<30*4;i++){s.x=f.site.x+140;s.z=f.site.z;s.y=f.site.y+30;SC.step(r,DT,{aim:a})}
+  ok(f.turrets.filter(t=>t.alive).length<alive0&&!tg.alive,'the missiles home in and destroy the targeted turret');
+  ok(r.combo.n>=1||r.score.best>=1,'a kill raises the combo');
+}
+{ // combo resets on damage and decays
+  const r=SC.newRun(O);SC.step(r,DT,{});r.combo.n=5;r.combo.t=4;SC.hurt(r,10,'shot');ok(r.combo.n===0,'taking a hit resets the combo');
+  r.combo.n=3;r.combo.t=1;for(let i=0;i<40;i++)SC.step(r,DT,{});ok(r.combo.n===0,'the combo runs out after 4 s without a kill');
+  const w=SC.newRun(O);SC.step(w,DT,{});w.stage=3;w.state='win';w.tDone=400;const p0=SC.payout(w);w.score.bonus=60;ok(SC.payout(w)===p0+60,'combo bonus is paid out');w.score.bonus=9999;ok(SC.payout(w)===p0+160,'and is capped');
+}
+{ // SAMs: appear from the Bastion, home in, can be shot down, and a roll dodges them
+  const r=SC.newRun(O);SC.startStage(r,1);r.state='raid';const f=r.fort,s=r.ship;s.x=f.site.x+160;s.z=f.site.z;s.y=f.site.y+30;let launched=0;
+  for(let i=0;i<30*40;i++){s.hull=s.hullMax;for(const e of SC.step(r,DT,{}))if(e.k==='sam')launched++;s.x=f.site.x+160;s.z=f.site.z;s.y=f.site.y+30;if(launched)break}
+  ok(launched>=1&&r.sams.length>=1,'turrets of the Bastion launch SAM missiles');
+  const m=r.sams[0];m.x=s.x+60;m.y=s.y;m.z=s.z;m.vx=-50;m.vy=0;m.vz=0;
+  const hh=s.hull;for(let i=0;i<14;i++)SC.step(r,DT,{roll:i===0});ok(s.hull===hh,'a barrel roll dodges a SAM that is about to hit');
+  const r2=SC.newRun(O);SC.startStage(r2,1);r2.state='raid';const s2=r2.ship;const sm={id:'sx',x:s2.x+40,y:s2.y,z:s2.z,vx:-50,vy:0,vz:0,hp:1,max:1,alive:1,life:7};r2.sams.push(sm);
+  const k=SC.shoot(r2,{x:s2.x,y:s2.y,z:s2.z},{x:1,y:0,z:0},15,true);ok(k==='sam'&&!sm.alive&&r2.score.sams===1,'a SAM can be shot down with the gun');
+  const r3=SC.newRun(O);SC.startStage(r3,1);r3.state='raid';const s3=r3.ship;s3.hull=s3.hullMax=500;const h3=s3.hull;r3.sams.push({id:'sy',x:s3.x+30,y:s3.y,z:s3.z,vx:-50,vy:0,vz:0,hp:1,max:1,alive:1,life:7});
+  for(let i=0;i<40;i++)SC.step(r3,DT,{});ok(s3.hull<h3,'an undodged SAM hurts the ship');
+}
+{ // snapshots carry the new state
+  const a=SC.newRun(O),b=SC.newRun(O);SC.startStage(a,1);a.state='raid';a.sams.push({id:'s1',x:1,y:2,z:3,vx:4,vy:5,vz:6,hp:1,max:1,alive:1,life:5});a.msl.push({x:1,y:2,z:3,vx:1,vy:1,vz:1,tid:null,life:2});a.combo={n:4,t:2};a.ship.rollT=.3;a.mCd=5;
+  SC.apply(b,JSON.parse(JSON.stringify(SC.snapshot(a))));ok(b.sams.length===1&&b.msl.length===1&&b.combo.n===4&&Math.abs(b.ship.rollT-.3)<.01&&b.mCd===5,'guest mirrors missiles, SAMs, combo and roll');
+  ok(JSON.stringify(SC.snapshot(a)).length<3000,'snapshots stay small');
+}
+{ // solo gunner: the autopilot flies, the player's gun does the work
+  const outs=[1,2,3].map(seed=>{const r=SC.newRun(Object.assign({},O,{seed,hasGunner:true})),s=r.ship;
+    for(let i=0;i<30*60*14&&r.state!=='win'&&r.state!=='fail';i++){const inp={auto:true};
+      const L=SC.targets(r).filter(q=>q.kind!=='shield').sort((a,b)=>Math.hypot(a.o.x-s.x,a.o.y-s.y,a.o.z-s.z)-Math.hypot(b.o.x-s.x,b.o.y-s.y,b.o.z-s.z))[0];
+      if(L){const ddx=L.o.x-s.x,ddy=L.o.y-(s.y+6),ddz=L.o.z-s.z;inp.aim={yaw:wrap(Math.atan2(ddx,ddz)-s.h),pit:Math.atan2(ddy,Math.hypot(ddx,ddz))};inp.fire=Math.hypot(ddx,ddy,ddz)<320&&r.lock<=0&&r.heat<.9;inp.missile=Math.hypot(ddx,ddy,ddz)<300}
+      SC.step(r,DT,inp)}
+    console.log(`     [solo gunner + autopilot, seed ${seed}] ${r.state} in ${r.t.toFixed(0)} s, stage ${r.stage+1}/4, hull ${r.ship.hull|0}, combo best ${r.score.best}, sams shot ${r.score.sams}`);return r});
+  ok(outs.some(r=>r.state==='win')||outs.every(r=>r.stage>=2),'a player gunner with the autopilot can clear the raid solo');
+  ok(outs.every(r=>r.ship.y>O.base-130&&Math.hypot(r.ship.x-O.cx,r.ship.z-O.cz)<SC.SHIP.leash+60),'and the autopilot keeps the ship in the arena');
+}
 console.log(fails?`\n${fails} FAILED`:'\nall ok');process.exit(fails?1:0);

@@ -25,7 +25,7 @@ function phone(id,name,partnerId,clock){
   vm.runInContext(['src/ship/SkyRaidCore.js','src/ship/SkyRaidWorld.js','src/ship/SkyRaid.js'].map(f=>fs.readFileSync(R+f,'utf8')).join('\n')+';this.SR=SkyRaid;this.SC=SkyCore',ctx);
   const p={id,ctx,handlers,errs,SR:ctx.SR,SC:ctx.SC,doc,byId};bus.clients.push(p);ctx.SR.build();return p;
 }
-const clock={t:1000};
+const clock={t:1000},wrapA=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a};
 // ---------- two players ----------
 {
   const A=phone('a','A','b',clock),B=phone('b','B','a',clock);
@@ -53,7 +53,7 @@ const clock={t:1000};
     const ra=A.SR.state().run,rb=B.SR.state().run;if(!ra||!rb)break;
     const s=ra.ship,m=SCa.marker(ra)||{x:-1900,z:2350,y:490};let want=Math.atan2(m.x-s.x,m.z-s.z);const dist=Math.hypot(m.x-s.x,m.z-s.z);if(ra.state==='raid'&&dist<170)want+=Math.PI/2;
     const wrap=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a};
-    A.SR.setInput(-Math.max(-1,Math.min(1,wrap(want-s.h)*2.2)),-Math.max(-1,Math.min(1,((m.y+45)-s.y)*.06)));
+    {const ix=-Math.max(-1,Math.min(1,wrap(want-s.h)*2.2)),iy=-Math.max(-1,Math.min(1,((m.y+45)-s.y)*.06));const k=A.ctx.keys;k.ArrowRight=ix>.25;k.ArrowLeft=ix<-.25;k.ArrowUp=iy<-.25;k.ArrowDown=iy>.25;}   // the pilot works the arrow pad
     // guest aims at the nearest target in ITS mirrored run, holds fire
     const tg=B.SC.targets(rb).filter(q=>q.kind!=='shield').sort((a,b)=>Math.hypot(a.o.x-s.x,a.o.y-s.y,a.o.z-s.z)-Math.hypot(b.o.x-s.x,b.o.y-s.y,b.o.z-s.z))[0];
     if(tg){const ax=B.SR._t().aim,bs=rb.ship,dx=tg.o.x-bs.x,dy=tg.o.y-(bs.y+6),dz=tg.o.z-bs.z;ax.yaw=wrap(Math.atan2(dx,dz)-bs.h);ax.pit=Math.atan2(dy,Math.hypot(dx,dz));B.ctx.keys.Space=rb.heat<.85}
@@ -73,9 +73,46 @@ const clock={t:1000};
 {
   const A=phone('s','S',null,clock);A.SR.open();A.SR._t().begin({seed:5,role:'pilot',host:true,partner:null});
   ok(A.SR.locked()&&A.SR.state().run&&A.SR.state().run.hasGunner===false,'solo raid starts with the AI crew mate');
-  for(let f=0;f<60*20;f++){clock.t+=1000/60;A.SR.setInput(0,0);A.SR.frame(1/60)}
+  for(let f=0;f<60*20;f++){clock.t+=1000/60;A.SR.frame(1/60)}
   ok(A.errs.length===0,`solo: no controller errors (${A.errs[0]||''})`);
   ok(A.SR.state().run.t>15,'the simulation runs in real time');
   A.SR.leave(false);ok(!A.SR.locked()&&A.ctx.S.grounded,'leaving gives the avatar back');
+}
+// ---------- v2: seat swap, roll, missiles, free-look, perf settings ----------
+{
+  const A=phone('s2','S',null,clock);A.SR.open();const cam=A.ctx.camera,sc=A.ctx.scene;sc.fog=new THREE.Fog('#cfe3f2',150,1700);const far0=cam.far;
+  A.SR._t().begin({seed:9,role:'pilot',host:true,partner:null});
+  ok(cam.far<far0&&sc.fog.far<1700,'the raid trims the far plane and fog for speed');
+  const T=A.SR._t(),run=()=>A.SR.state().run;
+  const step=n=>{for(let f=0;f<n;f++){clock.t+=1000/60;A.SR.frame(1/60)}};
+  step(30);
+  // pad: pressing left turns the ship left (heading grows)
+  const h0=run().ship.h;A.ctx.keys.ArrowLeft=true;step(60);A.ctx.keys.ArrowLeft=false;ok(((run().ship.h-h0+Math.PI*3)%(Math.PI*2)-Math.PI)>.25,'the ◀ button turns the ship left');
+  // roll
+  T.BTN.roll=true;step(3);ok(run().ship.rollT>0&&run().ship.inv>0,'ROLL gives the pilot a barrel roll with i-frames');
+  const sh=A.SR._t().view();step(10);ok(Math.abs(sh.spin)>0,'and the ship visibly spins');step(60);
+  // free look
+  T.look.yaw=1.2;T.look.pit=.3;T.look.t=clock.t;step(5);const ly=T.look.yaw;ok(ly>1,'free-look holds while you drag');clock.t+=3000;step(180);ok(Math.abs(T.look.yaw)<.2,'and eases back behind the ship once you let go');
+  // seat swap, solo: you become the gunner, an autopilot flies
+  ok(run().hasGunner===false,'solo pilot: the crew mate guns');
+  T.swapSeat();ok(A.SR.state().role==='gunner'&&run().hasGunner===true,'SWAP SEAT: you man the turret');
+  const x0=run().ship.x,z0=run().ship.z;step(120);ok(Math.hypot(run().ship.x-x0,run().ship.z-z0)>20,'the autopilot flies the ship while you gun');
+  const yawBefore=T.view().h+T.aim.yaw;step(60);ok(Math.abs(wrapA(T.view().h+T.aim.yaw-yawBefore))<.15,'the turret keeps pointing at the same spot while the ship turns');
+  T.BTN.missile=true;T.aim.pit=.3;step(3);ok(run().msl.length>0||run().mCd>0,'MISSILES fire a homing salvo');
+  clock.t+=3000;T.swapSeat();ok(A.SR.state().role==='pilot'&&run().hasGunner===false,'swap back: you fly, the crew mate guns');
+  step(30);ok(A.errs.length===0,`no errors (${A.errs[0]||''})`);
+  A.SR.leave(false);ok(cam.far===far0&&sc.fog.far===1700,'leaving restores the far plane and fog');
+}
+{ // co-op swap: the guest asks, the host flips both phones
+  const A=phone('ca','A','cb',clock),B=phone('cb','B','ca',clock);A.SR.open();
+  B.handlers.sky({k:'inv',rid:'rr',role:'pilot',name:'A'},'ca');B.doc.body.children.find(c=>c.className==='rl-inv').querySelector('.rl-y')._oc();
+  const st=A.SR._t().ST;st.rid='rr';st.pendingCfg={role:'pilot',pid:'cb'};A.handlers.sky({k:'acc',rid:'rr'},'cb');
+  const step=n=>{for(let f=0;f<n;f++){clock.t+=1000/60;A.SR.frame(1/60);B.SR.frame(1/60)}};step(60);
+  ok(A.SR.state().role==='pilot'&&B.SR.state().role==='gunner','co-op starts: host pilot, guest gunner');
+  B.SR._t().swapSeat();step(10);ok(A.SR.state().role==='gunner'&&B.SR.state().role==='pilot','guest presses SWAP SEAT: both phones trade seats');
+  // the new pilot (guest) rolls: the host simulates it
+  B.SR._t().BTN.roll=true;step(30);ok(A.SR.state().run.ship.rollCd>0||A.SR.state().run.ship.rollT>0,'the guest pilot\'s roll reaches the host simulation');
+  clock.t+=3000;A.SR._t().swapSeat();step(10);ok(A.SR.state().role==='pilot'&&B.SR.state().role==='gunner','host presses SWAP SEAT: seats trade back');
+  ok(A.errs.length===0&&B.errs.length===0,`co-op swap: no errors (${A.errs.concat(B.errs)[0]||''})`);
 }
 process.exit(fails?1:0);
