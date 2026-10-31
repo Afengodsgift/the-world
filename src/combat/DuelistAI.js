@@ -6,10 +6,10 @@
 // they enter a second phase (faster, shorter rests, more gap closers). Moods (Duelist) vary the pacing; a turtling guard is punished; a visibly recovering player is punished.
 // Adaptive difficulty (learning your habits) is a separate layer, off by default, and is NOT in this file.
 const DuelistAI=(()=>{
-  const REACH={hundred:3.2,ashwave:16,crossflame:16,kingsfall:7,flurry:3,cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4,dash:2.4,leap:3.0,bash:2.3,orb:12,bolt:16,spin:2.9,hammer:2.7,lowsweep:3.1,blink:30,snare:30,lance:20,returning:18,consecrate:12,procession:11,march:2.7,groundbreaker:3.9,verdict:2.8,pursuit:3.1,iai:3.4,feint:3.4,moon:3.7,counter:2.9,requiem:5.2},REACT=14,INTRO=90;
+  const REACH={charge:10,maul:3.2,tidal:6.4,spores:12,hundred:3.2,ashwave:16,crossflame:16,kingsfall:7,flurry:3,cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4,dash:2.4,leap:3.0,bash:2.3,orb:12,bolt:16,spin:2.9,hammer:2.7,lowsweep:3.1,blink:30,snare:30,lance:20,returning:18,consecrate:12,procession:11,march:2.7,groundbreaker:3.9,verdict:2.8,pursuit:3.1,iai:3.4,feint:3.4,moon:3.7,counter:2.9,requiem:5.2},REACT=14,INTRO=90;
   const HR={sweep:3.0,slam:3.0,triple:2.8,quake:4.2};
   function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-  function create(seed,o){o=o||{};const r=mulberry(seed|0);return{foe:o.foe||'duelist',noAtk:false,gcool:0,r,t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,mood:'patient',moodT:90,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null,
+  function create(seed,o){o=o||{};const r=mulberry(seed|0);return{foe:o.foe||'duelist',kid:o.kid||'',noAtk:false,gcool:0,r,t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,mood:'patient',moodT:90,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null,
     bcd:240,scd:100,hcd:0,hcd2:0,hunt:false,follow:null,adaptCd:0,adapt:null,ph3:false,att:0,ccd:300,rcd:0,chain:0,moves:0,nextBreath:3+Math.floor(r()*3),breath:0,ph2:false,closeP:0}}
   const key=P=>P.act==='attack'&&P.ph&&P.ph[P.pi]?'a'+P.ph[P.pi].k:P.act==='stun'?'stun':P.act==='dodge'?'dodge':P.act==='charge'?'charge':P.guard?'guard':'free';
   const rest=(A,lo,span)=>Math.max(20,Math.floor((lo+Math.floor(A.r()*span))*(A.ph3?.58:A.ph2?.75:1)));
@@ -78,15 +78,18 @@ const DuelistAI=(()=>{
     return choose(A,out,w,dist,tick,REACH)}
   // The Hollow Warden: a heavy brute. Three moves (sweep / slam with a variable hold / triple chain) + the leap. Closes to reach, never idles at range.
   function hollow(A,P,D,out,tick,dist,k){
-    if(dist>HR.sweep+.2)return out;
+    if(dist>HR.sweep+.2&&!(A.foe==='beast'&&dist<=11&&(A.kid==='bear'||A.kid==='parasite'||A.kid==='maw')))return out;
     const w={sweep:3,triple:2.5,slam:2};
     if(A.ph2){w.triple+=1.5;w.slam+=1}
     if(A.gP>30){w.slam+=4;w.sweep*=.5}
     if((k==='arecovery'||k==='stun')&&A.see>=REACT){w.sweep+=3;w.triple+=2;w.slam*=.4}
     if(dist<1.8)w.slam*=.5;
+    if(A.foe==='beast'&&A.kid==='bear'){if(A.ph2)w.maul=2.4;if(dist>=5&&dist<=11&&A.bcd<=0&&A.last[A.last.length-1]!=='charge'){A.bcd=A.ph2?210:330;return start(A,out,'charge',0,tick)}}   // Frenzy Charge from range; the berserk maul in phase 2
+    if(A.foe==='beast'&&A.kid==='maw'&&dist<7&&A.scd<=0){A.scd=A.ph2?300:460;return start(A,out,'tidal',0,tick)}                                                              // Tidal Roar on a timer
+    if(A.foe==='beast'&&A.kid==='parasite'&&dist>=3&&dist<=11&&A.scd<=0){A.scd=A.ph2?280:430;return start(A,out,'spores',0,tick)}                                           // Infestation on a timer
     if(A.foe==='beast'&&dist<4)w.quake=A.ph2?2.6:1.3;                                          // the roar-stomp ring (a real monster's area move)
     const L0=A.last[A.last.length-1];if(L0==='leap'){w.sweep*=1.8;w.triple*=1.5}
-    return choose(A,out,w,dist,tick,HR)}
+    return choose(A,out,w,dist,tick,Object.assign({},REACH,HR))}
   // A foot soldier: two honest moves, no tricks. Many of them is the difficulty, not any one of them.
   function soldier(A,P,D,out,tick,dist,k){
     if(dist>REACH.thrust+.2)return out;
@@ -95,6 +98,10 @@ const DuelistAI=(()=>{
     return choose(A,out,w,dist,tick,REACH)}
   // The Oathbound Knight: patient behind the shield (see the guard code in think), then a heavy, honest mix. Gap closers from range; at half health the shield is gone and the quake-stomp joins.
   function knight(A,P,D,out,tick,dist,k){
+    if(A.foe==='knight'&&A.kid==='paladin'){   // Judgment Verdict (a guard-breaking overhead that lands on a different beat each time) and the Shield Rush gap closer
+      if(A.follow){const m=A.follow;A.follow=null;if(dist<REACH[m]+.8)return start(A,out,m,m==='verdict'?Math.floor(A.r()*13):0,tick)}
+      if(A.bcd<=0&&dist>=4&&dist<=8&&A.last[A.last.length-1]!=='pursuit'){A.bcd=A.ph2?220:340;A.follow=A.r()<.5?'verdict':null;return start(A,out,'pursuit',0,tick)}
+      if(A.gP>20&&dist<3.1&&A.last[A.last.length-1]!=='verdict')return start(A,out,'verdict',Math.floor(A.r()*13),tick)}   // turtling behind your guard: the Wall Breaker
     const gc=A.ph2&&A.last[A.last.length-1]!=='leap'&&dist>=3.6&&dist<=7&&A.r()<.05?'leap':null;if(gc)return start(A,out,gc,0,tick);
     if(dist>REACH.thrust+.2)return out;
     const w={cut:3,thrust:2,twin:2,fall:1.2,bash:.6};
@@ -102,7 +109,7 @@ const DuelistAI=(()=>{
     if((k==='arecovery'||k==='stun')&&A.see>=REACT){w.cut+=4;w.twin+=2.5;w.fall*=.4}              // a visibly recovering player is punished
     if(A.ph2){w.twin+=1.5;w.fall+=1;if(dist<3.6)w.quake=1.4}
     if(dist>2.7){w.cut=0;w.twin=0;w.bash=0;w.fall*=.5}else if(dist<1.7){w.thrust=.2}
-    return choose(A,out,w,dist,tick,Object.assign({},REACH,HR))}
+    const pick=choose(A,out,w,dist,tick,Object.assign({},REACH,HR)),m=pick.list[pick.list.length-1];if(A.kid==='paladin'&&m&&m.m==='twin')A.follow=A.r()<(A.ph2?.5:.3)?'verdict':null;return pick}
   // The Black Knight: no shield, a relentless blade. Combos that end in a low sweep or a spin, a hammer blow on turtles, a riposte on anything he blocks, dash openers; in phase 2 the leap and the quake join and he rests less.
   function blackknight(A,P,D,out,tick,dist,k){
     const L0=A.last[A.last.length-1];
@@ -117,6 +124,7 @@ const DuelistAI=(()=>{
   // The Cinder Dancer: keeps ~4 m away and casts, closes with a flip-kick gap closer, and trades combos only when you are inside her space.
   function dancer(A,P,D,out,tick,dist,k){
     const L0=A.last[A.last.length-1];
+    if(A.ph2&&A.scd<=0&&dist<=9){if(dist<4.4&&L0!=='requiem'){A.scd=400;return start(A,out,'requiem',0,tick)}if(dist>=3&&L0!=='consecrate'){A.scd=480;return start(A,out,'consecrate',0,tick)}}   // phase 2: the Ring of Fire around her, and the Cinder Waltz (rings of fire where you stand)
     if(dist>=3.4&&dist<=9&&L0!=='dash'){A.closeP+=A.ph2?.045:.025;if(A.r()<A.closeP){A.closeP=0;return start(A,out,'dash',0,tick)}}
     if(dist<3.4)A.closeP=0;
     const w={};
@@ -132,7 +140,7 @@ const DuelistAI=(()=>{
     if(A.follow){const m=A.follow;A.follow=null;if(dist<REACH[m]+.8)return start(A,out,m,0,tick)}
     const L0=A.last[A.last.length-1];
     if(A.hunt){A.hunt=false;A.hcd=300;if(dist>2.6&&L0!=='blink'){A.bcd=A.ph2?220:330;return start(A,out,'blink',0,tick)}if(dist<=REACH.thrust)return start(A,out,'thrust',0,tick)}   // you drank a flask: he is on you
-    if(A.bcd<=0&&L0!=='blink'&&(dist>=3.6&&dist<=10||A.gP>25&&dist<3.2)){A.closeP+=A.ph3?.16:A.ph2?.12:.06;if(A.r()<A.closeP||A.gP>40){A.closeP=0;A.bcd=A.ph2?220:330;return start(A,out,'blink',0,tick)}}
+    if(A.bcd<=0&&L0!=='blink'&&(dist>=3.6&&dist<=10||A.gP>25&&dist<3.2)){A.closeP+=A.ph2?.09:.05;if(A.r()<A.closeP||A.gP>40){A.closeP=0;A.bcd=A.ph2?220:330;return start(A,out,'blink',0,tick)}}
     if(dist>=3.6&&dist<=10&&L0!=='dash'){return out}
     if(dist>REACH.thrust+.2)return out;
     const w={cut:3,twin:2.6,triple:1.8,thrust:1.4,spin:1.1,lowsweep:1.2,fall:.9};
@@ -163,7 +171,7 @@ const DuelistAI=(()=>{
     const L0=A.last[A.last.length-1];
     if(A.req&&dist<5){A.req=false;A.rcd=A.ph3?900:0;A.follow='moon';return start(A,out,'requiem',0,tick)}   // the last phase opens with the final technique (ring on the ground, then a crescent)
     if(A.hunt){A.hunt=false;A.hcd=300;if(dist>2.8&&L0!=='blink'){A.bcd=A.ph2?150:260;return start(A,out,'blink',0,tick)}if(dist<=REACH.iai)return start(A,out,'iai',0,tick)}
-    if(A.bcd<=0&&L0!=='blink'&&(dist>=3.6&&dist<=10||A.gP>25&&dist<3.2)){A.closeP+=A.ph2?.09:.05;if(A.r()<A.closeP||A.gP>40){A.closeP=0;A.bcd=A.cov?140:A.ph3?100:A.ph2?150:260;return start(A,out,'blink',0,tick)}}
+    if(A.bcd<=0&&L0!=='blink'&&(dist>=3.6&&dist<=10||A.gP>25&&dist<3.2)){A.closeP+=A.ph3?.16:A.ph2?.12:.06;if(A.r()<A.closeP||A.gP>40){A.closeP=0;A.bcd=A.cov?140:A.ph3?100:A.ph2?150:260;return start(A,out,'blink',0,tick)}}
     if(dist>=3.6&&dist<=10&&L0!=='iai'){if(A.ph2&&A.r()<.012)return start(A,out,'iai',0,tick);return out}
     if(dist>REACH.moon+.2)return out;
     if(A.ph3&&A.rcd<=0&&dist<5&&A.r()<.02){A.rcd=900;A.follow='moon';return start(A,out,'requiem',0,tick)}
@@ -252,6 +260,7 @@ const DuelistAI=(()=>{
   // The Ashen Huntress (Erika): holds a long range and shoots slow, readable arrows (sidestep or block them); inside two metres she kicks you away; the player's answer is to close the gap in a dodge.
   function archer(A,P,D,out,tick,dist,k){
     if(dist<2.4){A.closeP=0;return start(A,out,'cut',0,tick)}
+    if(A.ph2&&A.scd<=0&&dist>=5&&A.last[A.last.length-1]!=='consecrate'){A.scd=520;return start(A,out,'consecrate',0,tick)}   // Rain of Arrows (phase 2): marked circles around where you stand
     if(dist<4.5)return out;                            // too close to shoot, too far to kick: she is backing off (movement above)
     const w={bolt:dist>6?4:1.5};if(A.ph2&&dist>6)w.orb=2;   // phase 2: a slower, heavier shot joins
     return choose(A,out,w,dist,tick,REACH)}

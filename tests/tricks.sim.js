@@ -94,4 +94,12 @@ function simK(hpf,dist,ticks,seed,P0){const A=AI.create(seed,{foe:'samurai',intr
  a=mk('stalker',2);AI.hunt(a.A);o=AI.think(a.A,a.P,a.D,[],5);ok(o.list.length===1&&o.list[0].m==='thrust','close to you he lunges');
  a=mk('trapper',7);AI.hunt(a.A);a.A.scd=999;o=AI.think(a.A,a.P,a.D,[],5);ok(o.list.length===1&&o.list[0].m==='orb','Skrag answers a flask with the heavy bolt');
  a=mk('knight',6);a.A.cool=40;a.A.breath=90;ok(AI.hunt(a.A)===true&&a.A.cool<=6&&a.A.breath===0,'every other foe cuts its rest short and stops breathing when you drink')}
+{const pick=(foe,kid,dist,setup,gd)=>{const r={};for(let s=1;s<=40;s++){const A=AI.create(s,{foe,kid,intro:0}),D={id:'D',x:0,z:0,act:'free',hp:300,hpMax:300,rm:1},P={id:'P',x:0,z:dist,act:'free',guard:!!gd,hp:100};A.cool=0;A.bcd=0;A.scd=0;if(setup)setup(A);const o=AI.think(A,P,D,[],5);for(const c of o.list)if(c.t==='atk')r[c.m]=(r[c.m]||0)+1}return r};
+ok(pick('beast','bear',7)['charge']>=30,'Bear: Frenzy Charge from range ('+JSON.stringify(pick('beast','bear',7))+')');
+ok(pick('beast','maw',4)['tidal']>=30,'Maw: Tidal Roar on its timer');
+ok(pick('beast','parasite',6)['spores']>=30,'Parasite: Infestation on its timer');
+ok(pick('knight','paladin',6)['pursuit']>=30,'Paladin: Shield Rush from range');
+ok(pick('knight','paladin',2.2,A=>{A.gP=60},true)['verdict']>=30,'Paladin: Judgment Verdict punishes a turtling guard');
+ok(pick('dancer','',3.5,A=>{A.ph2=true})['consecrate']>=1||pick('dancer','',3.5,A=>{A.ph2=true})['requiem']>=1,'Arissa: phase 2 uses Ring of Fire / Cinder Waltz');
+ok(pick('archer','',8,A=>{A.ph2=true})['consecrate']>=30,'Erika: phase 2 Rain of Arrows');}
  console.log(bad?'FAILED '+bad:'ALL OK');process.exit(bad?1:0);
