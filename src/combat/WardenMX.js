@@ -152,7 +152,9 @@ const WardenMX=(()=>{
   ROLES.veil=Object.assign({},ROLES.samurai,{file:'assets/warden_mx_veil.json'});
   // The Veiled Saint (uploaded Queen of Swords rig, packed by tools/pack_ue_char.mjs): the Huntress's cast / kick / power-up set retargeted onto her; every area attack is a cast
   ROLES.saint=Object.assign({},ROLES.archer,{file:'assets/warden_mx_saint.json',moves:Object.assign({},ROLES.archer.moves,{
-    lance:{c:'spell',t0:0,e:1.1},returning:{c:'spell',t0:0,e:1.1},consecrate:{c:'power',t0:.3,e:2.0},procession:{c:'power',t0:.3,e:2.0}})});
+    lance:{c:'spell',t0:0,e:1.1},returning:{c:'spell',t0:0,e:1.1},consecrate:{c:'power',t0:.3,e:2.0},procession:{c:'power',t0:.3,e:2.0},bladestorm:{c:'spell',t0:0,e:1.1},swordring:{c:'power',t0:.3,e:2.0}})});
+  // Dark Sun Gwyndolin (uploaded DS rig, no legs - she floats; tools/pack_gdn_char.mjs): the Saint's cast / kick / power set retargeted onto her
+  ROLES.gdn=Object.assign({},ROLES.saint,{file:'assets/warden_mx_gdn.json',moves:Object.assign({},ROLES.saint.moves,{sunvolley:{c:'spell',t0:0,e:1.1},snakelash:{c:'power',t0:.3,e:2.0},eclipse:{c:'power',t0:.3,e:2.0},blink:{c:'power',t0:.3,e:.96}})});
   // Skrag, the Snare-Trapper (uploaded goblin rig): the Longbow set (arrow cast, kick, power-up) retargeted onto his skeleton; the long power-up clip is his snare-laying
   ROLES.goblin=Object.assign({},ROLES.archer,{file:'assets/warden_mx_goblin.json',moves:Object.assign({},ROLES.archer.moves,{snare:{c:'power',t0:.3,e:1.6}})});
   // ---- the player's heavier weapons: the Great Sword pack (already baked onto the game rig for the Duelist) drives the Claymore and the Hand Axe ----

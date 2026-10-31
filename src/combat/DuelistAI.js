@@ -6,7 +6,7 @@
 // they enter a second phase (faster, shorter rests, more gap closers). Moods (Duelist) vary the pacing; a turtling guard is punished; a visibly recovering player is punished.
 // Adaptive difficulty (learning your habits) is a separate layer, off by default, and is NOT in this file.
 const DuelistAI=(()=>{
-  const REACH={charge:10,maul:3.2,tidal:6.4,spores:12,hundred:3.2,ashwave:16,crossflame:16,kingsfall:7,flurry:3,cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4,dash:2.4,leap:3.0,bash:2.3,orb:12,bolt:16,spin:2.9,hammer:2.7,lowsweep:3.1,blink:30,snare:30,lance:20,returning:18,consecrate:12,procession:11,march:2.7,groundbreaker:3.9,verdict:2.8,pursuit:3.1,iai:3.4,feint:3.4,moon:3.7,counter:2.9,requiem:5.2},REACT=14,INTRO=90;
+  const REACH={bladestorm:16,swordring:3.4,sunvolley:18,snakelash:3.8,eclipse:7.6,charge:10,maul:3.2,tidal:6.4,spores:12,hundred:3.2,ashwave:16,crossflame:16,kingsfall:7,flurry:3,cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4,dash:2.4,leap:3.0,bash:2.3,orb:12,bolt:16,spin:2.9,hammer:2.7,lowsweep:3.1,blink:30,snare:30,lance:20,returning:18,consecrate:12,procession:11,march:2.7,groundbreaker:3.9,verdict:2.8,pursuit:3.1,iai:3.4,feint:3.4,moon:3.7,counter:2.9,requiem:5.2},REACT=14,INTRO=90;
   const HR={sweep:3.0,slam:3.0,triple:2.8,quake:4.2};
   function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
   function create(seed,o){o=o||{};const r=mulberry(seed|0);return{foe:o.foe||'duelist',kid:o.kid||'',noAtk:false,gcool:0,r,t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,mood:'patient',moodT:90,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null,
@@ -17,12 +17,12 @@ const DuelistAI=(()=>{
   function think(A,P,D,evs,tick){
     const out={face:Math.atan2(P.x-D.x,P.z-D.z),mx:0,mz:0,list:[]};A.t++;
     if(!A.on||D.act==='dead'||P.act==='dead')return out;
-    const dx=P.x-D.x,dz=P.z-D.z,rawD=Math.hypot(dx,dz),dist=rawD/(D.rm||1),ux=dx/(rawD||1),uz=dz/(rawD||1),st=A.foe,H=st==='hollow'||st==='beast',BK=st==='blackknight',KN=st==='knight'||BK,DA=st==='dancer',SO=st==='soldier',AR=st==='archer',SK=st==='stalker',TR=st==='trapper',SM=st==='samurai'||st==='veil'||st==='gwyn',GW=st==='gwyn',VL=st==='veil',PN=st==='penitent',SN=st==='saint';
+    const dx=P.x-D.x,dz=P.z-D.z,rawD=Math.hypot(dx,dz),dist=rawD/(D.rm||1),ux=dx/(rawD||1),uz=dz/(rawD||1),st=A.foe,H=st==='hollow'||st==='beast',BK=st==='blackknight',KN=st==='knight'||BK,DA=st==='dancer',SO=st==='soldier',AR=st==='archer',SK=st==='stalker',TR=st==='trapper',SM=st==='samurai'||st==='veil'||st==='gwyn',GW=st==='gwyn',GD=st==='gdn',VL=st==='veil',PN=st==='penitent',SN=st==='saint';
     // what the player visibly does now, and how long we have been seeing it (a human reaction delay)
     const k=key(P);if(k!==A.seenKey){A.seenKey=k;A.see=0}else A.see++;
     A.gP=P.guard&&P.act==='free'?A.gP+1:0;if(A.cool>0)A.cool--;if(A.gcool>0)A.gcool--;if(A.rip>1)A.rip--;if(A.breath>0)A.breath--;if(A.bcd>0)A.bcd--;if(A.scd>0)A.scd--;if(A.hcd>0)A.hcd--;
-    if(!A.ph2&&D.hp<D.hpMax*.5)A.ph2=true;if(SM&&!A.ph3&&D.hp<D.hpMax*.22){A.ph3=true;A.ph2=true;A.rcd=0;A.req=true}   // Kage has a third phase
-    if(VL)veilTally(A,P,k,tick);if(A.hcd2>0)A.hcd2--;if(GW){if(A.wcd>0)A.wcd--;if(A.kcd>0)A.kcd--}if(SM){if(A.adaptCd>0)A.adaptCd--;if(A.ccd>0)A.ccd--;if(A.rcd>0)A.rcd--;if((k==='astartup'||k==='aactive'||k==='acharge')&&dist<3.4)A.att++;else A.att=Math.max(0,A.att-.5)}                                 // second phase: the game announces it by reading A.ph2
+    if(!A.ph2&&D.hp<D.hpMax*.5)A.ph2=true;if((SM||GD)&&!A.ph3&&D.hp<D.hpMax*(GD?.25:.22)){A.ph3=true;A.ph2=true;A.rcd=0;A.req=true}   // Kage has a third phase
+    if(VL)veilTally(A,P,k,tick);if(A.hcd2>0)A.hcd2--;if(GD){if(A.rcd>0)A.rcd--}if(GW){if(A.wcd>0)A.wcd--;if(A.kcd>0)A.kcd--}if(SM){if(A.adaptCd>0)A.adaptCd--;if(A.ccd>0)A.ccd--;if(A.rcd>0)A.rcd--;if((k==='astartup'||k==='aactive'||k==='acharge')&&dist<3.4)A.att++;else A.att=Math.max(0,A.att-.5)}                                 // second phase: the game announces it by reading A.ph2
     for(const e of evs||[])if((e.t==='block'||e.t==='deflect')&&e.d===D.id&&A.rip===0)A.rip=REACT;   // we just blocked something: counter-attack soon
     if(D.act!=='free'){A.busy=true;return out}
     if(A.busy){A.busy=false;A.moves++;
@@ -47,7 +47,7 @@ const DuelistAI=(()=>{
     // defence (Duelist): after reacting to a visible heavy charge / wind-up at close range, sometimes guard it
     // the Knight's shield wall (phase 1 only: at half health the shield is gone): raise it against a visible attack, or just sit behind it for a while
     if(KN&&!BK&&!A.ph2&&A.gcool<=0&&dist<3.6&&((k==='astartup'||k==='charge')&&A.see>=REACT-4||k==='free'&&A.r()<.006)){A.guardT=45+Math.floor(A.r()*40);out.list.push({t:'guardDown',e:tick});out.mx=out.mz=0;return out}
-    if(!H&&!KN&&!DA&&!SO&&!SK&&!TR&&!SM&&!PN&&!SN&&A.cool<=6&&dist<2.8&&(k==='charge'||k==='astartup')&&A.see>=REACT&&A.r()<.012*A.see){A.guardT=40+Math.floor(A.r()*25);out.list.push({t:'guardDown',e:tick});out.mx=out.mz=0;return out}
+    if(!H&&!KN&&!DA&&!SO&&!SK&&!TR&&!SM&&!PN&&!SN&&!GD&&A.cool<=6&&dist<2.8&&(k==='charge'||k==='astartup')&&A.see>=REACT&&A.r()<.012*A.see){A.guardT=40+Math.floor(A.r()*25);out.list.push({t:'guardDown',e:tick});out.mx=out.mz=0;return out}
     if(A.cool>0||k==='dodge')return out;              // resting, or the player is mid-dodge: wait for them to land
     if(A.noAtk)return out;                            // someone else holds the attack token: keep circling
     if(SO)return soldier(A,P,D,out,tick,dist,k);
@@ -57,6 +57,7 @@ const DuelistAI=(()=>{
     if(PN)return penitent(A,P,D,out,tick,dist,k);
     if(VL){const r=veil(A,P,D,out,tick,dist,k);if(r)return r}
     if(GW)return gwyn(A,P,D,out,tick,dist,k);
+    if(GD)return gdn(A,P,D,out,tick,dist,k);
     if(SM)return samurai(A,P,D,out,tick,dist,k);
     if(SK)return stalker(A,P,D,out,tick,dist,k);
     if(TR)return trapper(A,P,D,out,tick,dist,k);
@@ -214,14 +215,33 @@ const DuelistAI=(()=>{
     const pick=choose(A,out,w,dist,tick,REACH),m=pick.list[pick.list.length-1];
     if(m&&m.m==='twin')A.follow=A.r()<(A.ph2?.75:.5)?'verdict':null;
     return pick}
+  // Dark Sun Gwyndolin: a floating archer-sorceress. Arrow volleys and the slow Dark Sun orb from range, sun rings (consecrate / procession) in phase 2, and the Total Eclipse at 25% (a huge ring, then a rain of rings).
+  // Get close and the tentacles lash (a ring round her) or she blinks away and answers from behind you. She never melees otherwise.
+  function gdn(A,P,D,out,tick,dist,k){
+    if(A.follow){const m=A.follow;A.follow=null;if(dist<REACH[m]+.8||REACH[m]>=12)return start(A,out,m,0,tick)}
+    const L0=A.last[A.last.length-1];
+    if(A.req&&dist<30){A.req=false;A.rcd=900;A.follow='consecrate';return start(A,out,'eclipse',0,tick)}
+    if(A.hunt){A.hunt=false;A.hcd=300;return start(A,out,dist<4?'snakelash':'sunvolley',0,tick)}
+    if(A.ph3&&A.rcd<=0&&A.r()<.012){A.rcd=A.ph3?700:900;return start(A,out,'eclipse',0,tick)}
+    if(dist<3.8){
+      if(A.scd<=0&&L0!=='snakelash'){A.scd=A.ph2?200:300;return start(A,out,'snakelash',0,tick)}
+      if(A.bcd<=0&&L0!=='blink'){A.bcd=A.ph3?150:A.ph2?220:340;return start(A,out,'blink',0,tick)}
+      if(dist<2.4)return start(A,out,'cut',0,tick);return out}
+    if(A.bcd<=0&&L0!=='blink'&&dist<7&&(A.gP>20||A.r()<.01)){A.bcd=A.ph3?150:A.ph2?220:340;return start(A,out,'blink',0,tick)}
+    const w={sunvolley:dist>6?3.2:1.8,orb:dist>5?1.6:.6,lance:1.2};
+    if(A.ph2){w.consecrate=1.6;w.procession=1.2;w.sunvolley+=1;w.orb+=1}
+    if(A.ph3){w.consecrate+=1;w.sunvolley+=1}
+    if(A.onDecoy){w.consecrate=0;w.procession=0}
+    if(A.gP>20||k==='stun'&&A.see>=REACT)w.consecrate=(w.consecrate||0)+3;
+    return choose(A,out,w,dist,tick,REACH)}
   // The Veiled Saint (Three Oaths): area denial. She holds a distance, fires the Judgment Lance and the Returning blades, and lays CONSECRATION (five rings around you that erupt after a delay) and the Silent Procession (a line of rings walking out at you).
   // Signature moves wait for the token (A.sigLock); inside 2.6 m she pushes you off with a kick. Phase 2 (or the covenant breaking) shortens her rests and adds the procession.
   function saint(A,P,D,out,tick,dist,k){
-    if(dist<2.6){A.closeP=0;return start(A,out,'cut',0,tick)}
+    if(dist<2.6){A.closeP=0;if(A.scd<=0&&A.last[A.last.length-1]!=='swordring'){A.scd=A.ph2?220:320;return start(A,out,'swordring',0,tick)}return start(A,out,'cut',0,tick)}   // too close: her blades spin out round her, or she kicks
     if(A.hunt){A.hunt=false;A.hcd=300;if(!A.sigLock&&A.last[A.last.length-1]!=='consecrate')return start(A,out,'consecrate',0,tick);return start(A,out,'lance',0,tick)}   // you drank a flask: the ground answers
     if(A.cov&&!A.ph2)A.ph2=true;
     if(dist<3.4)return out;
-    const w={lance:dist>6?3.2:1.6,returning:dist>5?1.8:.8,consecrate:A.sigLock?0:1.3,procession:A.ph2&&!A.sigLock?1.2:0};
+    const w={lance:dist>6?3.2:1.6,returning:dist>5?1.8:.8,bladestorm:dist>4?(A.ph2?2.8:1.6):0,consecrate:A.sigLock?0:1.3,procession:A.ph2&&!A.sigLock?1.2:0};
     if(A.cov)w.consecrate+=A.sigLock?0:1.4;
     if(A.gP>20||k==='stun'&&A.see>=REACT)w.consecrate+=A.sigLock?0:3;                       // a turtling or staggered player is on the ground she controls
     if(A.onDecoy){w.consecrate=0;w.procession=0}                                          // a shadow is a target for her bolts only; the areas stay for you
@@ -272,6 +292,6 @@ const DuelistAI=(()=>{
     return start(A,out,pick,pick==='fall'||pick==='slam'?Math.floor(A.r()*13):0,tick)}
   function start(A,out,m,hold,tick){A.last.push(m);if(A.last.length>3)A.last.shift();out.list.push({t:'atk',m,hold,e:tick});out.mx=out.mz=0;return out}
   // the game calls this when the hunted player drinks a health flask: every foe ends its rest and stops breathing (at most once per 5 s each); Vael blinks onto you, Skrag fires the heavy bolt
-  const hunt=(A)=>{if(A.hcd>0)return false;A.hcd=300;A.cool=Math.min(A.cool,6);A.breath=0;if(A.foe==='saint'||A.foe==='stalker'||A.foe==='trapper'||A.foe==='samurai'||A.foe==='veil'||A.foe==='penitent'||A.foe==='gwyn')A.hunt=true;return true};   // everyone cuts their rest short; the hunters have a special answer
+  const hunt=(A)=>{if(A.hcd>0)return false;A.hcd=300;A.cool=Math.min(A.cool,6);A.breath=0;if(A.foe==='saint'||A.foe==='stalker'||A.foe==='trapper'||A.foe==='samurai'||A.foe==='veil'||A.foe==='penitent'||A.foe==='gwyn'||A.foe==='gdn')A.hunt=true;return true};   // everyone cuts their rest short; the hunters have a special answer
   return{create,think,hunt,REACH:Object.assign({},REACH,HR),REACT,INTRO}})();
 if(typeof module!=='undefined')module.exports=DuelistAI;
