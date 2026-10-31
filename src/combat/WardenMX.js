@@ -61,6 +61,7 @@ const WardenMX=(()=>{
         bash:{c:'kick',t0:0,h:[[.36,.66]],e:1.1},
         dash:{c:'atk3',t0:0,h:[[.53,.9]],e:1.5},
         leap:{c:'slash4',t0:.4,h:[[1.15,1.5]],e:2.2},
+        verdict:{c:'atk',t0:.1,ch:[.4,.6],h:[[.55,.9]],e:1.2},pursuit:{c:'atk3',t0:0,h:[[.53,.9]],e:1.5},
         quake:{c:'power',t0:.3,e:2.0}}},
     parasite:{file:'assets/warden_mx_parasite.json',native:true,guard:null,dorm:'breath',wake:{c:'roar',t0:0,t1:3.4,rate:1.1},death:'death',            // the Hollow Warden's real body: Mixamo "Creature" mutant
       loco:{idle:'idle',walk:'walk',run:'run',back:'walk',sl:'walk',sr:'walk'},rev:{back:1},
@@ -70,6 +71,8 @@ const WardenMX=(()=>{
         triple:{seq:[{c:'punch',t0:0,h:[.18,.4],e:.75},{c:'swipe',t0:.9,h:[1.12,1.42],e:1.7},{c:'punch',t0:0,h:[.18,.4],e:1.0}]},
         leap:{c:'jatk',t0:0,h:[[1.25,1.7]],e:2.8},
         cut:{c:'punch',t0:0,h:[[.18,.4]],e:.9},thrust:{c:'punch',t0:0,h:[[.18,.4]],e:.9},
+        charge:{c:'jatk',t0:0,h:[[1.25,1.7]],e:2.8},tidal:{c:'roar',t0:.2,e:1.7},spores:{c:'roar',t0:.2,e:1.7},
+        maul:{seq:[{c:'punch',t0:0,h:[.18,.4],e:.75},{c:'swipe',t0:.9,h:[1.12,1.42],e:1.7},{c:'punch',t0:0,h:[.18,.4],e:1.0}]},
         quake:{c:'roar',t0:.2,e:1.7}}},
     arissa:{file:'assets/warden_mx_arissa.json',native:true,guard:null,dorm:'idle',wake:{c:'power',t0:.2,t1:2.2,rate:1},death:'death',hit:'hit1',              // the Cinder Dancer: Locomotion + Capoeira + casting
       loco:{idle:'idle',walk:'walk',run:'run',back:'walk',sl:'sl',sr:'sr'},rev:{back:1},
@@ -81,7 +84,7 @@ const WardenMX=(()=>{
         riposte:{c:'rast',t0:.5,h:[[.7,1.15]],e:1.8},
         dash:{c:'armada',t0:0,h:[[.55,1.0]],e:1.6},
         leap:{c:'au',t0:.8,h:[[2.0,2.5]],e:2.9},
-        spin:{c:'armada',t0:0,h:[[.6,1.05]],e:1.6},hammer:{c:'martelo',t0:0,h:[[.28,.55]],e:1.3},lowsweep:{c:'rast',t0:0,h:[[.25,.5]],e:1.8},orb:{c:'cast',t0:.85,e:2.5},bolt:{c:'cast2',t0:0,e:1.0},quake:{c:'power',t0:.2,e:1.9}}}};
+        spin:{c:'armada',t0:0,h:[[.6,1.05]],e:1.6},hammer:{c:'martelo',t0:0,h:[[.28,.55]],e:1.3},lowsweep:{c:'rast',t0:0,h:[[.25,.5]],e:1.8},orb:{c:'cast',t0:.85,e:2.5},bolt:{c:'cast2',t0:0,e:1.0},quake:{c:'power',t0:.2,e:1.9},requiem:{c:'power',t0:.2,e:1.9},consecrate:{c:'power',t0:.2,e:1.9}}}};
   const norm=s=>s.seq?s.seq:!s.h?[{c:s.c,t0:s.t0,e:s.e}]:s.h.map((h,i)=>({c:s.c,h,t0:i===0?s.t0:undefined,e:i===s.h.length-1?s.e:undefined}));
   // plan: phase list (CombatCore move.phases) + move spec -> per-phase {c,a,b} (clip, clip time at phase start, clip time at phase end). Pure; no THREE.
   function plan(phases,spec,dur){
@@ -127,7 +130,7 @@ const WardenMX=(()=>{
     spin:{c:'spin',t0:.1,h:[[.5,1.3]],e:1.8},lowsweep:{c:'slash4',t0:.1,h:[[.55,1.0]],e:1.5},hammer:{c:'atk',t0:.1,h:[[.55,.9]],e:1.2}})});
   ROLES.archer={file:'assets/warden_mx_archer.json',native:true,guard:null,dorm:'idle',wake:{c:'power',t0:.3,t1:2.4,rate:1},death:'death',hit:'hit1',     // Erika, the Ashen Huntress: Longbow locomotion + a quick cast clip for the shot + a kick when you get close
     loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
-    moves:{bolt:{c:'spell',t0:0,e:1.1},orb:{c:'spell',t0:0,e:1.1},cut:{c:'kick',t0:.1,h:[[.5,.85]],e:1.4},thrust:{c:'kick',t0:.1,h:[[.5,.85]],e:1.4},quake:{c:'power',t0:.3,e:2.0}}};
+    moves:{bolt:{c:'spell',t0:0,e:1.1},orb:{c:'spell',t0:0,e:1.1},cut:{c:'kick',t0:.1,h:[[.5,.85]],e:1.4},thrust:{c:'kick',t0:.1,h:[[.5,.85]],e:1.4},quake:{c:'power',t0:.3,e:2.0},consecrate:{c:'power',t0:.3,e:2.0}}};
   // Vael, the Crimson Duelist (uploaded vampire rig): Ganfaul's Great Sword clips retargeted onto his skeleton (tools/rebase_mx.mjs); a fast chain of cuts, a spin, a low sweep, and the blink (he crouches, then the sim hides him)
   ROLES.vampire=Object.assign({},ROLES.ganfaul,{file:'assets/warden_mx_vampire.json',moves:Object.assign({},ROLES.ganfaul.moves,{
     spin:{c:'spin',t0:.1,h:[[.5,1.3]],e:1.8},lowsweep:{c:'slash4',t0:.1,h:[[.55,1.0]],e:1.5},hammer:{c:'atk',t0:.1,h:[[.55,.9]],e:1.2},
