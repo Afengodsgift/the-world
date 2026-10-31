@@ -42,6 +42,7 @@ const RallyWorld=(()=>{
       pad:new THREE.MeshBasicMaterial({map:padTexture('#6dffb0'),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}),
       stripe:new THREE.MeshLambertMaterial({map:stripeTexture()})};
     M.dirt=new THREE.MeshLambertMaterial({map:M.road.map,color:0xd8a468});   // shortcuts are dirt: you can see the cut from the main road
+    M.reef=new THREE.MeshLambertMaterial({map:M.road.map,color:0x7fd8e8,emissive:0x0a4a63});   // the underwater tunnel: cool, glowing teal asphalt
     M.road.map.wrapT=THREE.RepeatWrapping;
     // ---- road ribbons + skirts ----
     for(const r of T.roads){
@@ -54,7 +55,11 @@ const RallyWorld=(()=>{
       }
       const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('uv',new THREE.BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();
       // winding: (left_i, right_i, left_i+1) with left=P-l*hw, l=(-tz,0,tx) gives a +Y normal for every road direction
-      const mesh=new THREE.Mesh(g,r.alt?M.dirt:M.road);mesh.receiveShadow=false;root.add(mesh);
+      const mesh=new THREE.Mesh(g,r.sub?M.reef:r.alt?M.dirt:M.road);mesh.receiveShadow=false;root.add(mesh);
+      if(r.sub){   // lanterns: a cyan light on each edge every ~14 m (one instanced mesh), so the tunnel reads as a lit passage under the waves
+        const n=Math.floor(r.m/7)*2,im=new THREE.InstancedMesh(new THREE.SphereGeometry(.55,8,6),new THREE.MeshBasicMaterial({color:0x7ff6ff}),n),mm=new THREE.Matrix4();let k=0;
+        for(let i=3;i<r.m-3&&k<n-1;i+=7)for(const sg of [-1,1]){const hw=r.W[i]/2+.4;mm.makeTranslation(r.X[i]+sg*-r.TZ[i]*hw,r.Y[i]+.9,r.Z[i]+sg*r.TX[i]*hw);im.setMatrixAt(k++,mm)}
+        im.count=k;im.frustumCulled=false;root.add(im)}
       // skirts: wherever the deck is well above the terrain, a concrete wall down to the ground on both sides (+ end caps)
       const sp=[],si=[];const side=(sgn)=>{
         let prev=-1;

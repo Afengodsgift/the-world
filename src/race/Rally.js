@@ -8,7 +8,7 @@
 // Combat racing (Items.js + RallyCombatFx.js): pickups, six items, victim-authoritative hits over Net (rl:pk / rl:fire / rl:mine / rl:burst / rl:hit).
 // Globals used: THREE, scene, camera, renderer, S, me, others, H, keys, banner, Net, myId, myName, entered, Fx, $, CarPhysics, Track, Pilot, RallyWorld, RALLY, TRACKS.
 const Rally=(()=>{
-  const CP=CarPhysics,Tk=Track,DT=1/60,TRACK_IDS=['skybreak-1','skybreak-2'];
+  const CP=CarPhysics,Tk=Track,DT=1/60,TRACK_IDS=['skybreak-1','skybreak-2','reef-run'];
   const clamp=(v,a,b)=>v<a?a:v>b?b:v,wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
   const ST={mode:'off',acc:0,startAt:0,t:0,go:false,cfg:null,ret:null,rid:null,partner:null,lastNet:0,finAt:0,shake:0,punch:0,flash:0,auto:false,err:0};
   const IN={ix:0,iy:0},BTN={boost:false,hand:false,rec:false,item:false,l:false,r:false,u:false,d:false,brake:false},touch=matchMedia&&matchMedia('(pointer:coarse)').matches;
@@ -183,7 +183,7 @@ const Rally=(()=>{
       <div class="rl-top"><div class="rl-pos"><b id="rlPos">1</b><span id="rlOf">/1</span></div>
         <div class="rl-mid"><div class="rl-time" id="rlTime">0:00.0</div><div class="rl-bar" id="rlBar"></div><div class="rl-gate" id="rlGate"></div></div>
         <div class="rl-spd"><b id="rlSpd">0</b><small>km/h</small><div class="rl-mode" id="rlMode">CAR</div><div class="rl-pips" id="rlPips"></div></div></div>
-      <div class="rl-lines" id="rlLines"></div><div class="rl-arrow" id="rlArrow"><i></i></div><div class="rl-lock" id="rlLock"></div><div class="rl-warn" id="rlWarn"></div><div class="rl-status" id="rlStatus"></div>
+      <div class="rl-water" id="rlWater"></div><div class="rl-lines" id="rlLines"></div><div class="rl-arrow" id="rlArrow"><i></i></div><div class="rl-lock" id="rlLock"></div><div class="rl-warn" id="rlWarn"></div><div class="rl-status" id="rlStatus"></div>
       <div class="rl-msg"></div><div class="rl-count" id="rlCount"></div>
       <div class="rl-btns"><button id="rlItem" class="rl-b rl-item"><span class="rl-ic">·</span><small>ITEM</small></button><button id="rlBoost" class="rl-b rl-boost">BOOST</button><button id="rlBrake" class="rl-b rl-brake">BRAKE</button><button id="rlHand" class="rl-b rl-hand">DRIFT</button><button id="rlRec" class="rl-b rl-rec">RECOVER</button><button id="rlExit" class="rl-b rl-exit">EXIT</button></div>
       <div class="rl-pad"><button id="rlU" class="rl-b rl-ar rl-u">▲</button><button id="rlL" class="rl-b rl-ar rl-l">◀</button><button id="rlD" class="rl-b rl-ar rl-d">▼</button><button id="rlR" class="rl-b rl-ar rl-r">▶</button></div>`;
@@ -219,6 +219,7 @@ const Rally=(()=>{
       const w=q('#rlWarn'),inc=IS&&IS.proj.find(p=>p.on&&p.kind==='rocket'&&p.tgt===ME.key);
       if(inc){const d=Math.hypot(inc.x-c.x,inc.y-c.y,inc.z-c.z);ST.warn=d<70;w.textContent='⚠ MISSILE '+Math.round(d)+' m';w.classList.toggle('on',ST.warn)}else{ST.warn=false;w.classList.remove('on')} }
     // speed lines: radial streaks at the screen edges that grow with speed and flare on boost
+    waterFx(ST.mode!=='off'&&camera.position.y<-.15&&T.subAt(camera.position.x,camera.position.z));
     { const ln=q('#rlLines'),v=c.s,b=c.boostT>0||c.padT>0,o=ST.mode==='race'?clamp((v-34)/30,0,1)*.55+(b?.3:0):0;ln.style.opacity=o.toFixed(2);ln.style.animationDuration=(b?.18:.32)+'s' }
     // arrow to the next gate
     const g=Tk.navGate(T,ME.r);if(g){const err=wrap(Math.atan2(g.x-c.x,g.z-c.z)-c.h);q('#rlArrow').style.transform='rotate('+(-err)+'rad)';q('#rlArrow').style.opacity=ST.mode==='race'?.85:0}
@@ -249,8 +250,8 @@ const Rally=(()=>{
     const trk=(k,l)=>`<button class="chip ${cfg.track===k?'on':''}" data-trk="${k}">${l}</button>`;
     const diff=(k,l)=>`<button class="chip ${cfg.diff===k?'on':''}" data-diff="${k}">${l}</button>`;
     sheet.innerHTML=`<h2>🏁 Skybreak Rally</h2>
-      <div class="rl-row">${trk('skybreak-1','Skybreak Classic')}${trk('skybreak-2','Grand Circuit · long')}</div>
-      <p class="rl-sub">${cfg.track==='skybreak-2'?'Palm ➜ Storm ➜ Frost ➜ Palm · 3 sky crossings · a dirt shortcut (Cay Cut) and gold bonus rings for extra seconds · lands back on Palm for the finish':'Palm Atoll ➜ Storm Cay ➜ Frost Isle · 2 ramp launches · 10 sky rings · fly between the islands'} · ${(T.roads.reduce((a,r)=>a+(r.alt?0:r.len),0)/1000).toFixed(1)} km of main road</p>
+      <div class="rl-row">${trk('skybreak-1','Skybreak Classic')}${trk('skybreak-2','Grand Circuit · long')}${trk('reef-run','Reef Run · dive')}</div>
+      <p class="rl-sub">${cfg.track==='reef-run'?'Palm ➜ Storm Cay · one crossing, two routes: launch off the big ramp and fly the rings, or dive into the REEF TUNNEL, a lit road on the seabed with pearl rings for bonus time · then the Storm S-bend to the finish':cfg.track==='skybreak-2'?'Palm ➜ Storm ➜ Frost ➜ Palm · 3 sky crossings · a dirt shortcut (Cay Cut) and gold bonus rings for extra seconds · lands back on Palm for the finish':'Palm Atoll ➜ Storm Cay ➜ Frost Isle · 2 ramp launches · 10 sky rings · fly between the islands'} · ${(T.roads.reduce((a,r)=>a+(r.alt?0:r.len),0)/1000).toFixed(1)} km of main road</p>
       <div class="rl-row">${cars}</div>
       <div class="rl-row">${mode('solo','⏱ Time trial')}${mode('ai','🤖 vs AI')}${mode('star','👥 vs '+pname,!partner)}</div>
       <div class="rl-row" id="rlDiff" style="display:${cfg.mode==='ai'||cfg.mode==='star'?'flex':'none'}"><small>AI rivals:</small>${diff('none','None')}${diff('easy','Easy')}${diff('normal','Normal')}${diff('hard','Hard')}</div>
@@ -440,6 +441,12 @@ const Rally=(()=>{
     x.c.x=v.x;x.c.y=v.y;x.c.z=v.z;x.c.h=v.h;x.c.pitch=v.pitch;x.c.roll=v.roll;x.c.mode=v.mode;x.c.boostT=v.boostT;x.c.padT=0;x.c.vx=p.vx;x.c.vz=p.vz;x.c.vy=p.vy;x.c.s=Math.hypot(p.vx,p.vy,p.vz);
     if(performance.now()-p.at>6000)x.seen=0;
   }
+  // underwater (the camera is below the waves over the reef tunnel): blue wash + bubbles on the screen and a short, teal fog; restored the moment you surface
+  let wetNow=false,fogSave=null;
+  function waterFx(on){
+    if(on===wetNow)return;wetNow=on;const w=document.getElementById('rlWater');if(w)w.style.opacity=on?'1':'0';
+    try{const f=scene.fog;if(!f||!f.isFog)return;if(on){fogSave={c:f.color.getHex(),n:f.near,f:f.far};f.color.setHex(0x0b4c78);f.near=4;f.far=190}else if(fogSave){f.color.setHex(fogSave.c);f.near=fogSave.n;f.far=fogSave.f;fogSave=null}}catch(e){}
+  }
   function chaseCamera(dt){
     const c=ME.c,fly=c.mode==='fly',v=c.s,t=performance.now()/1000;
     if(!camS.init){camS.yaw=c.h;camS.init=true;camS.x=c.x-Math.sin(c.h)*9;camS.y=c.y+4;camS.z=c.z-Math.cos(c.h)*9}
@@ -465,7 +472,7 @@ const Rally=(()=>{
       if(!world)ensureWorld();
       const now=performance.now(),wall=now/1000;
       ensureFab();
-      if(ST.mode==='off'){if(world)world.update(wall,-1,wall);return}
+      if(ST.mode==='off'){if(wetNow)waterFx(false);if(world)world.update(wall,-1,wall);return}
       dt=Math.min(dt,.05);
       if(ST.mode==='countdown'&&now>=ST.startAt){ST.mode='race';ST.t=0;toast('GO!',900);tone(880,.5,'square',.14);ST.punch=.8}
       ST.acc+=dt;let n=0;while(ST.acc>=DT&&n<4){simStep();ST.acc-=DT;n++}if(n===4)ST.acc=0;

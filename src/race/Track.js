@@ -55,11 +55,14 @@ const Track=(()=>{
       const s=Math.min(len,i*len/(m-1));while(j<cum.length-2&&cum[j+1]<s)j++;
       const f=cum[j+1]>cum[j]?(s-cum[j])/(cum[j+1]-cum[j]):0;
       X[i]=dx[j]+(dx[j+1]-dx[j])*f;Z[i]=dz[j]+(dz[j+1]-dz[j])*f;W[i]=dw[j]+(dw[j+1]-dw[j])*f;S[i]=s;
-      Y[i]=Math.max(env.H(X[i],Z[i])+.08,.45)+ddy[j]+(ddy[j+1]-ddy[j])*f;
+      const dd=ddy[j]+(ddy[j+1]-ddy[j])*f;
+      // sub (underwater) roads: dy is an ABSOLUTE height (negative = below sea level). The deck follows the beach and the seabed down (never inside the ground) until it
+      // reaches that depth, then runs level through the water: a tunnel on the seabed.
+      Y[i]=rd.sub?Math.max(env.H(X[i],Z[i])+.08,dd):Math.max(env.H(X[i],Z[i])+.08,.45)+dd;
     }
     for(let i=0;i<m;i++){const a=Math.max(0,i-1),b=Math.min(m-1,i+1),tx=X[b]-X[a],tz=Z[b]-Z[a],l=Math.hypot(tx,tz)||1;TX[i]=tx/l;TZ[i]=tz/l}
     const cs=ctl.map(k=>cum[k]); // arclength of each control point (gates / pads / hazards reference control points)
-    return {id:rd.id,m,X,Z,Y,W,S,TX,TZ,len,cs,sh:rd.shoulder==null?5:rd.shoulder,lipV:rd.lipV||0,alt:!!rd.alt,joinDef:rd.join||null,join:null};
+    return {id:rd.id,m,X,Z,Y,W,S,TX,TZ,len,cs,sh:rd.shoulder==null?5:rd.shoulder,lipV:rd.lipV||0,alt:!!rd.alt,sub:!!rd.sub,joinDef:rd.join||null,join:null};
   }
 
   function build(def,env){
@@ -95,6 +98,8 @@ const Track=(()=>{
       if(out)out.onRoad=onRoad&&!isNaN(best);
       return best;
     };
+    // is (x,z) over an underwater (sub) road? (the sea rescue and the underwater visuals ask this)
+    T.subAt=(x,z)=>{const a=hash.get(key(Math.floor(x/CELL),Math.floor(z/CELL)));if(a)for(let q=0;q<a.length;q+=2){const r=T.roads[a[q]];if(!r.sub)continue;const i=a[q+1];if(Math.hypot(x-r.X[i],z-r.Z[i])<r.W[i]/2+r.sh+2)return true}return false};
     T.ground=(x,z,y)=>{const d=T.deck(x,z,y,null);return d===d?d:env.H(x,z)};
     const _o={};
     T.surf=(x,z)=>{T.deck(x,z,1e4,_o);return _o.onRoad?ROAD:ROUGH};
@@ -311,7 +316,7 @@ const Track=(()=>{
   function needsRecovery(T,r,c,dt){
     r.gT+=dt;if(r.gT>25&&!r.finished){r.gT=0;return 'lost'}     // no gate for 25 s (fell onto the wrong lap, wandered off): rescue to the last gate
     if(c.grounded&&c.mode==='car'){
-      if(c.y<-.8)return 'water';
+      if(c.y<-.8){const d=T.deck(c.x,c.z,c.y+1.2,null);if(!(d===d&&c.y-d<1.2&&T.subAt(c.x,c.z)))return 'water'}   // in the sea = rescue, unless you are on an underwater road
       r.stuckT=Math.hypot(c.vx,c.vz)<1.5?r.stuckT+dt:0;if(r.stuckT>3){r.stuckT=0;return 'stuck'}
       const p=T.project(c.x,c.z,null,-1);r.lostT=p.dist>70?r.lostT+dt:0;if(r.lostT>5){r.lostT=0;return 'lost'}
     }else{r.stuckT=0;r.lostT=0;if(c.mode==='car'&&c.y<-6)return 'water'}

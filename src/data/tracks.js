@@ -146,3 +146,26 @@ const TRACKS={
     forks:[{road:'storm',at:3,alt:'storm-cut',name:'CAY CUT'}],
     landing:B.landing.concat([{x:PALM.x-60,z:PALM.z+105,r:110}])};
 })();
+
+// ======================================================================================================================================================
+// REEF RUN: Palm Atoll -> Storm Cay, one crossing, two ways. Past the Palm kicker the road forks: the SKY route (the big ramp and five rings, as in the classic) or the
+// REEF TUNNEL, a road laid on the SEABED: it follows the beach down into the sea, runs level at -5 m under the waves (sub road: dy is an absolute height) and climbs
+// the beach of Storm Cay into the touchdown strip. Gold pearl rings line the tunnel. Then the Storm S-bend and the finish on the west coast.
+// ======================================================================================================================================================
+(()=>{
+  const B=TRACKS['skybreak-1'];
+  const roads=[B.roads.find(r=>r.id==='palm-a'),B.roads.find(r=>r.id==='palm-b')];
+  const st=B.roads.find(r=>r.id==='storm');roads.push(Object.assign({},st,{pts:st.pts.slice(0,11)}));        // the S-bend only; the finish is at its end
+  const D=-5,tun=[[730,1224],[704,1213],[668,1201],[622,1196],[570,1206],[515,1232],[458,1276],[392,1340],[324,1414],[256,1492],[196,1566],[154,1624],[128,1662],[110,1690]];
+  roads.push({id:'reef-tunnel',w:14,alt:true,sub:true,shoulder:6,join:{road:'storm',p:.3},pts:tun.map(p=>[p[0],p[1],D,14])});
+  const gates=B.gates.slice(0,8).map(g=>Object.assign({},g));                                  // palm-a ... palm-b p2
+  gates[7].opt=true;                                                                           // palm-b p2 is inside the fork
+  const lip=B.gates[8],rings=B.gates.slice(9,14),td=B.gates[14];
+  gates.push(Object.assign({},lip,{opt:true}));for(const r of rings)gates.push(Object.assign({},r,{opt:true}));
+  gates.push(Object.assign({},td),{road:'storm',p:5},{road:'storm',p:8},{road:'storm',p:10,r:16,finish:true,k:'finish'});
+  const ringAt=i=>{const a=tun[i-1],b=tun[i+1],h=Math.atan2(b[0]-a[0],b[1]-a[1]);return {x:tun[i][0],y:-3.6,z:tun[i][1],h,r:9,secs:2.0,name:'PEARL RING'}};
+  const pads=B.pads.slice(0,5).concat([{road:'reef-tunnel',p:4,len:16,w:10},{road:'reef-tunnel',p:7,len:16,w:10},{road:'reef-tunnel',p:10,len:16,w:10}]);
+  const items=B.items.slice(0,10).concat([{road:'reef-tunnel',p:5.5,lat:[-3,0,3]},{road:'reef-tunnel',p:8.5,lat:[-2,2]},{road:'reef-tunnel',p:11.5,lat:[0]}]);
+  TRACKS['reef-run']={id:'reef-run',name:'Reef Run: Palm - Storm (sky or sea)',mode:'p2p',roads,gates,pads,hazards:B.hazards.slice(0,2),items,
+    bonus:[ringAt(5),ringAt(8),ringAt(11)],forks:[{road:'palm-b',at:1,alt:'reef-tunnel',name:'REEF TUNNEL'}],landing:B.landing.slice(0,1)};
+})();

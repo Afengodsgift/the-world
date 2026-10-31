@@ -76,3 +76,6 @@ body.rl-flash::after{content:'';position:fixed;inset:0;background:radial-gradien
 .rl-pad .rl-u{left:70px;top:0}.rl-pad .rl-l{left:0;bottom:0}.rl-pad .rl-d{left:70px;bottom:0}.rl-pad .rl-r{left:140px;bottom:0}
 .rl-brake{width:72px;height:72px;font-size:12px;position:absolute;right:196px;bottom:0;background:rgba(200,40,40,.7);border-color:#ffb0a8}
 @media (max-height:420px){.rl-ar{width:58px;height:58px}.rl-pad{width:182px;height:122px}.rl-pad .rl-u{left:62px}.rl-pad .rl-d{left:62px}.rl-pad .rl-r{left:124px}}
+
+.rl-water{position:fixed;inset:0;pointer-events:none;z-index:8;opacity:0;transition:opacity .3s;background:radial-gradient(ellipse at 50% 60%,rgba(40,150,200,.18),rgba(6,60,115,.55)),repeating-radial-gradient(circle at 20% 110%,rgba(200,240,255,.0) 0 18px,rgba(200,240,255,.12) 19px 21px,rgba(200,240,255,0) 22px 60px);animation:rlbub 2.4s linear infinite}
+@keyframes rlbub{to{background-position:0 0,0 -140px}}
