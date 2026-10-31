@@ -256,7 +256,7 @@ const PlayerCombat=(()=>{
       case'light':{assist();reject();const c={t:'light',e:C.tick},d=stickDir(),fa=pendFace!==null?pendFace:S.rot;if(d&&d[0]*Math.sin(fa)+d[1]*Math.cos(fa)>.6)c.adv=true;if(D&&D.act!=='dead'&&Math.hypot(D.x-P.x,D.z-P.z)>4.5)c.far=true;ST.input('P',c,t);break}
       case'heavy':if(down.heavy)return true;assist();reject();down.heavy=true;ST.input('P',{t:'heavyDown',e:C.tick},t);break;
       case'guard':if(down.guard)return true;down.guard=true;ST.input('P',{t:'guardDown',e:C.tick},t);break;
-      case'dodge':{const d=stickDir();const c={t:'dodge',e:C.tick};if(d){c.dx=d[0];c.dz=d[1]}ST.input('P',c,t);break}
+      case'dodge':{const d=stickDir();const c={t:'dodge',e:C.tick};if(d){c.dx=d[0];c.dz=d[1];if(lock&&D&&D.act!=='dead'&&!ult){const fx=D.x-P.x,fz=D.z-P.z,L=Math.hypot(fx,fz)||1;if(Math.abs((d[0]*fx+d[1]*fz)/L)<.55){c.side=1;if(!sideTip){sideTip=1;toast('Locked on + stick sideways = quick Sidestep',2.6)}}}}ST.input('P',c,t);break}
       case'flow':flowPress(t);break;
       case'ihp':useFlask('hp');break;case'ist':useFlask('st');break;case'imt':useFlask('mt');break;
       case'lock':toggleLock();break;
@@ -364,7 +364,7 @@ const PlayerCombat=(()=>{
     for(const F of foes)freeBody(F.body);foes=[];byId={};
     const ids=Foes.ids(site.foes.length);
     site.foes.forEach((def,i)=>{
-      const T=site.duel&&DU.pair?duelT():Foes.TYPES[def.t],id=ids[i],hum=!!T.human,Ld=hum?duelSide():0,f=C.F[id]=CombatCore.mkFighter(id,{x:WRD.x+site.x+(hum?0:def.dx),z:WRD.z+site.z+(hum?-9*Ld:def.dz),face:hum&&Ld<0?0:Math.PI,hp:hum?100:Math.round(T.hp*foeMul().hp),team:'e',sa:!hum&&(T.sa||WardenProg.cycleMul().sa)?1:0,dm:hum?1:(T.dm||1)*foeMul().dm,rm:T.rm||1,pg:!hum&&T.boss?.5:0,rise:!hum&&T.boss&&T.rise?1:0});
+      const T=site.duel&&DU.pair?duelT():Foes.TYPES[def.t],id=ids[i],hum=!!T.human,Ld=hum?duelSide():0,f=C.F[id]=CombatCore.mkFighter(id,{x:WRD.x+site.x+(hum?0:def.dx),z:WRD.z+site.z+(hum?-9*Ld:def.dz),face:hum&&Ld<0?0:Math.PI,hp:hum?100:Math.round(T.hp*foeMul().hp),team:'e',sa:!hum&&(T.sa||WardenProg.cycleMul().sa)?1:0,dm:hum?1:(T.dm||1)*foeMul().dm,rm:T.rm||1,pg:!hum&&T.boss?.5:0,rise:!hum&&T.boss&&T.rise?1:0,tm:hum?1:(T.tm||1)});
       if(!C.order.includes(id))C.order.push(id);f.r=T.r;f.spd=(T.spd||1.3)*WardenProg.cycleMul().spd;
       const b=body(T,i);b.g.scale.setScalar(T.scale);b.g.position.set(f.x,H(f.x,f.z),f.z);b.g.rotation.y=f.face;
       if(b.u.mixer&&typeof emoStop==='function'&&T.body==='avatar')emoStop(b.u);
@@ -501,6 +501,7 @@ const PlayerCombat=(()=>{
     const put=(F,a,r)=>{F.f.x=A.x+Math.sin(a)*ring;F.f.z=A.z+Math.cos(a)*ring;F.f.face=Math.atan2(SL[r].x-F.f.x,SL[r].z-F.f.z);F.f.vx=F.f.vz=0};
     put(B,a0+pl.off[0],pl.roles[0]);for(let k=1;k<pl.off.length;k++){const G=addGhost(B,k-1,0,0);ult.all.push(G);put(G,a0+pl.off[k],pl.roles[k])}
     ult.all.forEach((F,k)=>{if(pl.roles[k]===role)ult.mine.add(F.id)});
+    for(const F of ult.all){F.rm0=F.f.rm;F.f.rm=1}   // the barrage strike is timed for a normal-reach attacker: a big boss (Artorias, rm 1.4) otherwise reaches past the dodge's hop and the perfect dodge never works
     if(co&&NET.mode==='host')try{WardenNet.send({k:'sp',t:'bs',s:site.id,b:B.id,a:+a0.toFixed(4)})}catch(e){}
     for(const F of ult.all){F.script=true;F.body.g.position.set(F.f.x,H(F.f.x,F.f.z),F.f.z)}
     tsc=.5;barUI().style.display='block';barEl.classList.add('on');bq('.tx').classList.remove('on');
@@ -510,7 +511,7 @@ const PlayerCombat=(()=>{
     msg('PHANTOM BARRAGE',1.4)}
   function endBarrage(){
     if(!ult)return;const U=ult;ult=null;tsc=1;
-    for(const F of U.all){if(F.ghost){try{WardenVfx.burst(F.f.x,H(F.f.x,F.f.z)+1.2,F.f.z,1)}catch(e){}rmGhost(F)}else{F.script=false;F.ai.cool=Math.max(F.ai.cool||0,70)}}
+    for(const F of U.all){if(F.ghost){try{WardenVfx.burst(F.f.x,H(F.f.x,F.f.z)+1.2,F.f.z,1)}catch(e){}rmGhost(F)}else{F.script=false;if(F.rm0)F.f.rm=F.rm0;F.ai.cool=Math.max(F.ai.cool||0,70)}}
     try{CineCam.skip()}catch(e){}
     barLanes(false);
     if(barEl){barEl.classList.remove('on');barEl.style.display='none';bq('.tx').classList.remove('on');bq('.rr').classList.remove('on');for(const q of barEl.querySelectorAll('.rg'))q.style.opacity=0}
@@ -646,7 +647,7 @@ const PlayerCombat=(()=>{
         if(f.act==='attack'&&f.ph&&f.ph[f.pi]&&f.ph[f.pi].k==='release'&&f.pk===0){   // the reappearance
           const sp=B.spot||Tricks.blinkSpot(tg.x,tg.z,tg.face,C.arena);try{WardenVfx.burst(sp.x,H(sp.x,sp.z)+1.2,sp.z,1);WardenVfx.slash(sp.x,H(sp.x,sp.z)+1.2,sp.z,tg.face,true,1);sfx('whoosh',.6,.7,()=>tone(200,80,.2,'sawtooth',.1))}catch(x){}
           f.x=sp.x;f.z=sp.z;f.face=Math.atan2(tg.x-sp.x,tg.z-sp.z);f.act='free';f.ph=null;f.mv=null;f.inv=0;f.pt=0;f.pk=0;F.ai.cool=0;F.ai.busy=false;
-          F.ai.follow=F.T.ai==='samurai'||F.T.ai==='veil'?(F.ai.ph2&&!F.ai.chain&&Math.random()<(F.ai.cov?.95:.55)?(F.ai.chain=1,'blink'):(F.ai.chain=0,Math.random()<.7?'iai':'cut')):Math.random()<.45?'twin':'cut';blinkEnd(F)}}
+          F.ai.follow=F.T.ai==='samurai'||F.T.ai==='veil'?(F.ai.ph2&&!F.ai.chain&&Math.random()<(F.ai.cov?.95:.55)?(F.ai.chain=1,'blink'):(F.ai.chain=0,F.T.ai==='samurai'&&F.ai.ph3&&Math.random()<.4?'hundred':Math.random()<.7?'iai':'cut')):Math.random()<.45?'twin':'cut';blinkEnd(F)}}
       if(F.sn){const S_=F.sn;S_.n++;if(f.act!=='attack'||!f.mv||f.mv.id!=='snare'){F.sn=null;continue}
         if(f.ph&&f.ph[f.pi]&&f.ph[f.pi].k==='release'&&f.pk===0){F.sn=null;const tg=C.F[S_.tg]||P,n=Tricks.count(F.ai.ph2,!!(Q&&NET.mode==='host')),seed=(Math.random()*2147483647)|0,cn=++trapN;
           trapsPlace(seed,n,tg.x,tg.z,cn);try{if(NET.mode==='host'&&Q)WardenNet.send({k:'sp',t:'tp',s:site.id,seed,n,x:+tg.x.toFixed(2),z:+tg.z.toFixed(2),c:cn})}catch(x){}}}}}
@@ -667,9 +668,19 @@ const PlayerCombat=(()=>{
     else if(p.t==='vh'&&NET.mode==='host'){const A=byId[p.b];if(A&&A.f.act!=='dead'&&A.T.vamp){const h=Math.min(+p.h||0,A.f.hpMax*.1);A.f.hp=Math.min(A.f.hpMax,A.f.hp+h);A.drunk=(A.drunk||0)+h}}
     else if(p.t==='bg'&&NET.mode==='host'){const F=byId[p.b];if(F&&F.f.act==='attack'&&F.f.mv&&F.f.mv.bg)CombatCore.stun(F.f,84,'stagger')}
     else if(p.t==='br'&&NET.mode==='guest'){const F=byId[p.b];if(F&&F.f.act==='attack'&&F.f.mv&&F.f.mv.id==='blink')blinkRing(p.x,p.z,true)}}
+  let pun=null;
+  function punTick(dt){   // after a perfect barrage: you vault onto the boss and the Plunge Strike lands on his broken guard
+    const q=pun,B=q.B;q.t+=dt;if(!on||P.act==='dead'||!B||B.f.act==='dead'||state!=='fight'){pun=null;return}
+    if(q.s===0){const dx=B.f.x-P.x,dz=B.f.z-P.z,d=Math.hypot(dx,dz),a=Math.atan2(dx,dz);
+      if(d>2.6){CombatCore.moveBy(C,P,dx/d*(d-2.3),dz/d*(d-2.3));S.x=P.x;S.z=P.z;lx=S.x;lz=S.z}
+      S.rot=P.face=a;pendFace=null;
+      if(P.act==='free'&&S.grounded){jumpQ=true;q.s=1;q.t=0;msg('PUNISH',.9);try{tone(500,1300,.2,'triangle',.13)}catch(e){}}else if(q.t>.7)pun=null;return}
+    if(q.s===1&&q.t>.24){ST.input('P',{t:'light',e:C.tick,adv:false},now());q.s=2;q.t=0;return}
+    if(q.s===2&&q.t>1.3)pun=null}
   function barrageTick(dt){
     if(ult&&ult.kind==='echo'){echoTick(dt);return}
     if(!ult){
+      if(pun){punTick(dt);return}
       if(!on||state!=='fight'||P.act!=='free'||P.hp<25||NET.mode==='guest'||Q&&Q.act==='dead'||CineCam.busy())return;
       for(const F of foes){if(!F.T.barrage||F.ghost||!F.awake||F.f.act!=='free'||F.f.inv>0)continue;const s=Barrage.stage(F.f.hp/F.f.hpMax);if(s>(F.bar||0)){F.bar=s;startBarrage(F);return}}
       for(const F of foes){if(!F.T.echo||F.ghost||!F.awake||F.f.act!=='free'||F.f.inv>0)continue;const s=Echo.stage(F.f.hp/F.f.hpMax);if(s>(F.ech||0)){F.ech=s;startEcho(F,{co:!!(Q&&NET.mode==='host'),seed:(Math.random()*2147483647)|0,st:s});return}}
@@ -689,13 +700,23 @@ const PlayerCombat=(()=>{
       const tk=C.tick-U.T0;tsc=Barrage.speed(tk,0);
       const r=Barrage.ring(tk),rs=bq('.rs');rs.style.opacity=tk>4?1:0;const sz=14+30*Math.max(0,1-r);rs.style.width=rs.style.height=sz+'vmin';rs.classList.toggle('go',Barrage.inWindow(tk));bq('.rt').style.opacity=tk>4?1:0;
       const fin=tk>40||(tk>14&&U.all.every(F=>F.f.act==='free'));
-      if(fin){U.ph='out';U.t2=0;U.res=U.hits===0?'perfect':'hit';
+      if(fin){U.ph='out';U.t2=0;U.res=U.hits===0?'perfect':'hit';if(U.res==='perfect'){U.ph='def';U.def={k:0,t:0,n:0,list:U.all.filter(F=>U.mine.has(F.id)),wait:0}}
         for(const q of barEl.querySelectorAll('.rg'))q.style.opacity=0;bq('.tx').classList.remove('on');try{el.querySelector('#wDodge').classList.remove('pulse')}catch(e){}
         const rr=bq('.rr');rr.classList.add('on');
-        if(U.res==='perfect'){rr.textContent='PERFECT DODGE';rr.style.color='#ffe27a';flash(.8,'rgba(255,236,150,.9)');try{CameraRig.shake(.7);tone(900,1800,.35,'triangle',.14);tone(1300,2200,.3,'sine',.1)}catch(e){}
+        if(U.res==='perfect'){rr.textContent='DEFLECTED';rr.style.color='#ffe27a';flash(.8,'rgba(255,236,150,.9)');try{CameraRig.shake(.7);tone(900,1800,.35,'triangle',.14);tone(1300,2200,.3,'sine',.1)}catch(e){}
           const B=U.B,rw=Barrage.reward(U.co);if(NET.mode==='guest'){try{WardenNet.send({k:'sp',t:'r',s:site.id,ok:1})}catch(e){}}else bossReel(B,rw);flowAdd(60);P.st=P.stMax;
           for(const F of U.all){try{WardenVfx.clash(F.f.x,H(F.f.x,F.f.z)+1.3,F.f.z,true)}catch(e){}}}
         else{rr.textContent='OVERWHELMED';rr.style.color='#ff5a4a';flash(.9,'rgba(255,60,40,.85)');try{CameraRig.shake(.9)}catch(e){}}}
+      return}
+    if(U.ph==='def'){   // the three blades are turned aside ONE BY ONE in slow motion (you swing at each: sparks, ring tone, shake, he recoils), then you leap onto the boss
+      tsc=.42;const q=U.def;q.t+=rdt;q.wait+=rdt;
+      if(q.k===0&&P.act!=='free'&&q.wait<.5){q.t=0;return}
+      if(q.k<q.list.length&&q.t>=q.k*.66){const A=q.list[q.k];
+        try{const a=Math.atan2(A.f.x-P.x,A.f.z-P.z);S.rot=P.face=a;pendFace=null;parryAlt^=1;if(pAnim)pAnim.flick=parryAlt?{t:0,c:'slash',a:.28,b:.7,d:.42}:{t:0,c:'atk4',a:.12,b:.56,d:.42};
+          const mx=(P.x+A.f.x)/2,mz=(P.z+A.f.z)/2,y=H(mx,mz)+1.35;WardenVfx.clash(mx,y,mz,true);WardenVfx.clash(mx,y+.1,mz,true);WardenVfx.burst(mx,y,mz,3);
+          tone(900+q.k*330,1700+q.k*400,.2,'triangle',.14);tone(300,150,.1,'square',.1);CombatCore.stun(A.f,56,'recoil');if(bc)bc.sh=.5}catch(e){}
+        flash(.45,'rgba(190,225,255,.9)');try{CameraRig.shake(.5)}catch(e){}msg('DEFLECT '+(q.k+1)+' / '+q.list.length,.55);q.k++}
+      if(q.k>=q.list.length&&q.t>=q.k*.66+.45){const B=U.B;endBarrage();if(B&&B.f.act!=='dead')pun={t:0,s:0,B};return}
       return}
     // 'out': ease back to normal speed, then clean up
     tsc=Barrage.speed(0,Math.max(.001,Math.min(1,U.t2/.9)));U.t2+=rdt;
@@ -703,7 +724,7 @@ const PlayerCombat=(()=>{
   // ================= FIGHT JUMP + AFTERIMAGE (Shadow) =================
   // Jump: the normal jump (index.html), now a button in the fight HUD. While you are high enough, ground attacks whiff (SwordHit's height band) - it costs stamina and has a short cooldown so it is a dodge, not a god mode.
   // Shadow: you blink away (+ a dodge's invulnerability) and leave an afterimage for a few seconds. Every foe aims at it, hits it, and it bursts after two hits or when time runs out.
-  let jumpTip=0,jumpCd=0,shCd=0,decoy=null,rdecoy=null,gBase=0;
+  let sideTip=0,jumpTip=0,jumpCd=0,shCd=0,decoy=null,rdecoy=null,gBase=0;
   function fightJump(){
     if(!on||ult||P.act==='dead'||jumpCd>0||!S.grounded||S.flying||P.st<10)return false;
     if(P.act==='attack'||P.act==='stun'||P.act==='dodge')return false;P.st-=10;jumpCd=.9;jumpQ=true;if(!jumpTip){jumpTip=1;toast('Jump + Light = Plunge Strike',2.6)}return true}
@@ -752,7 +773,7 @@ const PlayerCombat=(()=>{
     if(S.grounded||S.state==='swim')gBase=S.y;P.y=Math.max(0,S.y-gBase);
     decoyTick(decoy,'Z',dt);decoyTick(rdecoy,'Y',dt);
     const b=el&&el.querySelector('#wShadow');if(b){const t=shCd>0?Math.ceil(shCd):0;if(b._c!==t){b._c=t;b.textContent=t?'Shadow '+t:'Shadow';b.classList.toggle('cd',t>0)}}}
-  function leave(hold){   // hold: keep the corpses of a cleared site in the world
+  function leave(hold){pun=null;   // hold: keep the corpses of a cleared site in the world
     if(!on)return;endSet();trapsClear();try{blinkRing(0,0,false)}catch(e){}killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');document.body.classList.remove('warden-duel');if(sword&&sword.grip)sword.grip.visible=false;if(sword2&&sword2.grip)sword2.grip.visible=false;pendFace=null;
     if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
@@ -773,8 +794,15 @@ const PlayerCombat=(()=>{
       WardenVfx.spawn(f.x,y,f.z,3,3,big?3.2:2.2,Math.random()*6.28,30);if(big)WardenVfx.spawn(f.x,y,f.z,0,3,3.8,Math.random()*6.28,26);
       flash(big?.55:.26);try{CameraRig.shake(big?.5:.22)}catch(x){}}
     else if(e.t==='brokenguard'&&e.d==='P'){flash(.6,'rgba(255,220,140,.9)');try{CameraRig.shake(.5)}catch(x){}if(NET.mode==='guest'){try{WardenNet.send({k:'sp',t:'bg',b:e.a})}catch(x){}}}
-    else if(e.t==='deflect'&&e.d==='P'){flash(.4,'rgba(190,225,255,.85)');try{CameraRig.shake(.3)}catch(x){}}
+    else if(e.t==='deflect'&&e.d==='P'){flash(.4,'rgba(190,225,255,.85)');try{CameraRig.shake(.42)}catch(x){}parryFx(e)}
     else if(e.t==='dodge'&&e.a==='P'){WardenVfx.spawn(P.x,H(P.x,P.z)+1,P.z,2,4,2.8,-P.face+Math.PI/2,30)}}
+  // PARRY: a real sweep of the sword (pAnim.flick, alternating sides), a short hit-stop so you SEE the clash, a double burst of sparks between you and him, a bright ring and a rising ring tone
+  let parryAlt=0,hsT=0;
+  function parryFx(e){
+    if(ult)return;parryAlt^=1;hsT=.13;
+    if(pAnim)pAnim.flick=parryAlt?{t:0,c:'slash',a:.28,b:.7,d:.3}:{t:0,c:'atk4',a:.12,b:.56,d:.3};
+    try{const A=byId[e.a],ax=A?A.f.x:P.x+Math.sin(P.face),az=A?A.f.z:P.z+Math.cos(P.face),mx=(P.x*2+ax)/3,mz=(P.z*2+az)/3,y=H(mx,mz)+1.35;WardenVfx.clash(mx,y,mz,true);WardenVfx.clash(mx,y+.12,mz,true);WardenVfx.burst(mx,y,mz,3);tone(1900,2600,.12,'triangle',.1)}catch(x){}
+    msg('PARRY',.45)}
   function vfxAt(e,f){const y=H(f.x,f.z)+1.3;if(e.t==='hit')WardenVfx.hit(f.x,y,f.z,e.crit,e.dmg>=20);else if(e.t==='block')WardenVfx.clash(f.x,y,f.z);else if(e.t==='deflect')WardenVfx.clash(f.x,y,f.z,true);else WardenVfx.burst(f.x,y,f.z,e.t==='posturebreak'?0:3)}
   function events(evs){
     echoEvents(evs);
@@ -826,7 +854,7 @@ const PlayerCombat=(()=>{
     if(S.flying||S.state==='swim'){leave(false);return}
     if(site.fog||site.duel&&DU.pair){if((state!=='won'||site.duel)&&d>site.R-.8){const k=(site.R-.8)/d;S.x=WRD.x+site.x+(wx-site.x)*k;S.z=WRD.z+site.z+(wz-site.z)*k}}      // the fog gate holds you in until the foe is felled
     else if(d>site.R+(site.wall?1.5:4)){leave(false);return}
-    {const rn=performance.now();if(!vl)vl=rn;vt+=Math.min(100,rn-vl)*tsc;vl=rn;dt*=tsc}
+    {const rn=performance.now();if(!vl)vl=rn;const rd=Math.min(100,rn-vl);if(!ult){if(hsT>0){hsT-=rd/1000;tsc=.16}else if(tsc===.16)tsc=1}vt+=rd*tsc;vl=rn;dt*=tsc}
     ensureAvatars();duelNet(dt);
     // end-of-fight handling
     if(spectate&&(!Q||Q.act==='dead')){spectate=false;state='lost';stateT=performance.now()}

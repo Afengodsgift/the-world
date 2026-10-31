@@ -26,6 +26,7 @@ const Moves={
   whirl:{id:'whirl',who:'P',stam:26,dmg:30,pdmg:40,hs:8,stun:28,kb:1.3,reach:2.8,w:.14,phases:[ph('startup',15),ph('active',7,{seg:0,a0:3.1,a1:-3.1}),ph('recovery',32)],cancel:{dodge:14}},
   martelo:{id:'martelo',who:'P',stam:0,dmg:42,pdmg:50,hs:9,stun:30,kb:1.0,reach:2.8,w:.14,phases:[ph('startup',20),ph('active',5,{seg:0,a0:.3,a1:-.3}),ph('recovery',32)],cancel:{dodge:14}},
   rasteira:{id:'rasteira',who:'P',stam:0,dmg:22,pdmg:38,hs:6,stun:44,kb:1.6,reach:3.2,w:.15,phases:[ph('startup',18),ph('active',6,{seg:0,a0:1.3,a1:-1.3}),ph('recovery',30)],cancel:{dodge:14}},
+  sidestep:{id:'sidestep',who:'*',stam:10,total:16,iStart:2,iEnd:9,dist:2.3,rootT0:1,rootT1:10},   // a short, cheap lateral step (locked on, stick sideways): fewer i-frames and a shorter hop than the roll, but you recover fast and keep facing them
   dodge:{id:'dodge',who:'*',stam:18,total:22,iStart:3,iEnd:11,dist:3.2,rootT0:1,rootT1:14},   // invulnerable pt 3..11 inclusive (9 ticks); vulnerable 12..21; can act at 22
   // ---- Duelist ----
   cut:{id:'cut',who:'D',dmg:14,pdmg:12,hs:4,stun:18,kb:.5,reach:2.3,w:.12,phases:[ph('startup',20),ph('active',4,{seg:0,a0:.7,a1:-.7}),ph('recovery',20)]},
@@ -65,6 +66,7 @@ const Moves={
   crossflame:{id:'crossflame',who:'D',dmg:20,pdmg:18,hs:5,stun:20,kb:.7,reach:16,w:0,fx:[{on:'release',k:'proj',spd:.38,life:70,r:.45,off:1},{on:'release2',k:'proj',spd:.38,life:70,r:.45,off:1}],phases:[ph('cast',28),ph('release',2),ph('rechamber',22),ph('release2',2),ph('recovery',34)]},   // two waves in a row, the second a beat after the first (Ashina Cross)
   kingsfall:{id:'kingsfall',who:'D',dmg:34,pdmg:30,hs:8,stun:28,kb:1.5,reach:7,w:0,fx:[{on:'start',k:'aoe',at:'target',ox:0,oz:0,r:3.6,delay:56,dur:3}],phases:[ph('windup',36),ph('lunge',18,{move:5.5}),ph('release',2),ph('recovery',56)]},   // he marks where you stand, leaps, and the sun comes down there: leave the ring
   flurry:{id:'flurry',who:'D',dmg:15,pdmg:13,hs:4,stun:18,kb:.5,reach:3,w:.13,phases:[ph('startup',24),ph('active',4,{seg:0,a0:.8,a1:-.8}),ph('rechamber',20),ph('active',4,{seg:1,a0:-.8,a1:.8}),ph('rechamber',20),ph('active',4,{seg:2,a0:.9,a1:-.9}),ph('recovery',54)]},   // Waterfowl-style: three quick cuts you can dodge THROUGH; the long recovery is the opening
+  hundred:{id:'hundred',who:'D',dmg:13,pdmg:12,hs:4,stun:16,kb:.5,reach:3.2,w:.13,phases:[ph('startup',26),ph('active',4,{seg:0,a0:.8,a1:-.8}),ph('rechamber',20,{move:1.2}),ph('active',4,{seg:1,a0:-.8,a1:.8}),ph('rechamber',20,{move:1.2}),ph('active',4,{seg:2,a0:.8,a1:-.8}),ph('rechamber',20,{move:1.2}),ph('active',5,{seg:3,a0:-1,a1:1}),ph('recovery',62)]},   // Kage's peak: Hundred Shadows - four cuts chasing you in a row (each one a beat apart: dodge through or deflect them), then a long, open recovery
   pursuit:{id:'pursuit',who:'D',dmg:22,pdmg:20,hs:5,stun:22,kb:.9,reach:3.1,w:.12,phases:[ph('windup',20),ph('lunge',14,{move:5}),ph('active',5,{seg:0,a0:.5,a1:-.5}),ph('recovery',46)]},   // Iron Pursuit: he crosses the room at you
   lance:{id:'lance',who:'D',dmg:26,pdmg:24,hs:6,stun:24,kb:.8,reach:20,w:0,fx:[{on:'release',k:'proj',spd:.5,life:60,r:.45,off:1}],phases:[ph('cast',34),ph('release',2),ph('recovery',34)]},   // Judgment Lance: one fast, long, readable bolt
   returning:{id:'returning',who:'D',dmg:18,pdmg:16,hs:5,stun:20,kb:.6,reach:18,w:0,fx:[{on:'release',k:'proj',spd:.34,life:70,r:.4,off:1},{on:'release2',k:'proj',spd:.34,life:70,r:.4,off:1}],phases:[ph('cast',30),ph('release',2),ph('rechamber',34),ph('release2',2),ph('recovery',36)]},   // the Returning Spear: a second blade follows the first
@@ -80,11 +82,13 @@ for(const k of Object.keys(Moves)){const m=Moves[k];if(!m||m.who!=='P'||!m.phase
     if(p.k==='recovery')return Object.assign({},p,{n:Math.max(TEMPO.minRec,Math.round(p.n*TEMPO.rec))});return p})}
 Moves.TEMPO=TEMPO;
 // expand a move into concrete phases (hold ticks decided at start, clamped to HOLD_MAX)
-Moves.expand=(id,hold)=>{const m=Moves[id];return m.phases.map(p=>p.k==='hold'?Object.assign({},p,{n:Math.max(0,Math.min(HOLD_MAX,hold|0))}):p)};
+// tm = a fighter's tempo (Kage's 1.3): windups, rechambers and recoveries run that much faster. Active frames, holds, travelling phases and moves with a ground telegraph (fx) keep their timing, and no tell drops under 14 ticks.
+Moves.expand=(id,hold,tm)=>{const m=Moves[id],fast=tm>1&&!m.fx&&m.who==='D';return m.phases.map(p=>p.k==='hold'?Object.assign({},p,{n:Math.max(0,Math.min(HOLD_MAX,hold|0))}):fast&&p.k!=='active'&&!p.move&&p.n>0?Object.assign({},p,{n:Math.max(p.k==='recovery'?16:14,Math.round(p.n/tm))}):p)};
 Moves.total=(id,hold)=>Moves.expand(id,hold).reduce((a,p)=>a+p.n,0);
 // tell for each hit segment = ticks of visible wind-up since the last still pose (action start, a hold, or the previous active/recovery)
 Moves.tells=(id,hold)=>{const o=[];let t=0;for(const p of Moves.expand(id,hold)){if(p.k==='active'){o.push(t);t=0}else if(p.k==='hold')t=0;else if(p.k==='recovery')t=0;else t+=p.n}return o};
 // sum of the recovery phase that ends the move
 Moves.endRecovery=id=>{const L=Moves[id].phases;return L[L.length-1].k==='recovery'?L[L.length-1].n:0};
 // dodge root motion: ease-out over ticks rootT0..rootT1, per-tick metres, sums to dist
+Moves.sideRoot=(()=>{const d=Moves.sidestep,n=d.rootT1-d.rootT0+1,w=[];let s=0;for(let i=0;i<n;i++){const v=1-i/n;w.push(v);s+=v}return w.map(v=>v/s*d.dist)})();
 Moves.dodgeRoot=(()=>{const d=Moves.dodge,n=d.rootT1-d.rootT0+1,w=[];let s=0;for(let i=0;i<n;i++){const v=1-i/n;w.push(v);s+=v}return w.map(v=>v/s*d.dist)})();

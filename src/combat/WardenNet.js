@@ -14,7 +14,7 @@ const WardenNet=(()=>{
     const px=f.x,pz=f.z;for(const k of FIELDS)if(o[k]!==undefined&&k!=='x'&&k!=='z')f[k]=o[k];
     const d=Math.hypot(o.x-px,o.z-pz),b=pos===undefined?1:pos;if(b>=1||d>2.5){f.x=o.x;f.z=o.z}else if(b>0){f.x=px+(o.x-px)*b;f.z=pz+(o.z-pz)*b}
     f.dir=o.dir||null;f.done={};for(const k of o.done||[])f.done[k]=true;
-    if(o.act==='attack'&&o.mv&&M[o.mv]){f.mv=M[o.mv];f.ph=M.expand(o.mv,o.hold|0)}else{f.mv=o.mv&&M[o.mv]?M[o.mv]:null;f.ph=null;if(o.act==='attack'){f.act='free'}}
+    if(o.act==='attack'&&o.mv&&M[o.mv]){f.mv=M[o.mv];f.ph=M.expand(o.mv,o.hold|0,f.tm)}else{f.mv=o.mv&&M[o.mv]?M[o.mv]:null;f.ph=null;if(o.act==='attack'){f.act='free'}}
     return f}
   // ---------- session ----------
   const S={mode:'solo',site:null,partner:null,helloAt:{},last:{},gotSnap:0,gotRep:0,rep:null,snap:null,starts:[],joined:false,left:false,t0:0,h:null};
