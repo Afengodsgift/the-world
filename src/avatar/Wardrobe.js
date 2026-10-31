@@ -67,15 +67,17 @@ const Wardrobe=(()=>{
     for(const id of Object.keys(K.CAT)){const b=el('button','chip'+(c.b===id?' sel':''),K.CAT[id].label+' · '+K.CAT[id].name);b.onclick=()=>set({b:id});row.appendChild(b)}
     sec(K.CAT[c.b].headLabel+' colour');row=sc.appendChild(el('div','row'));
     K.HAIR.forEach((h,i)=>{const b=el('button','sw'+(c.hc===i?' sel':''));b.title=h[0];b.setAttribute('aria-label',h[0]);b.style.background=h[1]==null?'conic-gradient(#3b2a22,#7a6a58,#2a2a30,#3b2a22)':hex(h[1]);b.onclick=()=>set({hc:i});row.appendChild(b)});
-    sec('Outfit');row=sc.appendChild(el('div','row'));
-    for(const L of K.LOOKS){const b=el('button','chip'+(c.o===L.id?' sel':''),L.name);b.onclick=()=>set({o:L.id});row.appendChild(b)}
-    const pal=K.palFor(c.o);
-    if(pal.length){sec('Clothing colour');row=sc.appendChild(el('div','row'));
+    sec('Outfit set');row=sc.appendChild(el('div','row'));
+    for(const O of K.OUTFITS){const b=el('button','chip'+(c.w===O.id?' sel':''),O.name);b.onclick=()=>set({w:O.id});row.appendChild(b)}
+    if(!c.w){sec('Outfit look');row=sc.appendChild(el('div','row'));
+      for(const L of K.LOOKS){const b=el('button','chip'+(c.o===L.id?' sel':''),L.name);b.onclick=()=>set({o:L.id});row.appendChild(b)}}
+    const pal=c.w?K.PAL.map((_,i)=>i):K.palFor(c.o);
+    if(pal.length){sec(c.w?'Outfit colour':'Clothing colour');row=sc.appendChild(el('div','row'));
       for(const i of pal){const b=el('button','sw'+(c.oc===i?' sel':''));b.title=K.PAL[i][0];b.setAttribute('aria-label',K.PAL[i][0]);b.style.background=hex(K.PAL[i][1]);b.onclick=()=>set({oc:i});row.appendChild(b)}}
     else sc.appendChild(el('p','note','The Signature outfit keeps its own colours. Pick another outfit to choose a colour.'));
     sec('Accessories');row=sc.appendChild(el('div','row'));
     for(const a of K.ACC){const on=!!(c.a&a.bit),b=el('button','chip'+(on?' sel':''),a.name);b.onclick=()=>set({a:on?c.a&~a.bit:c.a|a.bit});row.appendChild(b)}
-    sc.appendChild(el('p','note','Cap and Headband are worn one at a time. All options are free.'))}
+    sc.appendChild(el('p','note','Cap and Headband are worn one at a time (Knight, Samurai and Pirate come with their own headgear). All options are free.'))}
   function set(p){const S=st;S.cur=K.normalize(Object.assign({},S.cur,p));S.base=S.cur.b;render();K.apply(S.P.g,S.cur).then(()=>{if(st===S)idle(S.P)})}
   function busyNow(){try{return !!(st&&st.opts.busy&&st.opts.busy())}catch(e){return false}}
   function open(opts){

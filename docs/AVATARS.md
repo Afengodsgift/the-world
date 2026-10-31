@@ -9,7 +9,7 @@ Two full-human, stylized avatars (male **Crypto**, female **Madea**) replace the
 | Layer | Where | Notes |
 |---|---|---|
 | Identity / gameplay state | `S`, `me.userData` (unchanged) | Position, health, combat, input never touched by the wardrobe. |
-| Appearance config | `AvatarKit.normalize/encode/decode` | `{v,b,h,hc,o,oc,a}` -> string `"1.f.0.3.1.5.5"` (<= 24 chars). Any input normalises to something valid; unknown body -> default avatar; a clothing colour that does not suit the outfit look is replaced. |
+| Appearance config | `AvatarKit.normalize/encode/decode` | `{v,b,h,hc,o,oc,a,w}` -> string `"1.f.0.3.1.5.5"` (+ `.w` only when an outfit set is worn; <= 26 chars). Any input normalises to something valid; unknown body -> default avatar; a clothing colour that does not suit the outfit look is replaced. |
 | Model + rig | `assets/avatars/<name>.glb` (+ `.json` sidecar, `.mask.png`) | Game rig bone names (45 joints), one skinned mesh, one material. Cached prototype, `SkeletonUtils.clone` per player. |
 | Animation controller | `assets/avatars/<name>/*.json` | Per-avatar clip sets (see below). Looked up through `q.av` by `emoAct`, `GunLoco`, `CombatAnims`, `WardenMX`, the main gait. No `q.av` = stock tables. |
 | Equipment | by bone **name** | Props on hand bones (pan, sword, rod) are re-parented to the new rig on a swap. Gun / helm / flight poses are procedural and read the live bones. Accessories are owned by `AvatarKit` and attached through `boneInverse * bindMatrix` (correct at any pose). |
@@ -65,8 +65,9 @@ If the originals (UAL1_Standard.glb, KayKit Rig_Medium, the Mixamo Pro Rifle Pac
 * **Accessories**: goggles, headband, cap, scarf, backpack (cap and headband are exclusive). Procedural low-poly, shared geometry, tinted by the clothing colour.
 * One material per player, so one draw call per avatar; the recolour is a shader patch (`onBeforeCompile`) sharing one program.
 
-Not done (needs authored meshes): **alternative hair styles** and genuinely different outfits. The field `h` is reserved in the schema.
-The recolour is a hue/luminance treatment of the baked texture, not separate garments.
+* **Outfit sets** (`w`): Casual, Knight, Samurai, Pirate for both bodies, built at run time by `src/avatar/Outfits.js` (no downloads). Cloth (shirt, sleeves, trousers, boots) is a *shell*: the body's own triangles for a region pushed out along welded vertex normals and skinned to the same skeleton, so it follows every animation; geometry is cached per body+region, materials are per player. Armour, helmets, hats, sashes and belts are small rigid primitives sized from the bind-pose bone positions and attached to bones. The Outfit-colour swatch tints the main garment (tunic, kimono, waistcoat, tabard). A set replaces the recolour looks; Knight/Samurai/Pirate bring their own headgear (cap + headband are dropped). Stylised low-poly pieces, not hand-modelled garments; the underlying body clothes can still show at seams, and the female hip belt/holsters are covered by a slightly proud hip band.
+
+Not done (needs authored meshes): **alternative hair styles** and hand-modelled outfits. The field `h` is reserved in the schema.
 
 UI: lobby buttons (Male, Female, the 4 chibis, Wardrobe) and `Wardrobe` in the emote panel in game. Landscape two-pane sheet with a live
 rotating preview (own renderer, created on open and fully disposed on close; the main scene stops rendering while it is open).
@@ -101,6 +102,6 @@ your account before shipping commercially. No other third-party assets were adde
 * Existing `tests/outlaw_browser.mjs` and `tests/warden_browser.mjs` were run against this build (Outlaw: same results as the untouched baseline; Warden: all pass).
 
 ## Known issues / next
-* Animations are derived from chibi clips (see above); hair styles and real outfit variants need authored meshes.
+* Animations are derived from chibi clips (see above); hair styles and hand-modelled outfits need authored meshes (the four procedural outfit sets are a stand-in that can be replaced piece by piece).
 * Hand-held prop grips (gun, sword, fishing rod, frying pan) were checked in headless screenshots only (all sit in the hand and follow it); tune with `PlayerCombat.setGrip` / `PAN_GRIP` if a grip looks off on a device.
 * Switching from an avatar back to a chibi is only possible in the lobby.

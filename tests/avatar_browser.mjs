@@ -75,6 +75,20 @@ for(const b of ['m','f']){await setApp({b});
     const out={};const z=S.y;S.flying=true;S.y=H(S.x,S.z)+20;stickV={x:0,y:-1};await new Promise(r=>setTimeout(r,3500));out.fly=[S.flying,me.userData.cur,fin()];stickV={x:0,y:0};S.flying=false;S.y=H(S.x,S.z)+.3;
     await loadEmotes();let bad=0;for(const id of ['wave','dance','sit','lie','roll','flipf','fish_cast','jab']){S.y=H(S.x,S.z)+.2;S.vy=0;emoStart(me.userData,id);await new Promise(r=>setTimeout(r,700));if(!fin())bad++;emoStop(me.userData)}out.emotes=bad;return out});
   ok(r.fly[2]&&r.emotes===0,b+': flight and 8 emotes leave every bone finite ('+JSON.stringify(r)+')')}
+// ---- 5b. outfit sets: cloth shells + rigid pieces build, deform with the skeleton, and clean up completely
+{await setApp({b:'m',w:2});let n=0;const so=async()=>p.evaluate(()=>{const u=me.userData,i=renderer.info.memory;let sk=0,sh=0,rig=0,bad=0;me.traverse(o=>{if(o.isSkinnedMesh){sk++;if(o.userData.avShell)sh++}if(o.userData&&o.userData.avAcc)rig++;if(o.isMesh&&o.geometry){const P=o.geometry.attributes.position;for(let i=0;i<P.count;i+=97)if(!isFinite(P.getX(i)))bad++}});
+    return {sk,sh,rig,geo:i.geometries,tex:i.textures,acts:u.mixer._actions.length,key:u.avAccKey,fin:Object.values(u.bones).every(b=>isFinite(b.matrixWorld.elements[12]))}});
+ const k=await so();ok(k.sh>=3&&k.rig>5&&k.fin,'Knight: cloth shells and armour pieces are present ('+JSON.stringify(k)+')');
+ for(let r=0;r<2;r++)for(const b of ['m','f'])for(const w of [1,2,3,4])await setApp({b,w,oc:(w*3)%10});
+ const w1=await so();
+ for(let r=0;r<2;r++)for(const b of ['f','m'])for(const w of [4,3,2,1])await setApp({b,w,oc:(w*3)%10});
+ const w2=await so();
+ ok(w2.sk-w2.sh===1&&w2.acts<=40&&w2.geo<=w1.geo+2&&w2.tex<=w1.tex+2,'16 outfit changes (both bodies): 1 body mesh, no GPU / mixer growth ('+w1.geo+'/'+w1.tex+' -> '+w2.geo+'/'+w2.tex+')');
+ await setApp({b:'m',w:3});await p.waitForTimeout(300);await p.evaluate(()=>{emoStart(me.userData,'dance')});await p.waitForTimeout(600);const d=await so();ok(d.fin,'outfit pieces survive an animation (bones finite)');
+ await setApp({b:'f',w:0,a:0});const z=await so();ok(z.sh===0&&z.rig===0&&z.sk===1,'back to Signature: every shell and piece removed ('+JSON.stringify(z)+')');
+ await p.evaluate(()=>{window.__q=null});
+ const pr=await p.evaluate(async()=>{const g=makeAvatar('o1','#fff');scene.add(g);addOther&&0;await AvatarKit.apply(g,'1.m.0.0.0.0.0.2');await new Promise(r=>setTimeout(r,300));let sh=0;g.traverse(o=>{if(o.userData.avShell)sh++});await AvatarKit.apply(g,'1.m.0.0.0.0.0.99');let sh2=0;g.traverse(o=>{if(o.userData.avShell)sh2++});return [sh,sh2]});
+ ok(pr[0]>0&&pr[1]===0,'a peer outfit string dresses a remote player; a junk outfit id falls back to Signature ('+pr+')')}
 // ---- 6. measurements
 const perf=await p.evaluate(()=>{renderer.info.reset();renderer.render(scene,camera);const i=renderer.info;const u=me.userData;let tris=0,mats=new Set();u.model.traverse(o=>{if(o.isSkinnedMesh){tris+=o.geometry.index.count/3;mats.add(o.material.uuid)}});
   return {calls:i.render.calls,sceneTris:i.render.triangles,geo:i.memory.geometries,tex:i.memory.textures,avatarTris:tris,avatarMats:mats.size,bones:Object.keys(u.bones).length}});

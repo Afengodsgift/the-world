@@ -25,4 +25,11 @@ ok(K.has({b:'f'})&&!K.has(null)&&K.has({b:'zzz'}),'has(): objects dress as an av
 K.save({b:'f',hc:2,o:1,oc:4,a:5});ok(K.restore().b==='f'&&K.restore().oc===4,'saved look is restored');
 ctx.localStorage.setItem('tw_avatar_v1','garbage');ok(K.restore().b==='m','a corrupted save restores the default');
 ctx.localStorage.getItem=()=>{throw new Error('blocked')};ok(K.restore()===null,'blocked storage never throws');
+// ---- outfit sets (w)
+ok(K.encode({b:'m'})==='1.m.0.0.0.0.0','w=0 keeps the legacy 7-part string (older clients decode it unchanged)');
+ok(K.encode({b:'f',w:3,oc:5})==='1.f.0.0.0.5.0.3'&&K.decode('1.f.0.0.0.5.0.3').w==='3','an outfit set appends one field and decodes back');
+ok(K.normalize({w:99}).w===0&&K.normalize({w:-1}).w===0&&K.normalize({w:'x'}).w===0&&K.normalize('1.m.0.0.0.0.0.77').w===0,'a bad outfit id falls back to Signature');
+ok(K.normalize({w:2,o:3,oc:0}).o===0&&K.normalize({w:2,o:3,oc:0}).oc===0&&K.normalize({w:1,oc:9}).oc===9,'an outfit set takes any of the 10 colours and replaces the recolour looks');
+ok((K.normalize({w:2,a:31}).a&6)===0&&(K.normalize({w:1,a:31}).a&4)===4,'Knight / Samurai / Pirate drop cap + headband; Casual keeps them');
+ok(K.OUTFITS.map(o=>o.name).join()==='Signature,Casual,Knight,Samurai,Pirate','four outfit sets besides Signature');
 console.log(bad?bad+' FAILED':'all ok');process.exit(bad?1:0);

@@ -25,25 +25,29 @@ const AvatarKit=(()=>{
     {id:2,name:'Two-tone',pal:[0,1,3,4,5,6,7],k:.78,dark:1,two:true},
     {id:3,name:'Shadow',pal:[3,5,6,8,9],k:.85,dark:.55}
   ];
+  // outfit sets: whole wardrobes built at run time on top of the body (cloth shells skinned to the same skeleton + rigid armour / hat pieces). 0 = the body as modelled (+ the recolour looks above)
+  const OUTFITS=[{id:0,name:'Signature'},{id:1,name:'Casual'},{id:2,name:'Knight'},{id:3,name:'Samurai'},{id:4,name:'Pirate'}];
+  const HEADGEAR_SETS=[0,0,1,1,1];                       // sets that come with their own hat / helmet (cap + headband are dropped)
   const ACC=[{bit:1,name:'Goggles'},{bit:2,name:'Headband'},{bit:4,name:'Cap'},{bit:8,name:'Scarf'},{bit:16,name:'Backpack'}];
   const ACC_ALL=31,ACC_EXCL=[[4,2]];                    // headband and cap are mutually exclusive (cap wins)
   const SKIN_OK={0:1,1:1};
   // ---------------------------------------------------------------- appearance config
-  const defaults=b=>({v:VER,b:CAT[b]?b:DEFAULT_BASE,h:0,hc:0,o:0,oc:0,a:0});
+  const defaults=b=>({v:VER,b:CAT[b]?b:DEFAULT_BASE,h:0,hc:0,o:0,oc:0,a:0,w:0});
   const int=(x,lo,hi,d)=>{x=typeof x==='string'?parseInt(x,10):x;return Number.isFinite(x)&&x>=lo&&x<=hi?x|0:d};
   function normalize(raw){
     if(typeof raw==='string')raw=decode(raw);
     const r=raw&&typeof raw==='object'?raw:{},a=defaults(CAT[r.b]?r.b:DEFAULT_BASE);   // unknown base -> the default avatar
     a.h=0;                                                    // hair styles: only the modelled one so far (reserved field)
-    a.hc=int(r.hc,0,HAIR.length-1,0);a.o=int(r.o,0,LOOKS.length-1,0);
-    const pal=LOOKS[a.o].pal;a.oc=int(r.oc,0,PAL.length-1,0);if(pal.length&&pal.indexOf(a.oc)<0)a.oc=pal[0];if(!pal.length)a.oc=0;   // colour must be compatible with the look
-    a.a=int(r.a,0,ACC_ALL,0)&ACC_ALL;for(const [keep,drop] of ACC_EXCL)if((a.a&keep)&&(a.a&drop))a.a&=~drop;
+    a.hc=int(r.hc,0,HAIR.length-1,0);a.w=int(r.w,0,OUTFITS.length-1,0);a.o=a.w?0:int(r.o,0,LOOKS.length-1,0);   // an outfit set replaces the recolour looks
+    a.oc=int(r.oc,0,PAL.length-1,0);
+    if(!a.w){const pal=LOOKS[a.o].pal;if(pal.length&&pal.indexOf(a.oc)<0)a.oc=pal[0];if(!pal.length)a.oc=0}   // colour must be compatible with the look
+    a.a=int(r.a,0,ACC_ALL,0)&ACC_ALL;if(HEADGEAR_SETS[a.w])a.a&=~6;for(const [keep,drop] of ACC_EXCL)if((a.a&keep)&&(a.a&drop))a.a&=~drop;
     return a}
-  const encode=a=>{a=normalize(a);return a.v+'.'+a.b+'.'+a.h+'.'+a.hc+'.'+a.o+'.'+a.oc+'.'+a.a};
+  const encode=a=>{a=normalize(a);return a.v+'.'+a.b+'.'+a.h+'.'+a.hc+'.'+a.o+'.'+a.oc+'.'+a.a+(a.w?'.'+a.w:'')};
   function decode(s){
     if(typeof s!=='string'||s.length>40)return defaults(DEFAULT_BASE);
     const p=s.split('.');if(p.length<7)return defaults(DEFAULT_BASE);
-    return {v:int(p[0],0,99,VER),b:p[1],h:p[2],hc:p[3],o:p[4],oc:p[5],a:p[6]}}   // a newer version with the same layout still decodes; normalize() clamps the rest
+    return {v:int(p[0],0,99,VER),b:p[1],h:p[2],hc:p[3],o:p[4],oc:p[5],a:p[6],w:p[7]}}   // a newer version with the same layout still decodes; normalize() clamps the rest
   const same=(a,b)=>encode(a)===encode(b);
   const has=app=>!!app&&typeof app==='object'&&!!CAT[normalize(app).b];
   // persistence (per device; a private window may refuse storage)
@@ -133,23 +137,31 @@ const AvatarKit=(()=>{
   const ACC_COL={1:null,2:0xc8452f,4:0xc8452f,8:0xd89a2b,16:null};
   function restyleAcc(u,a){
     if(!u.avAccs)return;const L=LOOKS[a.o];
-    for(const m of u.avAccs.tint){if(L.k>0){m.color.set(PAL[a.oc][1]);if(m.color.convertSRGBToLinear)m.color.convertSRGBToLinear()}}}
+    for(const m of u.avAccs.tint){if(L.k>0){m.color.set(PAL[a.oc][1]);if(m.color.convertSRGBToLinear)m.color.convertSRGBToLinear()}}
+    for(const [m,f] of u.avAccs.otint||[]){m.color.set(PAL[a.oc][1]);if(m.color.convertSRGBToLinear)m.color.convertSRGBToLinear();m.color.multiplyScalar(f)}}
   function buildAcc(u,asset,a){
-    teardownAcc(u);
-    if(!a.a)return;
-    const A=accGroup(a.a,asset.info),B=u.bones;let sm=null;u.model.traverse(o=>{if(!sm&&o.isSkinnedMesh)sm=o});
+    teardownAcc(u);u.avAccKey=a.a+':'+a.w;
+    if(!a.a&&!a.w)return;
+    const A=a.a?accGroup(a.a,asset.info):{head:new THREE.Group(),neck:new THREE.Group(),back:new THREE.Group(),tint:[]},B=u.bones;let sm=null;u.model.traverse(o=>{if(!sm&&o.isSkinnedMesh&&!o.userData.avShell)sm=o});
     if(!sm)return;
+    A.otint=[];A.shells=[];
+    if(a.w){const O=AvatarOutfits.build(asset,sm,a);A.otint=O.otint;A.shells=O.shells;for(const sh of O.shells)sm.parent.add(sh);   // cloth shells share the body's skeleton
+      var parts=O.parts}
     // accessories are modelled in the mesh's own rest space (same space as the landmarks in the sidecar); boneInverse * bindMatrix maps that space into a bone's local space,
     // so this is right at ANY pose (a restyle in the middle of an animation included)
     const hook=(grp,bone)=>{if(!bone)return;const i=sm.skeleton.bones.indexOf(bone);if(i<0)return;const M=sm.skeleton.boneInverses[i].clone().multiply(sm.bindMatrix);
       for(const k of [...grp.children]){k.updateMatrix();k.matrix.premultiply(M);k.matrix.decompose(k.position,k.quaternion,k.scale);grp.remove(k);bone.add(k)}};
     hook(A.head,B.Head);hook(A.neck,B.Neck||B.UpperChest);hook(A.back,B.UpperChest||B.Chest);
-    u.avAccs=A;u.avAccKey=a.a}
+    if(parts)for(const [bn,me] of parts){const bone=B[bn]||B.Spine;if(!bone)continue;const i=sm.skeleton.bones.indexOf(bone);if(i<0)continue;const M=sm.skeleton.boneInverses[i].clone().multiply(sm.bindMatrix);
+      me.updateMatrix();me.matrix.premultiply(M);me.matrix.decompose(me.position,me.quaternion,me.scale);bone.add(me)}
+    u.avAccs=A}
   function teardownAcc(u){
-    const A=u.avAccs;if(!A)return;
+    const A=u.avAccs;
+    if(A&&A.shells)for(const sh of A.shells){if(sh.parent)sh.parent.remove(sh);if(sh.material)sh.material.dispose()}   // shell geometry is cached per body + region
+    if(!A)return;
     const dead=[];u.model&&u.model.traverse(o=>{if(o.userData&&o.userData.avAcc)dead.push(o)});
-    for(const o of dead){if(o.parent)o.parent.remove(o);if(o.material&&o.material.dispose)o.material.dispose()}   // geometries are shared (GEO cache)
-    u.avAccs=null;u.avAccKey=0}
+    for(const o of dead){if(o.parent)o.parent.remove(o);if(o.material&&o.material.dispose)o.material.dispose()}   // (rigid outfit pieces too)   // geometries are shared (GEO cache)
+    u.avAccs=null;u.avAccKey=''}
   // ---------------------------------------------------------------- dress / swap
   const hooks=[];                                              // onSwap listeners (systems that hold actions on the old mixer)
   const onSwap=f=>hooks.push(f);
@@ -171,7 +183,7 @@ const AvatarKit=(()=>{
     u.avWant=key;
     return loadAsset(a.b).then(asset=>{
       if(u.avWant!==key)return false;                                  // a newer request superseded this one
-      if(u.av===a.b&&u.model){u.avApp=a;u.avKey=key;paint(u,a);if(u.avAccKey!==a.a)buildAcc(u,asset,a);paint(u,a);return true}   // same body: just restyle
+      if(u.av===a.b&&u.model){u.avApp=a;u.avKey=key;paint(u,a);if(u.avAccKey!==a.a+':'+a.w)buildAcc(u,asset,a);paint(u,a);return true}   // same body: just restyle
       const oldBones=u.bones,had=!!u.model;
       if(had)disposeModel(u);
       const m=THREE.SkeletonUtils.clone(asset.proto),bones={};m.scale.setScalar(.5);
@@ -190,7 +202,7 @@ const AvatarKit=(()=>{
   const set=id=>id?SETS[id]||null:null;
   const setOf=q=>q&&q.av?SETS[q.av]||null:null;
   const gait=q=>{const S=setOf(q);return S?S.ratio:null};
-  return {VER,ASSET_V,CAT,PAL,HAIR,LOOKS,ACC,DEFAULT_BASE,defaults,normalize,encode,decode,same,has,save,restore,preload,apply,dispose,more,set,setOf,gait,onSwap,
+  return {VER,ASSET_V,CAT,PAL,HAIR,LOOKS,OUTFITS,ACC,DEFAULT_BASE,defaults,normalize,encode,decode,same,has,save,restore,preload,apply,dispose,more,set,setOf,gait,onSwap,
     emoTable:q=>{const S=setOf(q);return S?S.emo:null},
     palFor:o=>LOOKS[int(o,0,LOOKS.length-1,0)].pal,
     legacySkin:b=>(CAT[b]||CAT[DEFAULT_BASE]).legacySkin,
