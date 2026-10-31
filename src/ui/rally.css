@@ -1,7 +1,7 @@
 /* Skybreak Rally: launcher, race HUD, lobby / results sheets, invite. Glass look to match theme.css. Touch targets >= 44px; the HUD never covers the
    centre of the screen; everything except the buttons ignores touches so steering is never blocked. */
 .rl-fab{position:fixed;right:var(--map-r,12px);top:calc(var(--map-t,58px) + 52px);width:var(--T,44px);height:var(--T,44px);padding:0;font-size:20px;display:flex;align-items:center;justify-content:center;z-index:9}
-body.rally .rl-fab,body.rally #jump,body.rally #boost,body.rally #emobtn,body.rally #panbtn,body.rally #smack,body.rally #use,body.rally #hud,body.rally #info,body.rally .dk,body.rally .dk-menu,body.rally #fshint,body.rally #emopanel{display:none!important}
+body.rally #stick,body.rally .rl-fab,body.rally #jump,body.rally #boost,body.rally #emobtn,body.rally #panbtn,body.rally #smack,body.rally #use,body.rally #hud,body.rally #info,body.rally .dk,body.rally .dk-menu,body.rally #fshint,body.rally #emopanel{display:none!important}
 
 .rl-hud{position:fixed;inset:0;z-index:12;pointer-events:none;display:none;color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;text-shadow:0 1px 4px rgba(0,0,0,.6)}
 .rl-hud.on{display:block}
@@ -69,3 +69,10 @@ body.rl-flash::after{content:'';position:fixed;inset:0;background:radial-gradien
   background:repeating-conic-gradient(from 0deg at 50% 50%,rgba(255,255,255,.0) 0deg 5deg,rgba(255,255,255,.5) 5.4deg 5.9deg,rgba(255,255,255,0) 6.4deg 11deg);
   -webkit-mask-image:radial-gradient(circle at 50% 52%,transparent 42%,#000 78%);mask-image:radial-gradient(circle at 50% 52%,transparent 42%,#000 78%);animation:rlLines .32s steps(2) infinite}
 @keyframes rlLines{0%{transform:rotate(0deg) scale(1)}50%{transform:rotate(2.6deg) scale(1.03)}100%{transform:rotate(-1.4deg) scale(1)}}
+
+/* button controls: an arrow pad bottom-left (keyboard layout), BRAKE next to DRIFT */
+.rl-pad{position:absolute;left:calc(env(safe-area-inset-left,0px) + 14px);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);width:206px;height:138px;pointer-events:none}
+.rl-ar{position:absolute;width:66px;height:66px;font-size:24px;border-radius:18px}
+.rl-pad .rl-u{left:70px;top:0}.rl-pad .rl-l{left:0;bottom:0}.rl-pad .rl-d{left:70px;bottom:0}.rl-pad .rl-r{left:140px;bottom:0}
+.rl-brake{width:72px;height:72px;font-size:12px;position:absolute;right:196px;bottom:0;background:rgba(200,40,40,.7);border-color:#ffb0a8}
+@media (max-height:420px){.rl-ar{width:58px;height:58px}.rl-pad{width:182px;height:122px}.rl-pad .rl-u{left:62px}.rl-pad .rl-d{left:62px}.rl-pad .rl-r{left:124px}}

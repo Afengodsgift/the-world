@@ -148,9 +148,10 @@ const RallyWorld=(()=>{
             const b=Math.max(0,i-Math.round(38/Math.max(1,r.S[i]/i))),bx=-r.TZ[b],bz=r.TX[b];   // a warning sign ~38 m before the bend, on the right-hand verge
             put(Math.abs(a)>1.9?'sign180':Math.abs(a)>.9?'sign90':'signS',r.X[b]-bx*(r.W[b]/2+2.2),r.Y[b],r.Z[b]-bz*(r.W[b]/2+2.2),Math.atan2(-r.TZ[b],r.TX[b]),3.4)
           }
-          // rails on raised decks
-          if(i%5===0&&rails<300){const lx=r.X[i]+nx*W/2,lz=r.Z[i]+nz*W/2,rx=r.X[i]-nx*W/2,rz=r.Z[i]-nz*W/2;
-            if(r.Y[i]-Math.min(H(lx,lz),H(rx,rz))>3){put('rail',lx,r.Y[i]+.05,lz,th,5.2,2.2,2.2);put('rail',rx,r.Y[i]+.05,rz,th,5.2,2.2,2.2);rails+=2}}
+          // rails along every guarded edge (where the ground drops away: these are the solid walls of Track's guard)
+          if(i%4===0&&rails<900&&r.GP){const e=W/2+.45;
+            if(r.GP[i]){put('rail',r.X[i]+nx*e,r.Y[i]+.05,r.Z[i]+nz*e,th,5.2,2.2,2.2);rails++}
+            if(r.GM[i]){put('rail',r.X[i]-nx*e,r.Y[i]+.05,r.Z[i]-nz*e,th,5.2,2.2,2.2);rails++}}
           // rocks beside the road, on land only
           if(r.S[i]-lastRock>38&&rnd()<.55){lastRock=r.S[i];const sd=rnd()<.5?-1:1,d=W/2+9+rnd()*10,x=r.X[i]+nx*sd*d,z=r.Z[i]+nz*sd*d;
             if(H(x,z)>.8&&r.Y[i]-H(x,z)<2)put(rnd()<.5?'rock':'rock2',x,H(x,z)-.2,z,rnd()*6.28,2+rnd()*3)}

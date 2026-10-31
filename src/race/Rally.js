@@ -11,7 +11,7 @@ const Rally=(()=>{
   const CP=CarPhysics,Tk=Track,DT=1/60,TRACK_IDS=['skybreak-1','skybreak-2'];
   const clamp=(v,a,b)=>v<a?a:v>b?b:v,wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
   const ST={mode:'off',acc:0,startAt:0,t:0,go:false,cfg:null,ret:null,rid:null,partner:null,lastNet:0,finAt:0,shake:0,punch:0,flash:0,auto:false,err:0};
-  const IN={ix:0,iy:0},BTN={boost:false,hand:false,rec:false,item:false},touch=matchMedia&&matchMedia('(pointer:coarse)').matches;
+  const IN={ix:0,iy:0},BTN={boost:false,hand:false,rec:false,item:false,l:false,r:false,u:false,d:false,brake:false},touch=matchMedia&&matchMedia('(pointer:coarse)').matches;
   let T=null,world=null,IS=null,cfx=null,R=[],ME=null,env=null,hud=null,fab=null,sheet=null,inv=null,lastHud=0,camS={yaw:0,x:0,y:0,z:0,fov:65,init:false},baseFov=65,lastClock=0;
   const models={},TC={};let TRK='skybreak-1';
   const best=()=>{try{return +localStorage.getItem('wrally_best')||0}catch(e){return 0}};
@@ -185,11 +185,13 @@ const Rally=(()=>{
         <div class="rl-spd"><b id="rlSpd">0</b><small>km/h</small><div class="rl-mode" id="rlMode">CAR</div><div class="rl-pips" id="rlPips"></div></div></div>
       <div class="rl-lines" id="rlLines"></div><div class="rl-arrow" id="rlArrow"><i></i></div><div class="rl-lock" id="rlLock"></div><div class="rl-warn" id="rlWarn"></div><div class="rl-status" id="rlStatus"></div>
       <div class="rl-msg"></div><div class="rl-count" id="rlCount"></div>
-      <div class="rl-btns"><button id="rlItem" class="rl-b rl-item"><span class="rl-ic">·</span><small>ITEM</small></button><button id="rlBoost" class="rl-b rl-boost">BOOST</button><button id="rlHand" class="rl-b rl-hand">DRIFT</button><button id="rlRec" class="rl-b rl-rec">RECOVER</button><button id="rlExit" class="rl-b rl-exit">EXIT</button></div>`;
+      <div class="rl-btns"><button id="rlItem" class="rl-b rl-item"><span class="rl-ic">·</span><small>ITEM</small></button><button id="rlBoost" class="rl-b rl-boost">BOOST</button><button id="rlBrake" class="rl-b rl-brake">BRAKE</button><button id="rlHand" class="rl-b rl-hand">DRIFT</button><button id="rlRec" class="rl-b rl-rec">RECOVER</button><button id="rlExit" class="rl-b rl-exit">EXIT</button></div>
+      <div class="rl-pad"><button id="rlU" class="rl-b rl-ar rl-u">▲</button><button id="rlL" class="rl-b rl-ar rl-l">◀</button><button id="rlD" class="rl-b rl-ar rl-d">▼</button><button id="rlR" class="rl-b rl-ar rl-r">▶</button></div>`;
     document.body.appendChild(hud);
     const hold=(id,on,off)=>{const b=hud.querySelector(id);const dn=e=>{e.preventDefault();on();b.classList.add('dn')},up=e=>{e.preventDefault();off&&off();b.classList.remove('dn')};
       b.addEventListener('pointerdown',dn);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('pointerleave',up)};
-    hold('#rlBoost',()=>{BTN.boost=true});hold('#rlItem',()=>{BTN.item=true});hold('#rlHand',()=>{BTN.hand=true},()=>{BTN.hand=false});hold('#rlRec',()=>{BTN.rec=true});
+    hold('#rlBoost',()=>{BTN.boost=true});hold('#rlItem',()=>{BTN.item=true});hold('#rlHand',()=>{BTN.hand=true},()=>{BTN.hand=false});hold('#rlRec',()=>{BTN.rec=true});hold('#rlBrake',()=>{BTN.brake=true},()=>{BTN.brake=false});
+    hold('#rlL',()=>{BTN.l=true},()=>{BTN.l=false});hold('#rlR',()=>{BTN.r=true},()=>{BTN.r=false});hold('#rlU',()=>{BTN.u=true},()=>{BTN.u=false});hold('#rlD',()=>{BTN.d=true},()=>{BTN.d=false});
     hud.querySelector('#rlExit').addEventListener('click',()=>{if(ST.mode==='finish'||confirm('Leave the race?'))exit()});
   }
   function hudUpdate(now){
@@ -338,7 +340,7 @@ const Rally=(()=>{
     if(ST.camKids){for(const [k,v] of ST.camKids)k.visible=v;ST.camKids=null}
     if(me)me.visible=true;camera.fov=baseFov;camera.updateProjectionMatrix();clearInterval(ST.resT);
     if(ST.ret){S.x=ST.ret.x;S.z=ST.ret.z;S.y=Math.max(ST.ret.y,H(ST.ret.x,ST.ret.z)+.2);S.vy=0;S.rot=ST.ret.rot||S.rot;S.flying=false;S.grounded=true}
-    BTN.boost=BTN.hand=BTN.rec=false;
+    BTN.boost=BTN.hand=BTN.rec=BTN.l=BTN.r=BTN.u=BTN.d=BTN.brake=false;
     try{const a=SFX.eng;if(a&&SFX.ctx){const t=SFX.ctx.currentTime;a.v.gain.setTargetAtTime(0,t,.05);SFX.eng2.v.gain.setTargetAtTime(0,t,.05);SFX.wind.v.gain.setTargetAtTime(0,t,.05);if(SFX.skid)SFX.skid.v.gain.setTargetAtTime(0,t,.05)}}catch(e){}
   }
   let kitAsked=false;
@@ -351,12 +353,13 @@ const Rally=(()=>{
 
   // ---------------------------------------------------------------- per-frame
   function playerInput(c,inp){
+    // BUTTON controls (no analog stick): arrows / WASD or the on-screen pad. Left/right = full lock (the physics eases it in), up = gas (climb in the air), down = brake then reverse (dive in the air), BRAKE = hard brake.
     const fly=c.mode==='fly',hand=BTN.hand||keys.Space;
-    // stick -> wheel: a tiny deadzone, then FULL lock at ~80% of the stick's travel (a thumb rarely reaches the rim); the physics adds no further smoothing
-    { const a=Math.abs(IN.ix);inp.steer=-(a<.04?0:Math.sign(IN.ix)*Math.min(1,(a-.04)*1.33)) }
+    const L=BTN.l||keys.ArrowLeft||keys.KeyA,Rr=BTN.r||keys.ArrowRight||keys.KeyD,U=BTN.u||keys.ArrowUp||keys.KeyW,D=BTN.d||keys.ArrowDown||keys.KeyS,BR=BTN.brake||keys.KeyB;
+    inp.steer=(L?1:0)-(Rr?1:0);
     inp.boost=BTN.boost||keys.ShiftLeft===true&&!playerInput.sh;playerInput.sh=keys.ShiftLeft===true;BTN.boost=false;inp.hand=false;inp.brake=false;inp.pitch=0;
-    if(fly){inp.pitch=-IN.iy;inp.thr=hand?-1:.15}
-    else{inp.thr=IN.iy>.25?-IN.iy:(touch||ST.autoGas)?1:(IN.iy<-.2?-IN.iy:0);inp.hand=hand&&c.s>6}
+    if(fly){inp.pitch=(U?1:0)-(D?1:0);inp.thr=(hand||BR)?-1:.15}
+    else{inp.thr=D?-1:(U||touch||ST.autoGas)?1:0;inp.hand=hand&&c.s>6;if(BR){inp.brake=true;inp.thr=0}}
     if(BTN.item||(keys.KeyE===true&&!playerInput.ke)){BTN.item=false;useItem()}playerInput.ke=keys.KeyE===true;
     if(BTN.rec||keys.KeyR){BTN.rec=false;if(ST.mode==='race'&&performance.now()-(playerInput.lastRec||0)>1500){playerInput.lastRec=performance.now();recoverRacer(ME,'manual')}}
   }

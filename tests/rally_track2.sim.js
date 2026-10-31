@@ -55,6 +55,29 @@ function race(skill,cls,seed){
   ok(out.filter(o=>o.fin).every(o=>Tk.plausible(T,o.r)),'splits stay plausible, skipped gates included');
   const ex=out[0];ok(ex.time>80,`the race is long (${ex.time.toFixed(0)} s for an expert)`);
 }
+// ---------- guard walls: you cannot drive off a mountain edge or bridge, and the shortcut is still open ----------
+{
+  const env={ground:T.ground,surf:T.surf,landOK:T.landOK,block:T.block};
+  let flagged=0,total=0;for(const r of T.roads){for(let i=0;i<r.m;i++){total+=2;flagged+=r.GP[i]+r.GM[i]}}
+  ok(flagged>total*.04,`guard walls cover the drop-offs (${(flagged/total*100).toFixed(0)}% of road edges)`);
+  const fa=T.roads.find(r=>r.id==='frost-a');let pick=-1,side=0;for(let i=20;i<fa.m-20&&pick<0;i+=3){if(fa.GP[i]&&fa.GP[i+2]&&fa.GP[i-2]){pick=i;side=1}else if(fa.GM[i]&&fa.GM[i+2]&&fa.GM[i-2]){pick=i;side=-1}}
+  ok(pick>=0,'the mountain spiral has guarded edges');
+  if(pick>=0){
+    let worst=0,drop=0;
+    for(const ang of [.5,.9,1.3]){
+      const i=pick,nx=-fa.TZ[i]*side,nz=fa.TX[i]*side,hd=Math.atan2(fa.TX[i],fa.TZ[i]),c=CP.newCar(fa.X[i],fa.Z[i],hd,'ace',env);c.y=fa.Y[i];c.vx=Math.sin(hd)*30;c.vz=Math.cos(hd)*30;
+      c.h=hd-ang*side*(-1)*(Math.sign(nx*Math.cos(hd)-nz*Math.sin(hd))||1)*0;   // (heading set below by aiming at the edge)
+      const tx=fa.X[i]+nx*30,tz=fa.Z[i]+nz*30;c.h=Math.atan2(tx-c.x,tz-c.z);c.vx=Math.sin(c.h)*28;c.vz=Math.cos(c.h)*28;
+      for(let k=0;k<60*4;k++){CP.step(c,{thr:1,steer:0},1/60,env);const p=T.project(c.x,c.z,{},-1);
+        worst=Math.max(worst,Math.abs(p.d)-p.w/2);drop=Math.max(drop,p.y-c.y)}
+    }
+    ok(worst<2.2&&drop<3,`driving straight at the mountain edge never leaves the deck (max ${worst.toFixed(1)} m past the edge, ${drop.toFixed(1)} m drop)`);
+  }
+  // the Cay Cut can be entered: a car on the main road heading into the cut's first sample reaches it without a wall in the way
+  const cut=T.roads.find(r=>r.id==='storm-cut'),st=T.roads.find(r=>r.id==='storm');let walls=0;
+  for(let i=0;i<st.m;i++)if(Math.hypot(st.X[i]-cut.X[0],st.Z[i]-cut.Z[0])<45)walls+=st.GP[i]+st.GM[i];
+  ok(walls===0,'no guard wall within 45 m of where the shortcut leaves the main road');
+}
 // ---------- skip logic: crossing the merge gate skips the optional gates; missing it does not ----------
 {
   const i0=T.gates.findIndex(g=>g.opt);const g0=T.gates[i0];let k=i0;while(T.gates[k].opt)k++;const merge=T.gates[k];

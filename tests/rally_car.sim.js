@@ -171,7 +171,7 @@ function launch(sp,cls){
   ok(timeTo(45,Math.PI/4)<=.8,`high speed keeps control: 45 deg in ${timeTo(45,Math.PI/4).toFixed(2)} s at 45 m/s`);
   // no instant spins at speed: the steady yaw rate is capped by the grip limit (rad/s)
   const yaw=v=>{const c=CP.newCar(0,0,0,'ace',flat);c.vz=v;for(let i=0;i<40;i++)CP.step(c,{thr:.6,steer:1},DT,flat);const h=c.h;CP.step(c,{thr:.6,steer:1},DT,flat);return (c.h-h)/DT};
-  ok(yaw(45)<1.5&&yaw(45)<yaw(30)&&yaw(30)<yaw(12),`yaw rate falls with speed (${yaw(12).toFixed(1)} / ${yaw(30).toFixed(1)} / ${yaw(45).toFixed(1)} rad/s at 12 / 30 / 45 m/s): stable at speed`);
+  ok(yaw(45)<2.0&&yaw(45)<yaw(30)&&yaw(30)<yaw(12),`yaw rate falls with speed (${yaw(12).toFixed(1)} / ${yaw(30).toFixed(1)} / ${yaw(45).toFixed(1)} rad/s at 12 / 30 / 45 m/s): stable at speed`);
   // a flick from full left to full right reverses the yaw almost immediately
   for(const v of [12,30]){const c=CP.newCar(0,0,0,'ace',flat);c.vz=v;for(let i=0;i<40;i++)CP.step(c,{thr:.6,steer:1},DT,flat);const h0=c.h;CP.step(c,{thr:.6,steer:1},DT,flat);const ss=(c.h-h0)/DT;let t=0,hit=null;for(let i=0;i<60;i++){const h=c.h;CP.step(c,{thr:.6,steer:-1},DT,flat);t+=DT;if(hit===null&&(c.h-h)/DT<=-.8*ss)hit=t}
     ok(hit!==null&&hit<=.15,`left-right flick at ${v} m/s reverses the yaw in ${hit&&hit.toFixed(2)} s (was 0.26 s)`)}

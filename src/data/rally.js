@@ -8,11 +8,11 @@ const RALLY={
     hl:1.9,hb:.95,                // wheelbase half-length / half-track used to sample the ground under the four wheels
     // ---- steering: ONE model (CarPhysics.turnRate) shared by the physics, the player and the AI ----
     L:2.7,                        // wheelbase (m): yaw rate = speed * tan(wheel angle) / L
-    d0:.8,                        // wheel angle at standstill (rad): tight turning when slow
+    d0:.95,                        // wheel angle at standstill (rad): tight turning when slow
     vS:22,                        // speed (m/s) at which the wheel angle has fallen to about half: stability as you go faster
     minV:8,                       // low-speed floor in the bicycle formula so a crawl still turns briskly (but you cannot pivot on the spot)
-    lat:50,                       // grip-limited lateral acceleration (m/s^2): caps the yaw rate at speed so there are no instant spins
-    steerUp:30,steerDn:22,        // wheel response (1/s): fast when you ask for MORE lock or flick the other way, a touch softer when you let go
+    lat:66,                       // grip-limited lateral acceleration (m/s^2): caps the yaw rate at speed so there are no instant spins
+    steerUp:40,steerDn:30,        // wheel response (1/s): fast when you ask for MORE lock or flick the other way, a touch softer when you let go
     brake:40,rev:11,vrev:12,      // braking decel, reverse accel, reverse top speed
     coast:3.2,drag:.012,          // engine braking, rolling resistance (x speed)
     boostAccel:42,                // extra push while boosting (m/s^2), capped at vmax*boostMul

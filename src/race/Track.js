@@ -115,6 +115,33 @@ const Track=(()=>{
       out.x=r.X[i]+(r.X[i+1]-r.X[i])*f;out.z=r.Z[i]+(r.Z[i+1]-r.Z[i])*f;out.y=r.Y[i]+(r.Y[i+1]-r.Y[i])*f;out.w=r.W[i]+(r.W[i+1]-r.W[i])*f;
       let tx=r.TX[i]+(r.TX[i+1]-r.TX[i])*f,tz=r.TZ[i]+(r.TZ[i+1]-r.TZ[i])*f;const l=Math.hypot(tx,tz)||1;out.tx=tx/l;out.tz=tz/l;return out;
     };
+    // ---- GUARD WALLS: wherever the ground drops away beside a deck (mountain flanks, bridges, ramps), that edge is a solid wall for a grounded car, so you can
+    // never drive off the side and fall down the mountain. Flags per road sample (GP: the +normal side, GM: the other); near the ends of a shortcut road the
+    // main road's walls are removed so the cut can always be entered and left. Airborne cars are never blocked (the physics only asks while grounded). ----
+    const GUARD_DROP=1.0,GO={nx:0,nz:0,pen:0};
+    for(const r of T.roads){
+      r.GP=new Uint8Array(r.m);r.GM=new Uint8Array(r.m);
+      for(let i=0;i<r.m;i++){const nx=-r.TZ[i],nz=r.TX[i],e=r.W[i]/2+1.2;
+        if(r.Y[i]-env.H(r.X[i]+nx*e,r.Z[i]+nz*e)>GUARD_DROP)r.GP[i]=1;
+        if(r.Y[i]-env.H(r.X[i]-nx*e,r.Z[i]-nz*e)>GUARD_DROP)r.GM[i]=1}
+      const a=r.GP.slice(),b=r.GM.slice();for(let i=0;i<r.m;i++)for(let k=-3;k<=3;k++){const j=i+k;if(j>=0&&j<r.m){if(a[j])r.GP[i]=1;if(b[j])r.GM[i]=1}}
+    }
+    for(const al of T.roads){if(!al.alt)continue;for(const ei of [0,al.m-1]){const ex=al.X[ei],ez=al.Z[ei];
+      for(const r of T.roads){if(r.alt)continue;for(let i=0;i<r.m;i++)if(Math.hypot(r.X[i]-ex,r.Z[i]-ez)<45){r.GP[i]=0;r.GM[i]=0}}}}
+    const guard=(x,z,y,r,out)=>{
+      const a=hash.get(key(Math.floor(x/CELL),Math.floor(z/CELL)));if(!a)return false;let best=0;
+      for(let q=0;q<a.length;q+=2){
+        const rd=T.roads[a[q]],i=a[q+1];if(!rd.GP)continue;
+        const ax=rd.X[i],az=rd.Z[i],ex=rd.X[i+1]-ax,ez=rd.Z[i+1]-az,l2=ex*ex+ez*ez||1,rx=x-ax,rz=z-az,u=(rx*ex+rz*ez)/l2;
+        if(u<0||u>1)continue;
+        const len=Math.sqrt(l2),l=(rx*-ez+rz*ex)/len,w=(rd.W[i]+(rd.W[i+1]-rd.W[i])*u)/2,yy=rd.Y[i]+(rd.Y[i+1]-rd.Y[i])*u;
+        if(Math.abs(y-yy)>2.5)continue;
+        const side=l>0?1:-1;if(!(side>0?(rd.GP[i]||rd.GP[i+1]):(rd.GM[i]||rd.GM[i+1])))continue;
+        const pen=Math.min(3,Math.abs(l)-(w+.6-r));
+        if(pen>best){best=pen;out.nx=-side*(-ez/len);out.nz=-side*(ex/len);out.pen=pen}
+      }
+      return best>0;
+    };
     const _p={};
     // ---- gates ----
     (def.gates||[]).forEach((g,gi)=>{
@@ -177,6 +204,7 @@ const Track=(()=>{
           if(c.h&&y>=c.h-.3)continue;                                   // driving over the top of a low block / platform
           const d=Math.sqrt(d2)||1e-4,pen=R-d;if(pen>best){best=pen;bx=dx/d;bz=dz/d}}}
       }
+      if(best===0&&guard(x,z,y,r,GO)){best=GO.pen;bx=GO.nx;bz=GO.nz}   // guard wall at a drop-off edge
       // terrain barriers only where there is no road deck, so roads, ramps, bridges and the shoulder blend are never blocked
       if(best===0){
         const d0=T.deck(x,z,y+TOL,null);
