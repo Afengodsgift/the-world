@@ -20,7 +20,7 @@ if(W){
       for(let i=0;i<20;i++)W.sync(run,view,null,1+k+i/60,1/60)}catch(e){e2=e}
     ok(!e2,`stage ${k+1} (${run.fort.F.n}) draws${e2?' ('+e2.message+')':''}`);meshes.push(count());
   }
-  ok(meshes.every(n=>n>=8&&n<60),`draw calls stay small thanks to merged geometry (${meshes.join(' / ')} visible meshes, was ~190)`);
+  ok(meshes.every(n=>n>=8&&n<90),`draw calls stay small thanks to merged geometry (${meshes.join(' / ')} visible meshes, was ~190)`);
   const before=total();for(let i=0;i<300;i++){W.sync(run,view,null,5+i/60,1/60);W.fx({k:'tracer',x:0,y:0,z:0,tx:9,ty:0,tz:9,hit:null},run,1)}ok(total()===before,'effects are pooled: no meshes created while running');
   // v2 visuals: missiles, SAMs, roll spin, the drone model swap
   run.msl.push({x:5,y:5,z:5,vx:0,vy:0,vz:100,tid:null,life:2});run.sams.push({id:'s',x:9,y:9,z:9,vx:10,vy:0,vz:0,hp:1,alive:1});view.spin=1.2;let e3=null;try{W.sync(run,view,null,6,1/60);W.fx({k:'dmg',n:15,x:0,y:0,z:0,kind:'sam'},run,6)}catch(e){e3=e}
@@ -34,7 +34,7 @@ if(W){
     try{W.sync(run,view,null,9,1/60);W.fx({k:'pick',x:1,y:1,z:1},run,9)}catch(e){e6=e}ok(!e6,'balloon, repair kit, flak and laser draw'+(e6?' ('+e6.message+')':''));
     const b=new THREE.BoxGeometry(5,5,5);b.setAttribute('color',new THREE.BufferAttribute(new Float32Array(b.attributes.position.count*3).fill(.5),3));W.useBalloon(b);let e7=null;try{W.sync(run,view,null,10,1/60)}catch(e){e7=e}ok(!e7,'a loaded balloon model swaps in') }
   { run.imps.push({id:'im',x:3,y:3,z:3,vx:10,vy:0,vz:5,hp:9,alive:1});run.allies[0].init=1;run.state='raid';let e8=null;try{W.sync(run,view,null,11,1/60)}catch(e){e8=e}ok(!e8,'imps and wingmen draw'+(e8?' ('+e8.message+')':''));
-    let nv=0;W.root.traverseVisible(o=>{if(o.isMesh)nv++});ok(nv<60,`still cheap with everything on screen (${nv} visible meshes)`) }
+    let nv=0;W.root.traverseVisible(o=>{if(o.isMesh)nv++});ok(nv<90,`still cheap with everything on screen (${nv} visible meshes)`) }
   // kill everything: the destroyed parts disappear
   for(const t of run.fort.turrets)t.alive=0;for(const g of run.fort.gens)g.alive=0;W.sync(run,view,null,9,1/60);
   let vis=0;W.fortress.turrets.forEach(t=>{if(t.o.visible)vis++});ok(vis===0,'destroyed turrets are hidden');ok(!W.fortress.shield.visible,'the shield bubble drops with the generators');

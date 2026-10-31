@@ -100,6 +100,8 @@ const SkyRaidWorld=(()=>{
     const kitP=[];for(let i=0;i<4;i++){const g=new THREE.Group();mesh(G.oct,M.glowGreen,0,0,0,g).scale.set(3.2,4.4,3.2);mesh(G.sph,M.kitHalo,0,0,0,g).scale.set(11,11,11);g.visible=false;root.add(g);kitP.push(g)}
     const flakP=[];for(let i=0;i<3;i++){const m=mesh(G.sph,M.flak.clone(),0,0,0,root);m.visible=false;flakP.push(m)}
     const laser=mesh(G.box,M.laser.clone(),0,0,0,root);laser.visible=false;
+    const debris=[];for(let i=0;i<24;i++){const m=mesh(G.box,M.metalDark,0,0,0,root);m.visible=false;m.userData={t:9,vx:0,vy:0,vz:0,sp:0};debris.push(m)}let di=0;
+    function burst(x,y,z,n,sz){for(let i=0;i<n;i++){const m=debris[di++%debris.length],u=m.userData;m.visible=true;m.position.set(x,y,z);u.t=0;u.vx=(Math.random()-.5)*34;u.vy=Math.random()*22+4;u.vz=(Math.random()-.5)*34;u.sp=sz*(.5+Math.random());m.scale.setScalar(u.sp);m.rotation.set(Math.random()*6,Math.random()*6,0)}}
     let bi=0,ti=0,pi=0;
 
     // ---------------- the fortress (built when a stage starts) ----------------
@@ -108,16 +110,17 @@ const SkyRaidWorld=(()=>{
     function buildFort(run){
       clearFort();const f=run.fort,S=f.site,F=f.F,g=new THREE.Group();g.position.set(S.x,S.y,S.z);root.add(g);fort={g,turrets:[],gens:[],core:null,shield:null,ring:null,k:f.k};fortK=f.k;
       const boss=!!F.boss,R=F.plat;
+      const TH=[{rock:0x6b6458,deck:0x4b5260,base:0x2a2f3a,acc:0xc43c3c},{rock:0x8a5a3a,deck:0x7a5a40,base:0x3a2a22,acc:0xffb030},{rock:0x4a5568,deck:0x3a4258,base:0x20242e,acc:0x5fb8ff},{rock:0x3a2a3a,deck:0x2e2236,base:0x16101c,acc:0xff3a5a}][f.k%4];   // each fortress has its own look
       // everything static is merged into ONE vertex-coloured mesh: floating rock, steel deck, edge lights, tower, spikes, turret and generator poles
       const mg=merger(),rg=new THREE.ConeGeometry(R*.96,R*.9,9,3),p=rg.attributes.position;let sd=f.k*977+13;const rr=()=>(sd=(sd*16807)%2147483647)/2147483647;
       for(let i=0;i<p.count;i++){const y=p.getY(i);if(y<R*.44){p.setX(i,p.getX(i)*(1+(rr()-.5)*.3));p.setZ(i,p.getZ(i)*(1+(rr()-.5)*.3));p.setY(i,y+(rr()-.5)*R*.1)}}
-      rg.computeVertexNormals();mg.add(rg,0x6b6458,0,-R*.45-5,0,1,1,1,Math.PI,0,0);rg.dispose();
-      mg.add(G.cyl,0x2a2f3a,0,-3,0,R,6,R);mg.add(G.cyl,0x4b5260,0,-.2,0,R*.93,.6,R*.93);
-      for(let i=0;i<10;i++){const a=i/10*6.283;mg.add(G.cyl,0xc43c3c,Math.sin(a)*R*.9,.4,Math.cos(a)*R*.9,1.2,.7,1.2)}   // edge lights
-      mg.add(G.cyl,0x2a2f3a,0,9,0,8,18,8);mg.add(G.cone,0x4b5260,0,22,0,9,8,9);                                           // central tower
-      if(boss)for(let i=0;i<6;i++){const a=i/6*6.283;mg.add(G.cone,0xc43c3c,Math.sin(a)*R*.7,6,Math.cos(a)*R*.7,2.2,18,2.2)}
-      for(const t of f.turrets){const h=t.y-S.y;mg.add(G.cyl,0x2a2f3a,t.x-S.x,h/2,t.z-S.z,.9,h,.9)}
-      for(const q of f.gens){const h=q.y-S.y;mg.add(G.cyl,0x2a2f3a,q.x-S.x,h/2,q.z-S.z,1.4,h,1.4)}
+      rg.computeVertexNormals();mg.add(rg,TH.rock,0,-R*.45-5,0,1,1,1,Math.PI,0,0);rg.dispose();
+      mg.add(G.cyl,TH.base,0,-3,0,R,6,R);mg.add(G.cyl,TH.deck,0,-.2,0,R*.93,.6,R*.93);
+      for(let i=0;i<10;i++){const a=i/10*6.283;mg.add(G.cyl,TH.acc,Math.sin(a)*R*.9,.4,Math.cos(a)*R*.9,1.2,.7,1.2)}   // edge lights
+      mg.add(G.cyl,TH.base,0,9,0,8,18,8);mg.add(G.cone,TH.deck,0,22,0,9,8,9);                                           // central tower
+      if(boss)for(let i=0;i<6;i++){const a=i/6*6.283;mg.add(G.cone,TH.acc,Math.sin(a)*R*.7,6,Math.cos(a)*R*.7,2.2,18,2.2)}
+      for(const t of f.turrets){const h=t.y-S.y;mg.add(G.cyl,TH.base,t.x-S.x,h/2,t.z-S.z,.9,h,.9)}
+      for(const q of f.gens){const h=q.y-S.y;mg.add(G.cyl,TH.base,q.x-S.x,h/2,q.z-S.z,1.4,h,1.4)}
       g.add(new THREE.Mesh(mg.geometry(),VM));
       const core=mesh(G.sph,M.glowRed,0,f.core.y-S.y,0,g);core.scale.set(6,6,6);fort.core=core;
       const shield=mesh(G.sph,M.shield,0,f.core.y-S.y,0,g);shield.scale.set(13,13,13);fort.shield=shield;
@@ -160,6 +163,7 @@ const SkyRaidWorld=(()=>{
       for(let i=0;i<samP.length;i++){const p=run.sams[i],m=samP[i];if(!p){m.visible=false;continue}m.visible=true;m.position.set(p.x,p.y,p.z);m.lookAt(p.x+p.vx,p.y+p.vy,p.z+p.vz);m.children[0].scale.setScalar(1.6+Math.sin(t*20+i)*.25)}
       for(let i=0;i<shotsP.length;i++){const p=run.shots[i],m=shotsP[i];if(!p){m.visible=false;continue}m.visible=true;m.position.set(p.x,p.y,p.z);m.lookAt(p.x+p.vx,p.y+p.vy,p.z+p.vz)}
       // tracers fade; explosions grow; numbers rise
+      for(const m of debris)if(m.visible){const u=m.userData;u.t+=dt;if(u.t>1.5){m.visible=false;continue}u.vy-=26*dt;m.position.x+=u.vx*dt;m.position.y+=u.vy*dt;m.position.z+=u.vz*dt;m.rotation.x+=dt*5;m.rotation.z+=dt*4;m.scale.setScalar(u.sp*(1-u.t/1.6))}
       for(const m of tracers)if(m.visible){m.userData.t-=dt;if(m.userData.t<=0)m.visible=false;else m.material.opacity=Math.min(.9,m.userData.t*9)}
       for(const m of booms)if(m.visible){const u=m.userData;u.t+=dt;if(u.t>=u.dur){m.visible=false;continue}const k=u.t/u.dur;m.scale.setScalar(u.r*(.35+k));m.material.opacity=.85*(1-k)}
       for(const s of pops)if(s.visible){s.userData.t+=dt;s.position.y+=dt*5;if(s.userData.t>1){s.visible=false}else s.material.opacity=1-Math.max(0,s.userData.t-.55)/.45}
@@ -172,7 +176,7 @@ const SkyRaidWorld=(()=>{
           m.position.copy(_a).addScaledVector(_d,.5);m.scale.set(.5,len,.5);_q.setFromUnitVectors(_up,_d.normalize());m.quaternion.copy(_q);
           if(e.hit&&e.hit!=='shield')boom(e.tx,e.ty,e.tz,2.2,.22);break}
         case 'spark':boom(e.x,e.y,e.z,10,.35,0x7fd0ff);break;
-        case 'boom':boom(e.x,e.y,e.z,6+e.s*9,.5+e.s*.25);if(e.s>=1){boom(e.x,e.y+2,e.z,3+e.s*5,.8,0xffe39a)}break;
+        case 'boom':boom(e.x,e.y,e.z,6+e.s*9,.5+e.s*.25);if(e.s>=.7)burst(e.x,e.y,e.z,e.s>=2?14:e.s>=1?8:4,e.s>=2?3.2:1.6);if(e.s>=1){boom(e.x,e.y+2,e.z,3+e.s*5,.8,0xffe39a)}break;
         case 'dmg':pop(e.x,e.y,e.z,e.kind==='sam'?'INTERCEPT':String(e.n),e.kind==='core'?'#ffd24a':e.kind==='gen'?'#8fe8ff':e.kind==='sam'?'#ff8a5a':'#ffffff');break;
         case 'hurt':hurtMat.opacity=.45;break;
         case 'pick':boom(e.x,e.y,e.z,14,.4,0x5dff9a);break;

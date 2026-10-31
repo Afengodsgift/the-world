@@ -11,7 +11,7 @@ const SkyRaid=(()=>{
   const SC=typeof SkyCore!=='undefined'?SkyCore:null,DT=1/30;
   const ST={mode:'off',role:'pilot',host:true,partner:null,rid:null,acc:0,lastNet:0,lastSnap:0,lastStep:0,ret:null,shake:0,flash:0,paid:false,endT:0,warn:0,err:0};
   const IN={ix:0,iy:0},BTN={boost:false,fire:false,roll:false,missile:false,l:false,r:false,u:false,d:false},touch=typeof matchMedia!=='undefined'&&matchMedia('(pointer:coarse)').matches;
-  let run=null,W=null,hud=null,fab=null,sheet=null,inv=null,drag=null,aim={yaw:0,pit:.12},view=null,pend=[],resPrev=null,lastHud=0,lastH=0;
+  let storm=null,thunderT=0,run=null,W=null,hud=null,fab=null,sheet=null,inv=null,drag=null,aim={yaw:0,pit:.12},view=null,pend=[],resPrev=null,lastHud=0,lastH=0;
   const look={yaw:0,pit:0,t:0},cmb={n:0,t:0};
   const remote={ix:0,iy:0,b:0,r:0,m:0,yw:0,pt:.1,f:0,t:0},camS={yaw:0,init:false,x:0,y:0,z:0,fov:65},baseFov=65;
   const clamp=(v,a,b)=>v<a?a:v>b?b:v,wrap=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a};
@@ -61,6 +61,9 @@ body.skyraid .dk,body.skyraid .dk-menu,body.skyraid #jump,body.skyraid #boost,bo
 .sk-exit{right:14px;top:calc(env(safe-area-inset-top,0px) + 64px);width:38px;height:38px;border-radius:50%;font-size:16px}
 .sk-role{position:absolute;left:12px;top:calc(env(safe-area-inset-top,0px) + 100px);font-size:11px;opacity:.85}
 .sk-drag{position:fixed;inset:0;z-index:8;display:none;touch-action:none}.sk-drag.on{display:block}
+.sk-storm{position:fixed;inset:0;pointer-events:none;z-index:7;display:none;background:rgba(8,14,34,.34)}body.skstorm .sk-storm{display:block}
+.sk-rain{position:absolute;inset:-20% 0;background:repeating-linear-gradient(104deg,rgba(210,225,255,.0) 0 14px,rgba(210,225,255,.22) 14px 15px,rgba(210,225,255,0) 15px 38px);animation:skrain .28s linear infinite}@keyframes skrain{to{transform:translate(-36px,120px)}}
+.sk-bolt{position:absolute;inset:0;background:#dfeaff;opacity:0;transition:opacity .35s}.sk-bolt.on{opacity:.75;transition:none}
 .sk-flash{position:fixed;inset:0;pointer-events:none;z-index:9;background:radial-gradient(circle,rgba(255,40,30,0) 40%,rgba(255,40,30,.5));opacity:0;transition:opacity .25s}.sk-fab{position:fixed;right:var(--map-r,12px);top:calc(var(--map-t,58px) + 104px);width:var(--T,44px);height:var(--T,44px);padding:0;font-size:20px;display:flex;align-items:center;justify-content:center;z-index:9}`;
       document.head.appendChild(css)}catch(e){}
     hud=el('div','sk-hud',`<div class="sk-top"><div class="sk-obj" id="skObj"></div><div class="sk-bar" id="skCoreBar"><i id="skCoreB"></i></div></div>
@@ -70,6 +73,7 @@ body.skyraid .dk,body.skyraid .dk-menu,body.skyraid #jump,body.skyraid #boost,bo
       <div class="sk-combo" id="skCombo"></div><div class="sk-hm" id="skHm"></div>
       <button class="sk-btn sk-boost" id="skBoost">BOOST</button><button class="sk-btn sk-roll" id="skRoll">ROLL</button><button class="sk-btn sk-fire" id="skFire">FIRE</button><button class="sk-btn sk-msl" id="skMsl">MISSILES</button><button class="sk-btn sk-swap" id="skSwap">⇄ SEAT</button><button class="sk-btn sk-exit" id="skExit">✕</button>`);
     document.body.appendChild(hud);
+    storm=el('div','sk-storm','<div class="sk-rain"></div><div class="sk-bolt" id="skBolt"></div>');document.body.appendChild(storm);
     const flash=el('div','sk-flash');flash.id='skFlash';document.body.appendChild(flash);
     drag=el('div','sk-drag');document.body.appendChild(drag);
     try{window.addEventListener('keydown',e=>{if(ST.mode!=='race')return;if(e.code==='KeyQ')BTN.roll=true;else if(e.code==='KeyE')BTN.missile=true;else if(e.code==='KeyR')swapSeat()})}catch(e){}
@@ -170,7 +174,7 @@ body.skyraid .dk,body.skyraid .dk-menu,body.skyraid #jump,body.skyraid #boost,bo
   }
   function leave(notify){
     if(ST.mode==='off')return;if(notify&&ST.partner&&ST.rid)Net.emit('sky',{k:'end',rid:ST.rid});
-    ST.mode='off';ST.partner=null;ST.rid=null;raceRes(false);closeLobby();if(hangar){hangar.remove();hangar=null}if(hud)hud.classList.remove('on');if(drag)drag.classList.remove('on');document.body.classList.remove('skyraid');
+    ST.mode='off';ST.partner=null;ST.rid=null;raceRes(false);document.body.classList.remove('skstorm');closeLobby();if(hangar){hangar.remove();hangar=null}if(hud)hud.classList.remove('on');if(drag)drag.classList.remove('on');document.body.classList.remove('skyraid');
     if(W)W.hide();run=null;
     if(ST.ret){S.x=ST.ret.x;S.z=ST.ret.z;S.y=Math.max(ST.ret.y,(typeof H==='function'?H(ST.ret.x,ST.ret.z):0)+.2);S.vy=0;S.rot=ST.ret.rot||S.rot;S.flying=false;S.grounded=true}
     camera.fov=baseFov;camera.updateProjectionMatrix();BTN.boost=BTN.fire=false;
@@ -277,6 +281,13 @@ body.skyraid .dk,body.skyraid .dk-menu,body.skyraid #jump,body.skyraid #boost,bo
     camS.fov+=(fov-camS.fov)*(1-Math.exp(-dt*6));camera.fov=camS.fov;camera.updateProjectionMatrix();
     const fl=document.getElementById('skFlash');if(fl){fl.style.opacity=ST.flash>0?String(Math.min(.9,ST.flash)):'0'}ST.flash=Math.max(0,ST.flash-dt*2.2);
   }
+  // the Citadel (fortress 3) sits in a thunderstorm: dark tint, rain, lightning flashes and thunder (visual only, cheap CSS overlay)
+  function stormTick(dt){
+    const on=run.stage===2&&run.fort&&!run.fort.done;document.body.classList.toggle('skstorm',!!on);if(!on)return;
+    thunderT-=dt;if(thunderT>0)return;thunderT=5+Math.random()*8;const b=document.getElementById('skBolt');if(!b)return;
+    b.classList.add('on');setTimeout(()=>b.classList.remove('on'),90);setTimeout(()=>{b.classList.add('on');setTimeout(()=>b.classList.remove('on'),60)},180);
+    setTimeout(()=>{tone(70,.9,'sawtooth',.14,.4);ST.shake=Math.max(ST.shake,.25)},700+Math.random()*900)
+  }
   function finish(){
     if(ST.paid)return;ST.paid=true;const c=SC.payout(run);
     if(c>0&&typeof Outlaw!=='undefined'&&Outlaw.earn){try{Outlaw.earn(c)}catch(e){}}
@@ -298,6 +309,7 @@ body.skyraid .dk,body.skyraid .dk-menu,body.skyraid #jump,body.skyraid #boost,bo
       if(ST.host)hostStep(dt);
       if(ST.role==='gunner'){const a=padAxes();aim.yaw=wrap(aim.yaw-a.ix*dt*1.9);aim.pit=clamp(aim.pit-a.iy*dt*1.3,-.9,1.45)}
       pin();updateView(dt);
+      stormTick(dt);
       if(ST.role==='gunner'){aim.yaw=wrap(aim.yaw-wrap(view.h-lastH))}lastH=view.h;     // the turret keeps pointing at the same spot in the sky while the ship turns
       const sr=run.ship;view.spin=sr.rollT>0?(sr.rollDir||1)*Math.PI*2*(1-sr.rollT/SC.SHIP.rollT):0;
       W.sync(run,view,ST.role==='gunner'?aim:(ST.host?{yaw:0,pit:.1}:null),performance.now()/1000,dt);
