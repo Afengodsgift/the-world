@@ -76,9 +76,9 @@ function WardenProps(){
   for(let i=0,n=0;n<40&&i<3000;i++){const d=44+r()*150,an=r()*Math.PI*2,wx=Math.sin(an)*d,wz=Math.cos(an)*d;if(!ok(wx,wz,.9)||WardenH(wx,wz)>9)continue;
     const q=Math.sin(wx*.045+1.3)*Math.cos(wz*.05)+Math.sin((wx+wz)*.03);if(q<.1&&r()<.85)continue;put(pick(TRE),wx,wz,1.5+r()*1.4,{tilt:.12,sink:-.1});n++}
   // boulders and rock falls, thicker in the crags
-  for(let i=0,n=0;n<36&&i<2500;i++){const d=40+r()*165,an=r()*Math.PI*2,wx=Math.sin(an)*d,wz=Math.cos(an)*d;if(!ok(wx,wz,.7))continue;put(pick(BLD),wx,wz,1.2+r()*2.6+(WardenH(wx,wz)>5?1.2:0),{tilt:.3,sink:-.15});n++}
+  for(let i=0,n=0;n<32&&i<2500;i++){const d=40+r()*165,an=r()*Math.PI*2,wx=Math.sin(an)*d,wz=Math.cos(an)*d;if(!ok(wx,wz,.7))continue;put(pick(BLD),wx,wz,1.2+r()*2.6+(WardenH(wx,wz)>5?1.2:0),{tilt:.3,sink:-.15});n++}
   // far mountains on the landward rim, none across the south (landing beach side)
-  for(let i=0,n=0;n<9&&i<400;i++){const d=150+r()*40,an=r()*Math.PI*2,wx=Math.sin(an)*d,wz=Math.cos(an)*d;if(wz>60||WardenH(wx,wz)<1.2)continue;put(pick(MTN),wx,wz,5.5+r()*4,{sink:-2.5});n++}
+  for(let i=0,n=0;n<9&&i<400;i++){const d=150+r()*40,an=r()*Math.PI*2,wx=Math.sin(an)*d,wz=Math.cos(an)*d;if(wz>60||WardenH(wx,wz)<1.2)continue;if(W.sites.some(q=>!q.wall&&Math.hypot(wx-q.x,wz-q.z)<q.R+22))continue;put(pick(MTN),wx,wz,5.5+r()*4,{sink:-2.5});n++}
   // each boss site is a PLACE: a broken ring of landmarks just outside the fight circle, themed per site (ruin pillars / boulders / dead woods), with a gap where the fog gate faces the island centre
   const THEME={crimsonspire:{l:PIL,n:6,s:3.4,v:1.5,tilt:.25},oaths:{l:PIL,n:9,s:3.6,v:1.6,tilt:.2},sanctum:{l:PIL,n:5,s:3.2,v:1.4,tilt:.2},cinder:{l:PIL,n:5,s:3.2,v:1.4,tilt:.25},ember:{l:PIL,n:8,s:2.8,v:1.2,tilt:.3},snarepit:{l:TRE,n:7,s:2.2,v:1,tilt:.15},blackgate:{l:PIL,n:9,s:3.2,v:1.4,tilt:.3},cathedral:{l:PIL,n:10,s:3.6,v:1.6,tilt:.2},brokengate:{l:PIL,n:8,s:3.0,v:1.2,tilt:.4},ridgeshot:{l:PIL,n:7,s:2.8,v:1.2,tilt:.3},maw:{l:BLD,n:9,s:3.4,v:2.2,tilt:.4},hollowkeep:{l:BLD,n:8,s:3.0,v:2,tilt:.4},den:{l:TRE,n:10,s:2.1,v:.9,tilt:.12},glade:{l:TRE,n:9,s:1.9,v:.8,tilt:.12}};
   for(const q of W.sites){if(!q.fog||q.dg)continue;const th=THEME[q.id]||{l:PIL,n:8,s:2.6,v:1.2,tilt:.3},gate=Math.atan2(-q.x,-q.z);
