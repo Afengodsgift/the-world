@@ -6,7 +6,7 @@
 // Messages ride the world's existing realtime channel as broadcast event 'wd' (index.html calls WardenNet.onMsg).
 // Globals used (browser only): chan, myId. Moves is read through the `mv` argument so tests can pass their own.
 const WardenNet=(()=>{
-  const FIELDS=['x','z','face','hp','st','po','act','sk','pt','pi','pk','hold','stun','guard','c','kr','kx','kz','gpt','rel','chg','dm','hpMax'];
+  const FIELDS=['x','z','face','hp','st','po','act','sk','pt','pi','pk','hold','stun','guard','pry','c','kr','kx','kz','gpt','rel','chg','dm','hpMax'];
   const r3=v=>typeof v==='number'?Math.round(v*1000)/1000:v;
   function pack(f){const o={};for(const k of FIELDS)o[k]=r3(f[k]);o.mv=f.mv?f.mv.id:null;o.dir=f.dir?[r3(f.dir[0]),r3(f.dir[1])]:null;o.done=Object.keys(f.done||{}).filter(k=>f.done[k]);return o}
   // write a received state into a local fighter. pos: 1 = snap x/z, 0..1 = blend (foes, smooths 15 Hz updates), 0 = keep local x/z.

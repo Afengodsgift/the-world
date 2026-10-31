@@ -6,11 +6,11 @@
 //   proj = a travelling bolt (blockable/deflectable, dodgeable, stopped by solids), aoe = a ground circle that telegraphs for `delay` ticks and then bursts for `dur` ticks (unblockable, dodgeable by i-frames or by leaving it).
 //   They resolve through the same outcome list as sword hits, so hit-stop freezes them and every event keeps its shape (hit/block/deflect/dodged/dead).
 const CombatCore=(()=>{
-  const SPEED=.05,SUBM=.1,GUARD_ARC=1.2,REARM=14,DEFL=7,BUF=6;
+  const SPEED=.05,SUBM=.1,GUARD_ARC=1.2,REARM=14,DEFL=7,BUF=6,PARRY_T=26,PARRY_W=13;
   const PHI=42,RISE=336;   // RISE: a boss that 'rises' is felled at its phase line, lies down ~5.6 s (untouchable), then gets up in its second phase
      // ticks of invulnerability while a boss changes phase (0.7 s)
   function mkFighter(id,o){o=o||{};return{id,x:o.x||0,z:o.z||0,y:0,r:.45,face:o.face||0,hp:o.hp||100,hpMax:o.hp||100,st:100,stMax:100,po:0,poMax:100,
-    team:o.team||null,sa:o.sa||0,pg:o.pg||0,rise:o.rise||0,tm:o.tm||1,pgd:false,inv:0,sm:1,pm:1,dfl:0,bk:0,dm:o.dm||1,rm:o.rm||1,act:'free',pt:0,ph:null,pi:0,pk:0,mv:null,hold:0,done:{},sk:null,stun:0,kx:0,kz:0,kr:0,dir:null,guard:false,gpt:99,rel:99,sr:99,pr:99,c:0,rel2:false,buf:null,q:[],ex:0,ez:0,lc:0,lcT:-999,dEnd:-999}}
+    team:o.team||null,sa:o.sa||0,pg:o.pg||0,rise:o.rise||0,tm:o.tm||1,pgd:false,inv:0,sm:1,pm:1,dfl:0,bk:0,dm:o.dm||1,rm:o.rm||1,act:'free',pt:0,ph:null,pi:0,pk:0,mv:null,hold:0,done:{},sk:null,stun:0,kx:0,kz:0,kr:0,dir:null,guard:false,pry:0,gpt:99,rel:99,sr:99,pr:99,c:0,rel2:false,buf:null,q:[],ex:0,ez:0,lc:0,lcT:-999,dEnd:-999}}
   function create(o){o=o||{};const C={tick:0,hs:0,ev:[],fx:[],fxN:0,F:{},solids:(o.solids||[]).slice(),arena:o.arena||{x:0,z:0,R:1e9},order:[]};
     C.add=(id,fo)=>{C.F[id]=mkFighter(id,fo);C.order.push(id);return C.F[id]};
     C.step=cmds=>step(C,cmds||{});C.start=(id,m,hold)=>{const f=C.F[id];if(f&&Moves[m])startMove(C,f,m,hold|0)};return C}
@@ -51,7 +51,8 @@ const CombatCore=(()=>{
       case'atk':if(f.act==='free'){startMove(C,f,c.m,c.hold||0);return true}return false;
       case'dodge':{if((f.act==='free'||f.act==='charge'||canCancel(f,'dodge'))&&f.st>0){const D=c.side?Moves.sidestep:Moves.dodge;f.side=c.side?1:0;let dx=c.dx,dz=c.dz;if(!(Math.hypot(dx||0,dz||0)>.01)){dx=-Math.sin(f.face);dz=-Math.cos(f.face)}const L=Math.hypot(dx,dz);f.dir=[dx/L,dz/L];f.act='dodge';f.pt=0;f.guard=false;f.ph=null;f.mv=null;f.c=0;spend(f,D.stam);emit(C,'dodge',f.id,null);return true}return false}
       case'guardDown':if(f.act==='free'||canCancel(f,'guard')){if(f.act==='attack'){f.act='free';f.ph=null;f.mv=null}f.guard=true;f.gpt=f.rel>=REARM?0:99;return true}return false;
-      case'guardUp':if(f.guard){f.guard=false;f.rel=0}return true;
+      case'guardUp':if(f.guard&&!(f.pry>0)){f.guard=false;f.rel=0}return true;
+      case'parry':if((f.act==='free'||canCancel(f,'guard'))&&f.rel>=REARM&&!(f.pry>0)){if(f.act==='attack'){f.act='free';f.ph=null;f.mv=null}f.guard=true;f.gpt=0;f.pry=PARRY_T;emit(C,'parry',f.id,null);return true}return false;   // a tap: a sweep of the blade; the first PARRY_W ticks DEFLECT, the rest block
       case'heavyDown':{const from=f.act==='attack'&&f.mv?f.mv.id:null;
         if(from&&canCancel(f,'heavy')&&f.st>0){const id=Combos.heavy({from});if(id){startMove(C,f,id);f.lc=Moves[id].chain||0;return true}}
         if(f.act==='free'&&f.st>0&&!f.guard&&C.tick-f.dEnd<=Combos.EVADE_GAP&&!c.q&&f.dEnd>-900){startMove(C,f,'lunge');f.lc=0;return true}
@@ -63,7 +64,7 @@ const CombatCore=(()=>{
     for(const id of C.order){const f=C.F[id],c=cmds[id];if(!c)continue;if(c.face!==undefined&&(f.act==='free'||f.act==='charge'))f.face=c.face;f.ex=c.mx||0;f.ez=c.mz||0;if(c.list)for(const k of c.list)f.q.push(Object.assign({e:C.tick},k))}
     if(C.hs>0){C.hs--;emit(C,'hitstop',null,null,{left:C.hs});return C.ev}
     // (1) commands (with a short input buffer for ones that cannot start yet)
-    for(const id of C.order){const f=C.F[id];const q=f.q;f.q=[];for(const c of q){if(!tryCmd(C,f,c)){if((c.t==='light'||c.t==='dodge')&&C.tick-c.e<BUF)f.q.push(c);else if(c.t==='heavyDown'&&f.act==='attack'&&C.tick-c.e<18)f.q.push(Object.assign({},c,{q:1}))}}}
+    for(const id of C.order){const f=C.F[id];const q=f.q;f.q=[];for(const c of q){if(!tryCmd(C,f,c)){if((c.t==='light'||c.t==='dodge'||c.t==='parry')&&C.tick-c.e<BUF)f.q.push(c);else if(c.t==='heavyDown'&&f.act==='attack'&&C.tick-c.e<18)f.q.push(Object.assign({},c,{q:1}))}}}
     // heavy: strike once released and min charge reached, or max charge
     for(const id of C.order){const f=C.F[id];if(f.act==='charge'&&((f.rel2&&f.c>=Moves.heavy.chargeMin)||f.c>=Moves.heavy.chargeMax)){{const ch=Math.max(0,Math.min(1,(f.c-Moves.heavy.chargeMin)/(Moves.heavy.chargeMax-Moves.heavy.chargeMin)));startMove(C,f,'heavy');f.chg=ch}}}
     // (2) snapshot
@@ -83,7 +84,7 @@ const CombatCore=(()=>{
         for(const s of C.solids){if(s.nb&&!s.wall)continue;if(Math.hypot(fx.x-s.x,fx.z-s.z)<s.r){emit(C,'fxend',fx.o,null,{fid:fx.id,why:'wall',x:fx.x,z:fx.z});return false}}
         for(const t of foes){if(fx.done[t.id]||Math.hypot(t.x-fx.x,t.z-fx.z)>=fx.r+t.r)continue;fx.done[t.id]=true;
           if(iframe(t)){out.push({k:'dodged',a:own,t,fx:fx.id});continue}
-          const br=Math.atan2(-fx.dx,-fx.dz);out.push({k:t.guard&&t.act==='free'&&SwordHit.angd(t.face,br)<=GUARD_ARC?(t.gpt<=DEFL+(t.dfl||0)?'deflect':'block'):'hit',a:own,t,mv:fx.mv,br,fx:fx.id});
+          const br=Math.atan2(-fx.dx,-fx.dz);out.push({k:t.guard&&t.act==='free'&&SwordHit.angd(t.face,br)<=GUARD_ARC?(t.gpt<=(t.pry>0?PARRY_W:DEFL)+(t.dfl||0)?'deflect':'block'):'hit',a:own,t,mv:fx.mv,br,fx:fx.id});
           emit(C,'fxend',fx.o,t.id,{fid:fx.id,why:'hit',x:fx.x,z:fx.z});return false}
         if(fx.life<=0){emit(C,'fxend',fx.o,null,{fid:fx.id,why:'expire',x:fx.x,z:fx.z});return false}return true}
       if(fx.delay>0){fx.delay--;return true}
@@ -98,7 +99,7 @@ const CombatCore=(()=>{
         const hit=SwordHit.tickHits(snap[aid],a.face,a.mv,p,a.pk,p.n,snap[tid],C.solids,a.y,t.y);if(!hit)continue;
         if(iframe(t)){out.push({k:'dodged',a,t,seg:p.seg});continue}
         const br=Math.atan2(snap[aid].x-snap[tid].x,snap[aid].z-snap[tid].z);
-        if(t.guard&&t.act==='free'&&SwordHit.angd(t.face,br)<=GUARD_ARC)out.push({k:t.gpt<=DEFL+(t.dfl||0)?'deflect':'block',a,t,seg:p.seg,mv:a.mv,br});
+        if(t.guard&&t.act==='free'&&SwordHit.angd(t.face,br)<=GUARD_ARC)out.push({k:t.gpt<=(t.pry>0?PARRY_W:DEFL)+(t.dfl||0)?'deflect':'block',a,t,seg:p.seg,mv:a.mv,br});
         else out.push({k:'hit',a,t,seg:p.seg,mv:a.mv,br})}}
     // (5) resolve (all outcomes were decided from the pre-resolution state, so simultaneous hits both land)
     let hs=0;const stag0={};for(const id of C.order)stag0[id]=C.F[id].act==='stun'&&C.F[id].sk==='stagger';
@@ -121,6 +122,7 @@ const CombatCore=(()=>{
     // (6) advance counters (not reached during hit-stop)
     for(const id of C.order){const f=C.F[id];if(f.act==='dead')continue;
       if(f.guard)f.gpt=Math.min(99,f.gpt+1);else f.rel=Math.min(99,f.rel+1);
+      if(f.pry>0){f.pry--;if(f.pry===0){f.guard=false;f.rel=0}}
       f.sr=Math.min(999,f.sr+1);f.pr=Math.min(999,f.pr+1);
       if(f.sr>=30&&f.st<f.stMax)f.st=Math.min(f.stMax,f.st+(f.guard?.15:.4));
       if(f.pr>=90&&f.po>0)f.po=Math.max(0,f.po-.35);
@@ -137,4 +139,4 @@ const CombatCore=(()=>{
       for(let i=0;i<n;i++){const nt=C.tick+1,cm={},held=getHeld?getHeld(nt):{};for(const id in held)cm[id]=Object.assign({list:[]},held[id]);
         for(const p of S.pend)if(p.tick<=nt){(cm[p.id]=cm[p.id]||{list:[]}).list.push(p.cmd)}S.pend=S.pend.filter(p=>p.tick>nt);
         for(const e of C.step(cm))evs.push(e);if(post)post(nt)}return evs};return S}
-  return{create,stepper,mkFighter,moveBy,stun:stunF,CONST:{SPEED,SUBM,GUARD_ARC,REARM,DEFL,BUF}}})();
+  return{create,stepper,mkFighter,moveBy,stun:stunF,CONST:{SPEED,SUBM,GUARD_ARC,REARM,DEFL,BUF,PARRY_T,PARRY_W}}})();

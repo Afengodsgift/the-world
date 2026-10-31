@@ -255,7 +255,7 @@ const PlayerCombat=(()=>{
     switch(name){
       case'light':{assist();reject();const c={t:'light',e:C.tick},d=stickDir(),fa=pendFace!==null?pendFace:S.rot;if(d&&d[0]*Math.sin(fa)+d[1]*Math.cos(fa)>.6)c.adv=true;if(D&&D.act!=='dead'&&Math.hypot(D.x-P.x,D.z-P.z)>4.5)c.far=true;ST.input('P',c,t);break}
       case'heavy':if(down.heavy)return true;assist();reject();down.heavy=true;ST.input('P',{t:'heavyDown',e:C.tick},t);break;
-      case'guard':if(down.guard)return true;down.guard=true;ST.input('P',{t:'guardDown',e:C.tick},t);break;
+      case'guard':if(down.guard)return true;down.guard=true;ST.input('P',{t:'parry',e:C.tick},t);if(!parryTip){parryTip=1;toast('Parry: tap just before a hit lands to DEFLECT it',2.8)}break;
       case'dodge':{const d=stickDir();const c={t:'dodge',e:C.tick};if(d){c.dx=d[0];c.dz=d[1];if(lock&&D&&D.act!=='dead'&&!ult){const fx=D.x-P.x,fz=D.z-P.z,L=Math.hypot(fx,fz)||1;if(Math.abs((d[0]*fx+d[1]*fz)/L)<.55){c.side=1;if(!sideTip){sideTip=1;toast('Locked on + stick sideways = quick Sidestep',2.6)}}}}ST.input('P',c,t);break}
       case'flow':flowPress(t);break;
       case'ihp':useFlask('hp');break;case'ist':useFlask('st');break;case'imt':useFlask('mt');break;
@@ -292,7 +292,7 @@ const PlayerCombat=(()=>{
   function build(){WardenNet.setHandler(netMsg);
     el=document.createElement('div');el.id='wroot';
     el.innerHTML='<div id="wh"><div class="wb p"><i class="hp"><b></b></i><i class="st"><b></b></i><i class="fl"><b></b></i></div><div class="wb d"><span>The Duelist</span><i class="hp"><b></b></i><i class="po"><b></b></i></div></div><div id="wmsg"></div><div id="wem"></div><button id="wQuit">Leave arena</button><div id="whd" style="position:fixed;left:50%;top:46%;width:0;height:0;pointer-events:none;z-index:50;opacity:0;transition:opacity .5s"><div style="position:absolute;left:-26px;top:-150px;width:0;height:0;border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:54px solid #ff2a1a;filter:drop-shadow(0 0 8px #ff6a2a)"></div></div><div id="whn" style="position:fixed;left:0;right:0;top:34%;text-align:center;pointer-events:none;z-index:50;color:#ffb27a;font:700 15px sans-serif;letter-spacing:.14em;text-shadow:0 0 6px #000,0 0 3px #000;opacity:0;transition:opacity .5s"></div>'+
-      '<div id="wc"><button id="wLight">Light</button><button id="wHeavy">Heavy</button><button id="wGuard">Guard</button><button id="wDodge">Dodge</button><button id="wFlow">Flow</button><button id="wIhp" class="wi"><b>\u2764</b><i>3</i></button><button id="wIst" class="wi"><b>\u26A1</b><i>2</i></button><button id="wImt" class="wi"><b>\u2694</b><i>1</i></button><button id="wLock">Lock</button><button id="wJump">Jump</button><button id="wShadow">Shadow</button></div>'+
+      '<div id="wc"><button id="wLight">Light</button><button id="wHeavy">Heavy</button><button id="wGuard">Parry</button><button id="wDodge">Dodge</button><button id="wFlow">Flow</button><button id="wIhp" class="wi"><b>\u2764</b><i>3</i></button><button id="wIst" class="wi"><b>\u26A1</b><i>2</i></button><button id="wImt" class="wi"><b>\u2694</b><i>1</i></button><button id="wLock">Lock</button><button id="wJump">Jump</button><button id="wShadow">Shadow</button></div>'+
       '<div id="whint">F light (x3, then G = Tempest) · Guard+Light = Shove · dodge then G = Lunge · G heavy (hold) · Q guard · Space dodge · E flow · 1/2/3 flasks · Tab lock</div>';
     document.body.appendChild(el);
     {const q=el.querySelector('#wQuit'),go=e=>{e.preventDefault();e.stopPropagation();quitArena()};q.addEventListener('pointerdown',e=>e.stopPropagation());q.addEventListener('click',go)}
@@ -724,7 +724,7 @@ const PlayerCombat=(()=>{
   // ================= FIGHT JUMP + AFTERIMAGE (Shadow) =================
   // Jump: the normal jump (index.html), now a button in the fight HUD. While you are high enough, ground attacks whiff (SwordHit's height band) - it costs stamina and has a short cooldown so it is a dodge, not a god mode.
   // Shadow: you blink away (+ a dodge's invulnerability) and leave an afterimage for a few seconds. Every foe aims at it, hits it, and it bursts after two hits or when time runs out.
-  let sideTip=0,jumpTip=0,jumpCd=0,shCd=0,decoy=null,rdecoy=null,gBase=0;
+  let parryTip=0,sideTip=0,jumpTip=0,jumpCd=0,shCd=0,decoy=null,rdecoy=null,gBase=0;
   function fightJump(){
     if(!on||ult||P.act==='dead'||jumpCd>0||!S.grounded||S.flying||P.st<10)return false;
     if(P.act==='attack'||P.act==='stun'||P.act==='dodge')return false;P.st-=10;jumpCd=.9;jumpQ=true;if(!jumpTip){jumpTip=1;toast('Jump + Light = Plunge Strike',2.6)}return true}
