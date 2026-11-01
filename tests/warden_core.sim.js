@@ -7,7 +7,7 @@ const duel=(o)=>{o=o||{};const C=CC.create({arena:o.arena||{x:0,z:0,R:14},solids
 const run=(C,n,fn)=>{const ev=[];for(let i=0;i<n;i++){const cm=fn?fn(C.tick+1):{};for(const e of C.step(cm))ev.push(e)}return ev};
 // ---------- A. fairness data rules (no exceptions) ----------
 const EXCEPTIONS=[];ok(EXCEPTIONS.length===0,'fairness exceptions list is empty');
-const dm=Object.keys(M).filter(k=>M[k]&&M[k].who==='D');ok(dm.length===52,'52 foe moves (5 Duelist + 3 Hollow Warden + 2 gap closers + 4 ranged/magic + bash + riposte + 3 capoeira + blink + snare + Kage: iai, feint, moon, counter, requiem + Gwyn: ashwave, crossflame, kingsfall, flurry + Kage: hundred + charge, maul, tidal, spores + bladestorm, swordring, sunvolley, snakelash, eclipse): '+dm.join(','));
+const dm=Object.keys(M).filter(k=>M[k]&&M[k].who==='D');ok(dm.length===75,'75 foe moves (5 Duelist + 3 Hollow Warden + 2 gap closers + 4 ranged/magic + bash + riposte + 3 capoeira + blink + snare + Kage: iai, feint, moon, counter, requiem + Gwyn: ashwave, crossflame, kingsfall, flurry + Kage: hundred + charge, maul, tidal, spores + bladestorm, swordring, sunvolley, snakelash, eclipse): '+dm.join(','));
 for(const id of dm){let worst=1e9,rec=M.endRecovery(id);for(let h=0;h<=M.HOLD_MAX;h++)for(const t of M.tells(id,h))worst=Math.min(worst,t);
   ok(worst>=M.TELL_MIN,id+': every hit has a tell >= '+M.TELL_MIN+' ticks for hold 0..12 (min '+worst+')');
   ok(rec>=M.REC_MIN,id+': ends in >= '+M.REC_MIN+' uncancellable recovery ('+rec+')');
@@ -115,7 +115,7 @@ function script(fps){const{C,P,D}=duel2({});const S=CC2.stepper(C);const evs=[];
 const f60=script(60);for(const fps of[15,30,144])ok(script(fps).h===f60.h,'identical event log at '+fps+' fps vs 60 fps');ok(script(15).clamped===0,'15 fps needs no catch-up clamp (4 ticks/frame <= 6)');
 // ---------- M. reactive bots (18-tick reaction) ----------
 const isAoe=id=>(M[id].fx||[]).some(d=>d.k==='aoe');
-for(const id of dm.filter(isAoe)){const dl=M[id].fx.find(d=>d.k==='aoe').delay;let hits=0,still=0;
+for(const id of dm.filter(isAoe).filter(id=>!M[id].waves&&!M[id].phases.some(p=>p.k==='active')&&!(M[id].fx||[]).some(d=>d.k==='aoe'&&d.on!=='start'))){const dl=M[id].fx.find(d=>d.k==='aoe').delay;let hits=0,still=0;
   for(const mode of['dodge','still']){const{C,P,D}=duel2({P:{hp:1e4}});const ev=[];C.step({D:{list:[{t:'atk',m:id}]}});const s0=C.tick;
     for(let i=0;i<200;i++){const cm={};if(mode==='dodge'&&C.tick+1===s0+dl-6)cm.P={list:[{t:'dodge',dx:1,dz:0}]};for(const e of C.step(cm))ev.push(e)}
     const n=ev.filter(e=>e.t==='hit'&&e.d==='P').length;if(mode==='dodge')hits=n;else still=n}

@@ -103,7 +103,8 @@ const CombatCore=(()=>{
         out.push({k:'hit',a:own,t,mv:fx.mv,br:Math.atan2(fx.x-t.x,fx.z-t.z),fx:fx.id})}
       if(--fx.dur<=0){emit(C,'fxend',fx.o,null,{fid:fx.id,why:'done',x:fx.x,z:fx.z});return false}return true});
     // (4) hit tests on the snapshot
-    for(const aid of C.order){const a=C.F[aid];if(a.act!=='attack')continue;const p=a.ph[a.pi];if(!p||p.k!=='active'||a.done[p.seg])continue;
+    for(const aid of C.order){const a=C.F[aid];if(a.act!=='attack')continue;const p=a.ph[a.pi];if(!p||p.k!=='active'||a.done[p.seg])continue;if(a.mv.sdm&&a.mv.sdm[p.seg]===0){a.done[p.seg]=true;continue}   // sdm[seg]===0: a feint, the swing is drawn but strikes nothing
+      
       for(const tid of C.order){if(tid===aid)continue;const t=C.F[tid];if(t.act==='dead'||(a.team&&t.team===a.team))continue;
         const hit=SwordHit.tickHits(snap[aid],a.face,a.mv,p,a.pk,p.n,snap[tid],C.solids,a.y,t.y);if(!hit)continue;
         if(iframe(t)){out.push({k:'dodged',a,t,seg:p.seg,mv:a.mv});continue}
@@ -123,7 +124,7 @@ const CombatCore=(()=>{
       else if(o.k==='block'){t.st=mv.gb?0:Math.max(0,t.st-mv.dmg*.8*sc);t.sr=0;addPo(C,t,mv.pdmg*.7*sc);emit(C,'block',a.id,t.id,{seg:o.seg});hs=Math.max(hs,3);
         if(t.st<=0&&t.act==='free'){stunF(t,45,'stagger');emit(C,'guardbreak',a.id,t.id)}}
       else if(t.inv>0){emit(C,'immune',a.id,t.id,{seg:o.seg})}   // the phase roar: nothing lands (a few ticks, see below)
-      else{const crit=stag0[t.id]?2.5:1,back=a.bk&&SwordHit.angd(t.face,Math.atan2(a.x-t.x,a.z-t.z))>2.2?1+a.bk:1,dm=mv.dmg*sc*crit*back*(a.dm||1);   // a.bk: the Shadow Edge style hits a foe that is facing away harder
+      else{const crit=stag0[t.id]?2.5:1,back=a.bk&&SwordHit.angd(t.face,Math.atan2(a.x-t.x,a.z-t.z))>2.2?1+a.bk:1,dm=mv.dmg*sc*(!o.fx&&mv.sdm&&mv.sdm[o.seg]||1)*crit*back*(a.dm||1);   // a.bk: the Shadow Edge style hits a foe that is facing away harder
         // PHASE GATE (bosses with .pg): damage that would carry the foe across its phase line, or kill it before the phase has happened, stops one point past the line and starts the roar. One-shots, huge crits and two co-op hits in the same tick can no longer skip a phase.
         const gate=t.pg>0?Math.ceil(t.hpMax*t.pg)-1:-1;let nh=t.hp-dm;
         if(gate>=0&&!t.pgd){if(t.hp<=gate)t.pgd=true;else if(nh<=gate){nh=gate;t.pgd=true;if(t.rise){t.inv=RISE+10;stunF(t,RISE,'rise');t.hold=0}else t.inv=PHI;emit(C,'phase',a.id,t.id,{rise:t.rise?1:0})}}

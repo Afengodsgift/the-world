@@ -990,7 +990,9 @@ const PlayerCombat=(()=>{
         if(!F.awake&&F.dorm!=='wake'&&Math.hypot(S.x-q.x,S.z-q.z)<F.T.aggro)wake(F);
         if(F.human){h[F.id]={face:q.face,mx:0,mz:0,list:[]};continue}
         if(NET.mode==='guest'){const n=F.nin||{mx:0,mz:0};h[F.id]={face:q.face,mx:n.mx,mz:n.mz,list:[]};continue}
-        if(F.awake&&PC.ai&&state==='fight'){if(F.T.oath){const sg=Foes_sig(q,F);F.ai.sigLock=sg;const tg=aiTarget(q);F.ai.onDecoy=tg===C.F.Z||tg===C.F.Y}F.ai.noAtk=!!F.T.pack&&atk>=Foes.PACK_ATK&&q.act!=='attack';const a=DuelistAI.think(F.ai,aiTarget(q),q,lastEv,nt);F.nin={mx:a.mx,mz:a.mz};h[F.id]={face:a.face,mx:a.mx,mz:a.mz,list:a.list};if(F.ai.readMsg){const hn=DuelistAI.HN[F.ai.readMsg];F.ai.readMsg=null;if(hn&&!ult){msg(F.T.name.split(',')[0].replace(/^The /,'').toUpperCase()+' READS YOUR '+hn.toUpperCase(),1.5);try{tone(260,200,.2,'square',.08)}catch(x){}}}}
+        if(F.awake&&PC.ai&&state==='fight'){if(F.T.oath){const sg=Foes_sig(q,F);F.ai.sigLock=sg;const tg=aiTarget(q);F.ai.onDecoy=tg===C.F.Z||tg===C.F.Y}F.ai.noAtk=!!F.T.pack&&atk>=Foes.PACK_ATK&&q.act!=='attack';const a=DuelistAI.think(F.ai,aiTarget(q),q,lastEv,nt);F.nin={mx:a.mx,mz:a.mz};h[F.id]={face:a.face,mx:a.mx,mz:a.mz,list:a.list};if(F.ai.banner){const bn=F.ai.banner;F.ai.banner=null;if(!ult){msg(bn,2.2);flash(.4,'rgba(255,60,40,.5)');try{CameraRig.shake(.4);sfx('heavy',.8,.6,()=>tone(80,40,.6,'sawtooth',.16))}catch(x){}}}
+        {const f=F.f,em=F.ai.sov>0;if(f.dm0===undefined){f.dm0=f.dm||1;f.tm0=f.tm||1}const dm=f.dm0*(em?1.2:1),tm=f.tm0*(em?1.2:1);if(f.dm!==dm)f.dm=dm;if(f.tm!==tm)f.tm=tm}
+        if(F.ai.readMsg){const hn=DuelistAI.HN[F.ai.readMsg];F.ai.readMsg=null;if(hn&&!ult){msg(F.T.name.split(',')[0].replace(/^The /,'').toUpperCase()+' READS YOUR '+hn.toUpperCase(),1.5);try{tone(260,200,.2,'square',.08)}catch(x){}}}}
         else h[F.id]={face:F.awake||F.dorm==='wake'?Math.atan2(S.x-q.x,S.z-q.z):q.face,mx:0,mz:0}}
       return h};
     const evs=CineCam.frozen()||DU.cd>0?[]:ST.advance(now(),held,()=>{S.x+=P.x-lx;S.z+=P.z-lz;lx=P.x;lz=P.z;lastEv=C.ev;trickStep(C.ev)});
