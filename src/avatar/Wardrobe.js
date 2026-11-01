@@ -65,6 +65,7 @@ const Wardrobe=(()=>{
     const sec=(t)=>sc.appendChild(el('h3','',t));
     sec('Body');let row=sc.appendChild(el('div','row'));
     for(const id of Object.keys(K.CAT)){const b=el('button','chip'+(c.b===id?' sel':''),K.CAT[id].label+' · '+K.CAT[id].name);b.onclick=()=>set({b:id});row.appendChild(b)}
+    if(K.CAT[c.b].fixed){sc.appendChild(el('p','note','This character keeps the look he was modelled with - there is nothing to recolour. Pick Crypto or Madea for outfits and colours.'));return}
     sec(K.CAT[c.b].headLabel+' colour');row=sc.appendChild(el('div','row'));
     K.HAIR.forEach((h,i)=>{const b=el('button','sw'+(c.hc===i?' sel':''));b.title=h[0];b.setAttribute('aria-label',h[0]);b.style.background=h[1]==null?'conic-gradient(#3b2a22,#7a6a58,#2a2a30,#3b2a22)':hex(h[1]);b.onclick=()=>set({hc:i});row.appendChild(b)});
     sec('Outfit set');row=sc.appendChild(el('div','row'));
@@ -94,5 +95,5 @@ const Wardrobe=(()=>{
   function close(){
     const S=st;if(!S)return;st=null;clearInterval(S.watch);window.removeEventListener('keydown',S.key);
     root.classList.remove('on');stopPreview(S.P);root.querySelector('.warn').textContent='';root.querySelector('.ap').disabled=false}
-  return {open,close,isOpen:()=>!!st};
+  return {open,close,isOpen:()=>!!st,_p:()=>st&&st.P};   // _p: test hook (preview scene)
 })();

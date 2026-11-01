@@ -62,7 +62,7 @@ const Track=(()=>{
     }
     for(let i=0;i<m;i++){const a=Math.max(0,i-1),b=Math.min(m-1,i+1),tx=X[b]-X[a],tz=Z[b]-Z[a],l=Math.hypot(tx,tz)||1;TX[i]=tx/l;TZ[i]=tz/l}
     const cs=ctl.map(k=>cum[k]); // arclength of each control point (gates / pads / hazards reference control points)
-    return {id:rd.id,m,X,Z,Y,W,S,TX,TZ,len,cs,sh:rd.shoulder==null?5:rd.shoulder,lipV:rd.lipV||0,alt:!!rd.alt,sub:!!rd.sub,joinDef:rd.join||null,join:null};
+    return {id:rd.id,m,X,Z,Y,W,S,TX,TZ,len,cs,sh:rd.shoulder==null?5:rd.shoulder,lipV:rd.lipV||0,alt:!!rd.alt,sub:!!rd.sub,openR:rd.openR||0,joinDef:rd.join||null,join:null};
   }
 
   function build(def,env){
@@ -129,10 +129,11 @@ const Track=(()=>{
       for(let i=0;i<r.m;i++){const nx=-r.TZ[i],nz=r.TX[i],e=r.W[i]/2+1.2;
         if(r.Y[i]-env.H(r.X[i]+nx*e,r.Z[i]+nz*e)>GUARD_DROP)r.GP[i]=1;
         if(r.Y[i]-env.H(r.X[i]-nx*e,r.Z[i]-nz*e)>GUARD_DROP)r.GM[i]=1}
+      if(r.sub)for(let i=0;i<r.m;i++)if(r.Y[i]<-.8){r.GP[i]=1;r.GM[i]=1}   // the underwater road is a walled tube: you cannot drift off the deck into the open sea
       const a=r.GP.slice(),b=r.GM.slice();for(let i=0;i<r.m;i++)for(let k=-3;k<=3;k++){const j=i+k;if(j>=0&&j<r.m){if(a[j])r.GP[i]=1;if(b[j])r.GM[i]=1}}
     }
     for(const al of T.roads){if(!al.alt)continue;for(const ei of [0,al.m-1]){const ex=al.X[ei],ez=al.Z[ei];
-      for(const r of T.roads){if(r.alt)continue;for(let i=0;i<r.m;i++)if(Math.hypot(r.X[i]-ex,r.Z[i]-ez)<45){r.GP[i]=0;r.GM[i]=0}}}}
+      for(const r of T.roads){if(r.alt&&!(r===al&&al.openR))continue;for(let i=0;i<r.m;i++)if(Math.hypot(r.X[i]-ex,r.Z[i]-ez)<(al.openR||45)){r.GP[i]=0;r.GM[i]=0}}}}   // (an alt road also opens its OWN ends, so a car can drive on and off it)
     const guard=(x,z,y,r,out)=>{
       const a=hash.get(key(Math.floor(x/CELL),Math.floor(z/CELL)));if(!a)return false;let best=0;
       for(let q=0;q<a.length;q+=2){
@@ -314,7 +315,7 @@ const Track=(()=>{
   function plausible(T,r){for(let i=1;i<r.splits.length;i++){if(r.sk&&(r.sk[i-1]||r.sk[i]))continue;if(r.splits[i]-r.splits[i-1]<minTime(T,i)-.25)return false}return true}   // a skipped gate shares its time with the next one, so it is exempt
   // does this racer need rescuing? ('water': a grounded car in the sea; 'stuck': barely moving for 3 s; 'lost': far from every road for 5 s, or no gate for 25 s)
   function needsRecovery(T,r,c,dt){
-    r.gT+=dt;if(r.gT>25&&!r.finished){r.gT=0;return 'lost'}     // no gate for 25 s (fell onto the wrong lap, wandered off): rescue to the last gate
+    r.gT+=dt;if(r.alt)r.gT=Math.min(r.gT,12);if(r.gT>25&&!r.finished){r.gT=0;return 'lost'}     // no gate for 25 s (fell onto the wrong lap, wandered off): rescue to the last gate
     if(c.grounded&&c.mode==='car'){
       if(c.y<-.8){const d=T.deck(c.x,c.z,c.y+1.2,null);if(!(d===d&&c.y-d<1.2&&T.subAt(c.x,c.z)))return 'water'}   // in the sea = rescue, unless you are on an underwater road
       r.stuckT=Math.hypot(c.vx,c.vz)<1.5?r.stuckT+dt:0;if(r.stuckT>3){r.stuckT=0;return 'stuck'}

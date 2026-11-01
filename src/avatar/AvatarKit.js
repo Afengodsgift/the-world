@@ -8,11 +8,12 @@
 //   equipment            - hand-held props (pan, rod, sword, gun, shield) live on bones BY NAME and are re-parented when the model is swapped; accessories (goggles, cap...) are owned by this module
 // NPCs (crew, raiders, foes, deckhands) never go through here: they keep the chibi dress() path and the stock clip tables.
 const AvatarKit=(()=>{
-  const VER=1,ASSET_V='?v=2';   // ASSET_V: bump when an avatar glb / clip set is re-baked (the service worker serves assets stale-while-revalidate, a new URL makes the model and its clips arrive together)
+  const VER=1,ASSET_V='?v=5';   // ASSET_V: bump when an avatar glb / clip set is re-baked (the service worker serves assets stale-while-revalidate, a new URL makes the model and its clips arrive together)
   // ---------------------------------------------------------------- catalog
   const CAT={
-    m:{id:'m',name:'Crypto',label:'Male',glb:'avatars/crypto.glb',mask:'avatars/crypto.mask.png',dir:'avatars/crypto/',legacySkin:0,ref:.0211,headLabel:'Mask & hood',height:1.88},
-    f:{id:'f',name:'Madea',label:'Female',glb:'avatars/madea.glb',mask:'avatars/madea.mask.png',dir:'avatars/madea/',legacySkin:1,ref:.0115,headLabel:'Hair',height:1.70}
+    m:{id:'m',scale:.56,bulk:.05,name:'Crypto',label:'Male',glb:'avatars/crypto.glb',mask:'avatars/crypto.mask.png',dir:'avatars/crypto/',legacySkin:0,ref:.0211,headLabel:'Mask & hood',height:1.88},
+    f:{id:'f',scale:.56,bulk:.04,name:'Madea',label:'Female',glb:'avatars/madea.glb',mask:'avatars/madea.mask.png',dir:'avatars/madea/',legacySkin:1,ref:.0115,headLabel:'Hair',height:1.70},
+    s:{id:'s',scale:.56,bulk:0,fixed:true,name:'Ronin',label:'Samurai',glb:'avatars/samurai.glb',mask:'avatars/samurai.mask.png',dir:'avatars/samurai/',legacySkin:2,ref:.02,headLabel:'Hat',height:2.0}
   };
   const DEFAULT_BASE='m';
   // clothing colours (sRGB hex) - the same palette for every look, filtered per look below
@@ -37,6 +38,7 @@ const AvatarKit=(()=>{
   function normalize(raw){
     if(typeof raw==='string')raw=decode(raw);
     const r=raw&&typeof raw==='object'?raw:{},a=defaults(CAT[r.b]?r.b:DEFAULT_BASE);   // unknown base -> the default avatar
+    if(CAT[a.b].fixed)return a;                                // a fixed-look character (the Samurai keeps the look it was modelled with)
     a.h=0;                                                    // hair styles: only the modelled one so far (reserved field)
     a.hc=int(r.hc,0,HAIR.length-1,0);a.w=int(r.w,0,OUTFITS.length-1,0);a.o=a.w?0:int(r.o,0,LOOKS.length-1,0);   // an outfit set replaces the recolour looks
     a.oc=int(r.oc,0,PAL.length-1,0);
@@ -63,14 +65,14 @@ const AvatarKit=(()=>{
     const d=AURL+CAT[id].dir;
     return Promise.all([getJson(d+'anims.json'),getJson(d+'emotes.json'),getJson(d+'verb_anims.json'),getJson(d+'combat_anims.json'),getJson(d+'meta.json').catch(()=>({}))]).then(([an,em,vb,cb,meta])=>{
       const emo=clipsOf(em.clips);for(const c of vb.clips)if(!emo[c.name]){const ac=THREE.AnimationClip.parse(c);ac.name=c.name;emo[c.name]=ac}
-      const g=meta.gait||{},w=g.walk&&g.walk.ratio||1,j=g.jog&&g.jog.ratio||1;
-      const S={id,anims:clipsOf(an),emo,emoMenu:em.menu.concat(vb.menu||[]),combat:clipsOf(cb),gun:null,gunMeta:null,warden:null,ratio:{walk:w,jog:j,sprint:g.sprint&&g.sprint.ratio||j},hipK:meta.hipK||1,_p:{}};
+      const K=(CAT[id].scale||.5)/.5,g=meta.gait||{},gc=meta.gaitChibi||g,w=(g.walk&&g.walk.ratio||1)*K,j=(g.jog&&g.jog.ratio||1)*K;   // K: the avatar is drawn larger than the chibi (model scale), so the same clip covers K times more ground
+      const S={id,anims:clipsOf(an),emo,emoMenu:em.menu.concat(vb.menu||[]),combat:clipsOf(cb),gun:null,gunMeta:null,warden:null,ratio:{walk:w,jog:j,sprint:(g.sprint&&g.sprint.ratio||(g.jog&&g.jog.ratio)||1)*K},gunRatio:(gc.jog&&gc.jog.ratio||1)*K,mxK:K,hipK:meta.hipK||1,_p:{}};
       SETS[id]=S;return S})}
   // gun / warden sets are only fetched when the armed or sword code asks (they are the two big ones)
   function more(id,what){
     const S=SETS[id];if(!S)return Promise.resolve(null);if(S._p[what])return S._p[what];
     const d=AURL+CAT[id].dir;
-    S._p[what]=what==='gun'?getJson(d+'gun_anims.json').then(j=>{S.gunMeta={};for(const n in j.meta)S.gunMeta[n]=Object.assign({},j.meta[n],{spd:j.meta[n].spd*S.ratio.jog});S.gun=clipsOf(j.clips);return S}).catch(e=>{S._p.gun=null;throw e})
+    S._p[what]=what==='gun'?getJson(d+'gun_anims.json').then(j=>{S.gunMeta={};for(const n in j.meta)S.gunMeta[n]=Object.assign({},j.meta[n],{spd:j.meta[n].spd*S.gunRatio});S.gun=clipsOf(j.clips);return S}).catch(e=>{S._p.gun=null;throw e})
       :getJson(d+'warden_anims.json').then(j=>{S.warden=clipsOf(j);return S}).catch(e=>{S._p.warden=null;throw e});
     return S._p[what]}
   function loadAsset(id){
@@ -82,7 +84,7 @@ const AvatarKit=(()=>{
       loadSet(id),getJson(AURL+C.glb.replace(/\.glb$/,'.json')).catch(()=>null)
     ]).then(([gltf,mask,set,info])=>{
       gltf.scene.traverse(o=>{if(o.isSkinnedMesh){o.frustumCulled=false;if(o.material&&o.material.map)o.material.map.anisotropy=2}});
-      return {id,proto:gltf.scene,mask,set,info}}).catch(e=>{delete assets[id];throw e});
+      const A={id,proto:gltf.scene,mask,set,info};AvatarOutfits.bulk(A,C.bulk||0);return A}).catch(e=>{delete assets[id];throw e});
     return assets[id]}
   const preload=id=>loadAsset(CAT[id]?id:DEFAULT_BASE);
   // ---------------------------------------------------------------- recolour material (one program for every instance; per-instance uniforms)
@@ -186,9 +188,9 @@ const AvatarKit=(()=>{
       if(u.av===a.b&&u.model){u.avApp=a;u.avKey=key;paint(u,a);if(u.avAccKey!==a.a+':'+a.w)buildAcc(u,asset,a);paint(u,a);return true}   // same body: just restyle
       const oldBones=u.bones,had=!!u.model;
       if(had)disposeModel(u);
-      const m=THREE.SkeletonUtils.clone(asset.proto),bones={};m.scale.setScalar(.5);
+      const m=THREE.SkeletonUtils.clone(asset.proto),bones={};m.scale.setScalar(CAT[a.b].scale||.5);u.ms=CAT[a.b].scale||.5;
       u.avMats=[];
-      m.traverse(o=>{if(o.isSkinnedMesh){o.skeleton.bones.forEach(b=>bones[b.name]=b);o.frustumCulled=false;o.castShadow=true;const rm=recolorMaterial(o.material,asset);o.material=rm;u.avMats.push(rm)}});
+      m.traverse(o=>{if(o.isSkinnedMesh){o.skeleton.bones.forEach(b=>bones[b.name]=b);o.frustumCulled=false;o.castShadow=true;if(CAT[a.b].fixed){o.material=o.material.clone()}else{const rm=recolorMaterial(o.material,asset);o.material=rm;u.avMats.push(rm)}}});
       u.av=a.b;u.avApp=a;u.avKey=key;
       dressRig(g,m,bones,{},asset.set.anims);
       if(had&&oldBones)moveProps(oldBones,bones);

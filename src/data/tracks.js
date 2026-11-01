@@ -158,14 +158,26 @@ const TRACKS={
   const st=B.roads.find(r=>r.id==='storm');roads.push(Object.assign({},st,{pts:st.pts.slice(0,11)}));        // the S-bend only; the finish is at its end
   const D=-5,tun=[[730,1224],[704,1213],[668,1201],[622,1196],[570,1206],[515,1232],[458,1276],[392,1340],[324,1414],[256,1492],[196,1566],[154,1624],[128,1662],[110,1690]];
   roads.push({id:'reef-tunnel',w:14,alt:true,sub:true,shoulder:6,join:{road:'storm',p:.3},pts:tun.map(p=>[p[0],p[1],D,14])});
+  // SPLASH PIER: a third route, a road laid ON the sea beside the tunnel (deck just above the waves) with three jump ramps: you launch off each, skim over the water and splash down.
+  // It leaves the same fork and rejoins the Storm road at the same place as the tunnel. Offset sideways from the tunnel line, tapering to 0 at both ends.
+  const padsPier=[],ringsPier=[];
+  {const pier=[],hops=[.32,.64];                                                             // hop positions along the line (0..1)
+    const N=tun.length-1,at=u=>{const f=u*N,i=Math.min(N-1,Math.floor(f)),t=f-i;return [tun[i][0]+(tun[i+1][0]-tun[i][0])*t,tun[i][1]+(tun[i+1][1]-tun[i][1])*t,i]};
+    const tot=(()=>{let L=0;for(let i=0;i<N;i++)L+=Math.hypot(tun[i+1][0]-tun[i][0],tun[i+1][1]-tun[i][1]);return L})();
+    const hopS=hops.map(h=>h*tot),prof=d=>{let dy=0;for(const h of hopS){const e=d-h;if(e>-21&&e<=0)dy=Math.max(dy,3.6*(e+21)/21);else if(e>0&&e<3)dy=Math.max(dy,3.6*(1-e/3))}return dy};   // 21 m ramp up, then the deck drops away over 3 m (a lip: steeper than the car can follow)
+    const ds=[];for(let d=0;d<=tot;){ds.push(d);const near=hopS.some(h=>d>h-24&&d<h+6);d+=near?3:11}ds.push(tot);
+    for(const d of ds){const u=d/tot,[x,z]=at(u),[x2,z2]=at(Math.min(1,u+.01)),[x1,z1]=at(Math.max(0,u-.01)),tl=Math.hypot(x2-x1,z2-z1)||1,nx=-(z2-z1)/tl,nz=(x2-x1)/tl,off=48*Math.sin(Math.PI*u)*(u>.04&&u<.96?1:Math.sin(Math.PI*.5*Math.min(u,1-u)/.04));pier.push([x+nx*off,z+nz*off,prof(d),14])}
+    for(let d=70;d<tot-60;d+=82){if(hopS.some(h=>d>h-30&&d<h+8))continue;padsPier.push({road:'splash-pier',p:ds.findIndex(x=>x>d),len:30,w:12})}   // a boost pad every ~80 m (never on a ramp): the pier is the fast line
+    for(const h of hopS){const u=(h+4)/tot,[x,z]=at(u),[x2,z2]=at(Math.min(1,u+.01)),[x1,z1]=at(Math.max(0,u-.01)),tl=Math.hypot(x2-x1,z2-z1)||1,nx=-(z2-z1)/tl,nz=(x2-x1)/tl,off=48*Math.sin(Math.PI*u);ringsPier.push({x:x+nx*off,y:5.2,z:z+nz*off,h:Math.atan2(x2-x1,z2-z1),r:10,secs:2.6,name:'SPLASH RING'})}
+    roads.push({id:'splash-pier',w:14,alt:true,shoulder:6,openR:130,join:{road:'storm',p:.3},pts:pier})}
   const gates=B.gates.slice(0,8).map(g=>Object.assign({},g));                                  // palm-a ... palm-b p2
   gates[7].opt=true;                                                                           // palm-b p2 is inside the fork
   const lip=B.gates[8],rings=B.gates.slice(9,14),td=B.gates[14];
   gates.push(Object.assign({},lip,{opt:true}));for(const r of rings)gates.push(Object.assign({},r,{opt:true}));
   gates.push(Object.assign({},td),{road:'storm',p:5},{road:'storm',p:8},{road:'storm',p:10,r:16,finish:true,k:'finish'});
   const ringAt=i=>{const a=tun[i-1],b=tun[i+1],h=Math.atan2(b[0]-a[0],b[1]-a[1]);return {x:tun[i][0],y:-3.6,z:tun[i][1],h,r:9,secs:2.0,name:'PEARL RING'}};
-  const pads=B.pads.slice(0,5).concat([{road:'reef-tunnel',p:4,len:16,w:10},{road:'reef-tunnel',p:7,len:16,w:10},{road:'reef-tunnel',p:10,len:16,w:10}]);
-  const items=B.items.slice(0,10).concat([{road:'reef-tunnel',p:5.5,lat:[-3,0,3]},{road:'reef-tunnel',p:8.5,lat:[-2,2]},{road:'reef-tunnel',p:11.5,lat:[0]}]);
+  const pads=B.pads.slice(0,5).concat([{road:'reef-tunnel',p:4,len:16,w:10},{road:'reef-tunnel',p:7,len:16,w:10},{road:'reef-tunnel',p:10,len:16,w:10}],padsPier);
+  const items=B.items.slice(0,10).concat([{road:'reef-tunnel',p:5.5,lat:[-3,0,3]},{road:'reef-tunnel',p:8.5,lat:[-2,2]},{road:'reef-tunnel',p:11.5,lat:[0]}],padsPier.map(q=>({road:'splash-pier',p:q.p+4,lat:[-3,3]})));
   TRACKS['reef-run']={id:'reef-run',name:'Reef Run: Palm - Storm (sky or sea)',mode:'p2p',roads,gates,pads,hazards:B.hazards.slice(0,2),items,
-    bonus:[ringAt(5),ringAt(8),ringAt(11)],forks:[{road:'palm-b',at:1,alt:'reef-tunnel',name:'REEF TUNNEL'}],landing:B.landing.slice(0,1)};
+    bonus:[ringAt(5),ringAt(8),ringAt(11),...ringsPier],forks:[{road:'palm-b',at:1,alt:'reef-tunnel',name:'REEF TUNNEL'},{road:'palm-b',at:1.2,alt:'splash-pier',name:'SPLASH PIER'}],landing:B.landing.slice(0,1)};
 })();

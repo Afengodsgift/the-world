@@ -65,7 +65,8 @@ let tY0 = 1e9, tY1 = -1e9;
 const gH = tY1 - tY0;
 
 // ---------- source character ----------
-const raw = await extractFbx(path.resolve(srcF), { nm: NM });
+const raw = opt.static ? await (await import(pathToFileURL(path.resolve(opt.static)).href)).staticRaw(path.resolve(srcF), { NM, T, rigGlb: path.join(ROOT, 'assets/avatars/crypto.glb'), cfg: { ...CFG.static, keys: POS }, log })
+  : await extractFbx(path.resolve(srcF), { nm: NM });   // --static: an unrigged T-pose GLB is rigged on the fly (tools/avatar/static_raw.mjs)
 const sIdx = new Map(raw.bones.map((b, i) => [b.key, i]));
 const gameNameOf = i => { for (let b = raw.bones[i]; b; b = b.parent >= 0 ? raw.bones[b.parent] : null) { const m = MAP[b.key]; if (m) return m; } return 'Hips'; };
 // weld the FBX's per-triangle vertices

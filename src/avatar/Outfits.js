@@ -147,5 +147,12 @@ const AvatarOutfits=(()=>{
       ring('Head',V(hx,top-hh*.31,hz),hw*1.03,hdp*1.03,.012,mat(0x111114,{roughness:.6}),.35);
       break}}
     return out}
-  return {build,REG,_prep:prep};
+  // body bulk: pushes the skin out along its welded normals (torso + limbs fully, head a little, hands + feet barely) so the avatars read less thin. Runs once per body on the cached prototype; the skeleton is untouched.
+  function bulk(asset,k){
+    if(!k||asset.bulked)return;prep(asset);asset.bulked=k;
+    const g=asset.sm.geometry,P=g.attributes.position,wn=asset.wn,dom=asset.dom,bn=asset.bn;
+    const wOf=bn.map(n=>/Hand|Toes|Foot/.test(n)?.25:/^(Head|Neck)$/.test(n)?.3:/Shoulder/.test(n)?.7:1);
+    for(let i=0;i<P.count;i++){const d=k*wOf[dom[i]];if(d)P.setXYZ(i,P.getX(i)+wn[i*3]*d,P.getY(i)+wn[i*3+1]*d,P.getZ(i)+wn[i*3+2]*d)}
+    P.needsUpdate=true;g.computeBoundingSphere();g.computeBoundingBox()}
+  return {build,bulk,REG,_prep:prep};
 })();

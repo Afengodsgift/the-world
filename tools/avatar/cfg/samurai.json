@@ -1,0 +1,125 @@
+{
+ "static": {
+  "cell": 512,
+  "cols": 4,
+  "rows": 3,
+  "sigma": 0.045,
+  "parts": {
+   "Cuerpo_low_mat": {
+    "cell": 0,
+    "tris": 5200,
+    "role": "body",
+    "bind": "auto",
+    "smooth": 6
+   },
+   "Parte_Arriba_mat": {
+    "cell": 1,
+    "tris": 3400,
+    "bind": "auto",
+    "deny": [
+     "Leg",
+     "Foot",
+     "Toes",
+     "Head"
+    ],
+    "smooth": 6
+   },
+   "Lompa_low_mat": {
+    "cell": 2,
+    "tris": 3200,
+    "bind": "auto",
+    "deny": [
+     "Head",
+     "Neck",
+     "Chest",
+     "Shoulder",
+     "Arm",
+     "Hand",
+     "Foot",
+     "Toes"
+    ],
+    "smooth": 6
+   },
+   "Capa_mat": {
+    "cell": 3,
+    "tris": 2000,
+    "bind": "auto",
+    "deny": [
+     "Leg",
+     "Foot",
+     "Toes",
+     "Arm",
+     "Hand",
+     "Head"
+    ],
+    "smooth": 6
+   },
+   "Medias_mat1": {
+    "cell": 4,
+    "tris": 900,
+    "bind": "auto",
+    "deny": [
+     "Head",
+     "Neck",
+     "Chest",
+     "Spine",
+     "Shoulder",
+     "Arm",
+     "Hand",
+     "Hips"
+    ],
+    "smooth": 4
+   },
+   "Zapas_Mat1": {
+    "cell": 5,
+    "tris": 1300,
+    "role": "feet",
+    "bind": "auto",
+    "deny": [
+     "Head",
+     "Neck",
+     "Chest",
+     "Spine",
+     "Shoulder",
+     "Arm",
+     "Hand",
+     "Hips",
+     "UpLeg"
+    ],
+    "smooth": 4
+   },
+   "Sombrero_Mat": {
+    "cell": 7,
+    "tris": 420,
+    "role": "hat",
+    "bind": "Head"
+   },
+   "Ojo_Mat": {
+    "cell": 8,
+    "tris": 300,
+    "bind": "Head"
+   },
+   "Frasco_Mat1": {
+    "cell": 9,
+    "tris": 300,
+    "bind": "Hips"
+   },
+   "Katana_Guarda_Mat": {
+    "cell": 10,
+    "tris": 900,
+    "role": "katana",
+    "bind": "Hips"
+   },
+   "Masc_mat": {
+    "cell": 6,
+    "tris": 1500,
+    "bind": "Head"
+   }
+  },
+  "inset": 0.07
+ },
+ "doubleSided": true,
+ "roughness": 0.85,
+ "noNormal": true,
+ "noEmissive": true
+}
