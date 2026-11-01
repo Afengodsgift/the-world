@@ -1,6 +1,6 @@
 # Player avatars + wardrobe
 
-Two full-human, stylized avatars (male **Crypto**, female **Madea**) replace the player's chibi body, with a small wardrobe
+Two full-human, stylized avatars (male **Crypto**, female **Madea**) plus a third fixed-look character, the **Samurai** (ronin), replace the player's chibi body, with a small wardrobe
 (hair/hood colour, outfit look, clothing colour, accessories). The original chibi characters (Man / Woman / Warrior / Robot) are
 **still in the game** and still selectable in the lobby; NPCs (crew, raiders, foes, deckhands, duelists) always use them.
 
@@ -60,6 +60,17 @@ Re-bake: `THREE_NM=... node tools/avatar/bake_human.mjs assets/avatars/crypto.gl
 Sets are checked by `tests/avatar_assets.check.js` (same names/order; durations equal except the natural-cadence loops listed in `meta.natural`).
 
 **Body size:** avatars draw at model scale 0.56 (chibi 0.5) and the skin is bulked out along welded normals (`AvatarOutfits.bulk`, Crypto +0.05, Madea +0.04 rig units, torso/limbs full, head 30%, hands/feet 25%) so they read less thin; the skeleton is unchanged.
+
+## The Samurai (third character)
+A Sketchfab model ("Samurai character" by Marfa4, **licence: Sketchfab Standard** - check that licence allows shipping it in a public game before release; the
+file is a static, unrigged T-pose mesh with 94k vertices and 32 PNG textures, 27 MB). `tools/avatar/static_raw.mjs` (run through
+`build_avatar.mjs --static=... --cfg=tools/avatar/cfg/samurai.json --height=2.0 --tris=60000 --tex=2048`) turns it into a game avatar:
+node transforms baked, glass parts dropped, each part simplified to a budget (19.4k tris total), the 11 base-colour textures packed into **one 2048x1536 atlas** (one material, 1.1 MB file),
+the Crypto skeleton fitted to the mesh (uniform scale + arm swing measured from the fingertips, sandal spacing), and **automatic skin weights**
+(distance to bone segments, per-part bone whitelists, Laplacian smoothing; hat / mask / eyes bound rigidly to the head, flask + katana to the hips; the skin under the clothes is inset so the
+simplified garments never show it through). The weights are an automatic fit - fine for a stylised game character, not hand-painted; the hem of the cape follows the hips only.
+He is 2.0 m with the hat (Crypto 1.88 m) at the same model scale. Clips come from the same pipeline as the others (`retarget_clips.mjs` then `bake_human.mjs`, incl. `--mx`).
+`CAT.s.fixed`: the look is as modelled - hair colour, outfit looks/sets and accessories are ignored by `normalize`, and the wardrobe only offers the body choice.
 
 ## Customisation (all free; there is no purchase flow)
 * **Body**: male / female.

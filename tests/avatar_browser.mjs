@@ -89,6 +89,12 @@ for(const b of ['m','f']){await setApp({b});
  await p.evaluate(()=>{window.__q=null});
  const pr=await p.evaluate(async()=>{const g=makeAvatar('o1','#fff');scene.add(g);addOther&&0;await AvatarKit.apply(g,'1.m.0.0.0.0.0.2');await new Promise(r=>setTimeout(r,300));let sh=0;g.traverse(o=>{if(o.userData.avShell)sh++});await AvatarKit.apply(g,'1.m.0.0.0.0.0.99');let sh2=0;g.traverse(o=>{if(o.userData.avShell)sh2++});return [sh,sh2]});
  ok(pr[0]>0&&pr[1]===0,'a peer outfit string dresses a remote player; a junk outfit id falls back to Signature ('+pr+')')}
+// ---- 5c. the Samurai (third character): loads, animates, swaps in and out without leaks
+{await setApp({b:'s'});await p.waitForTimeout(800);const a=await st();ok(a.av==='s'&&a.sk===1&&a.bones===45&&a.children===1&&a.acc===0,'the Samurai dresses: 1 skinned mesh, 45 game-rig bones ('+JSON.stringify(a)+')');
+ await p.evaluate(()=>{emoStart(me.userData,'wave')});await p.waitForTimeout(500);
+ const fin=await p.evaluate(()=>Object.values(me.userData.bones).every(b=>isFinite(b.matrixWorld.elements[12])&&isFinite(b.matrixWorld.elements[13])));ok(fin,'the Samurai plays an emote with finite bones');
+ for(let i=0;i<3;i++){await setApp({b:'m'});await setApp({b:'s'})}await setApp({b:'f'});const b=await st();ok(b.av==='f'&&b.sk===1&&b.children===1&&b.acts<=40,'Samurai <-> Crypto <-> Madea swaps leave one model ('+JSON.stringify({sk:b.sk,acts:b.acts,geo:b.geo,tex:b.tex})+')');
+ const wd=await p.evaluate(async()=>{setMyAppearance({b:'s'});Wardrobe.open({current:myApp,onApply:()=>{}});await new Promise(r=>setTimeout(r,2500));const t=document.querySelector('#avw .sc').textContent;Wardrobe.close();return t});ok(/nothing to recolour/.test(wd)&&!/Outfit set/.test(wd),'the wardrobe shows only the body choice for the Samurai')}
 // ---- 6. measurements
 const perf=await p.evaluate(()=>{renderer.info.reset();renderer.render(scene,camera);const i=renderer.info;const u=me.userData;let tris=0,mats=new Set();u.model.traverse(o=>{if(o.isSkinnedMesh){tris+=o.geometry.index.count/3;mats.add(o.material.uuid)}});
   return {calls:i.render.calls,sceneTris:i.render.triangles,geo:i.memory.geometries,tex:i.memory.textures,avatarTris:tris,avatarMats:mats.size,bones:Object.keys(u.bones).length}});

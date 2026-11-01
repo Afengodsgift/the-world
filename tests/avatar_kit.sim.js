@@ -32,4 +32,7 @@ ok(K.normalize({w:99}).w===0&&K.normalize({w:-1}).w===0&&K.normalize({w:'x'}).w=
 ok(K.normalize({w:2,o:3,oc:0}).o===0&&K.normalize({w:2,o:3,oc:0}).oc===0&&K.normalize({w:1,oc:9}).oc===9,'an outfit set takes any of the 10 colours and replaces the recolour looks');
 ok((K.normalize({w:2,a:31}).a&6)===0&&(K.normalize({w:1,a:31}).a&4)===4,'Knight / Samurai / Pirate drop cap + headband; Casual keeps them');
 ok(K.OUTFITS.map(o=>o.name).join()==='Signature,Casual,Knight,Samurai,Pirate','four outfit sets besides Signature');
+// ---- the Samurai: a fixed-look third character
+ok(K.CAT.s&&K.CAT.s.fixed&&K.normalize({b:'s',hc:5,o:2,oc:4,a:31,w:3}).hc===0&&K.encode({b:'s',hc:5,o:2,oc:4,a:31,w:3})==='1.s.0.0.0.0.0','the Samurai takes no hair colour, look, outfit set or accessories (always the modelled look)');
+ok(K.normalize('1.s.0.0.0.0.0').b==='s'&&K.legacySkin('s')===2,'the Samurai round-trips through presence and maps to a legacy chibi skin for older clients');
 console.log(bad?bad+' FAILED':'all ok');process.exit(bad?1:0);

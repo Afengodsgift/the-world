@@ -8,11 +8,12 @@
 //   equipment            - hand-held props (pan, rod, sword, gun, shield) live on bones BY NAME and are re-parented when the model is swapped; accessories (goggles, cap...) are owned by this module
 // NPCs (crew, raiders, foes, deckhands) never go through here: they keep the chibi dress() path and the stock clip tables.
 const AvatarKit=(()=>{
-  const VER=1,ASSET_V='?v=3';   // ASSET_V: bump when an avatar glb / clip set is re-baked (the service worker serves assets stale-while-revalidate, a new URL makes the model and its clips arrive together)
+  const VER=1,ASSET_V='?v=5';   // ASSET_V: bump when an avatar glb / clip set is re-baked (the service worker serves assets stale-while-revalidate, a new URL makes the model and its clips arrive together)
   // ---------------------------------------------------------------- catalog
   const CAT={
     m:{id:'m',scale:.56,bulk:.05,name:'Crypto',label:'Male',glb:'avatars/crypto.glb',mask:'avatars/crypto.mask.png',dir:'avatars/crypto/',legacySkin:0,ref:.0211,headLabel:'Mask & hood',height:1.88},
-    f:{id:'f',scale:.56,bulk:.04,name:'Madea',label:'Female',glb:'avatars/madea.glb',mask:'avatars/madea.mask.png',dir:'avatars/madea/',legacySkin:1,ref:.0115,headLabel:'Hair',height:1.70}
+    f:{id:'f',scale:.56,bulk:.04,name:'Madea',label:'Female',glb:'avatars/madea.glb',mask:'avatars/madea.mask.png',dir:'avatars/madea/',legacySkin:1,ref:.0115,headLabel:'Hair',height:1.70},
+    s:{id:'s',scale:.56,bulk:0,fixed:true,name:'Ronin',label:'Samurai',glb:'avatars/samurai.glb',mask:'avatars/samurai.mask.png',dir:'avatars/samurai/',legacySkin:2,ref:.02,headLabel:'Hat',height:2.0}
   };
   const DEFAULT_BASE='m';
   // clothing colours (sRGB hex) - the same palette for every look, filtered per look below
@@ -37,6 +38,7 @@ const AvatarKit=(()=>{
   function normalize(raw){
     if(typeof raw==='string')raw=decode(raw);
     const r=raw&&typeof raw==='object'?raw:{},a=defaults(CAT[r.b]?r.b:DEFAULT_BASE);   // unknown base -> the default avatar
+    if(CAT[a.b].fixed)return a;                                // a fixed-look character (the Samurai keeps the look it was modelled with)
     a.h=0;                                                    // hair styles: only the modelled one so far (reserved field)
     a.hc=int(r.hc,0,HAIR.length-1,0);a.w=int(r.w,0,OUTFITS.length-1,0);a.o=a.w?0:int(r.o,0,LOOKS.length-1,0);   // an outfit set replaces the recolour looks
     a.oc=int(r.oc,0,PAL.length-1,0);
@@ -188,7 +190,7 @@ const AvatarKit=(()=>{
       if(had)disposeModel(u);
       const m=THREE.SkeletonUtils.clone(asset.proto),bones={};m.scale.setScalar(CAT[a.b].scale||.5);u.ms=CAT[a.b].scale||.5;
       u.avMats=[];
-      m.traverse(o=>{if(o.isSkinnedMesh){o.skeleton.bones.forEach(b=>bones[b.name]=b);o.frustumCulled=false;o.castShadow=true;const rm=recolorMaterial(o.material,asset);o.material=rm;u.avMats.push(rm)}});
+      m.traverse(o=>{if(o.isSkinnedMesh){o.skeleton.bones.forEach(b=>bones[b.name]=b);o.frustumCulled=false;o.castShadow=true;if(CAT[a.b].fixed){o.material=o.material.clone()}else{const rm=recolorMaterial(o.material,asset);o.material=rm;u.avMats.push(rm)}}});
       u.av=a.b;u.avApp=a;u.avKey=key;
       dressRig(g,m,bones,{},asset.set.anims);
       if(had&&oldBones)moveProps(oldBones,bones);
