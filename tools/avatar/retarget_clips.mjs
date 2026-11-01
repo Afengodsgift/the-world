@@ -25,7 +25,8 @@ const args = process.argv.slice(2), pos = args.filter(a => !a.startsWith('--')),
 const [avF, outDir] = pos;
 if (!avF || !outDir) { console.error('usage: retarget_clips.mjs <avatar.glb> <outDir>'); process.exit(1); }
 const RIG = path.resolve(ROOT, opt.rig || 'assets/char.glb'), ASSETS = path.resolve(ROOT, opt.assets || 'assets');
-const SETS = ['anims', 'emotes', 'verb_anims', 'gun_anims', 'combat_anims', 'warden_anims', 'warden_mx_player', 'warden_mx_duelist'];
+const SETS = ['anims', 'emotes', 'verb_anims', 'gun_anims', 'combat_anims', 'warden_anims', 'warden_mx_player', 'warden_mx_duelist', 'warden_px_player'];
+const RUN = opt.only ? String(opt.only).split(',') : SETS;   // --only=a,b : bake just those sets and merge them into the avatar's existing meta.json
 const V = (x = 0, y = 0, z = 0) => new T.Vector3(x, y, z), Q = (...a) => new T.Quaternion(...a), I = () => new T.Quaternion();
 const deg = x => x * Math.PI / 180;
 
@@ -229,7 +230,7 @@ for (const nm of ['walk', 'jog', 'sprint']) {
   const sS = plantedSpeed(stock, sRest, framesOf(c, 'stock')), sN = plantedSpeed(av, nRest, framesOf(rc, 'avatar'));
   meta.gait[nm] = { stock: sS && +sS.toFixed(3), avatar: sN && +sN.toFixed(3), ratio: sS && sN ? +(sN / sS).toFixed(3) : null };
 }
-for (const set of SETS) {
+for (const set of RUN) {
   const { wrap, clips } = readSet(set), out = [];
   for (const c of clips) {
     const rc = pack(retargetClip(c));
@@ -243,5 +244,6 @@ for (const set of SETS) {
 }
 console.log('planted-foot speed (rig units/s):', JSON.stringify(meta.gait));
 console.log(`ground solve over ${stats.frames} frames: grounded-frame sole height vs ground  min ${stats.minSoleRel.toFixed(4)} max ${stats.maxSoleRel.toFixed(4)}`);
+if (opt.only) { try { const old = JSON.parse(fs.readFileSync(path.join(outDir, 'meta.json'), 'utf8')); meta.sets = { ...old.sets, ...meta.sets }; } catch (e) {} }
 fs.writeFileSync(path.join(outDir, 'meta.json'), JSON.stringify(meta));
 console.log(`total ${(total / 1024) | 0} KB (uncompressed)`);

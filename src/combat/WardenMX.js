@@ -175,6 +175,10 @@ const WardenMX=(()=>{
   for(const r of['penitent','gwyn','saint','veil','samurai','vampire','paladin','arissa','archer','gdn','ganfaul']){const R=ROLES[r];if(!R)continue;R.px='assets/warden_px_'+r+'.json';const M=R.moves=Object.assign({},R.moves);
     if(M.bash)M.bash={c:'p_kick',t0:.25,h:[[.46,.68]],e:1.2};
     if(M.flurry)M.flurry={c:'p_combo',t0:0,h:[[.2,.32],[.68,.8],[1.48,1.6]],e:2.3};if(M.dash)M.dash={c:'p_dash',t0:.05,h:[[.28,.42]],e:1.1}}
+  // the player's own roles: the same reactions (knock-back, hurt loop, flinches, deaths) plus a kick for the shove and the dash cut for the lunge
+  for(const r of['player','player_gs','player_axe']){const R=ROLES[r];if(!R)continue;R.px='assets/warden_px_player.json';const M=R.moves=Object.assign({},R.moves);
+    M.sever={c:'slash',t0:.15,h:[[.46,.68]],e:1.0};M.sever2={c:'slash5',t0:.1,h:[[.5,.82]],e:1.0};M.severF={c:'p_combo',t0:.9,h:[[1.5,1.6]],e:2.6};
+    if(M.shove)M.shove={c:'p_kick',t0:.2,h:[[.5,.8]],e:1.3};if(M.lunge)M.lunge={c:'p_dash',t0:.05,h:[[.27,.4]],e:1.1}}
   // The Unbroken Oath (Three Oaths stage 4): the Penitent's body and clips with Gwyn's waves + the Saint's blades + the Dancer's chain
   ROLES.oath4=Object.assign({},ROLES.penitent,{px:'assets/warden_px_penitent.json',moves:Object.assign({},ROLES.gwyn.moves,{bladestorm:{c:'power',t0:.3,e:2.0},swordring:{c:'power',t0:.3,e:2.0},
     hundred:{seq:[{c:'slash3',t0:.2,h:[.55,.85],e:1.0},{c:'slash5',t0:.1,h:[.5,.82],e:.95},{c:'slash3',t0:.2,h:[.55,.85],e:1.0},{c:'slash4',t0:.4,h:[.9,1.4],e:1.6}]}})});
@@ -216,6 +220,10 @@ const WardenMX=(()=>{
       else if(R.native&&f.act==='stun'&&R.px&&A.p_knock&&f.sk==='stagger'){const kd=A.p_knock.getClip().duration;if(I.sT<kd)put('p_knock',I.sT);else put('p_hurt',(I.sT-kd)%1.6)}   // a stagger: thrown back, then the hurt loop
       else if(R.native&&f.act==='stun'&&R.px&&A.p_hitc&&f.sk!=='rise'){if(I.sT<=dt*1.5)I.hv=(I.hv||0)^1;put(I.hv?'p_hith':'p_hitc',I.sT)}   // flinches alternate chest / head
       else if(R.native&&f.act==='stun'&&R.hit&&A[R.hit])put(R.hit,I.sT);
+      else if(!R.native&&R.px&&A.p_hitc&&f.act==='stun'&&f.sk!=='rise'){   // the player: thrown back on a stagger, flinches (chest / head) otherwise
+        if(f.sk==='stagger'&&A.p_knock){const kd=A.p_knock.getClip().duration;if(I.sT<kd)put('p_knock',I.sT);else put('p_hurt',(I.sT-kd)%1.6)}
+        else{if(I.sT<=dt*1.5)I.hv=(I.hv||0)^1;put(I.hv?'p_hith':'p_hitc',I.sT)}}
+      else if(!R.native&&R.px&&A.p_deathA&&f.act==='dead'){if(I.dv===undefined||I.dv<0){I.dvL=PXD.filter(n=>A[n]);I.dv=Math.floor(Math.random()*I.dvL.length)}put(I.dvL[I.dv],I.dT)}
       else if(fight){
         const mv=f.mv,spec=mv&&R.moves[mv.id];
         if(f.act==='charge'&&spec&&spec.ch){const s=norm(spec)[0];put(s.c,spec.ch[0]+(spec.ch[1]-spec.ch[0])*ease(f.c/16))}

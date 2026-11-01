@@ -80,3 +80,8 @@ body.warden-fight #wemb{display:none!important}
 /* the duel arena always has a Leave button (a flaky connection must never trap you in the ring) */
 #wQuit{display:none;width:auto!important;height:auto!important;min-width:0!important;right:auto!important;bottom:auto!important;position:fixed;z-index:8;left:calc(var(--sl,0px) + 12px);top:calc(var(--st,env(safe-area-inset-top,0px)) + 8px + var(--T,40px) + 82px);padding:9px 14px;border-radius:16px;border:1px solid #ff6a5a99;background:#2a1410e6;color:#ffb0a0;font:700 12px system-ui,sans-serif;touch-action:manipulation;pointer-events:auto}
 body.warden-duel #wQuit{display:block}
+
+#wc #wSup{right:calc(var(--R0,24px) + (var(--J,88px) + var(--g,8px))*2);bottom:calc(var(--B0,52px) + 8px + (var(--F,70px) + var(--g,8px))*2);width:var(--F,70px);height:var(--F,70px);font-size:12px;border-color:#9fe3ff;color:#dff6ff;background-image:conic-gradient(#6fd6ff var(--sp,0deg),transparent 0)}
+#wc #wSup.full{border-color:#fff;box-shadow:0 0 16px #7fe0ff;animation:wsu .6s infinite alternate}
+#wc #wSup.on{opacity:.4}
+@keyframes wsu{to{box-shadow:0 0 30px #d8f6ff}}
