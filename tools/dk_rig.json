@@ -1,0 +1,7 @@
+{"joints":{"Hips":[0,101,-3],"Spine":[0,113,-3],"Spine1":[0,127,-5],"Spine2":[0,141,-6],"Neck":[-1,152,-4],"Head":[-1,160,-2],
+"LeftShoulder":[7,146,-5],"LeftArm":[22,147,-1],"LeftForeArm":[35,123,-3],"LeftHand":[33,102,2],
+"RightShoulder":[-7,146,-7],"RightArm":[-20,148,-13],"RightForeArm":[-27,122,-21],"RightHand":[-27,101,-14],
+"LeftUpLeg":[11,98,-1],"LeftLeg":[14,52,8],"LeftFoot":[18,10,14],"LeftToeBase":[19,3,26],
+"RightUpLeg":[-11,98,-3],"RightLeg":[-13,52,-5],"RightFoot":[-16,10,-6],"RightToeBase":[-20,3,0]},
+"ends":{"HeadTop":[-1,183,3],"LeftHandEnd":[30,78,8],"RightHandEnd":[-25,79,-11],"LeftToeEnd":[20,1,33],"RightToeEnd":[-21,1,7]},
+"sword":{"mat":2,"restDir":[0,0,1],"gripOut":9}}

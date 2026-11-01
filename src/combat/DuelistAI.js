@@ -194,6 +194,10 @@ const DuelistAI=(()=>{
   function gwyn(A,P,D,out,tick,dist,k){
     if(A.follow){const m=A.follow;A.follow=null;if(dist<REACH[m]+.8)return start(A,out,m,m==='verdict'?(A.ph2?6+Math.floor(A.r()*7):Math.floor(A.r()*13)):0,tick)}
     const L0=A.last[A.last.length-1];
+    if(A.kid==='dknight'){   // the Dark Knight: blinks behind you into a chain (his own opening), spirit blades from range, perilous Hundred Shadows from phase 2, a Waterfowl flurry
+      if(A.bcd<=0&&L0!=='blink'&&dist>=3.6&&dist<=10&&A.r()<(A.ph3?.045:A.ph2?.028:.012)){A.bcd=A.ph3?140:A.ph2?200:340;A.follow=A.ph2?(A.r()<.55?'hundred':'flurry'):'verdict';return start(A,out,'blink',0,tick)}
+      if(A.scd<=0&&dist>=4&&dist<=11&&L0!=='bladestorm'&&L0!=='swordring'&&A.ph2){A.scd=A.ph3?240:340;return start(A,out,A.r()<.5&&dist<7?'swordring':'bladestorm',0,tick)}
+      if(A.hcd<=0&&dist<=3.4&&L0!=='hundred'&&L0!=='flurry'&&A.ph2&&A.r()<.1){A.hcd=A.ph3?260:400;return start(A,out,A.r()<.5?'hundred':'flurry',0,tick)}}
     if(A.kid==='oath4'){   // the Unbroken Oath: all three oaths' arts on top of Gwyn's kit (Saint's blades from range, the Dancer's chain up close)
       if(A.scd<=0&&dist>=3.4&&dist<=11&&L0!=='bladestorm'&&L0!=='swordring'){A.scd=A.ph3?260:A.ph2?340:480;return start(A,out,A.ph2&&dist<6.5&&A.r()<.5?'swordring':'bladestorm',0,tick)}
       if(A.ph2&&A.hcd<=0&&dist<=3.6&&L0!=='hundred'){A.hcd=A.ph3?280:420;return start(A,out,'hundred',0,tick)}}

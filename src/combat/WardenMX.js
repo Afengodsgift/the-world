@@ -178,6 +178,8 @@ const WardenMX=(()=>{
   // The Unbroken Oath (Three Oaths stage 4): the Penitent's body and clips with Gwyn's waves + the Saint's blades + the Dancer's chain
   ROLES.oath4=Object.assign({},ROLES.penitent,{px:'assets/warden_px_penitent.json',moves:Object.assign({},ROLES.gwyn.moves,{bladestorm:{c:'power',t0:.3,e:2.0},swordring:{c:'power',t0:.3,e:2.0},
     hundred:{seq:[{c:'slash3',t0:.2,h:[.55,.85],e:1.0},{c:'slash5',t0:.1,h:[.5,.82],e:.95},{c:'slash3',t0:.2,h:[.55,.85],e:1.0},{c:'slash4',t0:.4,h:[.9,1.4],e:1.6}]}})});
+  // The Dark Knight (the crowned one, a static model rigged by tools/pack_static_char.mjs): the Unbroken Oath's moves + the blink
+  ROLES.dknight=Object.assign({},ROLES.oath4,{file:'assets/warden_mx_dknight.json',px:'assets/warden_px_dknight.json',moves:Object.assign({},ROLES.oath4.moves,{blink:{c:'crouch',t0:0,e:.66}})});
   const BUILD='mx3';const SH={};      // role -> {st,clips,p}
   // a dropped request is retried (3 times, growing gaps) before the role is declared failed: a role that failed once never recovers within a session
   const tryFetch=(u,n)=>fetch(u,n<6?{cache:'reload'}:undefined).then(r=>{if(!r.ok)throw new Error('http '+r.status);return r}).catch(e=>n>0?new Promise(r=>setTimeout(r,1500*(7-n))).then(()=>tryFetch(u,n-1)):Promise.reject(e));
