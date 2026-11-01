@@ -22,8 +22,8 @@ const CarPhysics=(()=>{
   const clamp=(v,a,b)=>v<a?a:v>b?b:v,sgn=v=>v<0?-1:1;
   const BIG=1e4,BL={nx:0,nz:0,pen:0};
 
-  function newCar(x,z,h,cls,env){
-    const base=R.cls[cls]||R.cls.ace,p=Object.assign({},C,base);
+  function newCar(x,z,h,cls,env,up){
+    let base=R.cls[cls]||R.cls.ace;if(up&&R.garage)base=R.garage.tune(base,up);const p=Object.assign({},C,base);
     const y=env&&env.ground?env.ground(x,z,BIG):0;
     return {cls:R.cls[cls]?cls:'ace',p,mode:'car',x,y,z,h:h||0,vx:0,vy:0,vz:0,vyS:0,s:0,steer:0,pitch:0,roll:0,slip:0,grounded:true,air:0,
       boostT:0,padT:0,charges:p.charges,cool:0,hitT:0,hitSlow:1,shieldT:0,protT:0,ev:{launch:0,land:0,bump:0,boost:0,scrape:0}};
@@ -209,7 +209,7 @@ const CarPhysics=(()=>{
   // A hit: brief disruption (speed cap `slow` for `t` seconds, 75% steering) and a horizontal knockback impulse along (nx,nz). Never a stop, never stacking:
   // a victim that is already disrupted keeps the longer of the two timers.
   function disrupt(c,t,slow,kb,nx,nz){
-    c.hitT=Math.max(c.hitT,t);c.hitSlow=slow;
+    c.hitT=Math.max(c.hitT,t);c.hitSlow=c.p&&c.p.hitEase?1-(1-slow)*c.p.hitEase:slow;
     if(kb){const l=Math.hypot(nx,nz)||1;c.vx+=nx/l*kb;c.vz+=nz/l*kb}
   }
 

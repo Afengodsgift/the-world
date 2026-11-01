@@ -120,7 +120,7 @@ const Rally=(()=>{
 
   // ---------------------------------------------------------------- racers
   function newRacer(kind,name,cls,tint,slot,skill,key){
-    const s=T.gridSlots(12)[slot],c=CP.newCar(s.x,s.z,s.h,cls,env),R0={kind,key:key||kind+slot,item:null,cool:0,held:0,aiWait:null,name,cls,c,r:Tk.racer(),o:makeCar(cls,tint),slot,pilot:null,inp:{},hitCd:0,rec:0,place:1,finT:0,smooth:null,seen:0,hum:[],splits:[]};
+    const s=T.gridSlots(12)[slot],c=CP.newCar(s.x,s.z,s.h,cls,env,kind==='me'?UP:null),R0={kind,key:key||kind+slot,item:null,cool:0,held:0,aiWait:null,name,cls,c,r:Tk.racer(),o:makeCar(cls,tint),slot,pilot:null,inp:{},hitCd:0,rec:0,place:1,finT:0,smooth:null,seen:0,hum:[],splits:[]};
     if(kind==='ai')R0.pilot=Pilot.make(T,skill||'steady',(ST.seed||1)*31+slot*7);
     return R0;
   }
@@ -240,6 +240,23 @@ const Rally=(()=>{
       else{c.innerHTML='<div class="rl-lights">'+[3,2,1].map(k=>'<i class="'+(k>=n?'r':'')+'"></i>').join('')+'</div><div class="rl-big">'+s+'</div>';tone(n===1?700:520,.18,'square',.1)}}
   }
 
+  // ---------------------------------------------------------------- garage: permanent upgrades for YOUR car, bought with the shared Outlaw coins. Saved on this phone.
+  const UP={eng:0,acc:0,grp:0,bst:0,arm:0};try{Object.assign(UP,JSON.parse(localStorage.getItem('rallyup')||'{}'))}catch(e){}
+  const saveUp=()=>{try{localStorage.setItem('rallyup',JSON.stringify(UP))}catch(e){}};
+  const coinsNow=()=>typeof Outlaw!=='undefined'&&Outlaw.coins?Outlaw.coins():0;
+  function openGarage(back){
+    sheet&&sheet.remove();sheet=el('div','sheet rl-sheet');const G=RALLY.garage;
+    const rows=G.list.map(u=>{const L=UP[u.k]|0,cost=G.cost(u.base,L),pips='●'.repeat(L)+'○'.repeat(G.maxL-L);
+      return `<div class="rl-row" style="justify-content:space-between;gap:8px"><div style="text-align:left"><b>${u.n}</b><br><small>${u.d} · ${pips}</small></div>${L>=G.maxL?'<b>MAX</b>':`<button class="btn gold${coinsNow()>=cost?'':' off'}" data-up="${u.k}">${cost} 🪙</button>`}</div>`}).join('');
+    sheet.innerHTML=`<h2>🔧 Garage</h2><p class="rl-sub">Your coins: <b>${coinsNow()} 🪙</b>. Upgrades are permanent and apply to every car you drive. Finish races to earn coins.</p>${rows}<div class="rl-row"><button class="btn rl-gx">Back</button></div>`;
+    document.body.appendChild(sheet);
+    sheet.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+      if(b.classList.contains('rl-gx')){sheet.remove();sheet=null;back&&back();return}
+      const k=b.dataset.up,u=G.list.find(x=>x.k===k);if(!u||(UP[k]|0)>=G.maxL)return;const cost=G.cost(u.base,UP[k]|0);
+      if(typeof Outlaw!=='undefined'&&Outlaw.spend&&Outlaw.spend(cost)){UP[k]=(UP[k]|0)+1;saveUp();tone(700,.15,'triangle',.1);tone(1000,.2,'triangle',.1)}else{tone(150,.2,'square',.08);note('Not enough coins')}
+      openGarage(back)});
+  }
+
   function openLobby(){
     if(ST.mode!=='off')return;ensureTrack();buildHud();
     sheet&&sheet.remove();sheet=el('div','sheet rl-sheet');
@@ -255,7 +272,7 @@ const Rally=(()=>{
       <div class="rl-row">${cars}</div>
       <div class="rl-row">${mode('solo','⏱ Time trial')}${mode('ai','🤖 vs AI')}${mode('star','👥 vs '+pname,!partner)}</div>
       <div class="rl-row" id="rlDiff" style="display:${cfg.mode==='ai'||cfg.mode==='star'?'flex':'none'}"><small>AI rivals:</small>${diff('none','None')}${diff('easy','Easy')}${diff('normal','Normal')}${diff('hard','Hard')}</div>
-      <div class="rl-row"><button class="btn rl-go">START RACE</button><button class="btn rl-x">Close</button></div>
+      <div class="rl-row"><button class="btn rl-go">START RACE</button><button class="btn rl-gar">🔧 Garage</button><button class="btn rl-x">Close</button></div>
       <p class="rl-help">${touch?'Left stick: steer · up/down in the air to climb/dive · auto-gas on (pull down to brake). ITEM fires what you picked up (rockets lock on to a rival ahead), BOOST, DRIFT (airbrake in the sky) and RECOVER are on the right.':'Arrows/WASD steer · Space drift or airbrake · Shift boost · E use item · R recover. In the air up/down climbs or dives.'}</p>
       <p class="rl-best">Best time: ${best()?fmt(best()):'none yet'}</p>`;
     document.body.appendChild(sheet);
@@ -265,6 +282,7 @@ const Rally=(()=>{
       else if(b.dataset.mode&&!b.disabled){cfg.mode=b.dataset.mode;if(cfg.mode==='solo')cfg.diff='none';else if(cfg.diff==='none')cfg.diff='normal';openLobby.refresh()}
       else if(b.dataset.diff){cfg.diff=b.dataset.diff;openLobby.refresh()}
       else if(b.classList.contains('rl-x'))closeLobby();
+      else if(b.classList.contains('rl-gar')){closeLobby();openGarage(openLobby)}
       else if(b.classList.contains('rl-go')){sfxInit();closeLobby();if(cfg.mode==='star'&&partner)inviteStar(cfg,partner);else start({cls:cfg.cls,ai:cfg.mode==='solo'?'none':cfg.diff,solo:cfg.mode==='solo',track:cfg.track})}});
   }
   openLobby.refresh=()=>{if(!sheet)return;sheet.remove();sheet=null;const s=ST.mode;ST.mode='off';openLobby();ST.mode=s};
@@ -279,7 +297,7 @@ const Rally=(()=>{
     if(sheet)sheet.remove();sheet=el('div','sheet rl-sheet rl-res');
     const rk=rank(),isBest=ME.r.finished&&(!best()||ME.r.finishT<=best());
     sheet.innerHTML=`<h2>${ME.r.finished?(ME.place===1&&rk.length>1?'🏆 You won!':'🏁 Finished'):'Race over'}</h2><div class="rl-list">${resultRows()}</div>
-      <p class="rl-best">${ME.r.finished?'Your time '+fmt(ME.r.finishT)+(isBest?'  ·  NEW BEST!':'  ·  best '+fmt(best())):''}</p>
+      <p class="rl-best">${ST.coins?'+'+ST.coins+' 🪙  ·  ':''}${ME.r.finished?'Your time '+fmt(ME.r.finishT)+(isBest?'  ·  NEW BEST!':'  ·  best '+fmt(best())):''}</p>
       <div class="rl-row"><button class="btn rl-again">Race again</button><button class="btn rl-x">Exit</button></div>`;
     document.body.appendChild(sheet);
     sheet.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
@@ -289,6 +307,7 @@ const Rally=(()=>{
   function finishMe(){
     ST.mode='finish';ST.finAt=performance.now();tone(660,.3,'triangle',.14);tone(990,.5,'triangle',.12);toast('FINISH!',1800);
     if(ME.r.finished&&(!best()||ME.r.finishT<best()))setBest(ME.r.finishT);
+    {const n=R.filter(x=>x.kind!=='net'||x.seen>0).length,c=RALLY.garage.payout(rank()&&ME.place,n,ME.r.finished);ST.coins=c;if(c>0&&typeof Outlaw!=='undefined'&&Outlaw.earn){try{Outlaw.earn(c)}catch(e){}}}
     send('rl:c');setTimeout(()=>{if(ST.mode==='finish')showResults()},1600);
     ST.resT=setInterval(()=>{if(ST.mode!=='finish'){clearInterval(ST.resT);return}if(sheet&&sheet.classList.contains('rl-res')&&R.every(x=>x.r.finished||x.kind==='net'&&!x.seen)){clearInterval(ST.resT);return}if(sheet&&sheet.classList.contains('rl-res'))showResults()},1500);
   }

@@ -65,4 +65,26 @@ const RALLY={
     // item roll weights by race position (0 = leader, 1 = last): the leader gets defence and utility, the back of the pack gets teeth
     weights:{blaster:[.24,.20],burst:[.14,.12],rocket:[.04,.30],turbo:[.16,.22],shield:[.26,.08],mine:[.16,.08]},
   },
+  // ---- garage: permanent car upgrades bought with the shared coins. Applied to the PLAYER's own car only (net/AI cars are untouched); capped at +MAXL levels so a veteran is only a little faster, never out of reach ----
+  garage:{
+    maxL:5,
+    list:[
+      {k:'eng',n:'⚙ Engine',d:'+2% top speed per level',base:160},
+      {k:'acc',n:'🏎 Acceleration',d:'+4% acceleration per level',base:140},
+      {k:'grp',n:'🛞 Tyres',d:'+3% grip and +1.5% steering per level',base:150},
+      {k:'bst',n:'⚡ Nitro',d:'+6% boost time per level, +1 charge at level 5',base:180},
+      {k:'arm',n:'🛡 Armor',d:'-8% hit slowdown per level',base:150},
+    ],
+    cost:(base,L)=>base*(L+1),
+    // returns a tuned copy of a car's params p for upgrade levels up
+    tune(p,up){
+      const q=Object.assign({},p);up=up||{};const L=k=>Math.max(0,Math.min(RALLY.garage.maxL,up[k]|0));
+      q.vmax=p.vmax*(1+.02*L('eng'));q.accel=p.accel*(1+.04*L('acc'));q.grip=p.grip*(1+.03*L('grp'));q.turn=p.turn*(1+.015*L('grp'));
+      q.boostT=p.boostT*(1+.06*L('bst'));if(L('bst')>=RALLY.garage.maxL)q.charges=p.charges+1;
+      q.hitEase=1-.08*L('arm');
+      return q;
+    },
+    // coins for finishing: more for a win, a little for any finish
+    payout(place,n,fin){return fin?Math.round(50+(n>1?Math.max(0,n-place)*28:0)+(place===1&&n>1?40:0)):0},
+  },
 };
