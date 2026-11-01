@@ -7,6 +7,7 @@
 // Adaptive difficulty (learning your habits) is a separate layer, off by default, and is NOT in this file.
 const DuelistAI=(()=>{
   const REACH={bladestorm:16,swordring:3.4,sunvolley:18,snakelash:3.8,eclipse:7.6,charge:10,maul:3.2,tidal:6.4,spores:12,hundred:3.2,ashwave:16,crossflame:16,kingsfall:7,flurry:3,cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4,dash:2.4,leap:3.0,bash:2.3,orb:12,bolt:16,spin:2.9,hammer:2.7,lowsweep:3.1,blink:30,snare:30,lance:20,returning:18,consecrate:12,procession:11,march:2.7,groundbreaker:3.9,verdict:2.8,pursuit:3.1,iai:3.4,feint:3.4,moon:3.7,counter:2.9,requiem:5.2},REACT=14,INTRO=90;
+  Object.assign(REACH,{rend:4.8,sunder:5.4,spear:20,storm:12,arrows:14});
   const HR={sweep:3.0,slam:3.0,triple:2.8,quake:4.2};
   function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
   function create(seed,o){o=o||{};const r=mulberry(seed|0);return{foe:o.foe||'duelist',kid:o.kid||'',mast:!!o.mast,noAtk:false,gcool:0,r,t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,mood:'patient',moodT:90,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null,
@@ -20,6 +21,7 @@ const DuelistAI=(()=>{
     const dx=P.x-D.x,dz=P.z-D.z,rawD=Math.hypot(dx,dz),dist=rawD/(D.rm||1),ux=dx/(rawD||1),uz=dz/(rawD||1),st=A.foe,H=st==='hollow'||st==='beast',BK=st==='blackknight',KN=st==='knight'||BK,DA=st==='dancer',SO=st==='soldier',AR=st==='archer',SK=st==='stalker',TR=st==='trapper',SM=st==='samurai'||st==='veil'||st==='gwyn',GW=st==='gwyn',GD=st==='gdn',VL=st==='veil',PN=st==='penitent',SN=st==='saint';
     // what the player visibly does now, and how long we have been seeing it (a human reaction delay)
     const k=key(P);if(k!==A.seenKey){A.seenKey=k;A.see=0}else A.see++;
+    if(SIG[A.kid]){if(!A.kc)A.kc={};for(const q in A.kc)if(A.kc[q]>0)A.kc[q]--}
     if(MIND[A.kid]){habits(A,P,k,tick,dist);if(!SM&&A.adaptCd>0)A.adaptCd--;const pe=PERS[A.kid];A.rmul=(pe?pe.rest*(pe.desp?.62+.38*D.hp/D.hpMax:1):1)*(A.mast?.85:1)}
     A.gP=P.guard&&P.act==='free'?A.gP+1:0;if(A.cool>0)A.cool--;if(A.gcool>0)A.gcool--;if(A.rip>1)A.rip--;if(A.breath>0)A.breath--;if(A.bcd>0)A.bcd--;if(A.scd>0)A.scd--;if(A.hcd>0)A.hcd--;
     if(!A.ph2&&D.hp<D.hpMax*(A.mast?.62:.5))A.ph2=true;if((SM||GD)&&!A.ph3&&D.hp<D.hpMax*(GD?.25:.22)){A.ph3=true;A.ph2=true;A.rcd=0;A.req=true}   // Kage has a third phase
@@ -51,17 +53,19 @@ const DuelistAI=(()=>{
     if(!H&&!KN&&!DA&&!SO&&!SK&&!TR&&!SM&&!PN&&!SN&&!GD&&A.cool<=6&&dist<2.8&&(k==='charge'||k==='astartup')&&A.see>=REACT&&A.r()<.012*A.see){A.guardT=40+Math.floor(A.r()*25);out.list.push({t:'guardDown',e:tick});out.mx=out.mz=0;return out}
     if(A.cool>0||k==='dodge')return out;              // resting, or the player is mid-dodge: wait for them to land
     if(A.noAtk)return out;                            // someone else holds the attack token: keep circling
+    if(A.follow&&!(SM||GW||GD||BK||VL||KN&&A.kid==='paladin')){const m=A.follow;A.follow=null;if(A.sigLock&&PER.indexOf(m)>=0)return out;if(dist<(REACH[m]||3)+.8)return start(A,out,m,m==='verdict'||m==='fall'?Math.floor(A.r()*13):0,tick)}
+    {const sg=SIG[A.kid]?sig(A,P,D,out,tick,dist,k):null;if(sg)return sg}
     {const rd=MIND[A.kid]?read(A,P,D,out,tick,dist,k):null;if(rd)return rd}
     if(SO)return soldier(A,P,D,out,tick,dist,k);
     if(DA)return dancer(A,P,D,out,tick,dist,k);
     if(AR)return archer(A,P,D,out,tick,dist,k);
-    if(SN)return saint(A,P,D,out,tick,dist,k);
-    if(PN)return penitent(A,P,D,out,tick,dist,k);
+    if(SN)return combo(A,saint(A,P,D,out,tick,dist,k));
+    if(PN)return combo(A,penitent(A,P,D,out,tick,dist,k));
     if(VL){const r=veil(A,P,D,out,tick,dist,k);if(r)return r}
     if(GW)return combo(A,gwyn(A,P,D,out,tick,dist,k));
     if(GD)return combo(A,gdn(A,P,D,out,tick,dist,k));
     if(SM)return combo(A,samurai(A,P,D,out,tick,dist,k));
-    if(SK)return stalker(A,P,D,out,tick,dist,k);
+    if(SK)return combo(A,stalker(A,P,D,out,tick,dist,k));
     if(TR)return trapper(A,P,D,out,tick,dist,k);
     // ---- gap closer: from range, sometimes lunge in instead of just running (never twice in a row) ----
     const gc=H?'leap':'dash',lo=H?3.6:3.4,hi=H?8:7;   // (soldiers and dancers returned above)
@@ -69,7 +73,7 @@ const DuelistAI=(()=>{
     if(dist<lo)A.closeP=0;
     if(H)return hollow(A,P,D,out,tick,dist,k);
     if(BK)return combo(A,blackknight(A,P,D,out,tick,dist,k));
-    if(KN)return knight(A,P,D,out,tick,dist,k);
+    if(KN)return combo(A,knight(A,P,D,out,tick,dist,k));
     if(A.mood==='evasive'&&dist<2.4&&k!=='arecovery'&&k!=='stun'&&A.gP<=30){out.mx=-ux*.8;out.mz=-uz*.8;return out}   // baiting: back off to thrust range instead of trading
     if(dist>REACH.thrust+.2)return out;              // too far to do anything but close in
     // pick a move
@@ -171,13 +175,55 @@ const DuelistAI=(()=>{
     gwyn:{back:['pursuit','verdict'],side:['crossflame'],in:['moon'],heavy:['ashwave'],light:['march'],rhy:['verdict',null,10]},
     oath4:{back:['bladestorm'],side:['swordring'],in:['hundred'],heavy:['pursuit','verdict'],light:['march'],rhy:['verdict',null,9]},
     gdn:{back:['sunvolley'],side:['procession'],in:['snakelash'],heavy:['orb'],light:['snakelash'],rhy:['consecrate']}};
-  const PERS={samurai:{rest:.9},dknight:{rest:.85,breath:.7},darkknight:{rest:.7,breath:.45},gwyn:{rest:1,desp:1,breath:.6},oath4:{rest:.8,breath:.6},gdn:{rest:.95}};
+  Object.assign(MIND,{
+    penitent:{back:['pursuit'],side:['spin'],in:['groundbreaker'],heavy:['pursuit','verdict'],light:['flurry'],rhy:['verdict',null,10]},
+    saint:{back:['spear'],side:['storm'],in:['swordring'],heavy:['bladestorm'],light:['swordring'],rhy:['lance']},
+    vampire:{back:['leap'],side:['spin'],in:['lowsweep'],heavy:['leap'],light:['riposte'],rhy:['fall',null,9]},
+    ganfaul:{back:['leap'],side:['sweep'],in:['quake'],heavy:['leap'],light:['riposte'],rhy:['fall',null,10]},
+    paladin:{back:['pursuit','verdict'],side:['quake'],in:['bash'],heavy:['leap'],light:['bash'],rhy:['verdict',null,10]},
+    goblin:{back:['bolt'],side:['arrows'],in:['quake'],heavy:['orb'],light:['quake'],rhy:['bolt']},
+    archer:{back:['bolt'],side:['arrows'],in:['quake'],heavy:['orb'],light:['quake'],rhy:['bolt']},
+    arissa:{back:['leap'],side:['spin'],in:['lowsweep'],heavy:['dash'],light:['riposte'],rhy:['hammer']},
+    hollow:{back:['leap'],side:['sweep'],in:['slam'],heavy:['leap'],light:['sweep'],rhy:['slam']},
+    parasite:{back:['charge'],side:['sweep'],in:['slam'],heavy:['charge'],light:['sweep'],rhy:['slam']},
+    maw:{back:['charge'],side:['tidal'],in:['slam'],heavy:['charge'],light:['sweep'],rhy:['slam']},
+    bear:{back:['charge'],side:['sweep'],in:['slam'],heavy:['charge'],light:['maul'],rhy:['slam']}});
+  // SIG = each boss's signature moves, tried before its normal pick: {m, lo..hi metres, ph: needs phase 2/3, cd ticks, p chance when ready, f: follow-up move}. Several are existing moves used in new places, several are the new
+  // signature moves (rend = thrust perilous, sunder = ground-breaker, spear = lightning spear, storm = rain of lightning, arrows = arrow volley).
+  const SIG={
+    samurai:[{m:'feint',lo:2.4,hi:4.4,ph:2,cd:500,p:.3,f:'rend'},{m:'rend',lo:2.6,hi:4.6,ph:0,cd:560,p:.25}],
+    dknight:[{m:'rend',lo:2.6,hi:4.8,ph:0,cd:520,p:.25},{m:'sunder',lo:0,hi:5,ph:2,cd:700,p:.3},{m:'spear',lo:5,hi:16,ph:3,cd:520,p:.3,f:'blink'}],
+    darkknight:[{m:'rend',lo:2.6,hi:4.8,ph:0,cd:420,p:.28},{m:'sunder',lo:0,hi:5,ph:2,cd:640,p:.3,f:'cut'}],
+    gwyn:[{m:'spear',lo:5,hi:16,ph:0,cd:420,p:.3,f:'pursuit'},{m:'rend',lo:2.6,hi:4.8,ph:2,cd:500,p:.25},{m:'storm',lo:3,hi:12,ph:2,cd:700,p:.3},{m:'sunder',lo:0,hi:5,ph:3,cd:600,p:.35}],
+    oath4:[{m:'rend',lo:2.6,hi:4.8,ph:0,cd:480,p:.25},{m:'spear',lo:5,hi:16,ph:2,cd:460,p:.3},{m:'sunder',lo:0,hi:5,ph:2,cd:640,p:.3},{m:'storm',lo:3,hi:12,ph:3,cd:640,p:.3}],
+    gdn:[{m:'spear',lo:6,hi:20,ph:0,cd:380,p:.3},{m:'arrows',lo:4,hi:14,ph:0,cd:480,p:.3},{m:'storm',lo:3,hi:13,ph:2,cd:700,p:.3}],
+    penitent:[{m:'sunder',lo:0,hi:5,ph:0,cd:700,p:.3},{m:'rend',lo:2.6,hi:4.8,ph:2,cd:520,p:.25}],
+    saint:[{m:'spear',lo:6,hi:18,ph:0,cd:400,p:.3},{m:'storm',lo:3,hi:12,ph:2,cd:660,p:.3}],
+    veil:[{m:'rend',lo:2.8,hi:4.8,ph:0,cd:480,p:.25,f:'moon'}],
+    vampire:[{m:'rend',lo:2.8,hi:5,ph:0,cd:420,p:.3}],
+    ganfaul:[{m:'rend',lo:2.6,hi:4.8,ph:0,cd:520,p:.25},{m:'sunder',lo:0,hi:5,ph:2,cd:700,p:.3}],
+    paladin:[{m:'rend',lo:2.6,hi:4.8,ph:2,cd:520,p:.25},{m:'sunder',lo:0,hi:5,ph:2,cd:700,p:.3}],
+    goblin:[{m:'arrows',lo:4,hi:14,ph:0,cd:500,p:.3}],
+    archer:[{m:'arrows',lo:5,hi:15,ph:0,cd:420,p:.3}],
+    arissa:[{m:'rend',lo:2.8,hi:5,ph:0,cd:440,p:.3}],
+    hollow:[{m:'sunder',lo:0,hi:5,ph:2,cd:700,p:.3}],
+    parasite:[{m:'sunder',lo:0,hi:5,ph:2,cd:700,p:.3}],
+    maw:[{m:'sunder',lo:0,hi:5,ph:2,cd:700,p:.3}],
+    bear:[{m:'sunder',lo:0,hi:5,ph:2,cd:700,p:.3}]};
+  const PER=['verdict','kingsfall','eclipse','bladestorm','hundred','maul','requiem','rend','sunder'];   // perilous moves hold the boss token (only one boss at a time may be inside one)
+  function sig(A,P,D,out,tick,dist,k){
+    const L=SIG[A.kid];if(!L||A.follow||A.req||A.hunt)return null;const L0=A.last[A.last.length-1];
+    for(const r of L){if(r.ph&&!(r.ph===3?A.ph3:A.ph2)||(A.kc[r.m]||0)>0||L0===r.m||A.sigLock&&PER.indexOf(r.m)>=0||dist<r.lo||dist>r.hi)continue;
+      if(r.f&&A.sigLock&&PER.indexOf(r.f)>=0)continue;if(A.r()<r.p){A.kc[r.m]=Math.floor(r.cd*(A.mast?.75:1));if(r.f)A.follow=r.f;return start(A,out,r.m,0,tick)}}
+    return null}
+  const PERS={penitent:{rest:.85,breath:.8},saint:{rest:.9},vampire:{rest:.8,breath:.6},ganfaul:{rest:.85},paladin:{rest:.9},goblin:{rest:.9},archer:{rest:.85},arissa:{rest:.8,breath:.7},hollow:{rest:.85},parasite:{rest:.85},maw:{rest:.85},bear:{rest:.85},samurai:{rest:.9},dknight:{rest:.85,breath:.7},darkknight:{rest:.7,breath:.45},gwyn:{rest:1,desp:1,breath:.6},oath4:{rest:.8,breath:.6},gdn:{rest:.95}};
   const COMBO={
     samurai:{cut:['moon',.25],twin:['fall',.3],triple:['moon',.3],iai:['blink',.25],moon:['iai',.3]},
     dknight:{bladestorm:['blink',.45],swordring:['hundred',.4],hundred:['verdict',.35],cut:['moon',.25],blink:['flurry',.2]},
     darkknight:{cut:['spin',.25],twin:['lowsweep',.35],thrust:['fall',.3],spin:['twin',.4],leap:['twin',.5],lowsweep:['cut',.4]},
     gwyn:{cut:['moon',.25],ashwave:['pursuit',.4],kingsfall:['hammer',.5],crossflame:['pursuit',.3],moon:['march',.3]},
     oath4:{cut:['moon',.25],bladestorm:['pursuit',.4],swordring:['hundred',.35],hundred:['verdict',.3]},
+    penitent:{pursuit:['verdict',.35],flurry:['rend',.3],groundbreaker:['cut',.4]},saint:{spear:['storm',.25],lance:['returning',.25]},vampire:{dash:['twin',.4],leap:['rend',.3]},ganfaul:{leap:['twin',.4],cut:['fall',.3]},
     gdn:{orb:['sunvolley',.4],consecrate:['sunvolley',.35],procession:['snakelash',.3]}};
   function habits(A,P,k,tick,dist){
     const h=A.hx||(A.hx={back:0,side:0,in:0,heavy:0,light:0,rhy:0,ht:0,pk:'free',d0:0,lt:-999,iv:[]});
@@ -192,7 +238,7 @@ const DuelistAI=(()=>{
     const M=MIND[A.kid];if(!M||!A.hx||A.follow||A.req||A.hunt||A.adaptCd>0)return null;
     const h=A.hx;let top=null,tv=0,sv=0;for(const q of HK){const v=h[q];if(v>tv){sv=tv;tv=v;top=q}else if(v>sv)sv=v}
     if(!top||tv<(top==='light'?6:A.mast?2:3)||tv<sv*1.5||!M[top]||A.r()>(A.mast?.65:.5))return null;
-    const a=M[top],m=a[0];if(top==='back'?dist<2.8||dist>11:dist>(REACH[m]||3)+.4)return null;
+    const a=M[top],m=a[0];if(A.sigLock&&(PER.indexOf(m)>=0||a[1]&&PER.indexOf(a[1])>=0))return null;if(top==='back'?dist<2.8||dist>11:dist>(REACH[m]||3)+.4)return null;
     A.adaptCd=(A.ph3?300:A.ph2?420:560)*(A.mast?.75:1)|0;h[top]*=.2;A.readMsg=top;if(a[1])A.follow=a[1];
     return start(A,out,m,a[2]||0,tick)}
   function combo(A,r){const C=COMBO[A.kid];if(!C||!r||A.follow||!A.ph2||!r.list.length)return r;const m=r.list[r.list.length-1];if(!m||m.t!=='atk')return r;const c=C[m.m];if(c&&A.r()<c[1]+(A.ph3?.15:0))A.follow=c[0];return r}
@@ -211,7 +257,7 @@ const DuelistAI=(()=>{
   // Kage, the Shadowflame Samurai: a duelist in three phases. I: deliberate (cut chains, the draw, a wide crescent, a delayed overhead on your guard). II (below half): the feint, the blink chain, the counter draw. III (below 22%): shorter rests, the final technique, everything chained.
   // Fair by the same rules as every foe: each strike keeps its tell; the counter draw only answers someone who has been swinging at him for over a second; the feint costs you stamina, not health.
   function samurai(A,P,D,out,tick,dist,k){
-    if(A.follow){const m=A.follow;A.follow=null;if(dist<REACH[m]+.8)return start(A,out,m,m==='fall'?12:0,tick)}
+    if(A.follow){const m=A.follow;A.follow=null;if(A.sigLock&&PER.indexOf(m)>=0)return out;if(dist<REACH[m]+.8)return start(A,out,m,m==='fall'?12:0,tick)}
     const L0=A.last[A.last.length-1];
     if(A.req&&dist<5){A.req=false;A.rcd=A.ph3?900:0;A.follow='moon';return start(A,out,'requiem',0,tick)}   // the last phase opens with the final technique (ring on the ground, then a crescent)
     if(A.hunt){A.hunt=false;A.hcd=300;if(dist>2.8&&L0!=='blink'){A.bcd=A.ph2?150:260;return start(A,out,'blink',0,tick)}if(dist<=REACH.iai)return start(A,out,'iai',0,tick)}

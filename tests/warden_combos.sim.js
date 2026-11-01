@@ -50,10 +50,10 @@ for(const [gap,want] of [[12,'light2'],[45,'light']]){const {C,P}=mk();step(C,1,
 // no stamina: Light is refused
 {const {C,P}=mk();P.st=0;P.sr=0;const s=starts(step(C,20,L()));ok(s.length===0&&P.act==='free','with 0 stamina a Light does not start')}
 // new moves are player-only and add no Duelist moves
-ok(Object.keys(M).filter(k=>M[k]&&M[k].who==='D').length===47,'foe move count (14 melee + 4 ranged/magic + blink + snare + 5 Kage moves + 4 Penitent moves + 4 Saint moves + 4 Gwyn moves + Kage hundred + Bear charge/maul + Maw tidal + Parasite spores + Saint bladestorm/swordring + Gwyndolin sunvolley/snakelash/eclipse)');
+ok(Object.keys(M).filter(k=>M[k]&&M[k].who==='D').length===52,'foe move count (14 melee + 4 ranged/magic + blink + snare + 5 Kage moves + 4 Penitent moves + 4 Saint moves + 4 Gwyn moves + Kage hundred + Bear charge/maul + Maw tidal + Parasite spores + Saint bladestorm/swordring + Gwyndolin sunvolley/snakelash/eclipse)');
 // every move has a clip mapping with one entry per phase (otherwise it would animate wrongly or not at all)
 {const src=fs.readFileSync(R+'src/combat/WardenAnim.js','utf8'),a=src.indexOf('const MAP={')+'const MAP='.length,b=src.indexOf('};\n  const NAMES'),MAP=(new Function('return '+src.slice(a,b+1)))();
- for(const id of Object.keys(M).filter(k=>M[k]&&M[k].phases&&k!=='dodge')){const key=id==='light'?'light_b':id;const mm=MAP[key];ok(mm&&mm.length===M[id].phases.length,'clip map for '+id+' has '+(mm?mm.length:0)+' entries for '+M[id].phases.length+' phases')}}
+ for(const id of Object.keys(M).filter(k=>M[k]&&M[k].phases&&k!=='dodge')){const key=id==='light'?'light_b':id;const mm=MAP[key]||(M[id].as||[]).map(b=>MAP[b]).find(Boolean);ok(mm&&mm.length===M[id].phases.length,'clip map for '+id+' has '+(mm?mm.length:0)+' entries for '+M[id].phases.length+' phases')}}
 // ---- new sets: Shield Shove, Lunge, Tempest, super armour ----
 {const {C,P}=mk({D:{z:9}});step(C,1,{P:{list:[{t:'guardDown',e:0}],face:0}});step(C,5);const s=starts(step(C,1,L()));ok(s[0]==='shove','Guard + Light = Shield Shove ('+s[0]+')')}
 {const {C,P}=mk({D:{z:9}});step(C,1,{P:{list:[{t:'dodge',e:0,dx:1,dz:0}],face:0}});while(P.act==='dodge')step(C,1);step(C,4);const s=starts(step(C,1,{P:{list:[{t:'heavyDown',e:C.tick+1}],face:0}}));ok(s[0]==='lunge','Heavy just after a dodge = Lunge ('+s[0]+')')}
