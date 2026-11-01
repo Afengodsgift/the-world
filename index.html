@@ -544,7 +544,7 @@ function animateClips(g,dt,st){
   if(q.rel)for(let i=q.rel.length-1;i>=0;i--){const r=q.rel[i];r.t+=dt;const wv=Blend.w(r.s0*(1-Blend.ease(r.t/.25)))||.0001;for(const a of r.acts)a.setEffectiveWeight(wv);if(r.t>=.25){for(const a of r.acts)a.stop();q.rel.splice(i,1)}}   // emote ease-out
   q.swing=Math.max(0,(q.swing||0)-dt*2.6);
   q.land=Math.max(0,(q.land||0)-dt);
-  const oy=st==='swim'?.7:(st==='fly'&&want==='swim')?.5:0;q.oy=(q.oy||0)+(oy-(q.oy||0))*Math.min(1,dt*6); // swim clips are authored with the waterline at the chest: lift the body to the surface
+  const oy=st==='swim'?(q.av?(want==='swim'?-.5:-.65)*((q.ms||.56)/.56):.7):(st==='fly'&&want==='swim')?.5:0;q.oy=(q.oy||0)+(oy-(q.oy||0))*Math.min(1,dt*6); // chibi swim clips are authored with the waterline at the chest: lift the body to the surface; full-human avatars sit IN the water (treading: waterline at the chest, crawling: body half-submerged)
   q.lunge=(q.lunge||0)+((q.pan?Math.sin(Math.min(1,q.swing)*Math.PI)*.3:0)-(q.lunge||0))*Math.min(1,dt*10); // small lunge into the pan swing
   {const gnd=(st==='walk'||st==='run'||st==='idle')&&!gunOk,lk=Math.min(1,dt*9);   // body language on the ground: lean forward when speeding up / sprinting, back when braking, bank into turns (turning left = yaw rate > 0 = lean toward +x)
    q.lx=(q.lx||0)+((gnd?clamp(acc*.006,-.06,.10)+(want==='sprint'?.04:0):0)-(q.lx||0))*lk;
