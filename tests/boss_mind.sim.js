@@ -30,3 +30,13 @@ console.log(n+' checks')
     for(let t=0;t<2400;t++){if(D.act==='attack'&&t%70===0)D.act='free';A.sigLock=lock;const o=DuelistAI.think(A,P,D,[],t);for(const c of o.list)if(c.t==='atk'){D.act='attack';if(!lock)used[c.m]=1;else if((c.m==='rend'||c.m==='sunder')&&!A.follow0)lockedPer++}}}}
   for(const m of SIGM[kid])ok(used[m],kid+' uses its signature '+m);ok(lockedPer===0,kid+' starts no perilous move while an ally holds the token ('+lockedPer+')')}}
 console.log(n+' checks')
+// signature move library: sequences chain with a rest between steps, end when out of range, honour cooldowns; Last Sovereign fires once
+{const run=(kid,foe,seed,dist,ph3)=>{const A=DuelistAI.create(seed,{foe,kid,intro:0});A.on=true;A.ph2=true;A.ph3=!!ph3;const D=mkD(),P=mkP(dist);if(ph3)D.hp=D.hpMax*.2;const log=[];
+   let until=0;for(let t=0;t<6000;t++){if(D.act==='attack'&&t>=until)D.act='free';const o=DuelistAI.think(A,P,D,[],t);for(const c of o.list)if(c.t==='atk'){D.act='attack';until=t+70;log.push([t,c.m])}if(A.banner){log.push([t,'BANNER']);A.banner=null}}return log};
+ let chains=0,sov=0,maxGap=999;
+ for(let s=1;s<=12;s++){const L=run('samurai','samurai',s*13,2.4,true);for(let i=0;i+1<L.length;i++)if(L[i][1]==='tempest'&&L[i+1][1]==='impaler'){chains++;maxGap=Math.min(maxGap,L[i+1][0]-L[i][0])}
+   sov+=L.filter(x=>x[1]==='BANNER').length;ok(L.filter(x=>x[1]==='sovereign').length===1,'Last Sovereign is used exactly once per fight')}
+ ok(chains>=3,'Kage chains Crimson Tempest into Impaler\'s Oath ('+chains+')');ok(maxGap>=Moves0(),'steps of a chain are never closer than a full move + a rest ('+maxGap+')');
+ let far=0;for(let s=1;s<=6;s++){const L=run('gwyn','gwyn',s*17,4.8,true);for(let i=0;i+1<L.length;i++)if(L[i][1]==='spear'&&L[i+1][1]==='heavenfall')far++}ok(far>=1,'Gwyn: Storm Lance -> Heavenfall Pursuit exists ('+far+')')}
+function Moves0(){return 90}
+console.log(n+' checks')

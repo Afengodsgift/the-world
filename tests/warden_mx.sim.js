@@ -22,4 +22,11 @@ for(const role of Object.keys(X.ROLES)){
     m.phases.forEach((p,i)=>{const e=pl[i];if(!e||!dur[e.c]||e.a<-1e-6||e.b>dur[e.c]+1e-6||e.b<e.a-1e-6)sane=false;
       if(p.k==='active'){const s=sq[Math.min(m.phases.slice(0,i).filter(q=>q.k==='active').length,sq.length-1)];if(Math.abs(e.a-s.h[0])>1e-6||Math.abs(e.b-s.h[1])>1e-6)sane=false}});
     ok(sane,role+'/'+id+': phase plan is in range, forward in time, and pins the active phase to the swing window')}}
+// signature variants animate through their `as` base: every boss's signature moves + sequence steps resolve to a clip spec of its role, with a sane phase plan
+{const AI=(()=>{const c2={console,Math};require('vm').createContext(c2);require('vm').runInContext(fs.readFileSync(R+'src/combat/DuelistAI.js','utf8')+';this.A=DuelistAI',c2);return c2.A})();
+ const roleOf={dknight:'dknight',darkknight:'darkknight',samurai:'samurai',gwyn:'gwyn',oath4:'oath4',gdn:'gdn',penitent:'penitent',saint:'saint',veil:'veil',vampire:'vampire',ganfaul:'ganfaul',paladin:'paladin',goblin:'goblin',archer:'archer',arissa:'arissa',hollow:'hollow',parasite:'parasite',maw:'maw',bear:'bear'};
+ const spec=(Rr,id)=>{let s=Rr.moves[id];if(s)return s;for(const b of (M[id]&&M[id].as)||[])if(Rr.moves[b])return Rr.moves[b];return null};
+ for(const kid of Object.keys(AI.SIG)){const Rr=X.ROLES[roleOf[kid]];if(!Rr)continue;const ids=new Set(AI.SIG[kid].map(r=>r.m).concat(AI.SIG[kid].map(r=>r.f).filter(Boolean)));for(const nm of AI.SEQS[kid]||[])for(const m of AI.SEQ[nm].q)ids.add(m);
+  for(const id of ids){if(!M[id]||id==='blink')continue;const s=spec(Rr,id);ok(!!s,kid+': '+id+' has a clip spec (own or via as)');if(!s)continue;let pl=null,err='';try{pl=X.plan(M.expand(id,0),s,()=>1.5)}catch(e){err=e.message}ok(pl&&pl.length===M[id].phases.length,kid+': '+id+' plan covers every phase '+err)}}}
+
 process.exit(bad?1:0);

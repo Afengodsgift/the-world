@@ -7,7 +7,7 @@
 // Adaptive difficulty (learning your habits) is a separate layer, off by default, and is NOT in this file.
 const DuelistAI=(()=>{
   const REACH={bladestorm:16,swordring:3.4,sunvolley:18,snakelash:3.8,eclipse:7.6,charge:10,maul:3.2,tidal:6.4,spores:12,hundred:3.2,ashwave:16,crossflame:16,kingsfall:7,flurry:3,cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4,dash:2.4,leap:3.0,bash:2.3,orb:12,bolt:16,spin:2.9,hammer:2.7,lowsweep:3.1,blink:30,snare:30,lance:20,returning:18,consecrate:12,procession:11,march:2.7,groundbreaker:3.9,verdict:2.8,pursuit:3.1,iai:3.4,feint:3.4,moon:3.7,counter:2.9,requiem:5.2},REACT=14,INTRO=90;
-  Object.assign(REACH,{rend:4.8,sunder:5.4,spear:20,storm:12,arrows:14});
+  Object.assign(REACH,{rend:4.8,sunder:5.4,spear:20,storm:12,arrows:14,ruin:3.4,ruincollapse:3.4,heavenfall:3.1,hangfall:3.2,executioner:3,brokenadv:3.2,impaler:4.4,doubleimp:3.9,kingsweep:3.7,risingcrown:3.4,tempest:3.2,severance:3.2,twineclipse:3.4,eclipsecollapse:3.5,thousand:3.4,silentsev:3.4,stormgrid:18,crownfall:12,worldbreaker:7.6,aftershock:4.6,marks:12,finalsentence:12,sovereign:3.4});
   const HR={sweep:3.0,slam:3.0,triple:2.8,quake:4.2};
   function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
   function create(seed,o){o=o||{};const r=mulberry(seed|0);return{foe:o.foe||'duelist',kid:o.kid||'',mast:!!o.mast,noAtk:false,gcool:0,r,t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,mood:'patient',moodT:90,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null,
@@ -21,8 +21,8 @@ const DuelistAI=(()=>{
     const dx=P.x-D.x,dz=P.z-D.z,rawD=Math.hypot(dx,dz),dist=rawD/(D.rm||1),ux=dx/(rawD||1),uz=dz/(rawD||1),st=A.foe,H=st==='hollow'||st==='beast',BK=st==='blackknight',KN=st==='knight'||BK,DA=st==='dancer',SO=st==='soldier',AR=st==='archer',SK=st==='stalker',TR=st==='trapper',SM=st==='samurai'||st==='veil'||st==='gwyn',GW=st==='gwyn',GD=st==='gdn',VL=st==='veil',PN=st==='penitent',SN=st==='saint';
     // what the player visibly does now, and how long we have been seeing it (a human reaction delay)
     const k=key(P);if(k!==A.seenKey){A.seenKey=k;A.see=0}else A.see++;
-    if(SIG[A.kid]){if(!A.kc)A.kc={};for(const q in A.kc)if(A.kc[q]>0)A.kc[q]--}
-    if(MIND[A.kid]){habits(A,P,k,tick,dist);if(!SM&&A.adaptCd>0)A.adaptCd--;const pe=PERS[A.kid];A.rmul=(pe?pe.rest*(pe.desp?.62+.38*D.hp/D.hpMax:1):1)*(A.mast?.85:1)}
+    if(SIG[A.kid]){if(!A.kc)A.kc={};for(const q in A.kc)if(A.kc[q]>0)A.kc[q]--;if(A.sov>0&&--A.sov===0&&dist>3.4&&!A.q)A.q=['pursuit']}
+    if(MIND[A.kid]){habits(A,P,k,tick,dist);if(!SM&&A.adaptCd>0)A.adaptCd--;const pe=PERS[A.kid];A.rmul=(pe?pe.rest*(pe.desp?.62+.38*D.hp/D.hpMax:1):1)*(A.mast?.85:1)*(A.sov>0?.55:1)}
     A.gP=P.guard&&P.act==='free'?A.gP+1:0;if(A.cool>0)A.cool--;if(A.gcool>0)A.gcool--;if(A.rip>1)A.rip--;if(A.breath>0)A.breath--;if(A.bcd>0)A.bcd--;if(A.scd>0)A.scd--;if(A.hcd>0)A.hcd--;
     if(!A.ph2&&D.hp<D.hpMax*(A.mast?.62:.5))A.ph2=true;if((SM||GD)&&!A.ph3&&D.hp<D.hpMax*(GD?.25:.22)){A.ph3=true;A.ph2=true;A.rcd=0;A.req=true}   // Kage has a third phase
     if(VL)veilTally(A,P,k,tick);if(A.hcd2>0)A.hcd2--;if(GD){if(A.rcd>0)A.rcd--}if(GW){if(A.wcd>0)A.wcd--;if(A.kcd>0)A.kcd--}if(SM){if(A.adaptCd>0)A.adaptCd--;if(A.ccd>0)A.ccd--;if(A.rcd>0)A.rcd--;if((k==='astartup'||k==='aactive'||k==='acharge')&&dist<3.4)A.att++;else A.att=Math.max(0,A.att-.5)}                                 // second phase: the game announces it by reading A.ph2
@@ -54,6 +54,7 @@ const DuelistAI=(()=>{
     if(A.cool>0||k==='dodge')return out;              // resting, or the player is mid-dodge: wait for them to land
     if(A.noAtk)return out;                            // someone else holds the attack token: keep circling
     if(A.follow&&!(SM||GW||GD||BK||VL||KN&&A.kid==='paladin')){const m=A.follow;A.follow=null;if(A.sigLock&&PER.indexOf(m)>=0)return out;if(dist<(REACH[m]||3)+.8)return start(A,out,m,m==='verdict'||m==='fall'?Math.floor(A.r()*13):0,tick)}
+    if(A.q&&A.q.length){const m=A.q.shift();if(!A.q.length)A.q=null;if(A.sigLock&&PER.indexOf(m)>=0||dist>(CL[m]||(REACH[m]||3)+.8)){A.q=null}else return start(A,out,m,m==='verdict'||m==='fall'||m==='hangfall'?Math.floor(A.r()*13):0,tick)}
     {const sg=SIG[A.kid]?sig(A,P,D,out,tick,dist,k):null;if(sg)return sg}
     {const rd=MIND[A.kid]?read(A,P,D,out,tick,dist,k):null;if(rd)return rd}
     if(SO)return soldier(A,P,D,out,tick,dist,k);
@@ -211,10 +212,39 @@ const DuelistAI=(()=>{
     maw:[{m:'sunder',lo:0,hi:5,ph:2,cd:700,p:.3}],
     bear:[{m:'sunder',lo:0,hi:5,ph:2,cd:700,p:.3}]};
   const PER=['verdict','kingsfall','eclipse','bladestorm','hundred','maul','requiem','rend','sunder'];   // perilous moves hold the boss token (only one boss at a time may be inside one)
+  // ---- Signature Boss Move Library: SEQUENCES (named chains of the moves above), chosen by personality. Each step still starts only when the boss is free, so every move keeps its tell and recovery plus a rest of >=20
+  // ticks between steps (that is the player's window); a step that is out of range ends the chain (a boss cannot chain forever), and a chain has a long cooldown. LAST SOVEREIGN (phase 3, or 2 in a Mastery rematch): ~10 s
+  // empowered: shorter rests, signature moves and chains come twice as often, and it ends with a No-Retreat pursuit.
+  const CL={ruin:8.5,ruincollapse:8.5,heavenfall:8.5,spear:20,stormgrid:20,crownfall:12,worldbreaker:8,aftershock:6,marks:12,finalsentence:12,blink:30,pursuit:7.5,sovereign:9};
+  const SEQ={
+    brokencrown:{q:['ruin','kingsweep'],ph:0,lo:3.6,hi:8,cd:720},stormexec:{q:['spear','heavenfall'],ph:2,lo:4.5,hi:14,cd:780},crimson:{q:['tempest','impaler'],ph:2,lo:1.6,hi:3.2,cd:760},
+    kingdom:{q:['crownfall','worldbreaker'],ph:3,lo:2,hi:10,cd:1100},waltz:{q:['thousand','twineclipse'],ph:3,lo:1.4,hi:3.2,cd:900},phantom:{q:['blink','marks','silentsev'],ph:2,lo:3.6,hi:12,cd:900},
+    gridlock:{q:['stormgrid','storm'],ph:2,lo:5,hi:16,cd:820},dance:{q:['tempest','kingsweep','risingcrown'],ph:0,lo:1.4,hi:3.4,cd:640},echo:{q:['hangfall','impaler'],ph:0,lo:2,hi:3.2,cd:640},
+    blinkchain:{q:['blink','tempest','impaler'],ph:0,lo:3.6,hi:10,cd:700}};
+  const SEQS={samurai:['crimson','waltz'],dknight:['phantom','kingdom','waltz'],darkknight:['brokencrown','crimson'],gwyn:['stormexec','kingdom','brokencrown'],oath4:['stormexec','kingdom','waltz'],gdn:['gridlock'],
+    vampire:['blinkchain','crimson'],arissa:['dance'],ganfaul:['echo'],penitent:['brokencrown'],paladin:['crimson'],saint:['gridlock'],veil:['crimson']};
+  const SOV={gwyn:1,dknight:1,darkknight:1,samurai:1,oath4:1};
+  const EXTRA={
+    samurai:[{m:'severance',lo:1.4,hi:3.2,ph:0,cd:520,p:.22},{m:'silentsev',lo:2.6,hi:3.4,ph:2,cd:600,p:.25},{m:'thousand',lo:1.4,hi:3.2,ph:3,cd:700,p:.3}],
+    dknight:[{m:'crownfall',lo:3,hi:12,ph:2,cd:640,p:.3},{m:'marks',lo:3,hi:12,ph:2,cd:700,p:.3},{m:'finalsentence',lo:3,hi:12,ph:3,cd:760,p:.3}],
+    darkknight:[{m:'ruin',lo:3.6,hi:8,ph:0,cd:480,p:.28},{m:'executioner',lo:1.4,hi:3,ph:0,cd:520,p:.25},{m:'ruincollapse',lo:3.6,hi:8,ph:2,cd:620,p:.3}],
+    gwyn:[{m:'stormgrid',lo:6,hi:16,ph:2,cd:520,p:.25},{m:'aftershock',lo:0,hi:4.6,ph:2,cd:800,p:.3}],
+    oath4:[{m:'stormgrid',lo:6,hi:16,ph:2,cd:520,p:.25},{m:'finalsentence',lo:3,hi:12,ph:3,cd:760,p:.3}],
+    gdn:[{m:'stormgrid',lo:6,hi:16,ph:2,cd:520,p:.25},{m:'crownfall',lo:3,hi:12,ph:2,cd:640,p:.3},{m:'finalsentence',lo:3,hi:12,ph:3,cd:760,p:.3}],
+    vampire:[{m:'tempest',lo:1.4,hi:3.2,ph:0,cd:420,p:.3},{m:'executioner',lo:1.4,hi:3,ph:2,cd:520,p:.25}],
+    arissa:[{m:'kingsweep',lo:1.5,hi:3.6,ph:0,cd:420,p:.3},{m:'risingcrown',lo:1.4,hi:3.4,ph:2,cd:480,p:.25}],
+    ganfaul:[{m:'hangfall',lo:2,hi:3.2,ph:0,cd:460,p:.3},{m:'doubleimp',lo:2.4,hi:4,ph:2,cd:520,p:.25}],
+    penitent:[{m:'ruin',lo:3.6,hi:8,ph:0,cd:520,p:.25},{m:'executioner',lo:1.4,hi:3,ph:2,cd:520,p:.25}],
+    veil:[{m:'doubleimp',lo:2.4,hi:4,ph:2,cd:520,p:.25},{m:'silentsev',lo:2.6,hi:3.4,ph:2,cd:600,p:.25}],
+    paladin:[{m:'impaler',lo:3,hi:4.4,ph:0,cd:520,p:.25}]};
+  for(const kd in EXTRA)SIG[kd]=(SIG[kd]||[]).concat(EXTRA[kd]);
   function sig(A,P,D,out,tick,dist,k){
-    const L=SIG[A.kid];if(!L||A.follow||A.req||A.hunt)return null;const L0=A.last[A.last.length-1];
+    const L=SIG[A.kid];if(!L||A.follow||A.req||A.hunt)return null;const L0=A.last[A.last.length-1],sv=A.sov>0?2:1;
+    if(SOV[A.kid]&&!A.sovDone&&(A.ph3||A.mast&&A.ph2)&&dist<9&&!A.sigLock){A.sovDone=true;A.sov=600;A.banner='LAST SOVEREIGN';return start(A,out,'sovereign',0,tick)}
+    const sq=SEQS[A.kid];if(sq&&!A.q)for(const nm of sq){const S=SEQ[nm];if(S.ph&&!(S.ph===3?A.ph3:A.ph2)||(A.kc['q'+nm]||0)>0||dist<S.lo||dist>S.hi||A.sigLock&&S.q.some(m=>PER.indexOf(m)>=0))continue;
+      if(A.r()<.3*sv){A.kc['q'+nm]=Math.floor(S.cd*(A.sov>0?.35:1)*(A.mast?.75:1));A.q=S.q.slice(1);return start(A,out,S.q[0],0,tick)}}
     for(const r of L){if(r.ph&&!(r.ph===3?A.ph3:A.ph2)||(A.kc[r.m]||0)>0||L0===r.m||A.sigLock&&PER.indexOf(r.m)>=0||dist<r.lo||dist>r.hi)continue;
-      if(r.f&&A.sigLock&&PER.indexOf(r.f)>=0)continue;if(A.r()<r.p){A.kc[r.m]=Math.floor(r.cd*(A.mast?.75:1));if(r.f)A.follow=r.f;return start(A,out,r.m,0,tick)}}
+      if(r.f&&A.sigLock&&PER.indexOf(r.f)>=0)continue;if(A.r()<Math.min(.7,r.p*sv)){A.kc[r.m]=Math.floor(r.cd*1.3*(A.sov>0?.5:1)*(A.mast?.75:1));if(r.f)A.follow=r.f;return start(A,out,r.m,0,tick)}}
     return null}
   const PERS={penitent:{rest:.85,breath:.8},saint:{rest:.9},vampire:{rest:.8,breath:.6},ganfaul:{rest:.85},paladin:{rest:.9},goblin:{rest:.9},archer:{rest:.85},arissa:{rest:.8,breath:.7},hollow:{rest:.85},parasite:{rest:.85},maw:{rest:.85},bear:{rest:.85},samurai:{rest:.9},dknight:{rest:.85,breath:.7},darkknight:{rest:.7,breath:.45},gwyn:{rest:1,desp:1,breath:.6},oath4:{rest:.8,breath:.6},gdn:{rest:.95}};
   const COMBO={
@@ -389,5 +419,5 @@ const DuelistAI=(()=>{
   function start(A,out,m,hold,tick){A.last.push(m);if(A.last.length>3)A.last.shift();out.list.push({t:'atk',m,hold,e:tick});out.mx=out.mz=0;return out}
   // the game calls this when the hunted player drinks a health flask: every foe ends its rest and stops breathing (at most once per 5 s each); Vael blinks onto you, Skrag fires the heavy bolt
   const hunt=(A)=>{if(A.hcd>0)return false;A.hcd=300;A.cool=Math.min(A.cool,6);A.breath=0;if(A.foe==='saint'||A.foe==='stalker'||A.foe==='trapper'||A.foe==='samurai'||A.foe==='veil'||A.foe==='penitent'||A.foe==='gwyn'||A.foe==='gdn')A.hunt=true;return true};   // everyone cuts their rest short; the hunters have a special answer
-  return{create,think,hunt,HN,MIND,REACH:Object.assign({},REACH,HR),REACT,INTRO}})();
+  return{create,think,hunt,HN,MIND,REACH:Object.assign({},REACH,HR),REACT,INTRO,SEQ,SEQS,SIG}})();
 if(typeof module!=='undefined')module.exports=DuelistAI;
