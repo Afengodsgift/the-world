@@ -22,7 +22,7 @@ for(const a of ['crypto','madea']){
   const rigNames=sNames(J);
   for(const s of SETS){
     const A=clipsOf(R+'assets/avatars/'+a+'/'+s+'.json'),S=clipsOf(R+'assets/'+s+'.json');
-    ok(A.length===S.length&&S.every((c,i)=>A[i].name===c.name&&Math.abs(A[i].duration-c.duration)<1e-3),a+'/'+s+': same clips, order and durations as the stock set ('+A.length+')');
+    ok(A.length===S.length&&S.every((c,i)=>A[i].name===c.name&&((meta.natural||[]).includes(s+':'+c.name)?A[i].duration>.3&&A[i].duration<8:Math.abs(A[i].duration-c.duration)<1e-3)),a+'/'+s+': same clips and order as the stock set; durations equal except the natural-cadence loops ('+A.length+')');
     let badBone=0,badNum=0,badQ=0;
     for(const c of A)for(const t of c.tracks){const b=t.name.split('.')[0];if(!rigNames.has(b))badBone++;
       let w=t.name.endsWith('.quaternion')?4:3;for(let i=0;i<t.values.length;i++)if(!Number.isFinite(t.values[i]))badNum++;

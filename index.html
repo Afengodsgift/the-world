@@ -549,7 +549,7 @@ function animateClips(g,dt,st){
    q.lx=(q.lx||0)+((gnd?clamp(acc*.006,-.06,.10)+(want==='sprint'?.04:0):0)-(q.lx||0))*lk;
    q.lz=(q.lz||0)+((gnd?-clamp(q.yr*.035,-.14,.14)*clamp(v/5,0,1):0)-(q.lz||0))*lk}
   q.model.rotation.set(q.lunge+(q.lx||0),0,q.lz||0);q.model.position.set(0,q.oy,0);        // base transform; FlightPose overrides it while flying
-  q.model.scale.set(.5*(1+q.land*.3),.5*(1-q.land*.6),.5*(1+q.land*.3));
+  {const k=q.ms||.5;q.model.scale.set(k*(1+q.land*.3),k*(1-q.land*.6),k*(1+q.land*.3))};
   if(q.cpSaved)CombatPose.untwist(q);q.mixer.update(dt);
   if(armed&&Math.abs(q.cpT||0)>.01)CombatPose.twist(q);   // legs twisted toward travel, torso back on the aim
   // procedural layers on top of the baked clips: flight (src/character/FlightPose.js) or a held weapon (Outlaw.poseGun)
@@ -574,7 +574,7 @@ function animate(g,dt,st){
     q.land=Math.max(0,q.land-dt);q.model.rotation.y+=((st==='fly'?Math.max(-.7,Math.min(.7,-q.yr*.18)):0)-q.model.rotation.y)*Math.min(1,dt*6); // bank into turns
     q.model.rotation.x+=((st==='swim'?1.45:st==='fly'?.2+1.25*Math.min(1,sf*2.5):0)+(q.pan?Math.sin(Math.min(1,q.swing||0)*Math.PI)*.3:0)-q.model.rotation.x)*Math.min(1,dt*10);
     q.model.position.set(0,.65*(1-Math.cos(q.model.rotation.x)),-.65*Math.sin(q.model.rotation.x));
-    q.model.scale.set(.5*(1+q.land*.3),.5*(1-q.land*.6),.5*(1+q.land*.3));q.mixer.update(dt);
+    {const k=q.ms||.5;q.model.scale.set(k*(1+q.land*.3),k*(1-q.land*.6),k*(1+q.land*.3))};q.mixer.update(dt);
     if(st==='fly'||st==='swim')pose(q,st,dt);else if(q.gunI>=0&&typeof Outlaw!=='undefined')Outlaw.poseGun(g,q,st,dt);
     if(q.gun)q.gun.visible=!!q.gun.userData.ok&&!(st==='fly'||st==='swim');return;
   }

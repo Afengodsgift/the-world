@@ -42,20 +42,24 @@ direction. Weights of unused finger joints are merged onto the game joints. Buil
 (`THREE_NM=... MESHOPT_JS=... node tools/avatar/build_avatar.mjs <in.fbx> <out.glb> --name=crypto --height=1.88`).
 
 ## Animations
-The repo's clips were authored for the chibi rig. `tools/avatar/retarget_clips.mjs` bakes a human-proportioned copy of every
-set for each avatar: world-space delta retarget, a posture correction so the stock idle becomes a relaxed upright stance,
-arm-chain fading by arm elevation, finger-curl damping, a wrist swing/twist limiter (22 deg), hips scaled by leg-length ratio
-with a ground solve (soles within +-3 mm over 5380 frames), and measured planted-foot speed so strides do not skate:
-walk ratio 1.42-1.43, jog 1.45-1.49 (the gait timescale and the gun `meta.spd` are divided/scaled by it at runtime).
+The clips now come from real human animation data, not from the chibi clips. `tools/avatar/bake_human.mjs` retargets a Mixamo-skeleton source
+(`exported-model_3.glb`, 178 clips, metres, T-pose rest taken from the skin's inverse bind matrices) straight onto each avatar's own rig, in world space
+(`Q_target = Q_src * Q_src_rest^-1 * align * Q_target_rest`), with the hips offset scaled by leg length and the lowest sole solved onto the floor on grounded
+frames. Locomotion loops (idle, walk, jog, sprint, swim, tread, crouch...) keep their natural cadence; one-shot clips are keyed at the stock clip's duration
+(time-warp 0.45x-1.8x) so timings the game was tuned to are unchanged. Planted-foot speed is re-measured into `meta.json` (walk ~1.2-1.3, jog ~1.2-1.25 vs the
+chibi clips) and multiplied at runtime by the avatar's model scale / 0.5, so strides do not skate.
 
-Sets (all 8 have the same clip names, order and durations as the stock files - checked by `tests/avatar_assets.check.js`):
-`anims` (idle/walk/jog/sprint/jump/fall/swim/tread/land/hit/smack...), `emotes`, `verb_anims`, `gun_anims` (aim/fire/8-way
-strafe/death), `combat_anims`, `warden_anims`, `warden_mx_player`, `warden_mx_duelist` (sword/guard/dodge/hit/death/lock-on).
-First load = `anims + emotes + verb + combat`; `gun_anims` streams in 1.2 s after the body; Warden sets load when a fight starts.
+| Set | Source |
+|---|---|
+| `anims`, `combat_anims`, `emotes`, `verb_anims`, `warden_anims` | `exported-model_3.glb` (human clips: Idle_A, Walk, Jog, Sprint, Jump_*, Swim_*, Hit_*, Death_*, emotes, fishing, farming, sword...) |
+| `warden_mx_player`, `warden_mx_duelist` | the Mixamo packs (Pro Sword and Shield, Great Sword, Capoeira) via `--mx=<packs folder>`; same durations as before, so the hit windows (`imp`, `s0`, `s1`, `hits`, `trav`) are kept |
+| `gun_anims` | still derived from the chibi gun clips by `retarget_clips.mjs` (no rifle pack was supplied); `meta.gaitChibi` keeps its stride ratio |
 
-**Honest limitation:** these are derived from the chibi clips, not re-authored from the original Mixamo / UAL source animations.
-If the originals (UAL1_Standard.glb, KayKit Rig_Medium, the Mixamo Pro Rifle Pack FBX folder) are supplied, re-bake with
-`tools/retarget_ual.js` / `tools/retarget_mixamo.mjs` aimed at the new rigs for better fidelity.
+Re-bake: `THREE_NM=... node tools/avatar/bake_human.mjs assets/avatars/crypto.glb <source.glb> assets/avatars/crypto [--only=anims,emotes] [--mx=<packs>] [--report]`
+(run it for `madea` too, then bump `ASSET_V`). Clips with no good source (situps, flipf, lie_in, saw...) keep the earlier version.
+Sets are checked by `tests/avatar_assets.check.js` (same names/order; durations equal except the natural-cadence loops listed in `meta.natural`).
+
+**Body size:** avatars draw at model scale 0.56 (chibi 0.5) and the skin is bulked out along welded normals (`AvatarOutfits.bulk`, Crypto +0.05, Madea +0.04 rig units, torso/limbs full, head 30%, hands/feet 25%) so they read less thin; the skeleton is unchanged.
 
 ## Customisation (all free; there is no purchase flow)
 * **Body**: male / female.
