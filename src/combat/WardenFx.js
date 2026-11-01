@@ -23,10 +23,11 @@ const WardenFx=(()=>{
     shadow:   {c:'#10101a',h:'#8a50c0',t:'#3a2060',d:'#10101a',r:'#9a60d0',k:'#3a2060',v:1,cr:.8,ch:1.2,nb:1},
     eclipse:  {c:'#000000',h:'#ffd070',t:'#ffb040',d:'#050308',r:'#ffd070',k:'#ffb040',v:0,cr:.9,ch:1.6},
     steel:    {c:'#ffffff',h:'#bcd4ff',t:'#e0ecff',d:'#8aa4d8',r:'#ffffff',k:'#c0d8ff',v:2,cr:.6,ch:1.2},
+    arrows:   {c:'#ffffff',h:'#ffe8b0',t:'#fff0c8',d:'#7a5a30',r:'#f0d8a0',k:'#e8d0a0',v:0,cr:.35,ch:.8,sky:2},
     blade:    {c:'#ffffff',h:'#bcd4ff',t:'#e0ecff',d:'#8aa4d8',r:'#ffffff',k:'#c0d8ff',v:2,cr:.6,ch:1.2,ty:'blade'}};
   const MAP={orb:'fire',bolt:'arrow',quake:'earth',rain:'lightning',requiem:'ember',lance:'holy',returning:'holy',consecrate:'holy',procession:'holy',groundbreaker:'ember',ashwave:'ember',crossflame:'ember',
-    kingsfall:'sun',tidal:'water',spores:'poison',bladestorm:'blade',swordring:'steel',sunvolley:'darksun',snakelash:'shadow',eclipse:'eclipse',sever:'steel',sever2:'steel',severF:'holy'};
-  function pick(e){if(e.sty&&ST[e.sty])return e.sty;let s=MAP[e.move]||'fire';if(e.fk==='gdn'){if(s==='holy')s='sun';else if(s==='arrow')s='darksun'}return s}
+    kingsfall:'sun',tidal:'water',spores:'poison',bladestorm:'blade',swordring:'steel',sunvolley:'darksun',snakelash:'shadow',eclipse:'eclipse',sunder:'earth',spear:'lightning',storm:'lightning',sever:'steel',sever2:'steel',severF:'holy'};
+  function pick(e){if(e.sty&&ST[e.sty])return e.sty;let s=MAP[e.move]||'fire';if(e.fk==='gdn'){if(s==='holy')s='sun';else if(s==='arrow')s='darksun'}if(s==='lightning'&&e.fk==='saint')s='holy';return s}
   // ---- jagged ribbon (lightning): S strands of N segments, each drawn as crossed quads (visible from any angle) in two layers, a wide blue glow and a thin white core. Additive. ----
   function Bolt(S,N){
     const nq=S*N*4,pos=new Float32Array(nq*12),col=new Float32Array(nq*12),idx=new Uint16Array(nq*6);
@@ -88,7 +89,7 @@ const WardenFx=(()=>{
     if(ty==='bolt')p.lb.tint(T.h);
     if(ty==='arrow')setC(p.st.material,T.t)}
   function styleRing(r,s){const T=ST[s]||ST.fire;r.s=s;setC(r.d.material,T.d);setC(r.r.material,T.r);setC(r.r2.material,T.r);setC(r.c.material,T.k);
-    r.c.material.blending=T.nb?THREE.NormalBlending:THREE.AdditiveBlending;r.c.material.needsUpdate=true;r.cl.visible=!!T.sky;r.sb.m.visible=false;if(T.sky)r.sb.tint(T.h)}
+    r.c.material.blending=T.nb?THREE.NormalBlending:THREE.AdditiveBlending;r.c.material.needsUpdate=true;r.cl.visible=T.sky===1;r.sb.m.visible=false;if(T.sky)r.sb.tint(T.h)}
   function spark(x,z,s,big){if(typeof WardenVfx==='undefined'||!WardenVfx.spawn)return;const T=ST[s]||ST.fire;try{if(big)WardenVfx.burst(x,H(x,z)+.5,z,T.v);else WardenVfx.spawn(x,H(x,z)+1.2,z,T.v,3,1.6,RND()*6.28,26)}catch(e){}}
   function event(e){
     if(!G)return;
@@ -123,7 +124,7 @@ const WardenFx=(()=>{
       if(p.t>6)p.g.visible=false}
     for(const r of ring){if(!r.g.visible)continue;r.t+=dt;const T=ST[r.s]||ST.fire,sky=T.sky;
       if(r.burst<0&&r.end<0){const u=Math.min(1,r.t/r.delay);r.d.material.opacity=.22+.3*u*u;r.r.material.opacity=.6+.4*u*(.6+.4*Math.sin(r.t*18));r.r2.material.opacity=.5*u;r.r2.rotation.z=r.t*1.6;r.c.material.opacity=.12*u;
-        if(sky){const co=.5*Math.min(1,r.t/.25)*(.7+.3*u);r.cl.children.forEach(m=>m.material.opacity=co);
+        if(sky===1){const co=.5*Math.min(1,r.t/.25)*(.7+.3*u);r.cl.children.forEach(m=>m.material.opacity=co);
           if(u>.62){const b=r.sb;b.m.visible=true;b.m.material.opacity=.14+.5*(u-.62)/.38*RND();b.acc+=dt;if(b.acc>.06){b.acc=0;zig(b,0,(RND()-.5)*.6,13,(RND()-.5)*.6,0,.1,0,1);b.zero(1);b.zero(2);b.put(0,.05)}}}
         else if(T.nb&&r.s!=='earth'){r.c.material.opacity=.2*u}}
       else if(r.end<0){const bt=r.t-r.burst,u=Math.min(1,bt/.2);r.d.material.opacity=.85*(1-u*.3);r.r.material.opacity=1;r.r2.material.opacity=1-u;r.r.scale.setScalar(r.R*(1+.18*u));r.c.material.opacity=(T.nb?.45:.6)*(1-u);r.r2.rotation.z=r.t*3;
@@ -133,6 +134,8 @@ const WardenFx=(()=>{
         r.d.material.opacity=.5*(1-uu);r.r.material.opacity=1-uu;r.r2.material.opacity=0;r.c.material.opacity=0;r.cl.children.forEach(m=>m.material.opacity=.5*(1-uu))}}}
   // the sky strike: a forked bolt from the cloud to the centre of the ring, flickering for BT seconds
   function strike(r,bt){const b=r.sb;if(bt>=BT){b.m.visible=false;return}
+    if(ST[r.s].sky===2){   // an arrow volley: three shafts fall, fast and straight, and stick
+      b.m.visible=true;b.m.material.opacity=bt<.3?1:Math.max(0,1-(bt-.3)/.12);const y0=Math.max(.1,15-bt*70);for(let s=0;s<3;s++){const x=(s-1)*.9*Math.min(1,r.R/2),z=(s%2?.6:-.5)*Math.min(1,r.R/2),a=b.P[s];for(let i=0;i<=b.N;i++){const p=a[i];p.x=x+(1-i/b.N)*.3;p.y=y0+(1-i/b.N)*4;p.z=z}b.put(s,.04)}return}
     b.m.visible=true;b.m.material.opacity=bt<.1?1:Math.max(0,(RND()>.3?1:.4)*(1-(bt-.1)/(BT-.1)));
     r.cl.children.forEach(m=>m.material.opacity=.5*Math.min(1,1-(bt-.1)/.3+.3));
     b.acc+=1/60;if(b.acc>.045){b.acc=0;zig(b,0,(RND()-.5)*1.2,14,(RND()-.5)*1.2,(RND()-.5)*.3,.1,(RND()-.5)*.3,1.4);

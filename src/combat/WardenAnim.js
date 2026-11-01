@@ -95,7 +95,7 @@ const WardenAnim=(()=>{
       const place=(pr,u)=>{const P2=PAIR[pr];if(u<P2.la){tgt[P2.a]=1;tm[P2.a]=u}else{tgt[P2.b]=1;tm[P2.b]=Math.min(u-P2.la,A[P2.b].getClip().duration-.001)}};
       if(fight){
         if(f.act==='charge')place('a',.43*ease(f.c/16));
-        else if(f.act==='attack'&&f.ph&&f.ph[f.pi]){const m=MAP[moveKey(f,I.variant,I.alt)],e=m&&m[f.pi];
+        else if(f.act==='attack'&&f.ph&&f.ph[f.pi]){const mk=moveKey(f,I.variant,I.alt);let m=MAP[mk];if(!m&&Moves[mk]&&Moves[mk].as)for(const b of Moves[mk].as)if(MAP[b]){m=MAP[b];break}const e=m&&m[f.pi];
           if(e){const n=f.ph[f.pi].n||1,p=Math.min(1,(f.pk+fr)/n);place(e[0],e[1]+(e[2]-e[1])*p)}}
         else if(f.guard&&f.act==='free'){tgt.w_block=1;I.blockT+=(.42-I.blockT)*Math.min(1,dt*14);tm.w_block=I.blockT}
         else if(loco&&loco.moving){

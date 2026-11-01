@@ -191,6 +191,8 @@ const WardenMX=(()=>{
   function fetchRole(role,av){const key=av?role+'@'+av:role,s=SH[key]||(SH[key]={st:'none',clips:null,meta:null,p:null}),file=av&&typeof AvatarKit!=='undefined'&&AvatarKit.CAT[av]&&!ROLES[role].native?AURL+AvatarKit.CAT[av].dir+ROLES[role].file.replace(/^.*\//,'')+AvatarKit.ASSET_V:ROLES[role].file,tag=(av?av+'/':'')+role;
     if(!s.p)s.p=Promise.all([tryFetch(file,6).then(r=>r.json()),ROLES[role].px&&!av?tryFetch(ROLES[role].px,6).then(r=>r.json()).catch(()=>[]):[]]).then(([a,x])=>a.concat(x)).then(j=>{s.clips={};s.meta={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=tag+':'+c.name;ac.uuid=tag+':'+c.name;s.clips[c.name]=ac;   // unique uuid per role: three.js caches actions by clip uuid, and the game's own clips are also called idle/walk/jump (sharing one action stole the game's base layer -> T-pose on hit)
       s.meta[c.name]={dur:c.duration,v:(av&&AvatarKit.set(av)?AvatarKit.set(av).mxK||1:1)*Math.hypot(c.trav?c.trav[0]:0,c.trav?c.trav[1]:0)/Math.max(.1,c.duration)}}s.st='ready';return s}).catch(e=>{s.st='failed';s.err=String(e&&e.message||e);s.p=null;throw e});return s.p}
+  // a signature variant (Moves[id].as) animates with the first base move this role has
+  function specOf(R,id){let s=R.moves[id];if(s)return s;const as=(typeof Moves!=='undefined'&&Moves[id]&&Moves[id].as)||[];for(const b of as)if(R.moves[b])return R.moves[b];return null}
   function make(q,role){
     const R=ROLES[role],I={st:'none',role,A:{},ws:{},gT:0,sT:0,dT:0,sw:0,lastLight:-1e9,ready:()=>I.st==='ready',variant:'light_b',alt:{},plans:{},tmem:{}};
     I.mode=null;I.mt=0;I.wakeP=0;I.wakeDone=false;I.setMode=m=>{I.mode=m;I.mt=0;I.wakeP=m==='wake'?0:1;I.wakeDone=false};
@@ -201,7 +203,7 @@ const WardenMX=(()=>{
       names=[...used].filter(n=>s.clips[n]);I.names=names;I.S=s;
       for(const n of names){const a=q.mixer.clipAction(s.clips[n]);a.enabled=false;a.setEffectiveWeight(.0001);I.A[n]=a;I.ws[n]=0}I.st='ready'};
     const load=()=>fetchRole(role,q.av).then(init).catch(e=>{I.st='failed';I.err=String(e&&e.message||e);setTimeout(()=>{if(I.st!=='ready')load()},6000)});load();
-    const planOf=mv=>I.plans[mv.id]||(I.plans[mv.id]=R.moves[mv.id]?plan(mv.phases,R.moves[mv.id],c=>I.S.clips[c]?I.S.clips[c].duration:9):null);
+    const planOf=mv=>I.plans[mv.id]||(I.plans[mv.id]=specOf(R,mv.id)?plan(mv.phases,specOf(R,mv.id),c=>I.S.clips[c]?I.S.clips[c].duration:9):null);
     I.update=(f,fr,loco,dt,on)=>{
       if(I.st!=='ready')return false;const A=I.A,tgt={},tm={},tsc={};for(const n of names)tgt[n]=0;
       const fight=on&&f.act!=='dead'&&f.act!=='dodge'&&f.act!=='stun';
@@ -225,7 +227,7 @@ const WardenMX=(()=>{
         else{if(I.sT<=dt*1.5)I.hv=(I.hv||0)^1;put(I.hv?'p_hith':'p_hitc',I.sT)}}
       else if(!R.native&&R.px&&A.p_deathA&&f.act==='dead'){if(I.dv===undefined||I.dv<0){I.dvL=PXD.filter(n=>A[n]);I.dv=Math.floor(Math.random()*I.dvL.length)}put(I.dvL[I.dv],I.dT)}
       else if(fight){
-        const mv=f.mv,spec=mv&&R.moves[mv.id];
+        const mv=f.mv,spec=mv&&specOf(R,mv.id);
         if(f.act==='charge'&&spec&&spec.ch){const s=norm(spec)[0];put(s.c,spec.ch[0]+(spec.ch[1]-spec.ch[0])*ease(f.c/16))}
         else if(f.act==='charge'){const m=R.moves.heavy;if(m&&m.ch)put(m.c,m.ch[0]+(m.ch[1]-m.ch[0])*ease(f.c/16))}
         else if(f.act==='attack'&&f.ph&&f.ph[f.pi]&&mv){const pl=planOf(mv),e=pl&&pl[f.pi];

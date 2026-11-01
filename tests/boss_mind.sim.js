@@ -22,3 +22,11 @@ for(const[kid,foe]of[['samurai','samurai'],['dknight','gwyn'],['darkknight','bla
 {const A=DuelistAI.create(1,{foe:'samurai',kid:'samurai',intro:1});ok(DuelistAI.MIND.samurai.back[0]==='blink'&&DuelistAI.MIND.samurai.back[1]==='iai','Kage answers a back-dodge with a gap-closing draw');
  ok(Object.keys(DuelistAI.MIND).length>=6,'six bosses have a mind')}
 console.log(n+' checks')
+// signature moves: every boss uses its own, only in the right phase/range, and never one that holds the boss token while an ally has it
+{const FOE={samurai:'samurai',dknight:'gwyn',darkknight:'blackknight',gwyn:'gwyn',oath4:'gwyn',gdn:'gdn',penitent:'penitent',saint:'saint',vampire:'stalker',ganfaul:'knight',paladin:'knight',goblin:'trapper',archer:'archer',arissa:'dancer',hollow:'hollow',parasite:'beast',maw:'beast',bear:'beast'};
+ const SIGM={samurai:['rend'],dknight:['rend','sunder'],darkknight:['rend','sunder'],gwyn:['spear','storm'],oath4:['rend','spear'],gdn:['spear','arrows'],penitent:['sunder'],saint:['spear','storm'],vampire:['rend'],ganfaul:['rend'],paladin:['sunder'],goblin:['arrows'],archer:['arrows'],arissa:['rend'],hollow:['sunder'],parasite:['sunder'],maw:['sunder'],bear:['sunder']};
+ for(const kid of Object.keys(FOE)){const used={};let lockedPer=0;
+  for(const dist of[2.5,3.4,5,8,12])for(let s=1;s<=6;s++){for(const lock of[false,true]){const A=DuelistAI.create(s*31+7,{foe:FOE[kid],kid,intro:0});A.on=true;A.ph2=A.ph3=true;const D=mkD(),P=mkP(dist);D.hp=D.hpMax*.2;
+    for(let t=0;t<2400;t++){if(D.act==='attack'&&t%70===0)D.act='free';A.sigLock=lock;const o=DuelistAI.think(A,P,D,[],t);for(const c of o.list)if(c.t==='atk'){D.act='attack';if(!lock)used[c.m]=1;else if((c.m==='rend'||c.m==='sunder')&&!A.follow0)lockedPer++}}}}
+  for(const m of SIGM[kid])ok(used[m],kid+' uses its signature '+m);ok(lockedPer===0,kid+' starts no perilous move while an ally holds the token ('+lockedPer+')')}}
+console.log(n+' checks')
