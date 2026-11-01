@@ -7,11 +7,11 @@ const WardenProg=(()=>{
   const KEY='wprog',MAXL={vig:10,end:10,mig:10,belt:3},BASE={vig:100,end:90,mig:140,belt:260};
   const NAMES={vig:'Vigor',end:'Endurance',mig:'Might',belt:'Flask Belt'};
   const TWISTS=['','Quickened','Ironbound','Ravenous'];
-  const S={cycle:1,embers:0,ups:{vig:0,end:0,mig:0,belt:0},done:{},lost:null,total:0,best:1,kills:0,duel:{w:0,l:0,streak:0,best:0,rating:0}};
+  const S={cycle:1,embers:0,ups:{vig:0,end:0,mig:0,belt:0},done:{},mast:{},lost:null,total:0,best:1,kills:0,duel:{w:0,l:0,streak:0,best:0,rating:0}};
   let bosses=[];
   const clampI=(v,lo,hi)=>Math.max(lo,Math.min(hi,Number.isFinite(v)?v|0:lo));
   function load(){try{const j=JSON.parse(localStorage.getItem(KEY)||'null');if(!j)return;S.cycle=clampI(j.cycle,1,99);S.embers=clampI(j.embers,0,1e9);S.total=clampI(j.total,0,1e12);S.best=clampI(j.best,1,99);S.kills=clampI(j.kills,0,1e9);
-    for(const k in MAXL)S.ups[k]=clampI(j.ups&&j.ups[k],0,MAXL[k]);S.done={};if(j.done)for(const k in j.done)if(j.done[k])S.done[k]=1;
+    for(const k in MAXL)S.ups[k]=clampI(j.ups&&j.ups[k],0,MAXL[k]);S.done={};if(j.done)for(const k in j.done)if(j.done[k])S.done[k]=1;S.mast={};if(j.mast)for(const k in j.mast)if(j.mast[k]===1||j.mast[k]===2)S.mast[k]=j.mast[k];
     if(j.duel){const d=j.duel;S.duel={w:clampI(d.w,0,1e6),l:clampI(d.l,0,1e6),streak:clampI(d.streak,0,1e6),best:clampI(d.best,0,1e6),rating:clampI(d.rating,0,9999)}}
     S.lost=j.lost&&Number.isFinite(j.lost.x)&&Number.isFinite(j.lost.z)&&j.lost.n>0&&typeof j.lost.sid==='string'?{sid:j.lost.sid,x:+j.lost.x,z:+j.lost.z,n:j.lost.n|0}:null}catch(e){}}
   function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
@@ -42,6 +42,6 @@ const WardenProg=(()=>{
     if(win){d.w++;if(human){d.streak++;d.best=Math.max(d.best,d.streak);d.rating=Math.min(9999,d.rating+25);emb=150+25*Math.min(d.streak-1,8)}else emb=40}
     else{d.l++;if(human){d.streak=0;d.rating=Math.max(0,d.rating-20);emb=20}}
     if(emb)earn(emb);save();return{embers:emb,rating:d.rating,rank:rank(),streak:d.streak}}
-  const reset=()=>{S.cycle=1;S.embers=0;S.ups={vig:0,end:0,mig:0,belt:0};S.done={};S.lost=null;S.total=0;S.best=1;S.kills=0;S.duel={w:0,l:0,streak:0,best:0,rating:0};save()};
+  const reset=()=>{S.cycle=1;S.embers=0;S.ups={vig:0,end:0,mig:0,belt:0};S.done={};S.mast={};S.lost=null;S.total=0;S.best=1;S.kills=0;S.duel={w:0,l:0,streak:0,best:0,rating:0};save()};
   return{S,NAMES,MAXL,setBosses,twist,cycleMul,cost,stats,buy,reward,add,die,claim,earn,spend,rank,duelResult,felled,progress,reset,load,save}})();
 if(typeof module!=='undefined')module.exports=WardenProg;

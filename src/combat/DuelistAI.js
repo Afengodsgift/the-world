@@ -9,10 +9,10 @@ const DuelistAI=(()=>{
   const REACH={bladestorm:16,swordring:3.4,sunvolley:18,snakelash:3.8,eclipse:7.6,charge:10,maul:3.2,tidal:6.4,spores:12,hundred:3.2,ashwave:16,crossflame:16,kingsfall:7,flurry:3,cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4,dash:2.4,leap:3.0,bash:2.3,orb:12,bolt:16,spin:2.9,hammer:2.7,lowsweep:3.1,blink:30,snare:30,lance:20,returning:18,consecrate:12,procession:11,march:2.7,groundbreaker:3.9,verdict:2.8,pursuit:3.1,iai:3.4,feint:3.4,moon:3.7,counter:2.9,requiem:5.2},REACT=14,INTRO=90;
   const HR={sweep:3.0,slam:3.0,triple:2.8,quake:4.2};
   function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-  function create(seed,o){o=o||{};const r=mulberry(seed|0);return{foe:o.foe||'duelist',kid:o.kid||'',noAtk:false,gcool:0,r,t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,mood:'patient',moodT:90,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null,
+  function create(seed,o){o=o||{};const r=mulberry(seed|0);return{foe:o.foe||'duelist',kid:o.kid||'',mast:!!o.mast,noAtk:false,gcool:0,r,t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,mood:'patient',moodT:90,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null,
     bcd:240,scd:100,hcd:0,hcd2:0,hunt:false,follow:null,adaptCd:0,adapt:null,ph3:false,att:0,ccd:300,rcd:0,chain:0,moves:0,nextBreath:3+Math.floor(r()*3),breath:0,ph2:false,closeP:0}}
   const key=P=>P.act==='attack'&&P.ph&&P.ph[P.pi]?'a'+P.ph[P.pi].k:P.act==='stun'?'stun':P.act==='dodge'?'dodge':P.act==='charge'?'charge':P.guard?'guard':'free';
-  const rest=(A,lo,span)=>Math.max(20,Math.floor((lo+Math.floor(A.r()*span))*(A.ph3?.58:A.ph2?.75:1)));
+  const rest=(A,lo,span)=>Math.max(20,Math.floor((lo+Math.floor(A.r()*span))*(A.ph3?.58:A.ph2?.75:1)*(A.rmul||1)));
   // A = ai state, P/D = sim fighters, evs = events of the previous tick. Returns {face,mx,mz,list}
   function think(A,P,D,evs,tick){
     const out={face:Math.atan2(P.x-D.x,P.z-D.z),mx:0,mz:0,list:[]};A.t++;
@@ -20,14 +20,15 @@ const DuelistAI=(()=>{
     const dx=P.x-D.x,dz=P.z-D.z,rawD=Math.hypot(dx,dz),dist=rawD/(D.rm||1),ux=dx/(rawD||1),uz=dz/(rawD||1),st=A.foe,H=st==='hollow'||st==='beast',BK=st==='blackknight',KN=st==='knight'||BK,DA=st==='dancer',SO=st==='soldier',AR=st==='archer',SK=st==='stalker',TR=st==='trapper',SM=st==='samurai'||st==='veil'||st==='gwyn',GW=st==='gwyn',GD=st==='gdn',VL=st==='veil',PN=st==='penitent',SN=st==='saint';
     // what the player visibly does now, and how long we have been seeing it (a human reaction delay)
     const k=key(P);if(k!==A.seenKey){A.seenKey=k;A.see=0}else A.see++;
+    if(MIND[A.kid]){habits(A,P,k,tick,dist);if(!SM&&A.adaptCd>0)A.adaptCd--;const pe=PERS[A.kid];A.rmul=(pe?pe.rest*(pe.desp?.62+.38*D.hp/D.hpMax:1):1)*(A.mast?.85:1)}
     A.gP=P.guard&&P.act==='free'?A.gP+1:0;if(A.cool>0)A.cool--;if(A.gcool>0)A.gcool--;if(A.rip>1)A.rip--;if(A.breath>0)A.breath--;if(A.bcd>0)A.bcd--;if(A.scd>0)A.scd--;if(A.hcd>0)A.hcd--;
-    if(!A.ph2&&D.hp<D.hpMax*.5)A.ph2=true;if((SM||GD)&&!A.ph3&&D.hp<D.hpMax*(GD?.25:.22)){A.ph3=true;A.ph2=true;A.rcd=0;A.req=true}   // Kage has a third phase
+    if(!A.ph2&&D.hp<D.hpMax*(A.mast?.62:.5))A.ph2=true;if((SM||GD)&&!A.ph3&&D.hp<D.hpMax*(GD?.25:.22)){A.ph3=true;A.ph2=true;A.rcd=0;A.req=true}   // Kage has a third phase
     if(VL)veilTally(A,P,k,tick);if(A.hcd2>0)A.hcd2--;if(GD){if(A.rcd>0)A.rcd--}if(GW){if(A.wcd>0)A.wcd--;if(A.kcd>0)A.kcd--}if(SM){if(A.adaptCd>0)A.adaptCd--;if(A.ccd>0)A.ccd--;if(A.rcd>0)A.rcd--;if((k==='astartup'||k==='aactive'||k==='acharge')&&dist<3.4)A.att++;else A.att=Math.max(0,A.att-.5)}                                 // second phase: the game announces it by reading A.ph2
     for(const e of evs||[])if((e.t==='block'||e.t==='deflect')&&e.d===D.id&&A.rip===0)A.rip=REACT;   // we just blocked something: counter-attack soon
     if(D.act!=='free'){A.busy=true;return out}
     if(A.busy){A.busy=false;A.moves++;
       A.cool=H?rest(A,30,45):A.mood==='aggro'?rest(A,20,20):A.mood==='evasive'?rest(A,40,60):rest(A,30,60);   // rest after every move or stagger: >= 20 ticks
-      if(A.moves>=A.nextBreath){A.moves=0;A.nextBreath=3+Math.floor(A.r()*3);A.breath=70+Math.floor(A.r()*50);A.cool=Math.max(A.cool,A.breath)}}
+      if(A.moves>=A.nextBreath){A.moves=0;A.nextBreath=3+Math.floor(A.r()*3);A.breath=Math.floor((70+Math.floor(A.r()*50))*((PERS[A.kid]||{}).breath||1));A.cool=Math.max(A.cool,A.breath)}}
     if(--A.moodT<=0){const q=A.r();A.mood=q<.34?'aggro':q<.68?'patient':'evasive';A.moodT=140+Math.floor(A.r()*220)}   // he changes his temper every few seconds so the pacing is never the same
     // guard handling
     if(D.guard){
@@ -50,15 +51,16 @@ const DuelistAI=(()=>{
     if(!H&&!KN&&!DA&&!SO&&!SK&&!TR&&!SM&&!PN&&!SN&&!GD&&A.cool<=6&&dist<2.8&&(k==='charge'||k==='astartup')&&A.see>=REACT&&A.r()<.012*A.see){A.guardT=40+Math.floor(A.r()*25);out.list.push({t:'guardDown',e:tick});out.mx=out.mz=0;return out}
     if(A.cool>0||k==='dodge')return out;              // resting, or the player is mid-dodge: wait for them to land
     if(A.noAtk)return out;                            // someone else holds the attack token: keep circling
+    {const rd=MIND[A.kid]?read(A,P,D,out,tick,dist,k):null;if(rd)return rd}
     if(SO)return soldier(A,P,D,out,tick,dist,k);
     if(DA)return dancer(A,P,D,out,tick,dist,k);
     if(AR)return archer(A,P,D,out,tick,dist,k);
     if(SN)return saint(A,P,D,out,tick,dist,k);
     if(PN)return penitent(A,P,D,out,tick,dist,k);
     if(VL){const r=veil(A,P,D,out,tick,dist,k);if(r)return r}
-    if(GW)return gwyn(A,P,D,out,tick,dist,k);
-    if(GD)return gdn(A,P,D,out,tick,dist,k);
-    if(SM)return samurai(A,P,D,out,tick,dist,k);
+    if(GW)return combo(A,gwyn(A,P,D,out,tick,dist,k));
+    if(GD)return combo(A,gdn(A,P,D,out,tick,dist,k));
+    if(SM)return combo(A,samurai(A,P,D,out,tick,dist,k));
     if(SK)return stalker(A,P,D,out,tick,dist,k);
     if(TR)return trapper(A,P,D,out,tick,dist,k);
     // ---- gap closer: from range, sometimes lunge in instead of just running (never twice in a row) ----
@@ -66,7 +68,7 @@ const DuelistAI=(()=>{
     if(dist>=lo&&dist<=hi&&A.last[A.last.length-1]!==gc){A.closeP+=A.ph2?.05:.03;if(A.r()<A.closeP){A.closeP=0;return start(A,out,gc,0,tick)}}
     if(dist<lo)A.closeP=0;
     if(H)return hollow(A,P,D,out,tick,dist,k);
-    if(BK)return blackknight(A,P,D,out,tick,dist,k);
+    if(BK)return combo(A,blackknight(A,P,D,out,tick,dist,k));
     if(KN)return knight(A,P,D,out,tick,dist,k);
     if(A.mood==='evasive'&&dist<2.4&&k!=='arecovery'&&k!=='stun'&&A.gP<=30){out.mx=-ux*.8;out.mz=-uz*.8;return out}   // baiting: back off to thrust range instead of trading
     if(dist>REACH.thrust+.2)return out;              // too far to do anything but close in
@@ -114,6 +116,7 @@ const DuelistAI=(()=>{
     const pick=choose(A,out,w,dist,tick,Object.assign({},REACH,HR)),m=pick.list[pick.list.length-1];if(A.kid==='paladin'&&m&&m.m==='twin')A.follow=A.r()<(A.ph2?.5:.3)?'verdict':null;return pick}
   // The Black Knight: no shield, a relentless blade. Combos that end in a low sweep or a spin, a hammer blow on turtles, a riposte on anything he blocks, dash openers; in phase 2 the leap and the quake join and he rests less.
   function blackknight(A,P,D,out,tick,dist,k){
+    if(A.follow){const m=A.follow;A.follow=null;if(dist<(REACH[m]||3)+.8)return start(A,out,m,m==='fall'?Math.floor(A.r()*13):0,tick)}
     const L0=A.last[A.last.length-1];
     if(A.ph2&&L0!=='leap'&&dist>=3.6&&dist<=7&&A.r()<.06)return start(A,out,'leap',0,tick);
     if(dist>REACH.thrust+.2)return out;
@@ -154,6 +157,45 @@ const DuelistAI=(()=>{
     return choose(A,out,w,dist,tick,REACH)}
   // The Veil Dancer (Three Oaths): Kage's duelling toolkit plus ADAPTATION. She tallies what you keep doing (dodging, guarding, charging heavies, spamming lights) and, once one habit clearly dominates, sometimes answers it
   // with a readable counter-tool (delayed strike / guard punisher / counter draw / wide crescent). Borrowed Motion: she answers your last attack with its own kind. A decoy is investigated before she commits. Fair: every answer is an existing move with its normal tell.
+  // ===== BOSS COMBAT STANDARD: harder to master, not harder to understand =====
+  // Each major boss READS your habits (MIND): it tallies what you keep doing (dodging back, circling, rolling in, charging heavies, spamming lights, swinging on a metronome) and, once one habit clearly
+  // dominates, sometimes answers it with a move built for it. Never a guaranteed counter: it needs 3+ repeats and a clear lead, rolls a 50% chance, waits 6-9 s before reading again, and forgets the habit
+  // once it has answered it (so you can try something else). Every answer is an existing move with its normal tell, and the game tells you what he saw ("KAGE READS YOUR BACK-DODGE").
+  // PERS = a combat personality: Artorias never lets you settle (short rests), Gwyn grows desperate (rests shrink as his power fades), the Dark Knight presses, Kage stays disciplined.
+  // COMBO = phase intelligence: in phase 2+ a move can be chained into another existing move (a harmless orb or cut becomes dangerous with the right follow-up).
+  const HK=['back','side','in','heavy','light','rhy'],HN={back:'back-dodge',side:'side-dodge',in:'roll-in',heavy:'charged heavy',light:'light spam',rhy:'rhythm'};
+  const MIND={
+    samurai:{back:['blink','iai'],side:['moon'],in:['counter'],heavy:['blink','iai'],light:['feint'],rhy:['fall',null,12]},
+    dknight:{back:['bladestorm'],side:['swordring'],in:['hundred'],heavy:['blink','verdict'],light:['flurry'],rhy:['verdict',null,9]},
+    darkknight:{back:['leap'],side:['spin'],in:['lowsweep'],heavy:['leap'],light:['riposte'],rhy:['fall',null,10]},
+    gwyn:{back:['pursuit','verdict'],side:['crossflame'],in:['moon'],heavy:['ashwave'],light:['march'],rhy:['verdict',null,10]},
+    oath4:{back:['bladestorm'],side:['swordring'],in:['hundred'],heavy:['pursuit','verdict'],light:['march'],rhy:['verdict',null,9]},
+    gdn:{back:['sunvolley'],side:['procession'],in:['snakelash'],heavy:['orb'],light:['snakelash'],rhy:['consecrate']}};
+  const PERS={samurai:{rest:.9},dknight:{rest:.85,breath:.7},darkknight:{rest:.7,breath:.45},gwyn:{rest:1,desp:1,breath:.6},oath4:{rest:.8,breath:.6},gdn:{rest:.95}};
+  const COMBO={
+    samurai:{cut:['moon',.25],twin:['fall',.3],triple:['moon',.3],iai:['blink',.25],moon:['iai',.3]},
+    dknight:{bladestorm:['blink',.45],swordring:['hundred',.4],hundred:['verdict',.35],cut:['moon',.25],blink:['flurry',.2]},
+    darkknight:{cut:['spin',.25],twin:['lowsweep',.35],thrust:['fall',.3],spin:['twin',.4],leap:['twin',.5],lowsweep:['cut',.4]},
+    gwyn:{cut:['moon',.25],ashwave:['pursuit',.4],kingsfall:['hammer',.5],crossflame:['pursuit',.3],moon:['march',.3]},
+    oath4:{cut:['moon',.25],bladestorm:['pursuit',.4],swordring:['hundred',.35],hundred:['verdict',.3]},
+    gdn:{orb:['sunvolley',.4],consecrate:['sunvolley',.35],procession:['snakelash',.3]}};
+  function habits(A,P,k,tick,dist){
+    const h=A.hx||(A.hx={back:0,side:0,in:0,heavy:0,light:0,rhy:0,ht:0,pk:'free',d0:0,lt:-999,iv:[]});
+    if(k!==h.pk){
+      if(h.pk==='dodge'){const d=dist-h.d0;h[d>.9?'back':d<-.7?'in':'side']++}
+      if(k==='dodge')h.d0=dist;
+      if(k==='astartup'){if(dist<4)h.light++;const iv=tick-h.lt;h.lt=tick;if(iv<150){h.iv.push(iv);if(h.iv.length>3)h.iv.shift();if(h.iv.length===3&&Math.max(h.iv[0],h.iv[1],h.iv[2])-Math.min(h.iv[0],h.iv[1],h.iv[2])<=9)h.rhy++}}
+      if(k==='acharge')h.heavy++;
+      h.pk=k}
+    if(++h.ht>=420){h.ht=0;for(const q of HK)h[q]*=.6}}
+  function read(A,P,D,out,tick,dist,k){
+    const M=MIND[A.kid];if(!M||!A.hx||A.follow||A.req||A.hunt||A.adaptCd>0)return null;
+    const h=A.hx;let top=null,tv=0,sv=0;for(const q of HK){const v=h[q];if(v>tv){sv=tv;tv=v;top=q}else if(v>sv)sv=v}
+    if(!top||tv<(top==='light'?6:A.mast?2:3)||tv<sv*1.5||!M[top]||A.r()>(A.mast?.65:.5))return null;
+    const a=M[top],m=a[0];if(top==='back'?dist<2.8||dist>11:dist>(REACH[m]||3)+.4)return null;
+    A.adaptCd=(A.ph3?300:A.ph2?420:560)*(A.mast?.75:1)|0;h[top]*=.2;A.readMsg=top;if(a[1])A.follow=a[1];
+    return start(A,out,m,a[2]||0,tick)}
+  function combo(A,r){const C=COMBO[A.kid];if(!C||!r||A.follow||!A.ph2||!r.list.length)return r;const m=r.list[r.list.length-1];if(!m||m.t!=='atk')return r;const c=C[m.m];if(c&&A.r()<c[1]+(A.ph3?.15:0))A.follow=c[0];return r}
   function veilTally(A,P,k,tick){
     if(!A.hab){A.hab={d:0,g:0,h:0,l:0};A.habT=0;A.invest=0;A.lastP=null;A.lastPT=-999}
     if(A.see===0){if(k==='dodge')A.hab.d++;else if(k==='guard')A.hab.g++;else if(k==='acharge')A.hab.h++;else if(k==='astartup'){A.hab.l++;if(P.mv&&P.mv.id){A.lastP=P.mv.id;A.lastPT=tick}}}
@@ -301,5 +343,5 @@ const DuelistAI=(()=>{
   function start(A,out,m,hold,tick){A.last.push(m);if(A.last.length>3)A.last.shift();out.list.push({t:'atk',m,hold,e:tick});out.mx=out.mz=0;return out}
   // the game calls this when the hunted player drinks a health flask: every foe ends its rest and stops breathing (at most once per 5 s each); Vael blinks onto you, Skrag fires the heavy bolt
   const hunt=(A)=>{if(A.hcd>0)return false;A.hcd=300;A.cool=Math.min(A.cool,6);A.breath=0;if(A.foe==='saint'||A.foe==='stalker'||A.foe==='trapper'||A.foe==='samurai'||A.foe==='veil'||A.foe==='penitent'||A.foe==='gwyn'||A.foe==='gdn')A.hunt=true;return true};   // everyone cuts their rest short; the hunters have a special answer
-  return{create,think,hunt,REACH:Object.assign({},REACH,HR),REACT,INTRO}})();
+  return{create,think,hunt,HN,MIND,REACH:Object.assign({},REACH,HR),REACT,INTRO}})();
 if(typeof module!=='undefined')module.exports=DuelistAI;
