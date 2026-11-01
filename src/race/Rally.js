@@ -169,7 +169,7 @@ const Rally=(()=>{
       if(R0.hitCd<=0&&T.hitHazard(c.x,c.y,c.z,ST.t,1.65)>=0){R0.hitCd=1.2;c.vx*=.35;c.vz*=.35;if(R0===ME){ST.shake=.8;toast('SMASHED!',900);tone(70,.35,'square',.2,.5)}}
     }
     // SPLASH PIER: leave the ground off a hop and land back on the pier = splash + a short boost
-    if(c.mode==='car'){if(!c.grounded)R0.airT=(R0.airT||0)+DT;else{if(R0.airT>.3&&T.roadIndex&&T.roadIndex['splash-pier']!=null){const pj=T.project(c.x,c.z,null,-1);if(pj.road===T.roadIndex['splash-pier']&&pj.dist<9){CP.pad(c,1.0);try{Fx.burst(c.x,c.y+.3,c.z,'#bfe9ff',16)}catch(e){}if(R0===ME){ST.punch=Math.max(ST.punch,.6);toast('🌊 SPLASH!  +BOOST',900);tone(420,.25,'sine',.14,1.6)}}}R0.airT=0}}else R0.airT=0;
+    if(c.mode==='car'){if(!c.grounded)R0.airT=(R0.airT||0)+DT;else{if(R0.airT>.3&&T.roadIndex&&T.roadIndex['splash-pier']!=null){const pj=T.project(c.x,c.z,null,-1);if(pj.road===T.roadIndex['splash-pier']&&pj.dist<9){CP.pad(c,2.2);c.vx+=Math.sin(c.h)*12;c.vz+=Math.cos(c.h)*12;try{Fx.burst(c.x,c.y+.3,c.z,'#bfe9ff',16)}catch(e){}if(R0===ME){ST.punch=Math.max(ST.punch,.6);toast('🌊 SPLASH!  +BOOST',900);tone(420,.25,'sine',.14,1.6)}}}R0.airT=0}}else R0.airT=0;
     const g=Tk.advance(T,R0.r,c.x,c.y,c.z,ST.t);if(g.gate>=0)onGate(R0,g);
     if(g.bonus>=0){const b=T.bonus[g.bonus];CP.pad(c,b.secs||2);try{Fx.burst(b.x,b.y,b.z,'#ffd24a',18)}catch(e){}
       if(R0===ME){ST.flash=.6;ST.punch=Math.max(ST.punch,.5);toast('★ '+(b.name||'BONUS')+'  +BOOST',1100);tone(988,.1,'triangle',.12);setTimeout(()=>tone(1318,.16,'triangle',.12),80);setTimeout(()=>tone(1760,.24,'triangle',.1),170)}}

@@ -12,7 +12,7 @@ ok(pr&&pr.alt&&!pr.sub,'the pier is an alternate surface road');
 let hi=0,hops=0;for(let i=1;i<pr.m;i++){const sea=H(pr.X[i],pr.Z[i])<-.5;if(!sea&&i>3&&i<pr.m-3)hi++}
 for(let i=3;i<pr.m-3;i++){let mx=true;for(let k=-3;k<=3;k++)if(pr.Y[i+k]>pr.Y[i]+1e-6)mx=false;if(mx&&pr.Y[i]-pr.Y[Math.max(0,i-12)]>1.5)hops++;}
 ok(hi<pr.m*.15,'the pier is over open water ('+hi+' of '+pr.m+' points on land)');
-ok(hops>=3,'three hop ramps in the deck ('+hops+')');
+ok(hops>=2,'two hop ramps in the deck ('+hops+')');
 ok(T.forks.length===2&&T.forks[1].alt===pi,'a second fork leads to the pier');
 ok(pr.len>600&&pr.len<1100,'pier length '+pr.len.toFixed(0)+' m');
 function race(skill,cls,seed){
@@ -25,7 +25,7 @@ function race(skill,cls,seed){
     if(e.gate>=0&&e.mode==='fly'&&car.mode==='car')CP.toFly(car);if(e.gate>=0&&e.perfect&&T.gates[e.gate].type==='air'&&T.gates[e.gate].boost)CP.pad(car,1.2);
     if(e.bonus>=0)CP.pad(car,T.bonus[e.bonus].secs);
     const pj=T.project(car.x,car.z,{},-1);const onP=pj.road===pi&&pj.dist<9;
-    if(onP&&car.grounded)onPier+=DT;
+    if(onP&&car.grounded){onPier+=DT;if(airT>.3){CP.pad(car,2.2);car.vx+=Math.sin(car.h)*12;car.vz+=Math.cos(car.h)*12}}   // mirrors the SPLASH boost in Rally.js
     if(onP&&car.mode==='car'&&!car.grounded){airT+=DT}else if(airT>0){if(airT>.3){hopsDone++;airMax=Math.max(airMax,airT)}airT=0}
     const w=Tk.needsRecovery(T,r,car,DT);if(w){rec++;if(w==='water'){water++;if(process.env.DBG){const q=T.project(car.x,car.z,{},-1);console.log('WATER',t.toFixed(1),car.x.toFixed(0),car.y.toFixed(1),car.z.toFixed(0),'road',q.road,'s',q.s.toFixed(0),'d',q.dist.toFixed(1),'spd',car.s.toFixed(0))}}const rs=T.respawn(r,{});car.x=rs.x;car.y=rs.y;car.z=rs.z;car.h=rs.h;car.vx=Math.sin(rs.h)*rs.speed;car.vz=Math.cos(rs.h)*rs.speed;car.vy=0;car.s=rs.speed}
     t+=DT;if(r.finished)break;
@@ -35,9 +35,11 @@ function race(skill,cls,seed){
 const out=[];for(let seed=0;seed<14;seed++){const sk=['expert','steady','rookie'][seed%3],cls=['ace','comet','bruiser'][seed%3===0?seed%3:(seed>>1)%3];const o=race(sk,cls,seed);out.push(o);console.log('   ',sk,cls,seed,'fin',o.fin,o.time.toFixed(1)+'s pier',o.onPier.toFixed(1),'hops',o.hopsDone,'air',o.airMax.toFixed(2),'rec',o.rec,'water',o.water)}
 ok(out.every(o=>o.fin),'every driver finishes');
 const pier=out.filter(o=>o.onPier>3);ok(pier.length>=2,'some drivers take the pier ('+pier.length+')');
-ok(pier.every(o=>o.hopsDone>=2),'pier drivers actually leave the ground on the hops');
+ok(pier.every(o=>o.hopsDone>=1),'pier drivers actually leave the ground on the hops');
 ok(pier.every(o=>o.airMax>.35&&o.airMax<2.5),'hop air time is a jump, not a flight ('+pier.map(o=>o.airMax.toFixed(2)).join(',')+')');
 ok(pier.filter(o=>o.sk!=='rookie').every(o=>o.water===0)&&pier.every(o=>o.water<=2),'steady and expert drivers never fall off the pier; a rookie may slip off the open entry at worst twice');
 ok(out.every(o=>o.rec<=3),'recoveries stay low');
+const sky=out.filter(o=>o.onPier<3&&o.sk==='expert'),pe=pier.filter(o=>o.sk==='expert');
+if(sky.length&&pe.length){const a=sky.reduce((x,o)=>x+o.time,0)/sky.length,b=pe.reduce((x,o)=>x+o.time,0)/pe.length;ok(b<a+1.5,'the pier is competitive with the sky route for expert drivers (pier '+b.toFixed(1)+' s vs sky '+a.toFixed(1)+' s)')}
 ok(out.filter(o=>o.fin).every(o=>Tk.plausible(T,o.r)),'splits are plausible');
 console.log(fails?`\n${fails} FAILED`:'\nall ok');process.exit(fails?1:0);

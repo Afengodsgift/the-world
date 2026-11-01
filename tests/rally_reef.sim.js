@@ -17,7 +17,7 @@ const T=Tk.build(TR['reef-run'],{H}),tun=T.roads.find(r=>r.id==='reef-tunnel');
   ok(ground,'the deck never goes inside the seabed or the beach');ok(maxSlope<.6,`gentle slopes (max ${maxSlope.toFixed(2)})`);
   ok(T.forks.length===2&&T.forks[0].alt===T.roadIndex['reef-tunnel'],'two forks: the tunnel and the splash pier');
   ok(tun.len>600&&tun.len<1000,`tunnel length ${tun.len.toFixed(0)} m`);
-  ok(T.bonus.length===3&&T.bonus.every(b=>b.y<0),'three pearl rings hang inside the tunnel');
+  ok(T.bonus.filter(b=>b.y<0).length===3&&T.bonus.filter(b=>b.name==='SPLASH RING').length===2,'three pearl rings hang inside the tunnel, two splash rings over the pier');
   ok(T.gates.filter(g=>g.opt).length===7&&T.gates[T.gates.length-1].finish,'the sky route gates are optional; the last gate is the finish');
   ok(T.subAt(tun.X[tun.m>>1],tun.Z[tun.m>>1])&&!T.subAt(760,1400),'subAt tells tunnel from island');
   // a car in the tunnel is not "rescued from the sea"; a car in open water is
