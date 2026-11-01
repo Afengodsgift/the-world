@@ -12,10 +12,11 @@ const Rally=(()=>{
   const clamp=(v,a,b)=>v<a?a:v>b?b:v,wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
   const ST={mode:'off',acc:0,startAt:0,t:0,go:false,cfg:null,ret:null,rid:null,partner:null,lastNet:0,finAt:0,shake:0,punch:0,flash:0,auto:false,err:0};
   const IN={ix:0,iy:0},BTN={boost:false,hand:false,rec:false,item:false,l:false,r:false,u:false,d:false,brake:false},touch=matchMedia&&matchMedia('(pointer:coarse)').matches;
-  let T=null,world=null,IS=null,cfx=null,R=[],ME=null,env=null,hud=null,fab=null,sheet=null,inv=null,lastHud=0,camS={yaw:0,x:0,y:0,z:0,fov:65,init:false},baseFov=65,lastClock=0;
+  let GH=null,T=null,world=null,IS=null,cfx=null,R=[],ME=null,env=null,hud=null,fab=null,sheet=null,inv=null,lastHud=0,camS={yaw:0,x:0,y:0,z:0,fov:65,init:false},baseFov=65,lastClock=0;
   const models={},TC={};let TRK='skybreak-1';
-  const best=()=>{try{return +localStorage.getItem('wrally_best')||0}catch(e){return 0}};
-  const setBest=t=>{try{localStorage.setItem('wrally_best',String(t))}catch(e){}};
+  const bkey=()=>'wrally_best'+(TRK==='skybreak-1'?'':'_'+TRK);   // the classic keeps its old key; every other track has its own best
+  const best=()=>{try{return +localStorage.getItem(bkey())||0}catch(e){return 0}};
+  const setBest=t=>{try{localStorage.setItem(bkey(),String(t))}catch(e){}};
   const fmt=t=>{if(!(t>=0))return '--:--.-';const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(1)};
 
   // ---------------------------------------------------------------- track
@@ -99,7 +100,7 @@ const Rally=(()=>{
     const fm=new THREE.MeshBasicMaterial({color:0xffa44a,transparent:true,opacity:.85,blending:THREE.AdditiveBlending,depthWrite:false});
     for(const s of [-1,1]){const f=new THREE.Mesh(new THREE.ConeGeometry(.34,2.4,8),fm);f.rotation.x=-Math.PI/2;f.position.set(s*.85,.6,-3.2);f.visible=false;grp.add(f);o.flames.push(f)}
     o.blob=new THREE.Mesh(new THREE.CircleGeometry(1,20),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.35,depthWrite:false}));o.blob.rotation.x=-Math.PI/2;o.blob.scale.set(2.2,2.8,1);
-    scene.add(grp);scene.add(o.blob);return o;
+    scene.add(grp);scene.add(o.blob);addBeams(o);return o;
   }
   function destroyCar(o){if(!o)return;scene.remove(o.group);scene.remove(o.blob);o.blob.geometry.dispose();o.blob.material.dispose()}
   function placeCar(o,c,dt,t){
@@ -167,6 +168,8 @@ const Rally=(()=>{
       R0.hitCd-=DT;
       if(R0.hitCd<=0&&T.hitHazard(c.x,c.y,c.z,ST.t,1.65)>=0){R0.hitCd=1.2;c.vx*=.35;c.vz*=.35;if(R0===ME){ST.shake=.8;toast('SMASHED!',900);tone(70,.35,'square',.2,.5)}}
     }
+    // SPLASH PIER: leave the ground off a hop and land back on the pier = splash + a short boost
+    if(c.mode==='car'){if(!c.grounded)R0.airT=(R0.airT||0)+DT;else{if(R0.airT>.3&&T.roadIndex&&T.roadIndex['splash-pier']!=null){const pj=T.project(c.x,c.z,null,-1);if(pj.road===T.roadIndex['splash-pier']&&pj.dist<9){CP.pad(c,1.0);try{Fx.burst(c.x,c.y+.3,c.z,'#bfe9ff',16)}catch(e){}if(R0===ME){ST.punch=Math.max(ST.punch,.6);toast('🌊 SPLASH!  +BOOST',900);tone(420,.25,'sine',.14,1.6)}}}R0.airT=0}}else R0.airT=0;
     const g=Tk.advance(T,R0.r,c.x,c.y,c.z,ST.t);if(g.gate>=0)onGate(R0,g);
     if(g.bonus>=0){const b=T.bonus[g.bonus];CP.pad(c,b.secs||2);try{Fx.burst(b.x,b.y,b.z,'#ffd24a',18)}catch(e){}
       if(R0===ME){ST.flash=.6;ST.punch=Math.max(ST.punch,.5);toast('★ '+(b.name||'BONUS')+'  +BOOST',1100);tone(988,.1,'triangle',.12);setTimeout(()=>tone(1318,.16,'triangle',.12),80);setTimeout(()=>tone(1760,.24,'triangle',.1),170)}}
@@ -240,6 +243,48 @@ const Rally=(()=>{
       else{c.innerHTML='<div class="rl-lights">'+[3,2,1].map(k=>'<i class="'+(k>=n?'r':'')+'"></i>').join('')+'</div><div class="rl-big">'+s+'</div>';tone(n===1?700:520,.18,'square',.1)}}
   }
 
+  // ---------------------------------------------------------------- weather: night / storm reuse the world's own sky + weather (Env.state overrides), set for the race and restored on exit. Local to your screen.
+  const WXS={live:{n:'🌍 Live',t:null,w:null},day:{n:'☀️ Day',t:.5,w:'clear'},night:{n:'🌙 Night',t:0,w:'clear'},storm:{n:'⛈ Storm',t:.5,w:'storm'},nstorm:{n:'🌩 Night storm',t:0,w:'storm'}};
+  const wxGet=()=>{try{const v=localStorage.getItem('rallywx');return WXS[v]?v:'live'}catch(e){return 'live'}};
+  const wxSet=v=>{try{localStorage.setItem('rallywx',v)}catch(e){}};
+  function applyWeather(on){
+    try{const E=typeof Env!=='undefined'&&Env.state;if(!E)return;
+      if(on){const w=WXS[wxGet()]||WXS.live;ST.wxPrev={t:E.ovT,w:E.ovW};if(w.t!=null||w.w!=null){E.ovT=w.t;E.ovW=w.w}}
+      else if(ST.wxPrev){E.ovT=ST.wxPrev.t;E.ovW=ST.wxPrev.w;ST.wxPrev=null}}catch(e){}
+  }
+  // headlights: a faint additive cone on every car, only visible when it is dark (Env.state.dayF) so it follows the time of day by itself
+  const beamGeo=(()=>{const g=new THREE.ConeGeometry(2.6,24,12,1,true);g.rotateX(-Math.PI/2);g.translate(0,0,12.5);return g})();
+  const beamMat=new THREE.MeshBasicMaterial({color:0xfff2c4,transparent:true,opacity:.16,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,fog:false});
+  function addBeams(o){o.beams=[];for(const sx of [-.8,.8]){const m=new THREE.Mesh(beamGeo,beamMat);m.position.set(sx,.7,1.6);m.visible=false;m.frustumCulled=false;o.group.add(m);o.beams.push(m)}}
+  function beamsUpdate(on){for(const x of R)if(x.o.beams)for(const m of x.o.beams)m.visible=on&&x.o.group.visible}
+
+  // ---------------------------------------------------------------- ghost: your best run on this track, replayed as a translucent car. Recorded at 10 Hz, saved on this phone.
+  const gKey=()=>'rallyghost_'+TRK;
+  const ghostLoad=()=>{try{const g=JSON.parse(localStorage.getItem(gKey())||'null');return g&&g.p&&g.p.length>5?g:null}catch(e){return null}};
+  const ghostSave=g=>{try{localStorage.setItem(gKey(),JSON.stringify(g))}catch(e){}};
+  const ghostOn=()=>{try{return localStorage.getItem('rallyghoston')!=='0'}catch(e){return true}};
+  function ghostStart(cfg){
+    ST.rec={p:[],next:0};if(GH){destroyCar(GH.o);GH=null}
+    if(cfg.net||!ghostOn())return;const g=ghostLoad();if(!g)return;
+    const o=makeCar(g.cls||'ace','#9fe0ff');GH={o,g,c:{x:0,y:0,z:0,h:0,pitch:0,roll:0,mode:'car',steer:0,s:30,boostT:0,padT:0},ghosted:false};
+  }
+  function ghostRecord(){
+    if(!ST.rec||!ME||ST.mode!=='race'||ME.r.finished||ST.t<ST.rec.next)return;ST.rec.next=ST.t+.1;const c=ME.c;
+    ST.rec.p.push([+c.x.toFixed(1),+c.y.toFixed(1),+c.z.toFixed(1),+c.h.toFixed(2),+c.pitch.toFixed(2),+c.roll.toFixed(2),c.mode==='fly'?1:0]);
+  }
+  function ghostFinish(){
+    if(!ST.rec||!ME||!ME.r.finished||ST.cfg&&ST.cfg.net)return;const old=ghostLoad();
+    if(!old||ME.r.finishT<old.t){ghostSave({t:+ME.r.finishT.toFixed(2),cls:ME.cls,p:ST.rec.p});ST.newGhost=true}
+  }
+  function ghostFrame(dt,wall){
+    if(!GH)return;const p=GH.g.p,o=GH.o,t=ST.mode==='race'||ST.mode==='finish'?ST.t:0,f=Math.min(p.length-1,Math.max(0,t*10)),i=Math.floor(f),k=f-i,a=p[i],b=p[Math.min(p.length-1,i+1)];
+    const c=GH.c;c.x=a[0]+(b[0]-a[0])*k;c.y=a[1]+(b[1]-a[1])*k;c.z=a[2]+(b[2]-a[2])*k;let dh=b[3]-a[3];dh=Math.atan2(Math.sin(dh),Math.cos(dh));c.h=a[3]+dh*k;c.pitch=a[4];c.roll=a[5];c.mode=a[6]?'fly':'car';
+    const done=f>=p.length-1;o.group.visible=!done;o.blob.visible=!done&&c.mode==='car';
+    if(o.model&&!GH.ghosted){GH.ghosted=true;o.model.traverse(n=>{if(n.isMesh&&n.material){n.material.transparent=true;n.material.opacity=.38;n.material.depthWrite=false}})}
+    if(o.ph){o.ph.material.transparent=true;o.ph.material.opacity=.38}
+    o.blob.material.opacity=.12;placeCar(o,c,dt,wall);for(const m of o.flames)m.visible=false;
+  }
+
   // ---------------------------------------------------------------- garage: permanent upgrades for YOUR car, bought with the shared Outlaw coins. Saved on this phone.
   const UP={eng:0,acc:0,grp:0,bst:0,arm:0};try{Object.assign(UP,JSON.parse(localStorage.getItem('rallyup')||'{}'))}catch(e){}
   const saveUp=()=>{try{localStorage.setItem('rallyup',JSON.stringify(UP))}catch(e){}};
@@ -268,16 +313,20 @@ const Rally=(()=>{
     const diff=(k,l)=>`<button class="chip ${cfg.diff===k?'on':''}" data-diff="${k}">${l}</button>`;
     sheet.innerHTML=`<h2>🏁 Skybreak Rally</h2>
       <div class="rl-row">${trk('skybreak-1','Skybreak Classic')}${trk('skybreak-2','Grand Circuit · long')}${trk('reef-run','Reef Run · dive')}</div>
-      <p class="rl-sub">${cfg.track==='reef-run'?'Palm ➜ Storm Cay · one crossing, two routes: launch off the big ramp and fly the rings, or dive into the REEF TUNNEL, a lit road on the seabed with pearl rings for bonus time · then the Storm S-bend to the finish':cfg.track==='skybreak-2'?'Palm ➜ Storm ➜ Frost ➜ Palm · 3 sky crossings · a dirt shortcut (Cay Cut) and gold bonus rings for extra seconds · lands back on Palm for the finish':'Palm Atoll ➜ Storm Cay ➜ Frost Isle · 2 ramp launches · 10 sky rings · fly between the islands'} · ${(T.roads.reduce((a,r)=>a+(r.alt?0:r.len),0)/1000).toFixed(1)} km of main road</p>
+      <p class="rl-sub">${cfg.track==='reef-run'?'Palm ➜ Storm Cay · one crossing, three routes: launch off the big ramp and fly the rings, dive into the REEF TUNNEL (a lit road on the seabed with pearl rings), or jump the SPLASH PIER, a road on the sea with three ramps: land them for a boost · then the Storm S-bend to the finish':cfg.track==='skybreak-2'?'Palm ➜ Storm ➜ Frost ➜ Palm · 3 sky crossings · a dirt shortcut (Cay Cut) and gold bonus rings for extra seconds · lands back on Palm for the finish':'Palm Atoll ➜ Storm Cay ➜ Frost Isle · 2 ramp launches · 10 sky rings · fly between the islands'} · ${(T.roads.reduce((a,r)=>a+(r.alt?0:r.len),0)/1000).toFixed(1)} km of main road</p>
       <div class="rl-row">${cars}</div>
       <div class="rl-row">${mode('solo','⏱ Time trial')}${mode('ai','🤖 vs AI')}${mode('star','👥 vs '+pname,!partner)}</div>
       <div class="rl-row" id="rlDiff" style="display:${cfg.mode==='ai'||cfg.mode==='star'?'flex':'none'}"><small>AI rivals:</small>${diff('none','None')}${diff('easy','Easy')}${diff('normal','Normal')}${diff('hard','Hard')}</div>
+      <div class="rl-row"><small>Weather:</small>${Object.entries(WXS).map(([k,v])=>`<button class="chip ${wxGet()===k?'on':''}" data-wx="${k}">${v.n}</button>`).join('')}</div>
+      <div class="rl-row"><button class="chip ${ghostOn()?'on':''}" data-ghost="1">👻 Ghost ${ghostOn()?'on':'off'}</button><small>${ghostLoad()?'best run '+fmt(ghostLoad().t)+' on this track':'finish a race to save your first ghost'}</small></div>
       <div class="rl-row"><button class="btn rl-go">START RACE</button><button class="btn rl-gar">🔧 Garage</button><button class="btn rl-x">Close</button></div>
       <p class="rl-help">${touch?'Left stick: steer · up/down in the air to climb/dive · auto-gas on (pull down to brake). ITEM fires what you picked up (rockets lock on to a rival ahead), BOOST, DRIFT (airbrake in the sky) and RECOVER are on the right.':'Arrows/WASD steer · Space drift or airbrake · Shift boost · E use item · R recover. In the air up/down climbs or dives.'}</p>
       <p class="rl-best">Best time: ${best()?fmt(best()):'none yet'}</p>`;
     document.body.appendChild(sheet);
     sheet.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
-      if(b.dataset.trk){cfg.track=b.dataset.trk;setTrack(cfg.track);openLobby.refresh()}
+      if(b.dataset.wx){wxSet(b.dataset.wx);openLobby.refresh()}
+      else if(b.dataset.ghost){try{localStorage.setItem('rallyghoston',ghostOn()?'0':'1')}catch(e){}openLobby.refresh()}
+      else if(b.dataset.trk){cfg.track=b.dataset.trk;setTrack(cfg.track);openLobby.refresh()}
       else if(b.dataset.cls){cfg.cls=b.dataset.cls;openLobby.refresh()}
       else if(b.dataset.mode&&!b.disabled){cfg.mode=b.dataset.mode;if(cfg.mode==='solo')cfg.diff='none';else if(cfg.diff==='none')cfg.diff='normal';openLobby.refresh()}
       else if(b.dataset.diff){cfg.diff=b.dataset.diff;openLobby.refresh()}
@@ -297,7 +346,7 @@ const Rally=(()=>{
     if(sheet)sheet.remove();sheet=el('div','sheet rl-sheet rl-res');
     const rk=rank(),isBest=ME.r.finished&&(!best()||ME.r.finishT<=best());
     sheet.innerHTML=`<h2>${ME.r.finished?(ME.place===1&&rk.length>1?'🏆 You won!':'🏁 Finished'):'Race over'}</h2><div class="rl-list">${resultRows()}</div>
-      <p class="rl-best">${ST.coins?'+'+ST.coins+' 🪙  ·  ':''}${ME.r.finished?'Your time '+fmt(ME.r.finishT)+(isBest?'  ·  NEW BEST!':'  ·  best '+fmt(best())):''}</p>
+      <p class="rl-best">${ST.coins?'+'+ST.coins+' 🪙  ·  ':''}${ST.newGhost?'👻 new ghost saved  ·  ':''}${ME.r.finished?'Your time '+fmt(ME.r.finishT)+(isBest?'  ·  NEW BEST!':'  ·  best '+fmt(best())):''}</p>
       <div class="rl-row"><button class="btn rl-again">Race again</button><button class="btn rl-x">Exit</button></div>`;
     document.body.appendChild(sheet);
     sheet.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
@@ -308,6 +357,7 @@ const Rally=(()=>{
     ST.mode='finish';ST.finAt=performance.now();tone(660,.3,'triangle',.14);tone(990,.5,'triangle',.12);toast('FINISH!',1800);
     if(ME.r.finished&&(!best()||ME.r.finishT<best()))setBest(ME.r.finishT);
     {const n=R.filter(x=>x.kind!=='net'||x.seen>0).length,c=RALLY.garage.payout(rank()&&ME.place,n,ME.r.finished);ST.coins=c;if(c>0&&typeof Outlaw!=='undefined'&&Outlaw.earn){try{Outlaw.earn(c)}catch(e){}}}
+    ghostFinish();
     send('rl:c');setTimeout(()=>{if(ST.mode==='finish')showResults()},1600);
     ST.resT=setInterval(()=>{if(ST.mode!=='finish'){clearInterval(ST.resT);return}if(sheet&&sheet.classList.contains('rl-res')&&R.every(x=>x.r.finished||x.kind==='net'&&!x.seen)){clearInterval(ST.resT);return}if(sheet&&sheet.classList.contains('rl-res'))showResults()},1500);
   }
@@ -336,6 +386,7 @@ const Rally=(()=>{
     ST.camKids=camera.children.map(k=>[k,k.visible]);for(const [k] of ST.camKids)k.visible=false;   // held-item view models etc. stay out of the chase view
     if(me)me.visible=false;pin();hud.classList.add('on');
     hud.querySelector('#rlBar').innerHTML='';lastHud=0;
+    applyWeather(true);ghostStart(cfg);ST.newGhost=false;ST.coins=0;
     toast(cfg.solo?'TIME TRIAL':'GET READY',1500);
   }
   // Racing is about frame rate: render at <=1.25x pixels (as the arenas do) and skip the sun's shadow pass while the race runs; both restored on exit.
@@ -354,7 +405,7 @@ const Rally=(()=>{
   function exit(again){
     if(ST.mode==='off')return;
     if(ST.partner)send('rl:l');
-    for(const x of R)destroyCar(x.o);R=[];ME=null;ST.mode='off';ST.partner=null;ST.auto=false;
+    for(const x of R)destroyCar(x.o);R=[];ME=null;if(GH){destroyCar(GH.o);GH=null}ST.rec=null;applyWeather(false);ST.mode='off';ST.partner=null;ST.auto=false;
     if(IS)Items.reset(IS);IS=null;if(cfx){cfx.reset();cfx.root.visible=false}   // no projectiles, mines, pickups or status effects survive a race
     raceRes(false);closeLobby();if(hud)hud.classList.remove('on');document.body.classList.remove('rally');
     if(ST.camKids){for(const [k,v] of ST.camKids)k.visible=v;ST.camKids=null}
@@ -437,6 +488,7 @@ const Rally=(()=>{
       itemEvents(Items.step(IS,DT,R,R.length));
     }
     if(ST.mode==='race'||ST.mode==='finish')ST.t+=DT;
+    ghostRecord();
   }
   // ---- car-to-car: every pair (grounded or flying at about the same height) bumps. A remote ghost is moved only by its owner's phone (see CarPhysics.collide) ----
   function collisions(){
@@ -501,6 +553,7 @@ const Rally=(()=>{
         // distant rivals cost draw time for nothing: hide beyond 500 m
         if(x!==ME&&vis){const far=Math.hypot(x.c.x-ME.c.x,x.c.z-ME.c.z)>500;x.o.group.visible=!far;x.o.blob.visible=!far}
         placeCar(x.o,x.c,dt,wall)}
+      ghostFrame(dt,wall);beamsUpdate(typeof Env!=='undefined'&&Env.state&&Env.state.dayF<.45);
       // partner's avatar is represented by the car: hide it
       if(ST.partner){const o=others.get(ST.partner);if(o&&o.group)o.group.visible=false}
       chaseCamera(dt);

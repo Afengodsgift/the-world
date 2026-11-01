@@ -15,7 +15,7 @@ const T=Tk.build(TR['reef-run'],{H}),tun=T.roads.find(r=>r.id==='reef-tunnel');
   let under=0;for(let i=0;i<tun.m;i++)if(tun.Y[i]<-.3)under++;ok(under>tun.m*.6,`${(under/tun.m*100).toFixed(0)}% of the tunnel is below the waves`);
   let ground=true,maxSlope=0;for(let i=1;i<tun.m;i++){if(tun.Y[i]<H(tun.X[i],tun.Z[i])+.05)ground=false;maxSlope=Math.max(maxSlope,Math.abs(tun.Y[i]-tun.Y[i-1])/2)}
   ok(ground,'the deck never goes inside the seabed or the beach');ok(maxSlope<.6,`gentle slopes (max ${maxSlope.toFixed(2)})`);
-  ok(T.forks.length===1&&T.forks[0].alt===T.roadIndex['reef-tunnel'],'one fork leads into the tunnel');
+  ok(T.forks.length===2&&T.forks[0].alt===T.roadIndex['reef-tunnel'],'two forks: the tunnel and the splash pier');
   ok(tun.len>600&&tun.len<1000,`tunnel length ${tun.len.toFixed(0)} m`);
   ok(T.bonus.length===3&&T.bonus.every(b=>b.y<0),'three pearl rings hang inside the tunnel');
   ok(T.gates.filter(g=>g.opt).length===7&&T.gates[T.gates.length-1].finish,'the sky route gates are optional; the last gate is the finish');
@@ -43,8 +43,8 @@ function race(skill,cls,seed){
   const out=[];for(const [sk,cls,seed] of [['expert','ace',0],['expert','comet',3],['steady','ace',1],['steady','bruiser',5],['rookie','ace',2],['rookie','comet',4],['expert','bruiser',7],['rookie','bruiser',9]]){const o=race(sk,cls,seed);out.push(o);console.log(`     [${sk}/${cls}] ${o.fin?'finished '+o.time.toFixed(0)+' s':'DID NOT FINISH'}, ${o.cuts?'TUNNEL':'sky'}, ${o.deep} frames deep, rescues ${o.rec} (water ${o.water})`)}
   ok(out.every(o=>o.fin),'every AI skill and car finishes the Reef Run');
   ok(out.some(o=>o.cuts>0)&&out.some(o=>o.cuts===0),'the tunnel is a real choice: some drivers dive, some fly');
-  ok(out.filter(o=>o.cuts>0).every(o=>o.water===0),'nobody who takes the tunnel is rescued from the "sea"');
-  ok(out.filter(o=>o.cuts>0).every(o=>o.deep>60),'tunnel drivers really do spend time underwater');
+  ok(out.filter(o=>o.deep>60).every(o=>o.water===0),'nobody who takes the tunnel is rescued from the "sea"');
+  ok(out.some(o=>o.deep>60),'some drivers really do dive underwater (the rest take the sky or the pier)');
   ok(out.every(o=>o.rec<=3),'no driver needs more than 3 recoveries');
   ok(out.filter(o=>o.fin).every(o=>Tk.plausible(T,o.r)),'splits stay plausible');
 }
