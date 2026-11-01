@@ -17,7 +17,9 @@ body.hud-min:not(.hud-reveal) #panbtn,
 body.hud-min:not(.hud-reveal) #fshint,
 body.hud-min:not(.hud-reveal) .dk-wx,
 body.hud-min:not(.hud-reveal) .dk-jrn,
-body.hud-min:not(.hud-reveal) .dk-map{display:none!important}
+body.hud-min:not(.hud-reveal) .dk-map,
+body.hud-min:not(.hud-reveal) .rl-fab,
+body.hud-min:not(.hud-reveal) .sk-fab{display:none!important}   /* Rally 🏁 and Sky Raid 🛩 launchers live behind the ☰ like the other menu buttons */
 
 /* the activities' own top messages move up into the space the top bar left empty */
 body.hud-min:not(.hud-reveal){--topmsg:calc(var(--st,0px) + 10px);--topmsg-tag:calc(var(--st,0px) + 14px)}
