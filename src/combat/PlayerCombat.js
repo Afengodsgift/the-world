@@ -14,6 +14,7 @@ const PlayerCombat=(()=>{
   let el=null,sword=null,sword2=null,swordTried=false,pAnim=null,site=null,foes=[],fightN=0,state='fight',stateT=0,lastEv=[],byId={},dFlashT=0,felled=0;
   const RT={};                                        // site id -> {foes:[], cleared:bool}
   const pv={x:0,z:0,vf:0,vs:0,sp:0,init:false};
+  const fT={},fTg=Fists.Pose.newCur(),fCur=Fists.Pose.newCur();let fW=0;
   const cur=WardenAnim.copy(WardenAnim.POSES.ready),tg=WardenAnim.copy(WardenAnim.POSES.ready);let stW=0,gT=0,msgT=0,lastTone=0;
   const GRIP={rx:0,ry:0,rz:0,len:.95,ox:0,oy:0,oz:0};
   const rt=s=>RT[s.id]||(RT[s.id]={foes:[],cleared:!!(s.dg&&typeof WardenDungeon!=='undefined'&&WardenDungeon.isCleared(s.id))});   // catacomb rooms stay cleared for the whole cycle (WardenDungeon)
@@ -73,7 +74,7 @@ const PlayerCombat=(()=>{
   let myStyle=(()=>{try{const v=localStorage.getItem('wstyle');return WardenStyle.valid(v)?v:WardenStyle.DEFAULT}catch(e){return WardenStyle.DEFAULT}})(),pStyle=WardenStyle.DEFAULT,sty=WardenStyle.get(myStyle);
   const styId=()=>site&&site.duel?WardenStyle.DEFAULT:myStyle;   // duels ignore styles
   function setStyle(id){if(!WardenStyle.valid(id))return false;myStyle=id;if(id!=='twin'&&sword2){sword2.dead=true;try{sword2.grip&&sword2.grip.parent&&sword2.grip.parent.remove(sword2.grip)}catch(e){}sword2=null}sty=WardenStyle.get(id);try{localStorage.setItem('wstyle',id)}catch(e){}if(on&&P)applyStats();try{if(NET.mode!=='solo')WardenNet.send({k:'sty',s:NET.site,y:id})}catch(e){}return true}
-  function applyStats(){const duel=site&&site.duel,st=duel?{hp:100,st:100,dm:1,belt:0}:PG.stats();wst=WardenGear.stats();sty=WardenStyle.get(styId());const m=WardenStyle.mix(wst,styId());wst=Object.assign({},wst,{flow:m.flow});const hp=Math.round(st.hp*m.hp);P.hpMax=hp;P.hp=hp;P.stMax=Math.round(st.st*(sty.st||1));P.st=P.stMax;baseDm=st.dm*m.dm;P.dm=baseDm;P.rm=wst.rm;P.sm=m.sm;P.pm=m.pm;P.dfl=m.dfl+(duel&&DU.pair?3:0);P.bk=sty.back||0}
+  function applyStats(){const duel=site&&site.duel,st=duel?{hp:100,st:100,dm:1,belt:0}:PG.stats();wst=WardenGear.stats();sty=WardenStyle.get(styId());const m=WardenStyle.mix(wst,styId());wst=Object.assign({},wst,{flow:m.flow});const hp=Math.round(st.hp*m.hp);P.hpMax=hp;P.hp=hp;P.stMax=Math.round(st.st*(sty.st||1));P.st=P.stMax;baseDm=st.dm*m.dm;P.dm=baseDm;P.rm=wst.rm;P.sm=m.sm;P.pm=m.pm;P.dfl=m.dfl+(duel&&DU.pair?3:0);P.bk=sty.back||0;P.fs=WardenGear.equipped().ty==='fists'?1:0}
   const pRole=()=>WardenGear.TYPES[WardenGear.equipped().ty].role||'player';
   function swapModel(){if(pAnim){try{pAnim.off()}catch(e){}pAnim=null}for(const w of [sword,sword2])if(w){w.dead=true;try{if(w.grip&&w.grip.parent)w.grip.parent.remove(w.grip)}catch(e){}}sword=null;sword2=null;swordTried=false}
   if(typeof AvatarKit!=='undefined')AvatarKit.onSwap(g=>{if(typeof me!=='undefined'&&g===me)swapModel()});   // the player's avatar body changed: drop the sword + clip layer built on the old rig (rebuilt on the next frame)
@@ -106,7 +107,7 @@ const PlayerCombat=(()=>{
     else if(shTab==='sty'){h+='<div class="sf" style="margin:0 0 4px">How you fight. Duels ignore styles. In co-op each of you picks your own, and your partner sees yours.</div>';
       for(const id of WardenStyle.IDS){const q=WardenStyle.get(id);h+='<div class="su"><div><b>'+q.icon+' '+q.n+'</b> <i>'+q.tag+'</i><small>'+esc(q.d)+'</small></div><button data-a="sty" data-k="'+id+'"'+(myStyle===id?' disabled':'')+'>'+(myStyle===id?'Chosen':'Choose')+'</button></div>'}}
     else if(shTab==='arm'){h+='<div class="sf" style="margin:0 0 4px">Pack '+GR.S.inv.length+'/'+GR.CAP+'. Bosses always drop a weapon; foes sometimes do.</div>';
-      for(const it of GR.all()){const eq=GR.S.eq===it.id;h+=itemHtml(it,'<button data-a="eq" data-k="'+it.id+'"'+(eq?' disabled':'')+'>'+(eq?'Equipped':'Equip')+'</button>'+(it.id==='start'?'':'<button data-a="sell" data-k="'+it.id+'">Sell '+GR.sellValue(it)+'</button>'))}}
+      for(const it of GR.all()){const eq=GR.S.eq===it.id;h+=itemHtml(it,'<button data-a="eq" data-k="'+it.id+'"'+(eq?' disabled':'')+'>'+(eq?'Equipped':'Equip')+'</button>'+(it.id==='start'||it.id==='fists'?'':'<button data-a="sell" data-k="'+it.id+'">Sell '+GR.sellValue(it)+'</button>'))}}
     else{h+='<div class="sf" style="margin:0 0 4px">The Wandering Merchant. Stock changes whenever a boss falls.</div>';
       for(const k in FLP){const cap=flaskCap(k),full=flasks[k]>=cap;h+='<div class="su"><div><b>'+FLP[k][0]+'</b> <i>'+flasks[k]+'/'+cap+'</i></div><button data-a="buyf" data-k="'+k+'"'+(full||S0.embers<FLP[k][1]?' disabled':'')+'>'+FLP[k][1]+'</button></div>'}
       const st=GR.stock(stockSeed());if(!st.length)h+='<div class="sf">Sold out. Fell a boss and he will have more.</div>';
@@ -388,7 +389,7 @@ const PlayerCombat=(()=>{
     else if(!inn&&resPrev){st.min=resPrev.min;st.locked=resPrev.locked;if(st.dpr!==resPrev.dpr){st.dpr=resPrev.dpr;st.r.setPixelRatio(resPrev.dpr)}resPrev=null}}
   function ensureAvatars(){
     if(!pAnim&&me.userData.mixer)pAnim=WardenMX.make(me.userData,pRole());
-    if(!sword&&!swordTried&&me.userData.bones){swordTried=true;{const WT=WardenGear.TYPES[WardenGear.equipped().ty];sword=attachSword(me,WT.file,WT.want,{len:WT.l0,set tried(v){swordTried=v}})}}
+    if(!sword&&!swordTried&&me.userData.bones){swordTried=true;{const WT=WardenGear.TYPES[WardenGear.equipped().ty];if(WT.file)sword=attachSword(me,WT.file,WT.want,{len:WT.l0,set tried(v){swordTried=v}})}}
     if(sword&&!sword2&&sty&&sty.dual&&me.userData.bones&&me.userData.bones.LeftHand){const WT=WardenGear.TYPES[WardenGear.equipped().ty];sword2=attachSword(me,WT.file,WT.want,{len:WT.l0},null,'LeftHand')}
     if(sword2&&!(sty&&sty.dual)){sword2.dead=true;try{if(sword2.grip&&sword2.grip.parent)sword2.grip.parent.remove(sword2.grip)}catch(e){}sword2=null}
     for(const F of foes){const b=F.body;if(!b.u.mixer)continue;styleBody(b);if(!b.anims[F.T.role])b.anims[F.T.role]=WardenMX.make(b.u,F.T.role);F.anim=b.anims[F.T.role]}}
@@ -906,9 +907,10 @@ const PlayerCombat=(()=>{
       if(e.t==='fx'||e.t==='fxburst'||e.t==='fxend'){if(e.t==='fx'&&A&&A.T)e.fk=A.T.id;WardenFx.event(e);
         if(e.t==='fxburst'&&!ult){const st=WardenFx.styleOf(e.fid);if(st==='lightning'||st==='sun'||st==='eclipse'){const dd=Math.hypot(P.x-e.x,P.z-e.z);if(dd<(e.r||3)+9){flash(st==='lightning'?.22:.16,st==='lightning'?'rgba(200,228,255,.5)':'rgba(255,220,150,.35)');try{CameraRig.shake(dd<(e.r||3)+1?.28:.12)}catch(x){}}}}}
       {const fp=e.t==='hit'||e.t==='block'||e.t==='deflect'||e.t==='posturebreak'||e.t==='guardbreak'?(T?T.f:(e.d==='P'?P:null)):null;if(fp){vfxAt(e,fp);punch(e,fp)}else if(e.t==='dodge')punch(e,P)}
+      if(P.fs&&e.a==='P'){if(e.t==='hit')fistImpact(e,T);else if(e.t==='start')fistSwing(e)}
       if(e.t==='start'&&e.per&&e.a!=='P'&&!ult){hsT=Math.max(hsT,.3);flash(.5,'rgba(255,40,40,.55)');msg('危  PERILOUS',.9);try{sfx('heavy',.7,.7,()=>tone(520,260,.35,'square',.1));CameraRig.shake(.25)}catch(x){}}
       else if(e.t==='perdodge'&&!ult){hsT=Math.max(hsT,.2);msg('OPENING!',.9);flash(.35,'rgba(255,230,160,.6)')}
-      if(e.t==='start'){if(e.a==='P'||A&&e.move&&A.f){const q=e.a==='P'?P:A.f;if(q&&(e.a==='P'||/atk|cut|slam|sweep|swipe|heavy|light/.test(e.move)))WardenVfx.slash(q.x,H(q.x,q.z)+1.2,q.z,q.face,/heavy|slam/.test(e.move),e.a==='P'?0:1)}if(e.a==='P'){if(e.move==='rush'){WardenVfx.spawn(P.x,H(P.x,P.z)+1,P.z,2,4,3.4,-P.face+Math.PI/2,32);flash(.22,'rgba(200,225,255,.7)')}if(e.move==='light'&&pAnim)pAnim.nextLight(performance.now()/1000);sfx('whoosh',.4,e.move==='heavy'?.75:1.1,()=>tone(e.move==='heavy'?220:380,e.move==='heavy'?90:150,e.move==='heavy'?.18:.1,'triangle',.1))}else{try{telegraph(A,e.move)}catch(x){}if(A&&A.anim&&A.anim.pickAlt)A.anim.pickAlt(e.move,Math.random());sfx('whoosh',.35,.8,()=>tone(160,70,.16,'sawtooth',.07))}}
+      if(e.t==='start'){if(e.a==='P'||A&&e.move&&A.f){const q=e.a==='P'?P:A.f;if(q&&!(e.a==='P'&&P.fs)&&(e.a==='P'||/atk|cut|slam|sweep|swipe|heavy|light/.test(e.move)))WardenVfx.slash(q.x,H(q.x,q.z)+1.2,q.z,q.face,/heavy|slam/.test(e.move),e.a==='P'?0:1)}if(e.a==='P'){if(e.move==='rush'){WardenVfx.spawn(P.x,H(P.x,P.z)+1,P.z,2,4,3.4,-P.face+Math.PI/2,32);flash(.22,'rgba(200,225,255,.7)')}if(e.move==='light'&&pAnim)pAnim.nextLight(performance.now()/1000);sfx('whoosh',.4,e.move==='heavy'?.75:1.1,()=>tone(e.move==='heavy'?220:380,e.move==='heavy'?90:150,e.move==='heavy'?.18:.1,'triangle',.1))}else{try{telegraph(A,e.move)}catch(x){}if(A&&A.anim&&A.anim.pickAlt)A.anim.pickAlt(e.move,Math.random());sfx('whoosh',.35,.8,()=>tone(160,70,.16,'sawtooth',.07))}}
       else if(e.t==='dodge'&&e.a==='P')tone(200,80,.14,'sine',.08);
       else if(e.t==='hit'){if(T&&e.a==='P'){if(wst.bleed&&T.f.act!=='dead')T.bleed={t:4,dps:wst.bleed};if(wst.vamp&&P.hp>0)P.hp=Math.min(P.hpMax,P.hp+e.dmg*wst.vamp)}if(T){T.flash=1;T.lh=performance.now();wake(T,true);sfx(e.dmg>=20||e.crit?'heavy':'strike',.8,e.crit?.85:1,()=>tone(140,50,.14,'square',.14));if(e.crit)msg('CRITICAL');if(T.body.T.body==='avatar')T.body.u.hitReq=1}else{sfx(e.dmg>=20?'heavy':'strike',.9,.9,()=>tone(110,40,.18,'square',.16));if(e.d==='P'&&P.hp>0){hurt=true;msg('',0);hitFrom(A,e.move)}}}
       else if(e.t==='block')sfx('clash',.36,.9,()=>tone(420,260,.1,'square',.06));
@@ -923,6 +925,14 @@ const PlayerCombat=(()=>{
         if(!alive().length){state='won';stateT=performance.now();lock=false;el.querySelector('#wLock').classList.remove('on');if(site.duel)duelOver(true)}}
       else if(e.t==='dead'&&e.d==='P'&&NET.mode==='host'&&Q&&Q.act!=='dead'){PG.die(site.id,P.x,P.z);msg('YOU DIED · your partner fights on',3);sfx('heavy',.8,.6,()=>tone(180,35,.6,'sawtooth',.16));spectate=true}
       else if(e.t==='dead'&&e.d==='P'){if(site.duel)setTimeout(()=>duelOver(false),0);else PG.die(site.id,P.x,P.z);msg('YOU DIED',3);sfx('heavy',.8,.6,()=>tone(180,35,.6,'sawtooth',.16));setTimeout(()=>WardenSfx.play('vo_game_over',.8,1,{nojit:1}),600);state='lost';stateT=performance.now()}}}
+  // BARE HANDS feel: every connecting punch kicks the camera a little (more for heavy / finishing moves), throws and takedowns freeze the frame and flash, a takedown returns some health and fills Flow
+  function fistImpact(e,T){const big=e.move==='take'?3:e.move==='throw'||e.move==='spin'||e.move==='round'||e.move==='power'||e.move==='drop'?2:e.move==='upper'?1.5:1;
+    try{CameraRig.shake(.08+.09*big)}catch(x){}
+    if(big>=2){hsT=Math.max(hsT,.05+.04*big);flash(.14+.08*big,'rgba(255,255,255,.55)')}
+    if(e.move==='take'){P.hp=Math.min(P.hpMax,P.hp+P.hpMax*.1);flowAdd(30);msg('TAKEDOWN',1.1);sfx('heavy',.9,.7,()=>tone(160,40,.4,'sawtooth',.16))}
+    else if(e.move==='throw'){flowAdd(12);msg('THROW',.7)}
+    else flowAdd(2+big*2)}
+  function fistSwing(e){const f=e.move==='power'||e.move==='spin'||e.move==='round'||e.move==='throw'||e.move==='take'||e.move==='drop';sfx('whoosh',f?.5:.32,f?.8:1.25,()=>tone(f?240:420,f?110:200,f?.14:.07,'triangle',.09))}
   // dormant foes sit / stand sheathed until you come near: rouse() starts the draw / roar / power-up clip, rise() hands them to the AI once it ends; a hit skips the show
   function rouse(F,skip){if(F.awake||F.dorm==='wake'&&!skip)return;if(skip||!F.anim){rise(F);return}F.dorm='wake';F.wakeT=0;if(F.T.boss){CineCam.play('intro',{x:()=>F.f.x,z:()=>F.f.z,h:1.75*F.T.scale,sc:Math.max(1,F.T.scale*.9)},{id:F.T.id});msg(F.T.name,2.4);sfx('heavy',.6,.55,()=>tone(90,45,.6,'sawtooth',.14));WardenSfx.play('vo_prepare_yourself',.8,1,{nojit:1})}else if(!fightVo){fightVo=true;WardenSfx.play('vo_fight',.8,1,{nojit:1})}}
   function rise(F){F.dorm=null;F.awake=true;F.dormSync=null;if(F.anim&&F.anim.setMode)F.anim.setMode(null)}
@@ -1000,7 +1010,9 @@ const PlayerCombat=(()=>{
     locoOf(pv,S.x,S.z,S.rot,dt);const ploco={moving:pv.sp>.8&&P.act==='free',vf:pv.vf,vs:pv.vs};
     gT=P.guard?gT+1:0;const o=PC._pose?{a:WardenAnim.POSES[PC._pose[0]],b:WardenAnim.POSES[PC._pose[1]],u:PC._pose[2],w:1}:WardenAnim.target(P,gT);WardenAnim.mix(o.a,o.b,o.u,tg);stW+=((o.w)-stW)*Math.min(1,dt*10);
     {const k=Math.min(1,dt*40);for(const kk of['ru','rf','lu','lf'])cur[kk].lerp(tg[kk],k).normalize();cur.tw+=(tg.tw-cur.tw)*k;cur.ln+=(tg.ln-cur.ln)*k}
-    const used=pAnim?pAnim.update(P,fr,ploco,dt,true):false;if(!used&&!PC._skip)WardenAnim.apply(me.userData,cur,stW);
+    const used=pAnim?pAnim.update(P,fr,ploco,dt,true):false;
+    if(P.fs){const FP=Fists.Pose,t=FP.target(P,gT,fT);FP.mixInto(fTg,t.a,t.am,t.b,t.bm,t.u);fW+=(t.w-fW)*Math.min(1,dt*12);FP.lerpTo(fCur,fTg,Math.min(1,dt*(P.act==='attack'?34:16)));FP.apply(me.userData,fCur,fW)}   // BARE HANDS: arms, legs and torso are posed by Fists.Pose on top of the walk / idle clips
+    else if(!used&&!PC._skip)WardenAnim.apply(me.userData,cur,stW);
     for(const F of foes){if(F.bleed&&F.bleed.t>0&&F.f.act!=='dead'&&NET.mode!=='guest'){F.bleed.t-=dt;F.f.hp=Math.max(1,F.f.hp-F.bleed.dps*dt);F.flash=Math.max(F.flash,.25)}foeTick(F,dt,fr)}payFoes();
     WardenFx.update(dt);WardenVfx.update(dt);
     hud()}

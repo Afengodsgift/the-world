@@ -40,10 +40,10 @@ const WardenGear=(()=>{
   const START={id:'start',ty:'falchion',rar:0,af:[]};
   function load(){try{const j=JSON.parse(localStorage.getItem(KEY)||'null');S.inv=[];S.n=1;S.eq='start';S.seed=0;S.sold=[];if(!j)return;S.n=clampI(j.n,1,1e9);S.seed=clampI(j.seed,0,1e9);S.sold=Array.isArray(j.sold)?j.sold.filter(x=>typeof x==='string').slice(0,8).map(x=>x.slice(0,24)):[];
     for(const it of Array.isArray(j.inv)?j.inv:[]){const c=sane(it);if(c&&c.id!=='start'&&S.inv.length<CAP&&!S.inv.some(x=>x.id===c.id))S.inv.push(c)}
-    if(typeof j.eq==='string'&&(j.eq==='start'||S.inv.some(x=>x.id===j.eq)))S.eq=j.eq}catch(e){}}
+    if(typeof j.eq==='string'&&(j.eq==='start'||j.eq==='fists'||S.inv.some(x=>x.id===j.eq)))S.eq=j.eq}catch(e){}}
   function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
   load();
-  const all=()=>[START].concat(S.inv);
+  const all=()=>[START,FISTS].concat(S.inv);
   const byId=id=>all().find(x=>x.id===id)||START;
   const equipped=()=>byId(S.eq);
   function name(it){const t=TYPES[it.ty].n;if(!it.af.length)return it.rar?'Plain '+t:(it.id==='start'?'Worn '+t:t);const a=AFFIX[it.af[0][0]].adj;return it.rar>=3?a+' '+t+' of Ash':a+' '+t}
@@ -57,7 +57,11 @@ const WardenGear=(()=>{
   const sellValue=it=>Math.round(price(it)*.4);
   // tiny deterministic rng (mulberry32) so the Merchant's stock is the same for everybody on the same stock seed and tests are repeatable
   function rng(seed){let a=seed>>>0;return()=>{a=a+0x6D2B79F5>>>0;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
-  const TKEYS=Object.keys(TYPES),AKEYS=Object.keys(AFFIX);
+  const TKEYS=Object.keys(TYPES),AKEYS=Object.keys(AFFIX);   // (random drops and the Merchant only roll the weapons above)
+  // BARE HANDS: always yours, never dropped, bought or sold. A style of fighting rather than a weapon: see Fists.js (strings, throws, takedowns). No model: file is null.
+  TYPES.fists={n:'Bare Hands',role:'player_fists',file:null,l0:1,want:0,dm:1,rm:1,sm:.8,pm:1.05,flow:1.15,d:'No blade. Fast strings, throws and takedowns: break their posture, then finish them.'};
+  BASEP.fists=0;
+  const FISTS={id:'fists',ty:'fists',rar:0,af:[]};
   function make(r,rar,ty,idp){ty=ty||TKEYS[Math.floor(r()*TKEYS.length)];const pool=AKEYS.slice(),af=[];
     for(let i=0;i<rar;i++){const k=pool.splice(Math.floor(r()*pool.length),1)[0];const tier=Math.min(2,Math.max(0,Math.floor(r()*2+(rar>=3?1:rar>=2?.4:0))));af.push([k,tier])}
     return{id:(idp||'w')+Math.floor(r()*1e9).toString(36),ty,rar,af}}
@@ -68,7 +72,7 @@ const WardenGear=(()=>{
   function drop(r,boss,cycle){if(!boss&&r()>.07)return null;return make(r,rollRar(r,boss,cycle),null,'d')}
   function add(it){const c=sane(it);if(!c||S.inv.length>=CAP)return false;S.inv.push(c);save();return true}
   const full=()=>S.inv.length>=CAP;
-  function equip(id){if(id!=='start'&&!S.inv.some(x=>x.id===id))return false;S.eq=id;save();return true}
+  function equip(id){if(id!=='start'&&id!=='fists'&&!S.inv.some(x=>x.id===id))return false;S.eq=id;save();return true}
   function sell(id){const i=S.inv.findIndex(x=>x.id===id);if(i<0)return 0;const v=sellValue(S.inv[i]);S.inv.splice(i,1);if(S.eq===id)S.eq='start';save();return v}
   // the Wandering Merchant: 3 weapons that change every time a cycle turns or a boss falls (seed from progress, passed in)
   function stock(seed){if(S.seed!==seed){S.seed=seed;S.sold=[];save()}const r=rng(seed*2654435761+17),out=[];for(let i=0;i<3;i++){const rar=i===0?1:i===1?(r()<.5?1:2):(r()<.4?2:3);const it=make(r,rar,null,'m');it.id='m'+seed+'_'+i;if(S.sold.indexOf(it.id)<0)out.push(it)}return out}

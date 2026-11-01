@@ -4,9 +4,9 @@ let bad=0;const ok=(v,m)=>{if(!v){console.log('FAIL',m);bad++}else console.log('
 const mk=()=>{const st={};const c={console,Math,JSON,Number,Array,localStorage:{getItem:k=>st[k]===undefined?null:st[k],setItem:(k,v)=>{st[k]=v}}};vm.createContext(c);
   vm.runInContext(fs.readFileSync(R+'src/combat/WardenGear.js','utf8')+';this.G=WardenGear',c);return{G:c.G,st}};
 {const {G,st}=mk();
-  ok(G.equipped().id==='start'&&G.all().length===1&&G.stats().dm===1,'fresh save: only the worn falchion, neutral stats');
+  ok(G.equipped().id==='start'&&G.all().length===2&&G.all()[1].id==='fists'&&G.stats().dm===1,'fresh save: the worn falchion + Bare Hands, neutral stats');
   {let by=0;for(const k in G.TYPES)if(/warden\/w_/.test(G.TYPES[k].file))by+=fs.statSync(R+'assets/'+G.TYPES[k].file).size;ok(by<2e6,'baked weapon models stay small ('+Math.round(by/1024)+' KB, loaded only when equipped)')}
-  for(const k in G.TYPES){const T=G.TYPES[k];ok(fs.existsSync(R+'assets/'+T.file),k+': model '+T.file+' exists');ok(T.l0>0&&T.want>0&&T.dm>0&&T.sm>0,k+': sane numbers')}
+  for(const k in G.TYPES){const T=G.TYPES[k];if(k==='fists'){ok(T.file===null&&T.role==='player_fists'&&T.dm>0&&T.sm>0&&G.equip('fists')&&G.equipped().ty==='fists'&&G.stats().sm===T.sm,'Bare Hands: no model, its own anim role, equippable, never rolled as a drop');G.equip('start');continue}ok(fs.existsSync(R+'assets/'+T.file),k+': model '+T.file+' exists');ok(T.l0>0&&T.want>0&&T.dm>0&&T.sm>0,k+': sane numbers')}
   ok(G.stats({ty:'claymore',rar:0,af:[]}).dm>1.2&&G.stats({ty:'claymore',rar:0,af:[]}).sm>1,'claymore: hits harder, costs more stamina');
   ok(G.stats({ty:'cutlass',rar:0,af:[]}).sm<1&&G.stats({ty:'cutlass',rar:0,af:[]}).flow>1,'cutlass: cheap swings, faster Flow');
   ok(G.stats({ty:'axe',rar:0,af:[]}).pm>1.4,'axe: big posture damage');
@@ -19,7 +19,7 @@ const mk=()=>{const st={};const c={console,Math,JSON,Number,Array,localStorage:{
   const r4=G.rng(5);let all=true;for(let i=0;i<500;i++){const it=G.make(r4,i%4);if(it.af.length!==it.rar||new Set(it.af.map(x=>x[0])).size!==it.af.length)all=false}ok(all,'a rarity-N weapon has exactly N different affixes');
   ok(G.name({id:'x',ty:'claymore',rar:1,af:[['bleed',0]]})==='Serrated Claymore'&&/of Ash/.test(G.name({id:'x',ty:'axe',rar:3,af:[['dmg',0],['vamp',0],['deft',0]]})),'names read well');
   // inventory
-  const it=G.make(G.rng(1),2,'axe');ok(G.add(it)&&G.all().length===2,'add');ok(G.equip(it.id)&&G.equipped().id===it.id,'equip');
+  const it=G.make(G.rng(1),2,'axe');ok(G.add(it)&&G.all().length===3,'add');ok(G.equip(it.id)&&G.equipped().id===it.id,'equip');
   const v=G.sell(it.id);ok(v===G.sellValue(it)&&v>0&&G.equipped().id==='start','selling the equipped weapon falls back to the worn falchion');
   for(let i=0;i<40;i++)G.add(G.make(G.rng(i+100),1));ok(G.S.inv.length===G.CAP&&G.full(),'the pack holds '+G.CAP+' and no more');
   ok(!G.add(G.make(G.rng(1),1)),'a full pack refuses more');
