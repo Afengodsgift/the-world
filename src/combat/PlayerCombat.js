@@ -563,6 +563,28 @@ const PlayerCombat=(()=>{
   // target cutting from seven sides in a row (spirit slashes, 28 each) and land one finishing cut (90). You are untouchable throughout. All real sim moves (sever/sever2/severF), so damage, parry and
   // co-op sync are the normal rules; the camera orbits the target. Real-time timeline (the sim runs slowed by tsc).
   let sup=0,sv=null;const SV_N=7,SV_GAP=.3;
+  // SET PIECES: the fight reacts to how you fight it (Kage, the Dark Knight; the parry rules apply to any duelist with a MUT table).
+  // - move tracking + parry adaptation (DuelistAI.onParry), - three PERFECT parries in a row within 7 s on a boss = the Deathblow opening: his guard breaks, time stalls, you get a free cut,
+  // - a mood vignette that darkens the arena in phase 2 and 3 (a plain overlay: no extra lights, cheap on a phone).
+  let pcs={n:0,t:0,id:null},moodEl=null,moodT=0,moodK=0;
+  function spEv(e,A){
+    if(!A||!A.ai||ult||sv||state!=='fight')return;
+    if(e.t==='start'&&e.a!==undefined&&e.a!=='P')A.lm=e.move;
+    else if(e.t==='deflect'&&e.d==='P'){DuelistAI.onParry(A.ai,A.lm,e.pf);
+      if(e.pf&&A.T.boss){const n=performance.now();if(pcs.id===A.id&&n-pcs.t<7000)pcs.n++;else pcs.n=1;pcs.id=A.id;pcs.t=n;if(pcs.n>=3){pcs.n=0;deathblow(A)}}else if(!e.pf)pcs.n=Math.max(0,pcs.n-1)}
+    else if(e.t==='hit'&&e.d==='P'&&!e.fx)pcs.n=0}
+  function deathblow(A){
+    if(NET.mode!=='guest'){CombatCore.stun(A.f,120,'stagger');A.f.hp=Math.max(1,A.f.hp-A.f.hpMax*.04)}
+    else{try{WardenNet.send({k:'sp',t:'pf',b:A.id,q:1})}catch(x){}}
+    hsT=Math.max(hsT,1.1);sup=Math.min(100,sup+35);
+    try{CameraRig.pulse(-7);CameraRig.shake(.9);flash(.8,'rgba(255,255,255,.85)');msg('DEATHBLOW \u00b7 HIS GUARD IS BROKEN',1.8);sfx('clash',.8,.6,()=>tone(160,2000,.5,'triangle',.16))}catch(x){}}
+  function mood(k,col){
+    if(!el)return;if(!moodEl){moodEl=document.createElement('div');moodEl.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:4;opacity:0;transition:opacity 2.4s ease;background:radial-gradient(ellipse at center,transparent 42%,var(--mc,rgba(120,20,0,.55)) 100%)';el.appendChild(moodEl)}
+    if(col)moodEl.style.setProperty('--mc',col);moodEl.style.opacity=String(k)}
+  const MOODS={samurai:[['rgba(110,30,10,.5)',.7],['rgba(150,10,0,.7)',1]],dknight:[['rgba(40,10,70,.55)',.7],['rgba(10,0,30,.8)',1]]};
+  function phaseBeat(F,n){
+    const m=MOODS[F.T.id==='dknight'?'dknight':F.T.ai==='samurai'?'samurai':''];if(!m||ult)return;
+    mood(m[n-2][1],m[n-2][0]);try{CameraRig.pulse(-3);CameraRig.shake(.5);flash(.5,n===3?'rgba(255,60,20,.55)':'rgba(255,180,90,.4)')}catch(x){}}
   function supEv(e){if(sv||ult||state!=='fight')return;let g=0;
     if(e.t==='hit'){if(e.a==='P'&&!e.fx)g=e.dmg>=20?5:3;else if(e.d==='P')g=2}
     else if(e.t==='deflect'&&e.d==='P')g=e.pf?12:7;else if(e.t==='dodged'&&e.d==='P')g=5;else if(e.t==='perdodge'&&e.d==='P')g=9;
@@ -880,7 +902,7 @@ const PlayerCombat=(()=>{
     if(S.grounded||S.state==='swim')gBase=S.y;P.y=Math.max(0,S.y-gBase);
     decoyTick(decoy,'Z',dt);decoyTick(rdecoy,'Y',dt);
     const b=el&&el.querySelector('#wShadow');if(b){const t=shCd>0?Math.ceil(shCd):0;if(b._c!==t){b._c=t;b.textContent=t?'Shadow '+t:'Shadow';b.classList.toggle('cd',t>0)}}}
-  function leave(hold){pun=null;svEnd();try{WardenFx.clear()}catch(e){}   // hold: keep the corpses of a cleared site in the world
+  function leave(hold){pun=null;pcs.n=0;try{if(moodEl)moodEl.style.opacity='0'}catch(e){}svEnd();try{WardenFx.clear()}catch(e){}   // hold: keep the corpses of a cleared site in the world
     if(!on)return;endSet();trapsClear();try{blinkRing(0,0,false)}catch(e){}killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');document.body.classList.remove('warden-duel');if(sword&&sword.grip)sword.grip.visible=false;if(sword2&&sword2.grip)sword2.grip.visible=false;pendFace=null;
     if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.combat(0,0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
@@ -921,7 +943,7 @@ const PlayerCombat=(()=>{
     for(const e of evs){
       const A=byId[e.a],T=byId[e.d];
       if(e.t==='dead'&&T&&T.human&&!e._rep){T.f.act='free';T.f.hp=Math.max(1,T.f.hp);T.f.mv=null;T.f.ph=null;continue}
-      flowEv(e,T);supEv(e);svHit(e);
+      flowEv(e,T);supEv(e);svHit(e);try{spEv(e,A)}catch(x){}
       if(e.t==='fx'||e.t==='fxburst'||e.t==='fxend'){if(e.t==='fx'&&A&&A.T)e.fk=A.T.id;WardenFx.event(e);
         if(e.t==='fxburst'&&!ult){const st=WardenFx.styleOf(e.fid);if(st==='lightning'||st==='sun'||st==='eclipse'){const dd=Math.hypot(P.x-e.x,P.z-e.z);if(dd<(e.r||3)+9){flash(st==='lightning'?.22:.16,st==='lightning'?'rgba(200,228,255,.5)':'rgba(255,220,150,.35)');try{CameraRig.shake(dd<(e.r||3)+1?.28:.12)}catch(x){}}}}}
       {const fp=e.t==='hit'||e.t==='block'||e.t==='deflect'||e.t==='posturebreak'||e.t==='guardbreak'?(T?T.f:(e.d==='P'?P:null)):null;if(fp){vfxAt(e,fp);punch(e,fp)}else if(e.t==='dodge')punch(e,P)}
@@ -988,8 +1010,8 @@ const PlayerCombat=(()=>{
     try{autoLock();camMoves()}catch(e){}const TF=target();D=TF.f;try{markers(TF,performance.now()/1000);threatArrows();frameFoes(dt);barrageTick(dt);svTick(dt);trickTick(dt);fightMoveTick(dt)}catch(e){}
     // camera: pull back for a big foe, when he is far, and when there are several
     try{let sc=1;for(const F of foes)if(F.f.act!=='dead'&&F.awake)sc=Math.max(sc,F.T.scale);const fd=Math.hypot(S.x-D.x,S.z-D.z);CameraRig.setBias(-2.8+(sc-1)*3.4+Math.min(3.5,Math.max(0,fd-5))*.45+(alive().length>1?1:0))}catch(e){}
-    for(const F of foes)if(F.ai.ph2&&!F.ph2&&state==='fight'){F.ph2=true;if(F.T.boss){msg(F.T.ph2,2);sfx('heavy',.7,.6,()=>tone(120,60,.4,'sawtooth',.12));WardenSfx.play('vo_sudden_death',.8,1,{nojit:1})}if(F.body.shield)F.body.shield.visible=false}
-    for(const F of foes)if(F.ai.ph3&&!F.ph3&&state==='fight'){F.ph3=true;if(F.T.ph3){msg(F.T.ph3,2.4);sfx('heavy',.8,.5,()=>tone(90,45,.5,'sawtooth',.14))}}
+    for(const F of foes)if(F.ai.ph2&&!F.ph2&&state==='fight'){F.ph2=true;try{phaseBeat(F,2)}catch(x){}if(F.T.boss){msg(F.T.ph2,2);sfx('heavy',.7,.6,()=>tone(120,60,.4,'sawtooth',.12));WardenSfx.play('vo_sudden_death',.8,1,{nojit:1})}if(F.body.shield)F.body.shield.visible=false}
+    for(const F of foes)if(F.ai.ph3&&!F.ph3&&state==='fight'){F.ph3=true;try{phaseBeat(F,3)}catch(x){}if(F.T.ph3){msg(F.T.ph3,2.4);sfx('heavy',.8,.5,()=>tone(90,45,.5,'sawtooth',.14))}}
     // 1) hand the sim the player's current position, run the due ticks, apply the forced motion back to S
     P.x=S.x;P.z=S.z;
     // bodies are solid: free walking used to pass through foes (only sim-driven moves collided). A foe that is attacking / stunned / asleep holds its ground, otherwise you share the push.
@@ -1010,6 +1032,7 @@ const PlayerCombat=(()=>{
         if(NET.mode==='guest'){const n=F.nin||{mx:0,mz:0};h[F.id]={face:q.face,mx:n.mx,mz:n.mz,list:[]};continue}
         if(F.awake&&PC.ai&&state==='fight'){if(F.T.oath){const sg=Foes_sig(q,F);F.ai.sigLock=sg;const tg=aiTarget(q);F.ai.onDecoy=tg===C.F.Z||tg===C.F.Y}F.ai.noAtk=!!F.T.pack&&atk>=Foes.PACK_ATK&&q.act!=='attack';const a=DuelistAI.think(F.ai,aiTarget(q),q,lastEv,nt);F.nin={mx:a.mx,mz:a.mz};h[F.id]={face:a.face,mx:a.mx,mz:a.mz,list:a.list};if(F.ai.banner){const bn=F.ai.banner;F.ai.banner=null;if(!ult){msg(bn,2.2);flash(.4,'rgba(255,60,40,.5)');try{CameraRig.shake(.4);sfx('heavy',.8,.6,()=>tone(80,40,.6,'sawtooth',.16))}catch(x){}}}
         {const f=F.f,em=F.ai.sov>0;if(f.dm0===undefined){f.dm0=f.dm||1;f.tm0=f.tm||1}const dm=f.dm0*(em?1.2:1),tm=f.tm0*(em?1.2:1);if(f.dm!==dm)f.dm=dm;if(f.tm!==tm)f.tm=tm}
+        if(F.ai.spMsg){const sm=F.ai.spMsg;F.ai.spMsg=null;if(!ult){msg(sm,1.9);try{tone(180,90,.4,'sawtooth',.1);CameraRig.pulse(2);flash(.25,'rgba(255,120,40,.35)')}catch(x){}}}
         if(F.ai.readMsg){const hn=DuelistAI.HN[F.ai.readMsg];F.ai.readMsg=null;if(hn&&!ult){msg(F.T.name.split(',')[0].replace(/^The /,'').toUpperCase()+' READS YOUR '+hn.toUpperCase(),1.5);try{tone(260,200,.2,'square',.08)}catch(x){}}}}
         else h[F.id]={face:F.awake||F.dorm==='wake'?Math.atan2(S.x-q.x,S.z-q.z):q.face,mx:0,mz:0}}
       return h};

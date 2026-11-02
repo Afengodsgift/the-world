@@ -11,7 +11,7 @@ const DuelistAI=(()=>{
   const HR={sweep:3.0,slam:3.0,triple:2.8,quake:4.2};
   function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
   function create(seed,o){o=o||{};const r=mulberry(seed|0);return{foe:o.foe||'duelist',kid:o.kid||'',mast:!!o.mast,noAtk:false,gcool:0,r,t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,mood:'patient',moodT:90,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null,
-    bcd:240,scd:100,hcd:0,hcd2:0,hunt:false,follow:null,adaptCd:0,adapt:null,ph3:false,att:0,ccd:300,rcd:0,chain:0,moves:0,nextBreath:3+Math.floor(r()*3),breath:0,ph2:false,closeP:0}}
+    bcd:240,scd:100,hcd:0,hcd2:0,hunt:false,follow:null,adaptCd:0,adapt:null,ph3:false,att:0,ccd:300,rcd:0,chain:0,moves:0,nextBreath:3+Math.floor(r()*3),breath:0,ph2:false,closeP:0,pw:{},mut:{},still:0,stl:300,spMsg:null}}
   const key=P=>P.act==='attack'&&P.ph&&P.ph[P.pi]?'a'+P.ph[P.pi].k:P.act==='stun'?'stun':P.act==='dodge'?'dodge':P.act==='charge'?'charge':P.guard?'guard':'free';
   const rest=(A,lo,span)=>Math.max(20,Math.floor((lo+Math.floor(A.r()*span))*(A.ph3?.58:A.ph2?.75:1)*(A.rmul||1)));
   // A = ai state, P/D = sim fighters, evs = events of the previous tick. Returns {face,mx,mz,list}
@@ -63,6 +63,7 @@ const DuelistAI=(()=>{
     if(SN)return combo(A,saint(A,P,D,out,tick,dist,k));
     if(PN)return combo(A,penitent(A,P,D,out,tick,dist,k));
     if(VL){const r=veil(A,P,D,out,tick,dist,k);if(r)return r}
+    {const sp=setpiece(A,out,tick,dist,k,D);if(sp)return sp}
     if(GW)return combo(A,gwyn(A,P,D,out,tick,dist,k));
     if(GD)return combo(A,gdn(A,P,D,out,tick,dist,k));
     if(SM)return combo(A,samurai(A,P,D,out,tick,dist,k));
@@ -416,8 +417,24 @@ const DuelistAI=(()=>{
     let r=A.r()*tot,pick=Object.keys(w)[0];for(const m in w){r-=w[m];if(r<=0){pick=m;break}}
     if(dist>R[pick]+(pick==='thrust'?.2:.1))return out;                                      // not in reach of the chosen move yet: keep closing
     return start(A,out,pick,pick==='fall'||pick==='slam'?Math.floor(A.r()*13):0,tick)}
-  function start(A,out,m,hold,tick){A.last.push(m);if(A.last.length>3)A.last.shift();out.list.push({t:'atk',m,hold,e:tick});out.mx=out.mz=0;return out}
+
+  // SET PIECES (Kage, the Dark Knight): the fight reacts to how YOU fight it.
+  // 1) Parry adaptation: parry the same move three times (a perfect parry counts double) and he stops trusting it: the next two times it is feinted, delayed or chained into something else. Banner tells you; the fix is to read it again, not to guess.
+  // 2) The Stillness (phase 3): he stops, sheathes / kneels for a beat, then a double draw on a new rhythm. The tell is the stillness itself.
+  const MUT={samurai:{iai:['feint','iai'],twin:['blink','triple'],cut:['feint','twin'],moon:['feint','moon'],triple:['blink','iai']},
+    dknight:{verdict:['feint','verdict'],cut:['blink','twin'],twin:['feint','twin'],moon:['feint','moon'],hammer:['feint','hammer'],march:['blink','cut']}};
+  const SPN={samurai:{n:'KAGE',adapt:'KAGE NO LONGER TRUSTS THAT STRIKE',still:'KAGE SHEATHS HIS BLADE'},dknight:{n:'THE DARK KNIGHT',adapt:'THE KNIGHT CHANGES HIS RHYTHM',still:'THE DARK KNIGHT KNEELS'}};
+  function onParry(A,mv,pf){if(!A||!MUT[A.kid]||!mv||!MUT[A.kid][mv])return false;A.pw[mv]=(A.pw[mv]||0)+(pf?2:1);
+    if(A.pw[mv]>=3){A.pw[mv]=0;A.mut[mv]=2;A.spMsg=SPN[A.kid].adapt;return true}return false}
+  function setpiece(A,out,tick,dist,k,D){
+    const key=A.kid==='dknight'?'dknight':A.kid==='samurai'||A.foe==='samurai'?'samurai':null;if(!key||A.sigLock||A.sov>0||A.q)return null;
+    if(A.still>0){A.still--;out.mx=out.mz=0;if(A.still===0){A.follow='iai';A.mut.iai=0;return start(A,out,'iai',0,tick)}return out}
+    if(A.stl>0)A.stl--;
+    if(A.ph3&&A.stl<=0&&dist>=2.4&&dist<=6&&D.act==='free'&&!A.follow&&A.r()<.03){A.stl=A.mast?520:720;A.still=60;A.spMsg=SPN[key].still;out.mx=out.mz=0;return out}
+    return null}
+  function start(A,out,m,hold,tick){if(A.mut[m]>0&&MUT[A.kid]&&MUT[A.kid][m]&&!A.follow){const r=MUT[A.kid][m];A.mut[m]--;A.follow=r[1];if(r[0]!==m){m=r[0];hold=0}}
+    A.last.push(m);if(A.last.length>3)A.last.shift();out.list.push({t:'atk',m,hold,e:tick});out.mx=out.mz=0;return out}
   // the game calls this when the hunted player drinks a health flask: every foe ends its rest and stops breathing (at most once per 5 s each); Vael blinks onto you, Skrag fires the heavy bolt
   const hunt=(A)=>{if(A.hcd>0)return false;A.hcd=300;A.cool=Math.min(A.cool,6);A.breath=0;if(A.foe==='saint'||A.foe==='stalker'||A.foe==='trapper'||A.foe==='samurai'||A.foe==='veil'||A.foe==='penitent'||A.foe==='gwyn'||A.foe==='gdn')A.hunt=true;return true};   // everyone cuts their rest short; the hunters have a special answer
-  return{create,think,hunt,HN,MIND,REACH:Object.assign({},REACH,HR),REACT,INTRO,SEQ,SEQS,SIG}})();
+  return{create,think,hunt,onParry,MUT,HN,MIND,REACH:Object.assign({},REACH,HR),REACT,INTRO,SEQ,SEQS,SIG}})();
 if(typeof module!=='undefined')module.exports=DuelistAI;
