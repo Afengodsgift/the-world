@@ -7,7 +7,7 @@
 // Adaptive difficulty (learning your habits) is a separate layer, off by default, and is NOT in this file.
 const DuelistAI=(()=>{
   const REACH={bladestorm:16,swordring:3.4,sunvolley:18,snakelash:3.8,eclipse:7.6,charge:10,maul:3.2,tidal:6.4,spores:12,hundred:3.2,ashwave:16,crossflame:16,kingsfall:7,flurry:3,cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4,dash:2.4,leap:3.0,bash:2.3,orb:12,bolt:16,spin:2.9,hammer:2.7,lowsweep:3.1,blink:30,snare:30,lance:20,returning:18,consecrate:12,procession:11,march:2.7,groundbreaker:3.9,verdict:2.8,pursuit:3.1,iai:3.4,feint:3.4,moon:3.7,counter:2.9,requiem:5.2},REACT=14,INTRO=90;
-  Object.assign(REACH,{gateslam:11,rend:4.8,sunder:5.4,spear:20,storm:12,arrows:14,ruin:3.4,ruincollapse:3.4,heavenfall:3.1,hangfall:3.2,executioner:3,brokenadv:3.2,impaler:4.4,doubleimp:3.9,kingsweep:3.7,risingcrown:3.4,tempest:3.2,severance:3.2,twineclipse:3.4,eclipsecollapse:3.5,thousand:3.4,silentsev:3.4,stormgrid:18,crownfall:12,worldbreaker:7.6,aftershock:4.6,marks:12,finalsentence:12,sovereign:3.4});
+  Object.assign(REACH,{voidthrust:7,crownfissure:8.2,gateslam:11,rend:4.8,sunder:5.4,spear:20,storm:12,arrows:14,ruin:3.4,ruincollapse:3.4,heavenfall:3.1,hangfall:3.2,executioner:3,brokenadv:3.2,impaler:4.4,doubleimp:3.9,kingsweep:3.7,risingcrown:3.4,tempest:3.2,severance:3.2,twineclipse:3.4,eclipsecollapse:3.5,thousand:3.4,silentsev:3.4,stormgrid:18,crownfall:12,worldbreaker:7.6,aftershock:4.6,marks:12,finalsentence:12,sovereign:3.4});
   const HR={sweep:3.0,slam:3.0,triple:2.8,quake:4.2};
   function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
   function create(seed,o){o=o||{};const r=mulberry(seed|0);return{foe:o.foe||'duelist',kid:o.kid||'',mast:!!o.mast,noAtk:false,gcool:0,r,t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,mood:'patient',moodT:90,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null,
@@ -53,6 +53,7 @@ const DuelistAI=(()=>{
     if(!H&&!KN&&!DA&&!SO&&!SK&&!TR&&!SM&&!PN&&!SN&&!GD&&A.cool<=6&&dist<2.8&&(k==='charge'||k==='astartup')&&A.see>=REACT&&A.r()<.012*A.see){A.guardT=40+Math.floor(A.r()*25);out.list.push({t:'guardDown',e:tick});out.mx=out.mz=0;return out}
     if(A.cool>0||k==='dodge')return out;              // resting, or the player is mid-dodge: wait for them to land
     if(A.noAtk)return out;                            // someone else holds the attack token: keep circling
+    {const sp=setpiece(A,out,tick,dist,k,D);if(sp)return sp}
     if(A.follow&&!(SM||GW||GD||BK||VL||KN&&A.kid==='paladin')){const m=A.follow;A.follow=null;if(A.sigLock&&PER.indexOf(m)>=0)return out;if(dist<(REACH[m]||3)+.8)return start(A,out,m,m==='verdict'||m==='fall'?Math.floor(A.r()*13):0,tick)}
     if(A.q&&A.q.length){const m=A.q.shift();if(!A.q.length)A.q=null;if(A.sigLock&&PER.indexOf(m)>=0||dist>(CL[m]||(REACH[m]||3)+.8)){A.q=null}else return start(A,out,m,m==='verdict'||m==='fall'||m==='hangfall'?Math.floor(A.r()*13):0,tick)}
     {const sg=SIG[A.kid]?sig(A,P,D,out,tick,dist,k):null;if(sg)return sg}
@@ -63,7 +64,6 @@ const DuelistAI=(()=>{
     if(SN)return combo(A,saint(A,P,D,out,tick,dist,k));
     if(PN)return combo(A,penitent(A,P,D,out,tick,dist,k));
     if(VL){const r=veil(A,P,D,out,tick,dist,k);if(r)return r}
-    {const sp=setpiece(A,out,tick,dist,k,D);if(sp)return sp}
     if(GW)return combo(A,gwyn(A,P,D,out,tick,dist,k));
     if(GD)return combo(A,gdn(A,P,D,out,tick,dist,k));
     if(SM)return combo(A,samurai(A,P,D,out,tick,dist,k));
@@ -194,7 +194,7 @@ const DuelistAI=(()=>{
   // signature moves (rend = thrust perilous, sunder = ground-breaker, spear = lightning spear, storm = rain of lightning, arrows = arrow volley).
   const SIG={
     samurai:[{m:'feint',lo:2.4,hi:4.4,ph:2,cd:500,p:.3,f:'rend'},{m:'rend',lo:2.6,hi:4.6,ph:0,cd:560,p:.25}],
-    dknight:[{m:'rend',lo:2.6,hi:4.8,ph:0,cd:520,p:.25},{m:'sunder',lo:0,hi:5,ph:2,cd:700,p:.3},{m:'spear',lo:5,hi:16,ph:3,cd:520,p:.3,f:'blink'}],
+    dknight:[{m:'rend',lo:2.6,hi:4.8,ph:0,cd:520,p:.25},{m:'crownfissure',lo:2,hi:7,ph:2,cd:520,p:.28},{m:'sunder',lo:0,hi:5,ph:2,cd:700,p:.3},{m:'spear',lo:5,hi:16,ph:3,cd:520,p:.3,f:'blink'}],
     darkknight:[{m:'rend',lo:2.6,hi:4.8,ph:0,cd:420,p:.28},{m:'sunder',lo:0,hi:5,ph:2,cd:640,p:.3,f:'cut'}],
     gwyn:[{m:'spear',lo:5,hi:16,ph:0,cd:420,p:.3,f:'pursuit'},{m:'rend',lo:2.6,hi:4.8,ph:2,cd:500,p:.25},{m:'storm',lo:3,hi:12,ph:2,cd:700,p:.3},{m:'sunder',lo:0,hi:5,ph:3,cd:600,p:.35}],
     oath4:[{m:'rend',lo:2.6,hi:4.8,ph:0,cd:480,p:.25},{m:'spear',lo:5,hi:16,ph:2,cd:460,p:.3},{m:'sunder',lo:0,hi:5,ph:2,cd:640,p:.3},{m:'storm',lo:3,hi:12,ph:3,cd:640,p:.3}],
@@ -428,7 +428,7 @@ const DuelistAI=(()=>{
   function onParry(A,mv,pf){if(!A||!MUT[A.kid]||!mv||!MUT[A.kid][mv])return false;A.pw[mv]=(A.pw[mv]||0)+(pf?2:1);
     if(A.pw[mv]>=3){A.pw[mv]=0;A.mut[mv]=2;A.spMsg=SPN[A.kid].adapt;return true}return false}
   function setpiece(A,out,tick,dist,k,D){
-    const key=A.kid==='dknight'?'dknight':A.kid==='samurai'||A.foe==='samurai'?'samurai':null;if(!key||A.sigLock||A.sov>0||A.q)return null;
+    const key=A.kid==='dknight'?'dknight':A.kid==='samurai'||A.foe==='samurai'?'samurai':null;if(!key||A.sigLock||A.sov>0||A.q){if(A.still>0)A.still=0;return null}
     if(A.still>0){A.still--;out.mx=out.mz=0;if(A.still===0){A.follow='iai';A.mut.iai=0;return start(A,out,'iai',0,tick)}return out}
     if(A.stl>0)A.stl--;
     if(A.ph3&&A.stl<=0&&dist>=2.4&&dist<=6&&D.act==='free'&&!A.follow&&A.r()<.03){A.stl=A.mast?520:720;A.still=60;A.spMsg=SPN[key].still;out.mx=out.mz=0;return out}

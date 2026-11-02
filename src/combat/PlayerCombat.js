@@ -396,7 +396,7 @@ const PlayerCombat=(()=>{
     killDecoy(true);jumpCd=shCd=0;oathFirst=null;fightN++;hurt=false;fightVo=false;try{WardenSfx.load()}catch(e){}const R=site.wall?site.R-.5:site.dg?site.R-.3:site.R+10,sol=WardenSolids().filter(s=>Math.hypot(s.x-WRD.x-site.x,s.z-WRD.z-site.z)<site.R+14);
     C=CombatCore.create({arena:{x:WRD.x+site.x,z:WRD.z+site.z,R},solids:sol});try{CameraRig.setArena({x:WRD.x+site.x,z:WRD.z+site.z,R:site.wall||site.dg?R:site.R,sol:sol.filter(q=>!q.wall)})}catch(e){}ST=CombatCore.stepper(C,6);t0=performance.now();vt=0;vl=0;tsc=1;ult=null;
     if(site.duel&&DU.pair){const L=duelSide();S.x=WRD.x+site.x;S.z=WRD.z+site.z+9*L;S.rot=L>0?Math.PI:0;lx=S.x;lz=S.z}
-    P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});applyStats();spawnFoes();sup=Math.max(sup,20);WardenFx.clear();WardenVfx.clear();for(const F of foes)if(F.T.ai==='saint')try{WardenFx.orbit(F,6)}catch(e){};trapsClear();blinkRing(0,0,false);Q=null;spectate=false;ls=null;netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
+    P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});applyStats();spawnFoes();sup=Math.max(sup,20);WardenFx.clear();WardenVfx.clear();for(const F of foes)if(F.T.ai==='saint')try{WardenFx.orbit(F,6)}catch(e){};trapsClear();blinkRing(0,0,false);Q=null;spectate=false;ls=null;ds=null;try{zonesClear()}catch(e){}netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
     flow=0;flowOn=false;flowN=0;fq=null;skillCD=0;bars.fl=-1;healLeft=0;mightT=0;itemLock=0;state='fight';stateT=0;lockOff=false;lock=(site.fog||site.duel||foes.some(F=>F.T.boss))&&!(site.duel&&!DU.pair);lockI=0;{const b=foes.find(F=>F.T.boss&&F.awake)||foes.find(F=>F.awake);if(b)lockI=b.i}lastEv=[];pv.init=false;down.guard=down.heavy=false;stW=0;gT=0;
     if(el)el.querySelector('#wLock').classList.toggle('on',lock);D=target().f}
   // Inside a walled arena the screen is the cost on a low-end phone: render at 1.25x (not 2x) while you fight, restore on leaving. Skipped when ?dpr= was given.
@@ -580,11 +580,69 @@ const PlayerCombat=(()=>{
   function lsRevive(){
     ls=null;spectate=false;P.act='free';P.hp=Math.max(1,P.hpMax*.4);P.mv=null;P.ph=null;P.sk=null;P.stun=0;P.guard=false;P.c=0;P.inv=Math.max(P.inv||0,150);
     try{CameraRig.pulse(-5);CameraRig.shake(.5);flash(.7,'rgba(255,240,200,.85)');msg('BACK ON YOUR FEET',1.8);sfx('clash',.7,1.2,()=>tone(500,1400,.5,'triangle',.14))}catch(e){}}
+  // ZONES (the Dark Knight's Void Runes / Anchors). Each client is authoritative for its OWN defence, so every client damages only itself; the host decides when runes appear / detonate and tells the guest (sp: zr = rune at x,z, zd = detonate after a delay, za = anchors converge).
+  // Runes are laid where he vanishes in a blink. Pursuit / Executioner's Advance arms them (0.9 s fuse, ring turns white): stand clear. Three anchors + a blink = the Convergence: lines run to you, you are dragged toward the centre, then Final Sentence.
+  const RUNE_R=2.8;let zones=[],zoneG=null;
+  function zoneAdd(x,z,mine){
+    if(!zoneG){zoneG=new THREE.Group();scene.add(zoneG)}
+    while(zones.length>=5)zoneDel(zones[0]);
+    const m=new THREE.MeshBasicMaterial({color:0x8a3cff,transparent:true,opacity:.7,depthWrite:false,fog:false,side:THREE.DoubleSide}),g=new THREE.Mesh(new THREE.RingGeometry(.62,1,36),m);g.rotation.x=-Math.PI/2;g.scale.setScalar(RUNE_R);g.position.set(x,H(x,z)+.12,z);zoneG.add(g);
+    const lm=new THREE.LineBasicMaterial({color:0xc08cff,transparent:true,opacity:.9,fog:false,depthTest:false}),lg=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x,H(x,z)+.4,z),new THREE.Vector3(x,H(x,z)+.4,z)]),ln=new THREE.Line(lg,lm);ln.visible=false;ln.frustumCulled=false;ln.renderOrder=995;zoneG.add(ln);
+    zones.push({x,z,age:0,g,m,ln,lm,lg,fuse:-1,lit:0});
+    try{WardenVfx.spawn(x,H(x,z)+.5,z,3,3,2.2,Math.random()*6.28,24)}catch(e){}
+    if(mine&&NET.mode==='host'&&Q){try{WardenNet.send({k:'sp',t:'zr',s:site.id,x:+x.toFixed(2),z:+z.toFixed(2)})}catch(e){}}}
+  function zoneDel(q){const i=zones.indexOf(q);if(i>=0)zones.splice(i,1);if(q.g.parent)q.g.parent.remove(q.g);if(q.ln.parent)q.ln.parent.remove(q.ln);q.m.dispose();q.lm.dispose();q.g.geometry.dispose();q.lg.dispose()}
+  function zonesClear(){for(const q of zones.slice())zoneDel(q)}
+  function zoneArm(delay,mine){for(const q of zones)if(q.fuse<0)q.fuse=delay;
+    if(mine&&NET.mode==='host'&&Q){try{WardenNet.send({k:'sp',t:'zd',s:site.id,d:delay})}catch(e){}}}
+  function zoneConverge(mine){if(zones.length<3)return false;for(const q of zones){q.lit=1.5;q.fuse=1.5}
+    try{msg('THE ANCHORS CONVERGE',1.4);flash(.35,'rgba(150,80,255,.6)');CameraRig.pulse(2.5);tone(120,400,.6,'sawtooth',.12)}catch(e){}
+    if(mine&&NET.mode==='host'&&Q){try{WardenNet.send({k:'sp',t:'za',s:site.id})}catch(e){}}return true}
+  function zoneTick(dt){
+    if(!zones.length)return;
+    let cx=0,cz=0,pull=false;
+    for(const q of zones.slice()){q.age+=dt;
+      q.m.opacity=q.fuse>=0?.9:.45+.25*Math.sin(q.age*4);q.m.color.setHex(q.fuse>=0?0xffffff:0x8a3cff);if(q.age>13)q.g.visible=Math.floor(q.age*8)%2===0;
+      if(q.lit>0){q.lit-=dt;pull=true;cx+=q.x;cz+=q.z;q.ln.visible=true;const a=q.lg.attributes.position;a.setXYZ(1,S.x,H(S.x,S.z)+1,S.z);a.needsUpdate=true}else q.ln.visible=false;
+      if(q.fuse>=0){q.fuse-=dt;if(q.fuse<=0){zoneBang(q);continue}}
+      if(q.age>16)zoneDel(q)}
+    if(pull&&on&&state==='fight'&&P&&P.act!=='dead'&&!(P.act==='dodge'&&P.pt>=Moves.dodge.iStart&&P.pt<=Moves.dodge.iEnd)){const n=zones.filter(q=>q.lit>0).length;if(n){cx/=n;cz/=n;const dx=cx-S.x,dz=cz-S.z,d=Math.hypot(dx,dz)||1,st=Math.min(d,2.6*dt);let nx=S.x+dx/d*st,nz=S.z+dz/d*st;const A=C&&C.arena;if(A){const ax=nx-A.x,az=nz-A.z,ad=Math.hypot(ax,az),lim=A.R-1;if(ad>lim){nx=A.x+ax/ad*lim;nz=A.z+az/ad*lim}}S.x=nx;S.z=nz;P.x=nx;P.z=nz}}}
+  function zoneBang(q){
+    try{WardenVfx.burst(q.x,H(q.x,q.z)+1,q.z,3);WardenVfx.spawn(q.x,H(q.x,q.z)+.8,q.z,0,3,3.4,Math.random()*6.28,26)}catch(e){}
+    if(on&&state==='fight'&&P&&P.act!=='dead'&&Math.hypot(P.x-q.x,P.z-q.z)<RUNE_R&&!(P.act==='dodge'&&P.pt>=Moves.dodge.iStart&&P.pt<=Moves.dodge.iEnd)&&!(P.inv>0)){
+      P.hp=Math.max(1,P.hp-Math.round(P.hpMax*.2));P.act='stun';P.sk='hit';P.stun=30;P.guard=false;P.ph=null;P.mv=null;P.c=0;hurt=true;
+      try{flash(.55,'rgba(150,60,255,.6)');msg('VOID RUNE',.9);CameraRig.shake(.5);sfx('heavy',.8,.7,()=>tone(140,50,.3,'sawtooth',.14))}catch(e){}}
+    zoneDel(q)}
+  function zoneNet(p){if(!on||!site||p.s!==site.id)return;if(p.t==='zr')zoneAdd(p.x,p.z,false);else if(p.t==='zd')zoneArm(p.d||.9,false);else if(p.t==='za')zoneConverge(false)}
+  // SHADOW PIERCER: an afterimage made while the Dark Knight is winding up a heavy strike gets read: he cancels into a Void Thrust that impales the clone (and anything in the line) and takes some posture back.
+  const HEAVYW=['fall','verdict','kingsfall','hammer','moon','groundbreaker','crownfissure','rend','sunder','worldbreaker','maul'];
+  function shadowPiercer(){
+    if(NET.mode==='guest'||!on||state!=='fight'||ult)return;
+    for(const F of foes){if(!F.awake||F.ghost||F.T.id!=='dknight'||F.f.act!=='attack'||!F.f.mv||HEAVYW.indexOf(F.f.mv.id)<0||F.pierce>0)continue;
+      const k=F.f.ph&&F.f.ph[F.f.pi]&&F.f.ph[F.f.pi].k;if(k!=='windup'&&k!=='raise'&&k!=='hold')continue;
+      const f=F.f;f.act='free';f.ph=null;f.mv=null;f.pt=0;f.pk=0;f.guard=false;F.ai.follow='voidthrust';F.ai.cool=0;F.ai.busy=false;F.pierce=1.1;
+      try{msg('THE DARK KNIGHT SEES THROUGH YOUR SHADOW',1.8);flash(.3,'rgba(140,60,255,.5)');tone(200,900,.25,'sawtooth',.1);CameraRig.pulse(2)}catch(e){}break}}
+  function pierceTick(dt){for(const F of foes){if(!(F.pierce>0))continue;F.pierce-=dt;
+      if(F.pierce<=0){F.pierce=-1;if((decoy&&decoy.t>0)||(rdecoy&&rdecoy.t>0)){F.f.po=Math.max(0,F.f.po-35);try{const Z=C.F.Z||C.F.Y;if(Z)WardenVfx.burst(Z.x,H(Z.x,Z.z)+1.1,Z.z,3);msg('THE SHADOW IS PIERCED',1.1)}catch(e){}killDecoy(false);}}}}
+  // DEATH'S SENTENCE: your posture breaks with the Dark Knight at your throat: a grab, a lift, a slam (the cinematic is effects + camera on the stock rig: no grab clip yet). Never lethal; once per 20 s.
+  let ds=null,dsCd=0;
+  function deathSentence(F){
+    if(ds||dsCd>0||ult||sv||!P||P.act==='dead')return;ds={t:0,F,phase:0,x0:S.x,z0:S.z};dsCd=20;
+    try{msg('DEATH\u2019S SENTENCE',1.8);CameraRig.pulse(-6);flash(.5,'rgba(255,40,40,.6)');hsT=Math.max(hsT,.5);tone(90,40,.7,'sawtooth',.16)}catch(e){}}
+  function dsTick(dt){
+    if(dsCd>0)dsCd-=dt;if(!ds)return;
+    if(!on||state!=='fight'||P.act==='dead'){ds=null;return}
+    const q=ds;q.t+=dt;P.act='stun';P.sk='hit';P.stun=Math.max(P.stun,30);P.guard=false;P.ph=null;P.mv=null;
+    const f=q.F.f,dx=f.x-S.x,dz=f.z-S.z,d=Math.hypot(dx,dz)||1;if(d>1.5){const st=Math.min(d-1.5,7*dt);S.x+=dx/d*st;S.z+=dz/d*st;P.x=S.x;P.z=S.z}   // dragged to his hand
+    if(q.phase===0&&q.t>.75){q.phase=1;try{CameraRig.pulse(-3);tone(300,150,.4,'triangle',.1);msg('LIFTED',.6)}catch(e){}}
+    if(q.phase===1&&q.t>1.3){q.phase=2;P.hp=Math.max(1,P.hp-Math.round(P.hpMax*.3));P.stun=50;hurt=true;
+      try{CameraRig.shake(1);flash(.9,'rgba(255,255,255,.9)');WardenVfx.burst(S.x,H(S.x,S.z)+.6,S.z,3);sfx('heavy',.9,.5,()=>tone(70,30,.6,'sawtooth',.18))}catch(e){}ds=null}}
   // SET PIECES: the fight reacts to how you fight it (Kage, the Dark Knight; the parry rules apply to any duelist with a MUT table).
   // - move tracking + parry adaptation (DuelistAI.onParry), - three PERFECT parries in a row within 7 s on a boss = the Deathblow opening: his guard breaks, time stalls, you get a free cut,
   // - a mood vignette that darkens the arena in phase 2 and 3 (a plain overlay: no extra lights, cheap on a phone).
   let pcs={n:0,t:0,id:null},moodEl=null,moodT=0,moodK=0;
   function spEv(e,A){
+    if(e.t==='posturebreak'&&e.d==='P'&&!ult&&!sv&&state==='fight'){let b=null,bd=4.6;for(const F of foes)if(F.T.id==='dknight'&&F.awake&&F.f.act!=='dead'){const d=Math.hypot(F.f.x-S.x,F.f.z-S.z);if(d<bd){bd=d;b=F}}if(b)deathSentence(b);return}
     if(!A||!A.ai||ult||sv||state!=='fight')return;
     if(e.t==='start'&&e.a!==undefined&&e.a!=='P')A.lm=e.move;
     else if(e.t==='deflect'&&e.d==='P'){DuelistAI.onParry(A.ai,A.lm,e.pf);
@@ -733,6 +791,7 @@ const PlayerCombat=(()=>{
   function bossReel(B,rw){if(!B||B.f.act==='dead')return;B.f.hp=Math.max(1,B.f.hp-B.f.hpMax*.1*rw);B.f.po=Math.min(B.f.poMax*.97,B.f.po+B.f.poMax*.6*rw)}   // host / solo only: the boss is the host's
   function spMsg(p){
     if(!on||!site||p.s!==site.id)return;
+    if(p.t==='zr'||p.t==='zd'||p.t==='za'){zoneNet(p);return}
     if(p.t==='tp'||p.t==='tx'||p.t==='vh'||p.t==='br'||p.t==='fk'||p.t==='bg'||p.t==='pf'){trickSp(p);return}
     if(p.t==='bs'&&NET.mode==='guest'&&!ult&&state==='fight'&&P.act!=='dead'&&!CineCam.busy()){const B=byId[p.b];if(B&&B.f.act!=='dead')startBarrage(B,{a0:p.a,co:true})}
     else if(p.t==='es'&&NET.mode==='guest'&&!ult&&state==='fight'&&P.act!=='dead'&&!CineCam.busy()){const B=byId[p.b];if(B&&B.f.act!=='dead')startEcho(B,{co:true,seed:p.seed,st:p.st})}
@@ -778,6 +837,7 @@ const PlayerCombat=(()=>{
       if(e.t==='start'&&byId[e.a]&&byId[e.a].T.boss&&!byId[e.a].ghost&&!byId[e.a].script)for(const d of[decoy,rdecoy])if(d&&d.t>0&&!(d.seen>=2)){d.seen=(d.seen||0)+1;if(d.seen===2)try{toast('A boss sees through your shadow',1.8)}catch(x){}}   // a boss is fooled by a decoy twice, then it knows
       if(e.t==='start'&&NET.mode!=='guest'){const F=byId[e.a];if(!F||F.ghost)continue;if(F.pre&&e.move!==undefined&&!Tricks.isBlink(e.move)){const f=F.f;F.pre=0;if(f.ph&&f.ph[0]&&f.ph[0].n-8>=18){f.pt=8;f.pk=8}}   // dynamic blink: the strike was already under way while he was gone (never cuts the windup under 18 ticks)
 
+        if(F.T.id==='dknight'){if(Tricks.isBlink(e.move))zoneAdd(F.f.x,F.f.z,true);else if(e.move==='pursuit'||e.move==='march'){if(zones.length)zoneArm(.9,true)}}
         if(Tricks.isBlink(e.move)&&F.T.blink&&!F.bl){const tg=aiTarget(F.f);F.bl={n:0,t:0,tg:tg.id,hide:false,lock:false,vec:Tricks.blinkVec(Math.random,F.ai.ph2),sg:Math.random()<.5?1:-1,long:e.move==='blinkl',sw:0};try{blinkFx(F)}catch(x){}}
         else if(e.move==='snare'&&F.T.traps){F.sn={n:0,tg:aiTarget(F.f).id}}}
       else if(e.t==='hit'&&e.d==='P'&&byId[e.a]&&byId[e.a].T.vamp&&e.dmg>0){const A=byId[e.a],h=Tricks.heal(e.dmg,A.drunk||0,A.f.hpMax);if(h>0){A.drunk=(A.drunk||0)+h;
@@ -793,12 +853,12 @@ const PlayerCombat=(()=>{
         if(f.act==='attack'&&f.ph&&f.ph[f.pi]&&f.ph[f.pi].k==='release'&&f.pk===0){   // the reappearance
           const sp=B.spot||Tricks.blinkSpot(tg.x,tg.z,tg.face,C.arena);try{WardenVfx.burst(sp.x,H(sp.x,sp.z)+1.2,sp.z,1);WardenVfx.slash(sp.x,H(sp.x,sp.z)+1.2,sp.z,tg.face,true,1);WardenVfx.slash(sp.x,H(sp.x,sp.z)+1.5,sp.z,tg.face+1.1,true,1);sfx('whoosh',.6,.7,()=>tone(200,80,.2,'sawtooth',.1))}catch(x){}
           f.x=sp.x;f.z=sp.z;f.face=Math.atan2(tg.x-sp.x,tg.z-sp.z);f.act='free';f.ph=null;f.mv=null;f.inv=0;f.pt=0;f.pk=0;F.ai.cool=0;F.ai.busy=false;
-          F.ai.follow=F.T.ai==='gdn'?(Math.random()<.55?'snakelash':'sunvolley'):F.T.ai==='samurai'||F.T.ai==='veil'?(F.ai.ph2&&!F.ai.chain&&Math.random()<(F.ai.cov?.95:.55)?(F.ai.chain=1,'blink'):(F.ai.chain=0,F.T.ai==='samurai'&&F.ai.ph3&&Math.random()<.4?'hundred':Math.random()<.7?'iai':'cut')):Math.random()<.45?'twin':'cut';if(F.T.ai!=='gdn'&&F.ai.follow!=='blink'){if(B.vec==='above')F.ai.follow='fall';else if(B.vec!=='behind'&&F.ai.follow==='iai')F.ai.follow=Math.random()<.5?'iai':'cut';F.pre=8}blinkEnd(F)}}
+          F.ai.follow=F.T.ai==='gdn'?(Math.random()<.55?'snakelash':'sunvolley'):F.T.ai==='samurai'||F.T.ai==='veil'?(F.ai.ph2&&!F.ai.chain&&Math.random()<(F.ai.cov?.95:.55)?(F.ai.chain=1,'blink'):(F.ai.chain=0,F.T.ai==='samurai'&&F.ai.ph3&&Math.random()<.4?'hundred':Math.random()<.7?'iai':'cut')):Math.random()<.45?'twin':'cut';if(F.T.id==='dknight'&&zones.length>=3&&zoneConverge(true)){F.ai.follow='finalsentence';F.pre=0}else if(F.T.ai!=='gdn'&&F.ai.follow!=='blink'){if(B.vec==='above')F.ai.follow='fall';else if(B.vec!=='behind'&&F.ai.follow==='iai')F.ai.follow=Math.random()<.5?'iai':'cut';F.pre=8}blinkEnd(F)}}
       if(F.sn){const S_=F.sn;S_.n++;if(f.act!=='attack'||!f.mv||f.mv.id!=='snare'){F.sn=null;continue}
         if(f.ph&&f.ph[f.pi]&&f.ph[f.pi].k==='release'&&f.pk===0){F.sn=null;const tg=C.F[S_.tg]||P,n=Tricks.count(F.ai.ph2,!!(Q&&NET.mode==='host')),seed=(Math.random()*2147483647)|0,cn=++trapN;
           trapsPlace(seed,n,tg.x,tg.z,cn);try{if(NET.mode==='host'&&Q)WardenNet.send({k:'sp',t:'tp',s:site.id,seed,n,x:+tg.x.toFixed(2),z:+tg.z.toFixed(2),c:cn})}catch(x){}}}}}
   function trickTick(dt){
-    trapsTick(dt);
+    trapsTick(dt);try{zoneTick(dt);pierceTick(dt);dsTick(dt)}catch(e){}
     for(const F of foes){if(!F.T.blink)continue;   // what is shown follows the synced sim state (act / move / phase tick), so host and guest agree even when a phone lags
       const bl=F.f.act==='attack'&&F.f.mv&&Tricks.isBlink(F.f.mv.id);
       if(bl&&!F.bl&&NET.mode==='guest'){F.bl={t:0};blinkFx(F)}
@@ -898,7 +958,7 @@ const PlayerCombat=(()=>{
   function shadowStep(){
     if(!on||ult||P.act==='dead'||shCd>0||P.st<20||P.act==='stun'||state!=='fight')return false;
     const d=stickDir()||[-Math.sin(S.rot),-Math.cos(S.rot)],x0=P.x,z0=P.z,fc=S.rot;
-    killDecoy(true);decoy=mkDecoy('Z',x0,z0,fc,sty.shLife);
+    killDecoy(true);decoy=mkDecoy('Z',x0,z0,fc,sty.shLife);try{shadowPiercer()}catch(e){}
     CombatCore.moveBy(C,P,d[0]*2.6,d[1]*2.6);S.x=P.x;S.z=P.z;lx=S.x;lz=S.z;
     ST.input('P',{t:'dodge',e:C.tick,dx:d[0],dz:d[1]},now());P.st-=20;shCd=9*sty.shCd;
     try{WardenVfx.spawn(x0,H(x0,z0)+1,z0,2,4,3,-fc+Math.PI/2,30);WardenVfx.spawn(P.x,H(P.x,P.z)+1,P.z,2,4,3,-fc+Math.PI/2,30);flash(.25,'rgba(120,210,255,.8)');tone(500,1400,.18,'triangle',.1)}catch(e){}
@@ -921,7 +981,7 @@ const PlayerCombat=(()=>{
     if(S.grounded||S.state==='swim')gBase=S.y;P.y=Math.max(0,S.y-gBase);
     decoyTick(decoy,'Z',dt);decoyTick(rdecoy,'Y',dt);
     const b=el&&el.querySelector('#wShadow');if(b){const t=shCd>0?Math.ceil(shCd):0;if(b._c!==t){b._c=t;b.textContent=t?'Shadow '+t:'Shadow';b.classList.toggle('cd',t>0)}}}
-  function leave(hold){pun=null;pcs.n=0;ls=null;try{if(moodEl)moodEl.style.opacity='0'}catch(e){}svEnd();try{WardenFx.clear()}catch(e){}   // hold: keep the corpses of a cleared site in the world
+  function leave(hold){pun=null;pcs.n=0;ls=null;ds=null;try{zonesClear()}catch(e){}try{if(moodEl)moodEl.style.opacity='0'}catch(e){}svEnd();try{WardenFx.clear()}catch(e){}   // hold: keep the corpses of a cleared site in the world
     if(!on)return;endSet();trapsClear();try{blinkRing(0,0,false)}catch(e){}killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');document.body.classList.remove('warden-duel');if(sword&&sword.grip)sword.grip.visible=false;if(sword2&&sword2.grip)sword2.grip.visible=false;pendFace=null;
     if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.combat(0,0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
