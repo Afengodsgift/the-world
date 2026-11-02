@@ -10,7 +10,7 @@
 // Globals used at runtime: S, camera, me, H, THREE, sstep.
 const CameraRig=(()=>{
   const st={fk:0,fkT:0,focus:null,bias:0,biasT:0,sInit:false,sy:0,sp:0,arm:1,dip:{x:0,v:0},view:'tps',shooter:false,zoom:1,zk:1,scopeFps:false,fpsK:0,tpsK:0,ay:0,init:false,px:0,pz:0,vx:0,vz:0,spd:0,hd:0,turn:0,
-            roll:{x:0,v:0},kp:{x:0,v:0},ky:{x:0,v:0},t:0,bob:0,eye:new THREE.Vector3(),eInit:false,prevFps:false,cruise:0,boost:0,fw:0,py:0,vyn:0,prevTps:false,camD:9,shk:1,ship:null,shipK:0,eyeK:0,eyeV:new THREE.Vector3(),pr:null};
+            roll:{x:0,v:0},kp:{x:0,v:0},ky:{x:0,v:0},t:0,bob:0,eye:new THREE.Vector3(),eInit:false,prevFps:false,cruise:0,boost:0,fw:0,py:0,vyn:0,prevTps:false,camD:9,shk:1,cd:0,cdT:0,cf:0,cfT:0,zp:{x:0,v:0},ship:null,shipK:0,eyeK:0,eyeV:new THREE.Vector3(),pr:null};
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),TPS_P=[-.95,1.25];
   const _u=new THREE.Vector3(),_f=new THREE.Vector3(),_p=new THREE.Vector3(),_l=new THREE.Vector3(),_h=new THREE.Vector3(),_a=new THREE.Vector3(),_b=new THREE.Vector3();
   function spring(s,t,dt,w,z){const a=w*w*(t-s.x)-2*z*w*s.v;s.v+=a*dt;s.x+=s.v*dt}
@@ -94,7 +94,8 @@ const CameraRig=(()=>{
      st.prevFps=wantFps;st.prevTps=wantTps}
     st.fpsK+=((wantFps?1:0)-st.fpsK)*(1-Math.exp(-10*dt));
     st.tpsK+=((wantTps?1:0)-st.tpsK)*(1-Math.exp(-8*dt));
-    st.bias+=(st.biasT-st.bias)*(1-Math.exp(-3*dt));                        // extra orbit distance (e.g. aboard a ship)
+    st.bias+=(st.biasT-st.bias)*(1-Math.exp(-3*dt));
+    st.cd+=(st.cdT-st.cd)*(1-Math.exp(-2.6*dt));st.cf+=(st.cfT-st.cf)*(1-Math.exp(-3.2*dt));spring(st.zp,0,dt,16,.55);   // combat camera: smooth distance / FOV offsets for the move being fought, and a fast spring for micro-zooms                        // extra orbit distance (e.g. aboard a ship)
     spring(st.kp,0,dt,18,.5);spring(st.ky,0,dt,18,.5);                    // recoil kick recovers by itself
 
     // ---- view direction (what the player is looking along) ----
@@ -116,7 +117,7 @@ const CameraRig=(()=>{
     const dGround=9+2.4*st.boost-4.9*st.tpsK+5*dk;
     const bvw=typeof Boost!=='undefined'?Boost.view:{charge:0,burst:0};                                   // charged boost: move in while charging, pull back on the burst
     const dFly=Math.max(2.6,4.6+1.0*st.boost+1.0*dk-(el>0?1.2*el/1.2:.6*el/1.2)-1.1*bvw.charge+1.4*bvw.burst);       // 3.4 m looking straight up .. 5.2 m looking down at the world (walking is 9 m)
-    const d=dGround+(dFly-dGround)*fe+st.bias*(1-st.fpsK);
+    const d=dGround+(dFly-dGround)*fe+(st.bias+st.cd)*(1-st.fpsK);
     // ship camera (Ship.js feeds setShip): a long, high boom swung around the vessel instead of the avatar: aboard it widens the view a lot, at the helm it frames the whole ship + the sea ahead
     st.shipK+=(((st.ship&&!st.shooter)?1:0)-st.shipK)*(1-Math.exp(-2.6*dt));const sk=st.shipK,sh0=st.ship||{x:S.x,y:S.y,z:S.z,d:d,pk:0};
     const dd=d+(sh0.d-d)*sk,mix=sk*sh0.pk;
@@ -168,6 +169,7 @@ const CameraRig=(()=>{
     const gf=clamp((st.spd-5.5)/7,0,1);                                   // ground sprint: a touch wider
     st.zk+=(st.zoom-st.zk)*(1-Math.exp(-11*dt));   // scope zoom eases in/out
     let tf=(fly?Math.min(90,66+10*st.cruise+13*st.boost*(1-.6*dk)+4*dk+7*(typeof Boost!=='undefined'?Boost.view.burst:0)-4*(typeof Boost!=='undefined'?Boost.view.charge:0)):(S.gboost>0?80:65+4.5*gf))-4*st.fpsK+3*st.tpsK+5*st.shipK;   // combat camera is a touch wider; the ship camera wider still
+    tf+=(st.cf+st.zp.x)*(1-st.fpsK);
     if(st.zk>1.002)tf=Scope.fov(tf,st.zk);
     if(Math.abs(camera.fov-tf)>.05){camera.fov+=(tf-camera.fov)*Math.min(1,dt*((st.zk>1.002||st.zoom>1)?12:4.5));camera.updateProjectionMatrix()}
   }
@@ -180,6 +182,9 @@ const CameraRig=(()=>{
     setFocus(f){if(f){st.focus=f;st.fkT=f.k}else st.fkT=0},
     setShooter(b){st.shooter=!!b},                      // a weapon is out: use the shooter view (fps or tps)
     setBias(m){st.biasT=m||0},
+    combat(d,f){st.cdT=d||0;st.cfT=f||0},                                  // fight camera offsets: metres further back, degrees wider (eased); (0,0) = normal
+    pulse(f){st.zp.v+=(f||0)*16},                                           // a brief FOV impulse that springs back: negative = micro-zoom in (perfect parry), positive = a flinch wider
+
     setShip(o){st.ship=o||null},                            // {x,y,z,d,pk}: swing the orbit camera around a ship (pivot blend pk 0..1, boom length d); null = back to the avatar
     shipK:()=>st.shipK,                          // pull the orbit camera back by m metres (smoothly), e.g. when aboard a ship
     setZoom(z,fps){st.zoom=Math.max(1,z||1);st.scopeFps=!!fps&&st.zoom>1},   // scope: zoom factor, and force first person for the sniper lens view
