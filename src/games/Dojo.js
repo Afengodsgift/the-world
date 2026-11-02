@@ -180,7 +180,7 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
     newPlayer();mkFoes();cs.init=false;cs.off=0;
     q('.res').classList.remove('on');el.classList.add('on');document.body.classList.add('dojo-fight');goBtn.style.display='none';stBar.style.display='none';try{Expedition.hold('dojo')}catch(e){}
     paintBelt();say('ROUND 1',1.4,'#ffd070');tone(300,600,.25,'sawtooth',.1);sfx('vo_fight',.8,1)}
-  let warmed=false;
+  const pLay={};let warmed=false;
   function warm(){if(warmed)return;warmed=true;try{WardenMX.fetch('player_dojo',me.userData.av).catch(()=>{});for(const l of ['j','g']){AvatarKit.preload(l).catch(()=>{});WardenMX.fetch('player_dojo',l).catch(()=>{})}if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});if(typeof WardenSfx!=='undefined')WardenSfx.load()}catch(e){}}
   const foeReady=F=>!!F.body.u.model&&(F.body.u.av===F.body.look||F.fb);
   function newPlayer(){const st=PS();P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:st.hp,team:'p',fs:1,dm:st.dm});P.fs=1;P.dm=st.dm;P.hpMax=st.hp;P.hp=st.hp;P.sm=.9;const sy=DojoData.styles[SAVE.style]||DojoData.styles.striker;P.mm=sy.mm;P.pm=1.05*sy.pm;P.dfl=sy.dfl;P.dm0=st.dm;if(sy.hp){P.hpMax+=sy.hp;P.hp=P.hpMax}dropStaff(true);
@@ -285,6 +285,17 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
     for(const F of foes)foeTick(F,dt,fr);
     hud(dt);
   }
+  // ---------- procedural body layer: on top of the clips, the spine twists and leans INTO each strike (hips drive, shoulders follow), kicks into a lean-back, flinches recoil. Applied after the mixer each frame (the mixer rewrites the pose every frame, so nothing accumulates). ----------
+  const QA=new THREE.Quaternion(),QB=new THREE.Quaternion(),AXY=new THREE.Vector3(0,1,0),AXX=new THREE.Vector3(1,0,0),AXZ=new THREE.Vector3(0,0,1);
+  function bodyLayer(v,u,f,dt){if(!u||!u.bones||!f)return;const bn=u.bones;let tw=0,ln=0,rc=0;
+    if(f.act==='attack'&&f.ph&&f.ph[f.pi]){const ph=f.ph[f.pi],n=ph.n||1,p=Math.min(1,(f.pk+1)/n),id=f.mv&&f.mv.id||'',kick=/round|spin|knee|push|drop/.test(id),side=(/jab|upper|knee|push/.test(id)?1:-1)*(v.sd||1);
+      const w=ph.k==='startup'?-.35*p:ph.k==='active'?-.35+1.35*p:1-p*.9;   // wind back, then drive through, then settle
+      if(kick){ln=-.22*(ph.k==='startup'?p:1-p*.5)}else{tw=side*.34*w;ln=.14*Math.max(0,w)}}
+    else if(f.act==='stun'){rc=f.sk==='stagger'?.3:.16;ln=-rc}
+    else if(f.act==='free'&&!f.guard&&v.fl)ln=0;
+    const k=1-Math.exp(-dt*(f.act==='attack'?22:10));v.tw=(v.tw||0)+(tw-(v.tw||0))*k;v.ln=(v.ln||0)+(ln-(v.ln||0))*k;if(f.act==='attack'&&f.pi===0&&f.pk===0)v.sd=-(v.sd||1);
+    const put=(name,wt)=>{const b=bn[name];if(!b)return;QA.setFromAxisAngle(AXY,v.tw*wt);QB.setFromAxisAngle(AXX,v.ln*wt);b.quaternion.multiply(QA).multiply(QB)};
+    put('Spine',.35);put('Chest',.4);put('UpperChest',.25)}
   function foeTick(F,dt,fr){const b=F.body,f=F.f,g=b.g;g.position.set(f.x,H(f.x,f.z),f.z);
     if(f.act==='attack'||f.act==='stun'||f.act==='dead')g.rotation.y=f.face;else g.rotation.y+=wrap(f.face-g.rotation.y)*(1-Math.exp(-12*dt));
     const ready=foeReady(F);g.visible=ready;if(!ready)return;
@@ -307,6 +318,7 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
     const lk=q('.Lk');lk.textContent='Lock'}
   // ---------- the fight camera ----------
   function cam(dt){
+    if(fighting&&P){bodyLayer(pLay,me.userData,P,dt);for(const F of foes)if(F.body.g.visible)bodyLayer(F.body.lay||(F.body.lay={}),F.body.u,F.f,dt)}   // after the frame's animate() calls, just before render
     if(!fighting||!P)return;
     const T=target(),tx=T?T.f.x:S.x+Math.sin(S.rot)*4,tz=T?T.f.z:S.z+Math.cos(S.rot)*4,d=Math.hypot(tx-S.x,tz-S.z),n=alive().length;
     // the camera sits behind you on the line from the foe, a little over your shoulder; dragging swings it round and it drifts back
