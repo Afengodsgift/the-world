@@ -32,3 +32,19 @@ for(const[kid,foe]of[['samurai','samurai'],['dknight','gwyn']]){
   // 4) stillness never starts while an ally holds the boss token or during the Last Sovereign
   const L=DuelistAI.create(3,{foe,kid,intro:0});L.on=true;L.ph3=true;L.stl=0;L.sigLock=true;const D2=mkD(),P2=mkP(3.6);let st=0;for(let t=0;t<1500;t++){DuelistAI.think(L,P2,D2,[],t);if(L.still>0)st++}ok(st===0,kid+': no stillness while sigLock')}
 console.log(n+' checks')
+// DYNAMIC BLINK: vectors, spots, hang variants
+{const T=(()=>{const c={console,Math};vm.createContext(c);vm.runInContext(fs.readFileSync('src/combat/Tricks.js','utf8')+';this.Tricks=Tricks;',c);return c.Tricks})();
+ const M=(()=>{const c={console,Math,window:{}};vm.createContext(c);return null})();
+ let k=0;const ok2=(c,m)=>{if(!c){console.log('FAIL '+m);process.exitCode=1}else k++};
+ const arena={x:0,z:0,R:12};
+ const b=T.blinkSpotV('behind',0,0,0,arena,1),f=T.blinkSpotV('front',0,0,0,arena,1),s1=T.blinkSpotV('side',0,0,0,arena,1),s2=T.blinkSpotV('side',0,0,0,arena,-1),a=T.blinkSpotV('above',3,2,0,arena,1);
+ ok2(b.z<0&&f.z>0,'behind is at -z, front at +z for a player facing +z');ok2(s1.x>0&&s2.x<0,'side picks either flank');ok2(a.x===3&&a.z===2,'above lands on the marked spot');
+ const edge=T.blinkSpotV('front',10.5,0,Math.PI/2,arena,1);ok2(Math.hypot(edge.x,edge.z)<=11+1e-9,'never lands outside the arena');
+ let seen={};let r=(()=>{let x=7;return()=>(x=(x*16807)%2147483647)/2147483647})();for(let i=0;i<4000;i++){const v=T.blinkVec(r,i%2===0);seen[v]=(seen[v]||0)+1}
+ ok2(['behind','side','front','above'].every(v=>seen[v]>200),'all four vectors occur ('+JSON.stringify(seen)+')');
+ ok2(T.isBlink('blink')&&T.isBlink('blinkm')&&T.isBlink('blinkl')&&!T.isBlink('blade'),'variant ids are recognised');
+ // AI: Kage and the Dark Knight use all three hang variants over a long fight
+ for(const[kid,foe]of[['samurai','samurai'],['dknight','gwyn']]){const cnt={};for(let sd=1;sd<=25;sd++){const A=DuelistAI.create(sd*53,{foe,kid,intro:0});A.on=true;A.ph2=A.ph3=true;const D=mkD(),P=mkP(6);
+   for(let t=0;t<3000;t++){if(D.act==='attack'&&t%50===0)D.act='free';const o=DuelistAI.think(A,P,D,[],t);for(const c of o.list)if(c.t==='atk'){D.act='attack';cnt[c.m]=(cnt[c.m]||0)+1}}}
+   ok2((cnt.blink||0)>0&&(cnt.blinkm||0)>0&&(cnt.blinkl||0)>0,kid+' blinks on the instant / medium / long schedule '+JSON.stringify({a:cnt.blink,b:cnt.blinkm,c:cnt.blinkl}));ok2((cnt.blinkl||0)<(cnt.blinkm||0),kid+': the long hang is the rare one')}
+ console.log(k+' blink checks')}

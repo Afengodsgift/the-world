@@ -128,7 +128,7 @@ const CameraRig=(()=>{
     const ay=st.ay+1.6+.4*st.tpsK;
     _p.set(S.x+lx-_f.x*d+shx,ay-_f.y*d,S.z+lz-_f.z*d+shz);
     _l.set(S.x+shx,st.ay+1.4+.2*st.tpsK+st.dip.x*.6,S.z+shz);
-    if(st.fk>.001){_l.x+=(st.focus.x-S.x)*st.fk;_l.z+=(st.focus.z-S.z)*st.fk}   // fight focus: aim a little toward the opponent
+    if(st.fk>.001){_l.x+=(st.focus.x-S.x)*st.fk;_l.z+=(st.focus.z-S.z)*st.fk;_l.y+=(st.focus.y||0)*st.fk}   // fight focus: aim a little toward the opponent
     if(sk>.001){const qx=(sh0.x-S.x)*mix,qz=(sh0.z-S.z)*mix,qy=(sh0.y-st.ay)*mix;_l.x+=qx;_l.z+=qz;_l.y+=qy;_p.x+=qx-_f.x*(dd-d);_p.z+=qz-_f.z*(dd-d);_p.y+=qy-_f.y*(dd-d)+(sh0.lift===undefined?3:sh0.lift)*sk}   // pivot toward the ship, boom longer, a little higher
     if(fe>.001){
       if(sp3>.5){const kk=-lag*fe/sp3;_p.x+=st.vx*kk;_p.y+=st.vyn*kk;_p.z+=st.vz*kk}               // flight trail along the 3D velocity

@@ -12,3 +12,12 @@ Golden rule: **the camera never makes a difficult attack harder to read.** It he
 
 ## Not built yet
 Separate exploration / close-combat (grapple) cameras, wall-obstruction fade of scenery, threat-weighted framing with several enemies, vertical-combat pitch, camera-sensitivity / distance / invert UI, finishers and per-boss phase-transition cinematics (Gwyn kneeling), skippable intro for every boss.
+
+## Dynamic action camera additions
+- Lock-on now also frames a weighted midpoint (look-at leans 12-30% toward the boss, more as he gets further away) so you and the boss stay in frame; tall bosses lift the look-at (pitch bias).
+- Dodge flares the FOV a few degrees (springs back); collision pull-in (armFree) and shoulder offset were already in.
+
+## Dynamic Blink (Kage, Dark Knight, Vael, veil-class blinkers)
+- Arrival vector random per blink: behind / side / front / above (lands ON the marked spot, then an overhead). Ring lock >= 20 ticks before arrival, as always.
+- Hang time by move id: `blink` instant (26-tick windup), `blinkm` ~2 s, `blinkl` ~4 s (phase 3 / Mastery only, rare). Shadow particles swirl around you during the long hang.
+- On arrival: smoke burst + a crossed pair of rift slashes; the follow-up strike has 8 ticks of its windup already played (never below 18 ticks left).
