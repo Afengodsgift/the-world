@@ -172,7 +172,7 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
   function rnd(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}
   // ---------- fight lifecycle ----------
   function start(){
-    if(fighting||!built)return;domBuild();try{WardenMX.fetch('player_dojo',me.userData.av).catch(()=>{});for(const l of ['j','g']){AvatarKit.preload(l).catch(()=>{});WardenMX.fetch('player_dojo',l).catch(()=>{})}if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});if(typeof WardenSfx!=='undefined')WardenSfx.load()}catch(e){}
+    if(fighting||!built)return;domBuild();warm();
     if(!sparks.length)sparkBuild();
     fighting=true;seed=(Date.now()&0x7fffffff)|1;round=0;sessKills=0;combo=0;best=0;state='intro';stateT=0;
     C=CombatCore.create({arena:{x:CX(),z:CZ(),R:RING-.8},solids:[]});ST=CombatCore.stepper(C,6);vt=0;tsc=1;
@@ -180,6 +180,9 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
     newPlayer();mkFoes();cs.init=false;cs.off=0;
     q('.res').classList.remove('on');el.classList.add('on');document.body.classList.add('dojo-fight');goBtn.style.display='none';stBar.style.display='none';try{Expedition.hold('dojo')}catch(e){}
     paintBelt();say('ROUND 1',1.4,'#ffd070');tone(300,600,.25,'sawtooth',.1);sfx('vo_fight',.8,1)}
+  let warmed=false;
+  function warm(){if(warmed)return;warmed=true;try{WardenMX.fetch('player_dojo',me.userData.av).catch(()=>{});for(const l of ['j','g']){AvatarKit.preload(l).catch(()=>{});WardenMX.fetch('player_dojo',l).catch(()=>{})}if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});if(typeof WardenSfx!=='undefined')WardenSfx.load()}catch(e){}}
+  const foeReady=F=>!!F.body.u.model&&(F.body.u.av===F.body.look||F.fb);
   function newPlayer(){const st=PS();P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:st.hp,team:'p',fs:1,dm:st.dm});P.fs=1;P.dm=st.dm;P.hpMax=st.hp;P.hp=st.hp;P.sm=.9;const sy=DojoData.styles[SAVE.style]||DojoData.styles.striker;P.mm=sy.mm;P.pm=1.05*sy.pm;P.dfl=sy.dfl;P.dm0=st.dm;if(sy.hp){P.hpMax+=sy.hp;P.hp=P.hpMax}dropStaff(true);
     if(!pAnim&&me.userData.mixer)pAnim=WardenMX.make(me.userData,'player_dojo')}
   function leave(manual){
@@ -240,6 +243,7 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
     const d=Math.hypot(S.x-CX(),S.z-CZ());
     if(d>DOJO.reach+160){if(fighting)leave(false);if(goBtn)goBtn.style.display='none';if(stBar)stBar.style.display='none';return}
     if(!el)domBuild();
+    if(d<RING+140)warm();
     near=!fighting&&d<RING+3&&!S.flying&&S.grounded!==false;
     if(stBar)stBar.style.display=near?'flex':'none';
     if(goBtn){goBtn.style.display=near?'block':'none';if(near&&!goBtn._t){goBtn._t=1;goBtn.innerHTML='\u{1F94B} FIGHT<small>Iron Fist trial · '+DojoData.belts[belt()].n+' belt · best round '+SAVE.best+'</small>'}}
@@ -252,7 +256,8 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
     // the sim clock (slow-motion on big moments)
     if(tscT>0){tscT-=dt;if(tscT<=0)tsc=1}
     vt+=dt*1000*tsc;stateT+=dt;
-    if(state==='intro'&&stateT>1.6){state='fight';for(const F of foes)F.ai.rdy=Math.max(F.ai.rdy,20)}
+    if(state==='intro'&&stateT>1.6&&!foes.every(foeReady)){if(stateT>22){for(const F of foes)if(!foeReady(F)){F.fb=true;dress(F.body.g,0,null)}}else{hint('LOADING FIGHTERS...',.5)}}
+    else if(state==='intro'&&stateT>1.6){state='fight';for(const F of foes)F.ai.rdy=Math.max(F.ai.rdy,20)}
     if(state==='clear'&&stateT>2.6&&P.act!=='dead')nextRound();
     // 1) the sim: the player's body is where the world put it; foes think
     P.x=S.x;P.z=S.z;
@@ -282,7 +287,7 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
   }
   function foeTick(F,dt,fr){const b=F.body,f=F.f,g=b.g;g.position.set(f.x,H(f.x,f.z),f.z);
     if(f.act==='attack'||f.act==='stun'||f.act==='dead')g.rotation.y=f.face;else g.rotation.y+=wrap(f.face-g.rotation.y)*(1-Math.exp(-12*dt));
-    const ready=b.u.av===b.look&&!!b.u.model;g.visible=ready;if(!ready)return;
+    const ready=foeReady(F);g.visible=ready;if(!ready)return;
     if(!b.anim&&b.u.mixer)b.anim=WardenMX.make(b.u,'player_dojo');style(b,F.T);
     if(F.armed&&!F.prop)F.prop=holdStaff(b.u,F.T.scale,2.0);
     locoOf(b.loco,f.x,f.z,g.rotation.y,dt);const moving=b.loco.sp>.6&&f.act==='free';
