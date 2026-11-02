@@ -124,14 +124,19 @@ const CombatCore=(()=>{
       else if(o.k==='block'){t.st=mv.gb?0:Math.max(0,t.st-mv.dmg*.8*sc);t.sr=0;addPo(C,t,mv.pdmg*.7*sc);emit(C,'block',a.id,t.id,{seg:o.seg});hs=Math.max(hs,3);
         if(t.st<=0&&t.act==='free'){stunF(t,45,'stagger');emit(C,'guardbreak',a.id,t.id)}}
       else if(t.inv>0){emit(C,'immune',a.id,t.id,{seg:o.seg})}   // the phase roar: nothing lands (a few ticks, see below)
-      else{const crit=stag0[t.id]?2.5:1,back=a.bk&&SwordHit.angd(t.face,Math.atan2(a.x-t.x,a.z-t.z))>2.2?1+a.bk:1,dm=mv.dmg*sc*(!o.fx&&mv.sdm&&mv.sdm[o.seg]||1)*crit*back*(a.dm||1);   // a.bk: the Shadow Edge style hits a foe that is facing away harder
+      else{const crit=stag0[t.id]?2.5:1,back=a.bk&&SwordHit.angd(t.face,Math.atan2(a.x-t.x,a.z-t.z))>2.2?1+a.bk:1,dm=mv.dmg*sc*(!o.fx&&mv.sdm&&mv.sdm[o.seg]||1)*crit*back*(a.dm||1)*(a.mm&&a.mm[mv.id]||1);   // a.mm: per-move damage multipliers (the Iron Fist fighting styles)   // a.bk: the Shadow Edge style hits a foe that is facing away harder
         // PHASE GATE (bosses with .pg): damage that would carry the foe across its phase line, or kill it before the phase has happened, stops one point past the line and starts the roar. One-shots, huge crits and two co-op hits in the same tick can no longer skip a phase.
         const gate=t.pg>0?Math.ceil(t.hpMax*t.pg)-1:-1;let nh=t.hp-dm;
         if(gate>=0&&!t.pgd){if(t.hp<=gate)t.pgd=true;else if(nh<=gate){nh=gate;t.pgd=true;if(t.rise){t.inv=RISE+10;stunF(t,RISE,'rise');t.hold=0}else t.inv=PHI;emit(C,'phase',a.id,t.id,{rise:t.rise?1:0})}}
         t.hp=Math.max(0,nh);t.pr=0;emit(C,'hit',a.id,t.id,{move:mv.id,seg:o.seg,dmg:dm,crit:crit>1,fx:o.fx});hs=Math.max(hs,mv.hs);
         if(t.hp<=0){t.act='dead';t.guard=false;t.ph=null;t.mv=null;emit(C,'dead',a.id,t.id)}
         else{const wasStag=t.act==='stun'&&t.sk==='stagger';if(!wasStag&&!t.sa&&!(t.act==='stun'&&t.sk==='rise'))stunF(t,mv.stun,'hit');addPo(C,t,mv.pdmg*sc*(t.sa?.8:1)*(a.pm||1));
-          if(!t.sa){const bx=Math.sin(o.br+Math.PI),bz=Math.cos(o.br+Math.PI);t.kx=-bx;t.kz=-bz;t.kr=mv.kb*sc}}}}
+          if(!t.sa){const bx=Math.sin(o.br+Math.PI),bz=Math.cos(o.br+Math.PI);t.kx=-bx;t.kz=-bz;t.kr=mv.kb*sc}
+          // THROWN INTO THE SCENERY (hand moves only): a body that is thrown / shoved / dropped smashes into whoever stands behind it, and into the ring's rope
+          if(a.fs&&!o.fx&&(mv.id==='throw'||mv.id==='push'||mv.id==='drop'||mv.id==='take')){const kx=Math.sin(o.br+Math.PI),kz=Math.cos(o.br+Math.PI),fly=1.2+mv.kb;
+            for(const uid of C.order){const u=C.F[uid];if(u===a||u===t||u.act==='dead'||(a.team&&u.team===a.team))continue;const rx=u.x-t.x,rz=u.z-t.z,al=rx*kx+rz*kz,pe=Math.abs(rx*kz-rz*kx);
+              if(al>0&&al<fly+1&&pe<1.1){const cd=mv.dmg*.55*(a.dm||1);u.hp=Math.max(0,u.hp-cd);emit(C,'collide',a.id,u.id,{by:t.id,dmg:cd});if(u.hp<=0){u.act='dead';u.guard=false;u.ph=null;u.mv=null;emit(C,'dead',a.id,u.id)}else{stunF(u,34,'hit');addPo(C,u,mv.pdmg*.5);u.kx=kx;u.kz=kz;u.kr=mv.kb*.7}}}
+            const A=C.arena;if(A&&t.act!=='dead'){const ex=t.x+kx*fly-A.x,ez=t.z+kz*fly-A.z;if(Math.hypot(ex,ez)>A.R-.6){const sd=mv.dmg*.4*(a.dm||1);t.hp=Math.max(0,t.hp-sd);emit(C,'slam',a.id,t.id,{dmg:sd,x:t.x+kx*fly,z:t.z+kz*fly});addPo(C,t,mv.pdmg*.5);if(t.hp<=0){t.act='dead';t.guard=false;t.ph=null;t.mv=null;emit(C,'dead',a.id,t.id)}}}}}}}
     if(hs>0)C.hs=hs;
     // (6) advance counters (not reached during hit-stop)
     for(const id of C.order){const f=C.F[id];if(f.act==='dead')continue;

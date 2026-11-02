@@ -49,4 +49,13 @@ for(const n of Object.keys(D.foes)){const s=fight([n],{ticks:2400,player:'idle'}
 // ---- habit reading ----
 {const C=CC.create({arena:{x:0,z:0,R:14}});C.add('P',{x:0,z:1.6,face:Math.PI,team:'p',fs:1});const f=C.add('D',{x:0,z:0,face:0,team:'e',fs:1,hp:300});const B=AI.create(4,D.foes.tech.ai,{intro:0});let r=0;
   for(let i=0;i<8;i++){AI.noticeStart(B,{a:'P',move:'jab'},C,f);if(B.react){r++;B.react=null}}ok(r>=2,'repeating the same quick move 8 times makes the Technician start reacting ('+r+')')}
+// ---- styles, thrown-into-scenery, weapons ----
+ok(D.styleOrder.length===4&&D.styleOrder.every(k=>D.styles[k].mm&&D.styles[k].n),'four fighting styles with per-move multipliers');
+ok(D.foes.staff&&D.foes.staff.weapon==='bo'&&D.rounds.some(r=>r.includes('staff')),'a weapon fighter (staff) exists and appears in the rounds');
+{const run=mm=>{const C=CC.create({arena:{x:0,z:0,R:14}}),P=C.add('P',{x:0,z:0,face:0,team:'p',fs:1,hp:200}),T=C.add('D',{x:0,z:1.5,face:Math.PI,team:'e',fs:1,hp:300});if(mm)P.mm=mm;C.start('P','jab');let dm=0;for(let t=0;t<40;t++){for(const e of C.step({}))if(e.t==='hit'&&e.a==='P')dm+=e.dmg}return dm};
+  const a=run(null),b=run({jab:1.5});ok(a>0&&Math.abs(b/a-1.5)<.01,'a style move multiplier scales damage ('+a.toFixed(1)+' -> '+b.toFixed(1)+')')}
+{const C=CC.create({arena:{x:0,z:0,R:14}}),P=C.add('P',{x:0,z:0,face:0,team:'p',fs:1,hp:200}),T=C.add('D',{x:0,z:1.5,face:Math.PI,team:'e',fs:1,hp:300}),U=C.add('E',{x:0,z:3.2,face:Math.PI,team:'e',fs:1,hp:300});C.start('P','push');let col=0;for(let t=0;t<60;t++)for(const e of C.step({}))if(e.t==='collide')col++;
+  ok(col===1&&U.hp<300,'a shoved fighter smashes into the one behind it ('+col+', hp '+U.hp.toFixed(0)+')')}
+{const C=CC.create({arena:{x:0,z:0,R:3}}),P=C.add('P',{x:0,z:1,face:0,team:'p',fs:1,hp:200}),T=C.add('D',{x:0,z:2.4,face:Math.PI,team:'e',fs:1,hp:300});C.start('P','push');let sl=0;for(let t=0;t<60;t++)for(const e of C.step({}))if(e.t==='slam')sl++;
+  ok(sl===1,'a shove into the ring rope is a ring-out slam')}
 console.log(bad?'FAILED '+bad:'ALL OK');process.exit(bad?1:0);

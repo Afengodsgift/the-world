@@ -8,7 +8,7 @@ const Dojo=(()=>{
   let built=false,G=null,el=null,fighting=false,C=null,ST=null,P=null,foes=[],byId={},pool=[],pAnim=null,vt=0,tsc=1,tscT=0,state='idle',stateT=0,round=0,roundCleared=0,sessKills=0;
   let combo=0,comboT=0,best=0,lastEv=[],hurtT=0,flashT=0,sparks=[],mats={},down={heavy:false,guard:false},ptr={},pv={x:0,z:0,vf:0,vs:0,sp:0,init:false},seed=1,near=false,msgT=0,hintT=0,tsFix=0;
   const cs={yaw:0,off:0,dragT:0,last:0,init:false,shk:0,fk:0,fov:54};
-  const SAVE=(()=>{let j={};try{j=JSON.parse(localStorage.getItem('dojo')||'{}')}catch(e){}return Object.assign({cleared:0,best:0,wins:0,rounds:0},j)})();
+  const SAVE=(()=>{let j={};try{j=JSON.parse(localStorage.getItem('dojo')||'{}')}catch(e){}return Object.assign({cleared:0,best:0,wins:0,rounds:0,style:'striker'},j)})();
   const save=()=>{try{localStorage.setItem('dojo',JSON.stringify(SAVE))}catch(e){}};
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),wrap=a=>Math.atan2(Math.sin(a),Math.cos(a)),now=()=>vt;
   const belt=()=>DojoData.belt(SAVE.cleared),PS=()=>DojoData.player(belt());
@@ -101,6 +101,7 @@ const Dojo=(()=>{
 #dj .card{background:rgba(24,18,26,.94);border:2px solid #ffd070;border-radius:16px;padding:18px 22px;text-align:center;max-width:300px}#dj .card h2{margin:0 0 6px;font-size:22px;letter-spacing:.08em}#dj .card p{margin:4px 0 12px;font-size:13px;opacity:.9;white-space:pre-line}
 #dj .card button{margin:4px;padding:10px 18px;border-radius:10px;border:0;background:#ffd070;color:#201;font-weight:800;font-size:14px}#dj .card button.s{background:#555;color:#fff}
 body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo-fight #banner{display:none!important}
+#djst{position:fixed;left:50%;bottom:calc(22% + 78px);transform:translateX(-50%);z-index:47;display:none;flex-wrap:wrap;justify-content:center;gap:6px;max-width:92vw;pointer-events:auto}#djst button{width:auto;min-width:0;margin:0;padding:6px 10px;border-radius:10px;border:1.5px solid rgba(255,208,112,.5);background:rgba(30,20,20,.78);color:#fff;font:700 12px system-ui;display:flex;gap:4px;align-items:center}#djst button.on{background:#ffd070;color:#201;border-color:#ffd070}#djst i{flex-basis:100%;text-align:center;font:600 11px system-ui;color:#fff;font-style:normal;text-shadow:0 1px 3px #000}
 #djgo{position:fixed;left:50%;bottom:22%;transform:translateX(-50%);z-index:47;display:none;padding:14px 30px;border-radius:14px;border:2px solid #ffd070;background:rgba(40,16,16,.82);color:#ffd070;font:900 20px system-ui;letter-spacing:.14em;pointer-events:auto;text-align:center}#djgo small{display:block;font-size:11px;letter-spacing:.1em;color:#fff;font-weight:600;margin-top:2px}
 `;document.head.appendChild(s)}
   function domBuild(){
@@ -115,8 +116,12 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
       b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('lostpointercapture',up);b.addEventListener('contextmenu',e=>e.preventDefault())}
     goBtn=document.createElement('button');goBtn.id='djgo';document.body.appendChild(goBtn);
     goBtn.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();start()});
+    stBar=document.createElement('div');stBar.id='djst';document.body.appendChild(stBar);
+    for(const k of DojoData.styleOrder){const S0=DojoData.styles[k],b=document.createElement('button');b.dataset.k=k;b.innerHTML=S0.ic+'<span>'+S0.n+'</span>';b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();SAVE.style=k;save();paintStyle()});stBar.appendChild(b)}
+    paintStyle();
     addEventListener('keydown',onKey,true);addEventListener('keyup',onKey,true);addEventListener('blur',releaseAll)}
-  let goBtn=null;
+  let goBtn=null,stBar=null;
+  function paintStyle(){if(!stBar)return;for(const b of stBar.children)b.classList.toggle('on',b.dataset.k===SAVE.style);const t=stBar.querySelector('i')||stBar.appendChild(document.createElement('i'));t.textContent=DojoData.styles[SAVE.style].tip}
   const q=s=>el.querySelector(s);
   function say(t,sec,col){const m=q('.msg');m.textContent=t;m.style.color=col||'#fff';m.style.opacity=1;msgT=sec||1.1}
   function hint(t,sec){const h=q('.hint');h.textContent=t;h.style.opacity=t?1:0;hintT=sec||1.2}
@@ -151,16 +156,18 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
   const TINT=new THREE.Color();
   function body(i){let b=pool[i];if(b){b.g.visible=true;return b}
     const g=makeAvatar('Fighter','#3a2a2a');for(const c of g.children.slice())if(c.isSprite)g.remove(c);scene.add(g);b={g,u:g.userData,anim:null,styled:null,flash:0,flashOn:false,loco:{x:0,z:0,vf:0,vs:0,sp:0,init:false}};pool[i]=b;return b}
+  // dress a body in a real character; never falls back to the chibi (that is what the capsule stand-in was). A superseded request (the look changed again) is simply dropped, a failed load retries.
+  function wear(b,look,n){AvatarKit.apply(b.g,{b:look}).then(ok=>{if(!ok&&b.look===look&&b.u.av!==look&&(n||0)<4)setTimeout(()=>{if(b.look===look&&b.u.av!==look)wear(b,look,(n||0)+1)},2500)}).catch(()=>{})}
   function style(b,T){if(b.styled===T.id||!b.u.model||b.u.av!==b.look)return;b.styled=T.id;const t=T.tint;b.u.model.traverse(c=>{if(c.isSkinnedMesh&&c.material&&c.material.color){if(!c.material.userData.c0)c.material.userData.c0=c.material.color.clone();c.material.color.copy(c.material.userData.c0).multiply(TINT.setRGB(t[0],t[1],t[2]))}})}
   function mkFoes(){
-    for(const F of foes){F.body.g.visible=false;if(F.body.anim)F.body.anim.off()}foes=[];byId={};
+    for(const F of foes){if(F.prop&&F.prop.parent)F.prop.parent.remove(F.prop);F.body.g.visible=false;if(F.body.anim)F.body.anim.off()}foes=[];byId={};
     const names=DojoData.lineup(round,rnd),sc=DojoData.scale(round),ids='DEFGH';
     names.forEach((n,i)=>{const T=Object.assign({id:n},DojoData.foes[n]),id=ids[i],a=(i-(names.length-1)/2)*.9,ang=Math.PI+a,x=CX()+Math.sin(ang)*5.5,z=CZ()+Math.cos(ang)*5.5;
       const f=C.F[id]=CombatCore.mkFighter(id,{x,z,face:Math.atan2(CX()-x,CZ()-z),hp:Math.round(T.hp*sc.hp),team:'e',fs:1,dm:T.dm*sc.dm,rm:T.scale>1.1?1.15:1,tm:1});
-      f.r=.42*T.scale;f.spd=T.spd;f.rise=0;if(T.boss){f.pg=0}if(!C.order.includes(id))C.order.push(id);
-      const b=body(i);if(b.look!==T.look){b.look=T.look;if(b.anim){b.anim.off();b.anim=null}if(b.u.mixer&&typeof emoStop==='function')emoStop(b.u);dress(b.g,0,{b:T.look})}   // the REAL character (never the stand-in capsule: the body stays hidden until the model has loaded)
+      f.r=.42*T.scale;f.spd=T.spd;if(T.weapon)f.rm=1.4;f.rise=0;if(T.boss){f.pg=0}if(!C.order.includes(id))C.order.push(id);
+      const b=body(i);if(b.look!==T.look){b.look=T.look;if(b.anim){b.anim.off();b.anim=null}if(b.u.mixer&&typeof emoStop==='function')emoStop(b.u);wear(b,T.look)}   // the REAL character (never the stand-in capsule: the body stays hidden until the model has loaded)
       b.g.scale.setScalar(T.scale);b.g.position.set(f.x,H(f.x,f.z),f.z);b.g.rotation.y=f.face;if(b.u.mixer&&typeof emoStop==='function')emoStop(b.u);b.styled=null;
-      const F={i,id,T,f,body:b,ai:DojoAI.create(seed*131+i*977+round*31,T.ai,{intro:50+i*22}),flash:0};foes.push(F);byId[id]=F});
+      const F={i,id,T,f,body:b,armed:!!T.weapon,prop:null,ai:DojoAI.create(seed*131+i*977+round*31,T.ai,{intro:50+i*22}),flash:0};foes.push(F);byId[id]=F});
     lockI=0;if(foes[0])lockI=0}
   function rnd(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}
   // ---------- fight lifecycle ----------
@@ -171,12 +178,12 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
     C=CombatCore.create({arena:{x:CX(),z:CZ(),R:RING-.8},solids:[]});ST=CombatCore.stepper(C,6);vt=0;tsc=1;
     S.x=CX();S.z=CZ()+4.5;S.rot=Math.PI;S.grounded=true;S.vy=0;
     newPlayer();mkFoes();cs.init=false;cs.off=0;
-    q('.res').classList.remove('on');el.classList.add('on');document.body.classList.add('dojo-fight');goBtn.style.display='none';try{Expedition.hold('dojo')}catch(e){}
+    q('.res').classList.remove('on');el.classList.add('on');document.body.classList.add('dojo-fight');goBtn.style.display='none';stBar.style.display='none';try{Expedition.hold('dojo')}catch(e){}
     paintBelt();say('ROUND 1',1.4,'#ffd070');tone(300,600,.25,'sawtooth',.1);sfx('vo_fight',.8,1)}
-  function newPlayer(){const st=PS();P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:st.hp,team:'p',fs:1,dm:st.dm});P.fs=1;P.dm=st.dm;P.hpMax=st.hp;P.hp=st.hp;P.sm=.9;P.pm=1.05;
+  function newPlayer(){const st=PS();P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:st.hp,team:'p',fs:1,dm:st.dm});P.fs=1;P.dm=st.dm;P.hpMax=st.hp;P.hp=st.hp;P.sm=.9;const sy=DojoData.styles[SAVE.style]||DojoData.styles.striker;P.mm=sy.mm;P.pm=1.05*sy.pm;P.dfl=sy.dfl;P.dm0=st.dm;if(sy.hp){P.hpMax+=sy.hp;P.hp=P.hpMax}dropStaff(true);
     if(!pAnim&&me.userData.mixer)pAnim=WardenMX.make(me.userData,'player_dojo')}
   function leave(manual){
-    if(!fighting)return;releaseAll();fighting=false;state='idle';el.classList.remove('on');document.body.classList.remove('dojo-fight');if(pAnim)pAnim.off();for(const F of foes){F.body.g.visible=false;if(F.body.anim)F.body.anim.off()}foes=[];byId={};
+    if(!fighting)return;releaseAll();dropStaff();fighting=false;state='idle';el.classList.remove('on');document.body.classList.remove('dojo-fight');if(pAnim)pAnim.off();for(const F of foes){if(F.prop&&F.prop.parent)F.prop.parent.remove(F.prop);F.body.g.visible=false;if(F.body.anim)F.body.anim.off()}foes=[];byId={};
     try{Expedition.release('dojo')}catch(e){}if(typeof emoStop==='function')try{emoStop(me.userData)}catch(e){}me.userData.emoteReq=null;
     if(manual)say('',.1)}
   function paintBelt(){const b=belt(),B=DojoData.belts[b];const i=q('.belt i');i.style.background=B.c;q('.belt span').textContent=B.n+' belt'}
@@ -193,9 +200,20 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
   // ---------- events ----------
   function hitFx(e,T){const t=byId[e.d],pos=e.d==='P'?P:t&&t.f,big=['spin','upper','round','power','take','throw','dash','drop'].includes(e.move);if(!pos)return;
     burst(pos.x,H(pos.x,pos.z)+1.25,pos.z,big?'big':'hit',big?14:8)}
+  // ---------- weapons: the Staff Fighter's bo staff. GRAB it or PERFECT-PARRY it and it is yours for a while (+45% damage) ----------
+  let pStaff=null,wT=0;
+  function staffMesh(len){const g=new THREE.Group(),m=new THREE.Mesh(new THREE.CylinderGeometry(.028,.028,len,8),new THREE.MeshStandardMaterial({color:'#8a5a30',roughness:.7})),a=new THREE.Mesh(new THREE.CylinderGeometry(.036,.036,.16,8),new THREE.MeshStandardMaterial({color:'#2a2020',roughness:.6}));a.position.y=len/2-.08;const b=a.clone();b.position.y=-len/2+.08;g.add(m,a,b);g.traverse(c=>{if(c.isMesh)c.castShadow=true});return g}
+  function holdStaff(u,sc,len){const hand=u.bones&&u.bones.RightHand;if(!hand)return null;const w=staffMesh(len),h=new THREE.Group();h.add(w);w.position.y=len*.28;h.rotation.set(Math.PI/2,0,0);hand.add(h);let o=hand;while(o.parent)o=o.parent;o.updateMatrixWorld(true);const ws=hand.getWorldScale(new THREE.Vector3()).x||1;h.scale.setScalar(1/ws);return h}
+  function disarm(F){if(!F||!F.armed)return;F.armed=false;F.f.dm*=.6;F.f.rm=1;F.ai.A=Object.assign({},F.ai.A,{range:1.7,reach:2.1});if(F.prop){F.prop.parent&&F.prop.parent.remove(F.prop);F.prop=null}
+    say('DISARMED!',1.1,'#7fe8ff');hint('STAFF: +45% damage for 15s',2);tone(700,1400,.2,'triangle',.12);cs.shk=Math.max(cs.shk,.4);
+    dropStaff(true);pStaff=holdStaff(me.userData,1,1.7);if(pStaff){wT=15;P.dm=P.dm0*1.45}}
+  function dropStaff(quiet){if(pStaff&&pStaff.parent)pStaff.parent.remove(pStaff);pStaff=null;if(wT>0&&P&&P.dm0)P.dm=P.dm0;wT=0}
   function events(evs){
     for(const e of evs){
-      if(e.t==='hit'){const mine=e.a==='P';hitFx(e);const big=['spin','upper','round','power','take','throw','dash','drop'].includes(e.move);
+      if(e.t==='collide'){say('SMASH!',.8,'#ffb060');cs.shk=Math.max(cs.shk,.5);tone(110,45,.2,'square',.14);sfx('heavy',.8,.8);const U=byId[e.d];if(U){U.flash=1;burst(U.f.x,H(U.f.x,U.f.z)+1,U.f.z,'big',12)}}
+      else if(e.t==='slam'){say('RING-OUT SLAM',1,'#ff9a3a');cs.shk=Math.max(cs.shk,.7);tsc=.4;tscT=.4;tone(90,40,.3,'sawtooth',.16);burst(e.x,H(e.x,e.z)+.6,e.z,'big',16)}
+      else if(e.t==='deflect'&&e.d==='P'&&e.pf&&byId[e.a]&&byId[e.a].armed){disarm(byId[e.a])}
+      if(e.t==='hit'){const mine=e.a==='P';hitFx(e);if(mine&&(e.move==='take'||e.move==='throw')&&byId[e.d]&&byId[e.d].armed)disarm(byId[e.d]);const big=['spin','upper','round','power','take','throw','dash','drop'].includes(e.move);
         if(mine){combo++;comboT=2.4;best=Math.max(best,combo);cs.shk=Math.max(cs.shk,big?.55:.2);cs.fk=big?-4:-1.6;tone(big?120:200,big?60:100,big?.16:.08,'square',.12);sfx(big?'heavy':'strike',big?.8:.6,.9+Math.random()*.2);
           if(e.move==='take'){P.hp=Math.min(P.hpMax,P.hp+P.hpMax*.1);say('TAKEDOWN',1,'#ffd070');tsc=.3;tscT=.5}
           else if(e.move==='throw'){say('THROW',.8,'#d6a8ff');throwSplash(e)}
@@ -220,15 +238,17 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
   function tick(dt,t){
     if(!built)return;
     const d=Math.hypot(S.x-CX(),S.z-CZ());
-    if(d>DOJO.reach+160){if(fighting)leave(false);if(goBtn)goBtn.style.display='none';return}
+    if(d>DOJO.reach+160){if(fighting)leave(false);if(goBtn)goBtn.style.display='none';if(stBar)stBar.style.display='none';return}
     if(!el)domBuild();
     near=!fighting&&d<RING+3&&!S.flying&&S.grounded!==false;
+    if(stBar)stBar.style.display=near?'flex':'none';
     if(goBtn){goBtn.style.display=near?'block':'none';if(near&&!goBtn._t){goBtn._t=1;goBtn.innerHTML='\u{1F94B} FIGHT<small>Iron Fist trial · '+DojoData.belts[belt()].n+' belt · best round '+SAVE.best+'</small>'}}
     for(let i=0;i<lamps.length;i++)lamps[i].scale.setScalar(.92+.1*Math.sin(t/140+i*1.7));
     sparkTick(dt);
     if(!fighting)return;
     if(msgT>0){msgT-=dt;if(msgT<=0)q('.msg').style.opacity=0}if(hintT>0){hintT-=dt;if(hintT<=0)q('.hint').style.opacity=0}if(flashT>0){flashT-=dt;if(flashT<=0)q('.fl').style.opacity=0}
     if(comboT>0){comboT-=dt;if(comboT<=0){combo=0}}
+    if(wT>0){wT-=dt;if(wT<=0){dropStaff();hint('Staff lost',1)}}
     // the sim clock (slow-motion on big moments)
     if(tscT>0){tscT-=dt;if(tscT<=0)tsc=1}
     vt+=dt*1000*tsc;stateT+=dt;
@@ -264,6 +284,7 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
     if(f.act==='attack'||f.act==='stun'||f.act==='dead')g.rotation.y=f.face;else g.rotation.y+=wrap(f.face-g.rotation.y)*(1-Math.exp(-12*dt));
     const ready=b.u.av===b.look&&!!b.u.model;g.visible=ready;if(!ready)return;
     if(!b.anim&&b.u.mixer)b.anim=WardenMX.make(b.u,'player_dojo');style(b,F.T);
+    if(F.armed&&!F.prop)F.prop=holdStaff(b.u,F.T.scale,2.0);
     locoOf(b.loco,f.x,f.z,g.rotation.y,dt);const moving=b.loco.sp>.6&&f.act==='free';
     if(f.act==='dead'){b.u.pp=null;b.u.v=0;if(!b.u.hold&&!b.u.emoteReq)b.u.emoteReq='playdead'}
     if(typeof animate==='function')animate(g,dt,moving?'walk':'idle');
@@ -296,4 +317,4 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
     camera.position.set(px+(Math.random()-.5)*sh,y+(Math.random()-.5)*sh,pz+(Math.random()-.5)*sh);camera.lookAt(lx,S.y+1.25,lz);
     const fT=53+cs.fk+(P.act==='dead'?-6:0);if(Math.abs(camera.fov-fT)>.05){camera.fov+=(fT-camera.fov)*(1-Math.exp(-dt*10));camera.updateProjectionMatrix()}}
   return{build,tick,cam,speedMul,fighting:()=>fighting,start,leave:()=>leave(true),belt,save:()=>SAVE,
-    _t:()=>({C,P,foes,state,round,cs,ST,SAVE})}})();
+    _t:()=>({C,P,foes,state,round,cs,ST,SAVE}),_go:r=>{round=r;mkFoes()},_dis:()=>disarm(foes[0])}})();
