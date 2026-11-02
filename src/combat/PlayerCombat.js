@@ -273,12 +273,30 @@ const PlayerCombat=(()=>{
     else if(name==='guard'&&down.guard){down.guard=false;ST.input('P',{t:'guardUp'},t)}}
   function releaseAll(){release('heavy');release('guard');for(const k in ptr)delete ptr[k];if(el)for(const b of el.querySelectorAll('button.dn'))b.classList.remove('dn')}
   // lock: tap = lock the nearest foe; tap again = cycle to the next one (clockwise by distance); with only one foe left it unlocks
+  let lockOff=false;
+  // ---- COMBAT CAMERA (see docs/COMBAT_CAMERA.md): lock-on orients, it never plays the fight for you ----
+  // Lock-on yaw: the camera only turns once the target leaves a comfortable cone, never faster than 3.2 rad/s (so a boss passing behind you swings round smoothly instead of flipping 180 degrees),
+  // and any drag on the camera by the player hands it back to them for 1.2 s. Settings (localStorage 'wcam'): assist 0 = no automatic turning, move 0 = no per-move camera responses.
+  const CAMS=(()=>{let o={assist:1,move:1};try{const j=JSON.parse(localStorage.getItem('wcam')||'null');if(j)o=Object.assign(o,j)}catch(e){}return o})();
+  let yawSet=null,yawMan=0;
+  function lockCam(a,dt){const want=a+Math.PI;if(yawSet!==null&&Math.abs(wrapA(S.yaw-yawSet))>.004)yawMan=1.2;
+    if(yawMan>0){yawMan-=dt;yawSet=S.yaw;return}
+    if(!CAMS.assist){yawSet=S.yaw;return}
+    const err=wrapA(want-S.yaw),ae=Math.abs(err),dead=.2;if(ae>dead)S.yaw+=Math.sign(err)*Math.min(ae-dead*.5,Math.min(3.2,1.2+ae*2.4)*dt);yawSet=S.yaw}
+  // Per-move camera response: the boss's current attack decides how far back / wider the camera sits, so a charge's path, a flurry's whole sequence or a projectile field stays readable (never a zoom that hides an attack)
+  const CAMM={charge:[2.4,6,['ruin','ruincollapse','charge','heavenfall','hangfall','leap','pursuit','dash','march','rend','impaler','doubleimp']],flurry:[1.6,3,['flurry','tempest','severance','hundred','thousand','twineclipse','eclipsecollapse','triple','executioner','brokenadv','maul','twin','risingcrown']],
+    barrage:[1.9,3.5,['bladestorm','stormgrid','sunvolley','crownfall','marks','finalsentence','storm','spear','arrows','swordring','crossflame','returning','ashwave','lance','orb','bolt','consecrate','procession']],area:[2.2,4,['worldbreaker','aftershock','sunder','quake','eclipse','requiem','kingsfall','groundbreaker','tidal','spores']]};
+  function camMoves(){let d=0,f=0;if(CAMS.move&&state==='fight'&&!ult&&!sv)for(const F of foes){if(F.f.act!=='attack'||!F.f.mv||!F.awake)continue;const id=F.f.mv.id;for(const k in CAMM){const c=CAMM[k];if(c[2].indexOf(id)>=0){const near=Math.hypot(F.f.x-S.x,F.f.z-S.z)<14;if(near){d=Math.max(d,c[0]);f=Math.max(f,c[1])}}}}
+    try{CameraRig.combat(d,f)}catch(e){}}
+  // AUTO LOCK: the first boss that is awake and alive is locked as soon as you fight it (and the next one when it falls); turning lock off yourself stays off
+  function autoLock(){if(lock||lockOff||state!=='fight'||ult||sv||site&&site.duel)return;let b=null,bd=1e9;for(const F of foes){if(F.f.act==='dead'||F.ghost||!F.awake||!F.T.boss)continue;const d=Math.hypot(F.f.x-S.x,F.f.z-S.z);if(d<bd){bd=d;b=F}}if(b){lock=true;lockI=b.i;if(el)el.querySelector('#wLock').classList.add('on')}}
   function toggleLock(){
     if(ult&&ult.kind==='echo'){msg('You cannot lock onto illusions',1);return}
     const al=alive();if(!al.length){lock=false}
     else if(!lock){lock=true;lockI=nearest().i}
     else if(al.length>1){const cur=foes[lockI],ord=al.slice().sort((a,b)=>Math.hypot(a.f.x-S.x,a.f.z-S.z)-Math.hypot(b.f.x-S.x,b.f.z-S.z)),k=ord.indexOf(cur);lockI=ord[(k+1)%ord.length].i}
     else lock=false;
+    lockOff=!lock;   // the player turned it off on purpose: do not auto-lock again until they turn it on
     if(el)el.querySelector('#wLock').classList.toggle('on',lock)}
   const KEY={Digit1:'ihp',Digit2:'ist',Digit3:'imt',KeyE:'flow',KeyF:'light',KeyG:'heavy',KeyQ:'guard',KeyR:'sup',Space:'dodge',Tab:'lock'};
   function onKey(e){
@@ -380,7 +398,7 @@ const PlayerCombat=(()=>{
     C=CombatCore.create({arena:{x:WRD.x+site.x,z:WRD.z+site.z,R},solids:sol});try{CameraRig.setArena({x:WRD.x+site.x,z:WRD.z+site.z,R:site.wall||site.dg?R:site.R,sol:sol.filter(q=>!q.wall)})}catch(e){}ST=CombatCore.stepper(C,6);t0=performance.now();vt=0;vl=0;tsc=1;ult=null;
     if(site.duel&&DU.pair){const L=duelSide();S.x=WRD.x+site.x;S.z=WRD.z+site.z+9*L;S.rot=L>0?Math.PI:0;lx=S.x;lz=S.z}
     P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});applyStats();spawnFoes();sup=Math.max(sup,20);WardenFx.clear();WardenVfx.clear();for(const F of foes)if(F.T.ai==='saint')try{WardenFx.orbit(F,6)}catch(e){};trapsClear();blinkRing(0,0,false);Q=null;spectate=false;netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
-    flow=0;flowOn=false;flowN=0;fq=null;skillCD=0;bars.fl=-1;healLeft=0;mightT=0;itemLock=0;state='fight';stateT=0;lock=(site.fog||site.duel||foes.some(F=>F.T.boss))&&!(site.duel&&!DU.pair);lockI=0;lastEv=[];pv.init=false;down.guard=down.heavy=false;stW=0;gT=0;
+    flow=0;flowOn=false;flowN=0;fq=null;skillCD=0;bars.fl=-1;healLeft=0;mightT=0;itemLock=0;state='fight';stateT=0;lockOff=false;lock=(site.fog||site.duel||foes.some(F=>F.T.boss))&&!(site.duel&&!DU.pair);lockI=0;{const b=foes.find(F=>F.T.boss&&F.awake)||foes.find(F=>F.awake);if(b)lockI=b.i}lastEv=[];pv.init=false;down.guard=down.heavy=false;stW=0;gT=0;
     if(el)el.querySelector('#wLock').classList.toggle('on',lock);D=target().f}
   // Inside a walled arena the screen is the cost on a low-end phone: render at 1.25x (not 2x) while you fight, restore on leaving. Skipped when ?dpr= was given.
   let resPrev=null;
@@ -553,7 +571,7 @@ const PlayerCombat=(()=>{
   function startSever(){
     if(!on||state!=='fight'||sv||ult||pun||P.act!=='free'||CineCam.busy()||P.act==='dead')return false;
     if(sup<100){toast('Spirit Sever '+Math.floor(sup)+'% · land hits, parry and dodge to charge it',2.2);return false}
-    const T=target();if(!T||T.f.act==='dead'||T.f.inv>0||T.f.stun&&T.f.stunK==='rise'||T.f.rise){toast('The Sever cannot reach it now',1.6);return false}
+    const T=target();if(!T||T.f.act==='dead'||T.f.inv>0||T.f.act==='stun'&&T.f.sk==='rise'){toast('The Sever cannot reach it right now \u00b7 wait for it to be vulnerable',1.8);return false}
     sup=0;const t0=performance.now(),a0=Math.atan2(S.x-T.f.x,S.z-T.f.z);
     sv={T,t:0,n:0,next:.6,lastB:-9,a0,ph:'gather',fin:0,hit:false,hold:0,t0};
     P.inv=Math.max(P.inv||0,400);tsc=.3;
@@ -864,7 +882,7 @@ const PlayerCombat=(()=>{
     const b=el&&el.querySelector('#wShadow');if(b){const t=shCd>0?Math.ceil(shCd):0;if(b._c!==t){b._c=t;b.textContent=t?'Shadow '+t:'Shadow';b.classList.toggle('cd',t>0)}}}
   function leave(hold){pun=null;svEnd();try{WardenFx.clear()}catch(e){}   // hold: keep the corpses of a cleared site in the world
     if(!on)return;endSet();trapsClear();try{blinkRing(0,0,false)}catch(e){}killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');document.body.classList.remove('warden-duel');if(sword&&sword.grip)sword.grip.visible=false;if(sword2&&sword2.grip)sword2.grip.visible=false;pendFace=null;
-    if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
+    if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.combat(0,0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
     try{if(site&&site.fog)WardenIsles.fog(site.id,rt(site).cleared?'gone':'idle')}catch(e){}}
   // ---------- per frame ----------
@@ -884,7 +902,7 @@ const PlayerCombat=(()=>{
       flash(big?.55:.26);try{CameraRig.shake(big?.5:.22)}catch(x){}}
     else if(e.t==='brokenguard'&&e.d==='P'){flash(.6,'rgba(255,220,140,.9)');try{CameraRig.shake(.5)}catch(x){}if(NET.mode==='guest'){try{WardenNet.send({k:'sp',t:'bg',b:e.a})}catch(x){}}}
     else if(e.t==='deflect'&&e.d==='P'){flash(.4,'rgba(190,225,255,.85)');try{CameraRig.shake(.42)}catch(x){}parryFx(e);
-      if(e.pf&&!ult){hsT=Math.max(hsT,e.sq?.6:.22);flash(.45,'rgba(255,215,120,.8)');msg(e.sq?'PERFECT SEQUENCE':'PERFECT',e.sq?1.6:.7);try{sfx('clash',.6,1.7,()=>tone(1900,1100,.22,'sine',.1));if(e.sq)CameraRig.shake(.7)}catch(x){}
+      if(e.pf&&!ult){try{CameraRig.pulse(-3.2);CameraRig.shake(.1)}catch(x){}hsT=Math.max(hsT,e.sq?.6:.22);flash(.45,'rgba(255,215,120,.8)');msg(e.sq?'PERFECT SEQUENCE':'PERFECT',e.sq?1.6:.7);try{sfx('clash',.6,1.7,()=>tone(1900,1100,.22,'sine',.1));if(e.sq)CameraRig.shake(.7)}catch(x){}
         if(NET.mode==='guest'){try{WardenNet.send({k:'sp',t:'pf',b:e.a,q:e.sq?1:0})}catch(x){}}}}
     else if(e.t==='dodge'&&e.a==='P'){WardenVfx.spawn(P.x,H(P.x,P.z)+1,P.z,2,4,2.8,-P.face+Math.PI/2,30)}}
   // PARRY: a real sweep of the sword (pAnim.flick, alternating sides), a short hit-stop so you SEE the clash, a double burst of sparks between you and him, a bright ring and a rising ring tone
@@ -908,8 +926,8 @@ const PlayerCombat=(()=>{
         if(e.t==='fxburst'&&!ult){const st=WardenFx.styleOf(e.fid);if(st==='lightning'||st==='sun'||st==='eclipse'){const dd=Math.hypot(P.x-e.x,P.z-e.z);if(dd<(e.r||3)+9){flash(st==='lightning'?.22:.16,st==='lightning'?'rgba(200,228,255,.5)':'rgba(255,220,150,.35)');try{CameraRig.shake(dd<(e.r||3)+1?.28:.12)}catch(x){}}}}}
       {const fp=e.t==='hit'||e.t==='block'||e.t==='deflect'||e.t==='posturebreak'||e.t==='guardbreak'?(T?T.f:(e.d==='P'?P:null)):null;if(fp){vfxAt(e,fp);punch(e,fp)}else if(e.t==='dodge')punch(e,P)}
       if(P.fs&&e.a==='P'){if(e.t==='hit')fistImpact(e,T);else if(e.t==='start')fistSwing(e)}
-      if(e.t==='start'&&e.per&&e.a!=='P'&&!ult){hsT=Math.max(hsT,.3);flash(.5,'rgba(255,40,40,.55)');msg('危  PERILOUS',.9);try{sfx('heavy',.7,.7,()=>tone(520,260,.35,'square',.1));CameraRig.shake(.25)}catch(x){}}
-      else if(e.t==='perdodge'&&!ult){hsT=Math.max(hsT,.2);msg('OPENING!',.9);flash(.35,'rgba(255,230,160,.6)')}
+      if(e.t==='start'&&e.per&&e.a!=='P'&&!ult){try{CameraRig.pulse(-2.2)}catch(x){}hsT=Math.max(hsT,.3);flash(.5,'rgba(255,40,40,.55)');msg('危  PERILOUS',.9);try{sfx('heavy',.7,.7,()=>tone(520,260,.35,'square',.1));CameraRig.shake(.25)}catch(x){}}
+      else if(e.t==='perdodge'&&!ult){try{CameraRig.pulse(-4);CameraRig.shake(.25)}catch(x){}hsT=Math.max(hsT,.2);msg('OPENING!',.9);flash(.35,'rgba(255,230,160,.6)')}
       if(e.t==='start'){if(e.a==='P'||A&&e.move&&A.f){const q=e.a==='P'?P:A.f;if(q&&!(e.a==='P'&&P.fs)&&(e.a==='P'||/atk|cut|slam|sweep|swipe|heavy|light/.test(e.move)))WardenVfx.slash(q.x,H(q.x,q.z)+1.2,q.z,q.face,/heavy|slam/.test(e.move),e.a==='P'?0:1)}if(e.a==='P'){if(e.move==='rush'){WardenVfx.spawn(P.x,H(P.x,P.z)+1,P.z,2,4,3.4,-P.face+Math.PI/2,32);flash(.22,'rgba(200,225,255,.7)')}if(e.move==='light'&&pAnim)pAnim.nextLight(performance.now()/1000);sfx('whoosh',.4,e.move==='heavy'?.75:1.1,()=>tone(e.move==='heavy'?220:380,e.move==='heavy'?90:150,e.move==='heavy'?.18:.1,'triangle',.1))}else{try{telegraph(A,e.move)}catch(x){}if(A&&A.anim&&A.anim.pickAlt)A.anim.pickAlt(e.move,Math.random());sfx('whoosh',.35,.8,()=>tone(160,70,.16,'sawtooth',.07))}}
       else if(e.t==='dodge'&&e.a==='P')tone(200,80,.14,'sine',.08);
       else if(e.t==='hit'){if(T&&e.a==='P'){if(wst.bleed&&T.f.act!=='dead')T.bleed={t:4,dps:wst.bleed};if(wst.vamp&&P.hp>0)P.hp=Math.min(P.hpMax,P.hp+e.dmg*wst.vamp)}if(T){T.flash=1;T.lh=performance.now();wake(T,true);sfx(e.dmg>=20||e.crit?'heavy':'strike',.8,e.crit?.85:1,()=>tone(140,50,.14,'square',.14));if(e.crit)msg('CRITICAL');if(T.body.T.body==='avatar')T.body.u.hitReq=1}else{sfx(e.dmg>=20?'heavy':'strike',.9,.9,()=>tone(110,40,.18,'square',.16));if(e.d==='P'&&P.hp>0){hurt=true;msg('',0);hitFrom(A,e.move)}}}
@@ -967,7 +985,7 @@ const PlayerCombat=(()=>{
       if(PC.loop){startFight();msg('Again.',1.4)}else{rt(site).cleared=true;felled++;if(site.dg){try{WardenDungeon.clear(site.id);WardenCatacombs.onClear(site.id)}catch(e){}}if(site.mast){try{const w=PG.S.mast||(PG.S.mast={});if(mastery){if(w[site.id]!==2){w[site.id]=2;PG.earn(1200);toast('MASTERY CLEARED \u00b7 +1200 embers',4.5)}else PG.earn(250)}else if(!w[site.id]){w[site.id]=1;toast('MASTERY REMATCH UNLOCKED \u00b7 fight him again, he has learned too',5)}PG.save()}catch(x){}}const cr=site.fog?PG.felled(site.id):null;msg(site.n+' · cleared ('+felled+' felled)',2.4);leave(true);if(cr)cycleTurn(cr);return}}
     // one-time status toast so a missing animation set is visible instead of silent
     {const F0=foes[0],ka=(pAnim?pAnim.st:'none')+'/'+(F0&&F0.anim?F0.anim.st:'none');if(ka!==mxSaid&&pAnim&&F0&&F0.anim&&pAnim.st!=='none'&&F0.anim.st!=='none'){mxSaid=ka;msg(pAnim.st==='ready'&&F0.anim.st==='ready'?'Animations '+WardenMX.BUILD+' loaded':'Animation load FAILED ('+(pAnim.err||F0.anim.err||ka)+')',2.2)}}
-    const TF=target();D=TF.f;try{markers(TF,performance.now()/1000);threatArrows();frameFoes(dt);barrageTick(dt);svTick(dt);trickTick(dt);fightMoveTick(dt)}catch(e){}
+    try{autoLock();camMoves()}catch(e){}const TF=target();D=TF.f;try{markers(TF,performance.now()/1000);threatArrows();frameFoes(dt);barrageTick(dt);svTick(dt);trickTick(dt);fightMoveTick(dt)}catch(e){}
     // camera: pull back for a big foe, when he is far, and when there are several
     try{let sc=1;for(const F of foes)if(F.f.act!=='dead'&&F.awake)sc=Math.max(sc,F.T.scale);const fd=Math.hypot(S.x-D.x,S.z-D.z);CameraRig.setBias(-2.8+(sc-1)*3.4+Math.min(3.5,Math.max(0,fd-5))*.45+(alive().length>1?1:0))}catch(e){}
     for(const F of foes)if(F.ai.ph2&&!F.ph2&&state==='fight'){F.ph2=true;if(F.T.boss){msg(F.T.ph2,2);sfx('heavy',.7,.6,()=>tone(120,60,.4,'sawtooth',.12));WardenSfx.play('vo_sudden_death',.8,1,{nojit:1})}if(F.body.shield)F.body.shield.visible=false}
@@ -1000,7 +1018,7 @@ const PlayerCombat=(()=>{
     events(evs);flowTick(dt);supHud();flaskTick(dt);netSend(dt);netVis();
     // 2) facing: the sim owns it while attacking / dodging / stunned; lock-on owns it otherwise
     if(P.act==='attack'||P.act==='dodge'||P.act==='stun')S.rot=P.face;
-    else if(lock&&D.act!=='dead'){const a=heading();S.rot=a;S.yaw+=Math.atan2(Math.sin(a+Math.PI-S.yaw),Math.cos(a+Math.PI-S.yaw))*Math.min(1,dt*7)}
+    else if(lock&&D.act!=='dead'){const a=heading();S.rot=a;lockCam(a,dt)}
     me.position.x=S.x;me.position.z=S.z;me.rotation.y=S.rot;
     // dodge visual = the existing roll clip, played once per dodge; getting hit = the game's own hit reaction
     if(P.act==='dodge'&&!P._rolled){P._rolled=true;const dd=P.dir||[Math.sin(P.face),Math.cos(P.face)];P._back=dd[0]*Math.sin(P.face)+dd[1]*Math.cos(P.face)<-.5;P._dirA=Math.atan2(dd[0],dd[1]);me.userData.emote=P._back?'flipb':'roll'}else if(P.act!=='dodge')P._rolled=false;
