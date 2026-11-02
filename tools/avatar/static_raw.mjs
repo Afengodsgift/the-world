@@ -53,8 +53,9 @@ export async function staticRaw(file, { NM, T, rigGlb, cfg, log = console.log })
   for (const g of ['Hips', 'Spine', 'Chest', 'UpperChest', 'Neck', 'Head']) { Pn[g].z = mid(band(Pn[g].y, .12 * s, 2)); }
   Pn.Head_end.z = Pn.Head.z + (Pc.Head_end.z - Pc.Head.z) * s; Pn.Head_end.y = headTop;
   // legs: x of the feet from the sandals/socks, z of ankle/knee/hip from the mesh bands
-  const legs = meshes.find(m => m.cf.role === 'feet');
-  for (const side of [1, -1]) { const S = side > 0 ? 'Left' : 'Right'; const xs = []; for (let k = 0; k < legs.pos.length; k += 3) if (legs.pos[k] * side > 0) xs.push(legs.pos[k]); const fx = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const legs = meshes.find(m => m.cf.role === 'feet') || body;   // a one-material model: the feet are read from the lowest slice of the body
+  const footBand = soleY + .06 * (headTop - soleY);
+  for (const side of [1, -1]) { const S = side > 0 ? 'Left' : 'Right'; const xs = []; for (let k = 0; k < legs.pos.length; k += 3) if (legs.pos[k] * side > 0 && legs.pos[k + 1] < footBand) xs.push(legs.pos[k]); const fx = (Math.min(...xs) + Math.max(...xs)) / 2;
     const dx = fx - Pn[S + 'Foot'].x;
     for (const [g, t] of [['UpLeg', 0], ['Leg', .5], ['Foot', 1], ['Toes', 1], ['Toes_end', 1]]) Pn[S + g].x += dx * t;
     for (const g of ['UpLeg', 'Leg']) Pn[S + g].z = mid(band(Pn[S + g].y, .1 * s, 2));
@@ -131,7 +132,7 @@ export async function staticRaw(file, { NM, T, rigGlb, cfg, log = console.log })
   log(`static rig: ${totalTris} tris`);
   // ---- atlas
   const cells = []; for (const m of meshes) { const t = m.mat.pbrMetallicRoughness && m.mat.pbrMetallicRoughness.baseColorTexture; if (!t) continue; const im = j.images[j.textures[t.index].source], bv = j.bufferViews[im.bufferView]; cells[m.cf.cell] = bin.subarray(bv.byteOffset || 0, (bv.byteOffset || 0) + bv.byteLength); }
-  const comp = []; for (let c = 0; c < COLS * ROWS; c++) if (cells[c]) comp.push({ input: await sharp(cells[c]).resize(CELL, CELL, { fit: 'fill' }).flatten({ background: '#808080' }).png().toBuffer(), left: (c % COLS) * CELL, top: Math.floor(c / COLS) * CELL });
+  const comp = []; for (let c = 0; c < COLS * ROWS; c++) if (cells[c]) comp.push({ input: await sharp(cells[c]).resize(CELL, CELL, { fit: 'fill' }).flatten({ background: '#808080' }).png().toBuffer().catch(() => { const fillCf = meshes.find(m => m.cf.cell === c); log(`  cell ${c}: base-colour image is unreadable (corrupt in the source file); filled with ${(fillCf.cf.fill || '#808080')}`); return sharp({ create: { width: CELL, height: CELL, channels: 3, background: fillCf.cf.fill || '#808080' } }).png().toBuffer(); }), left: (c % COLS) * CELL, top: Math.floor(c / COLS) * CELL });
   const atlas = await sharp({ create: { width: COLS * CELL, height: ROWS * CELL, channels: 3, background: '#808080' } }).composite(comp).png().toBuffer();
   const o = { name: path.basename(file, '.glb'), pos: Float32Array.from(corners.pos), nor: Float32Array.from(corners.nor), uv: Float32Array.from(corners.uv), jnt: Uint16Array.from(corners.jnt), wgt: Float32Array.from(corners.wgt), bones, tex: { map: { bytes: atlas, mime: 'image/png' } }, matName: 'samurai', hasBindIdentity: true, units: 'm' };
   o.debug = { Pn: Object.fromEntries(Object.entries(Pn).map(([k, v]) => [k, v.toArray().map(x => +x.toFixed(3))])), soleY, headTop };

@@ -160,7 +160,15 @@ const WardenMX=(()=>{
   // Skrag, the Snare-Trapper (uploaded goblin rig): the Longbow set (arrow cast, kick, power-up) retargeted onto his skeleton; the long power-up clip is his snare-laying
   ROLES.goblin=Object.assign({},ROLES.archer,{file:'assets/warden_mx_goblin.json',moves:Object.assign({},ROLES.archer.moves,{snare:{c:'power',t0:.3,e:1.6}})});
   // BARE HANDS: the player's gait clips only (no sword guard / parry / attack clips): Fists.Pose poses the arms, legs and torso for every strike, guard and throw
-  ROLES.player_fists=Object.assign({},ROLES.player,{guard:null,parry:null,moves:{}});
+  // IRON FIST ISLE (src/games/Dojo.js): bare hands, animated by REAL clips only. The sword-and-shield pack's boxer-stance strikes (atk2/atk3/atk4), the capoeira kicks, the Phantom-Blade dash and the emote library's
+  // jab / cross / kick / throw / block (loaded into the layer as e_<name>) are scrubbed by the sim exactly like sword moves. Keys are the Fists move ids (src/combat/Fists.js).
+  ROLES.player_dojo=Object.assign({},ROLES.player,{emo:['jab','cross','kick','throw','block'],guard:'e_block',parry:null,moves:{
+    jab:{c:'e_jab',t0:0,h:[[.2,.4]],e:.82},cross:{c:'e_cross',t0:0,h:[[.28,.52]],e:.97},hook:{c:'atk4',t0:.3,h:[[.4,.56]],e:.95},knee:{c:'e_kick',t0:.12,h:[[.34,.6]],e:.9},
+    spin:{c:'armada',t0:0,h:[[.6,1.05]],e:1.6},upper:{c:'atk3',t0:.35,h:[[.52,.9]],e:1.6},round:{c:'martelo',t0:0,h:[[.28,.55]],e:1.3},
+    power:{c:'atk2',t0:.1,ch:[.1,.3],h:[[.3,.74]],e:1.2},heavy:{c:'atk2',t0:.1,ch:[.1,.3],h:[[.3,.74]],e:1.2},step:{c:'atk2',t0:.15,h:[[.3,.74]],e:1.15},
+    dash:{c:'p_dash',t0:.05,h:[[.27,.4]],e:1.1},counter:{c:'e_cross',t0:0,h:[[.28,.52]],e:.97},push:{c:'kick',t0:0,h:[[.05,.3]],e:.9},drop:{c:'kick',t0:0,h:[[.05,.3]],e:.9},
+    throw:{c:'e_throw',t0:.15,h:[[.5,.8]],e:1.3},take:{c:'atk',t0:.55,h:[[.9,1.3]],e:2.1}}});
+  ROLES.player_dojo.px='assets/warden_px_player.json';
   // ---- the player's heavier weapons: the Great Sword pack (already baked onto the game rig for the Duelist) drives the Claymore and the Hand Axe ----
   ROLES.player_gs={file:'assets/warden_mx_duelist.json',guard:'guard',parry:[{c:'slash',a:.05,b:.6},{c:'slash5',a:.15,b:.62}],loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
     moves:{
@@ -200,11 +208,12 @@ const WardenMX=(()=>{
     I.mode=null;I.mt=0;I.wakeP=0;I.wakeDone=false;I.setMode=m=>{I.mode=m;I.mt=0;I.wakeP=m==='wake'?0:1;I.wakeDone=false};
     I.pickAlt=()=>{};I.nextLight=()=>'light_b';
     let names=[];
-    const init=s=>{const used=new Set(Object.values(R.loco));if(R.guard)used.add(R.guard);if(R.parry)for(const q of R.parry)used.add(q.c);if(R.dorm)used.add(R.dorm);if(R.wake)used.add(R.wake.c);if(R.death)used.add(R.death);if(R.hit)used.add(R.hit);if(R.px)for(const n of PXN)used.add(n);
+    const init=s=>{if(R.emo&&typeof EMO!=='undefined'){const T=(q.av&&typeof AvatarKit!=='undefined'&&AvatarKit.emoTable&&AvatarKit.emoTable(q))||EMO.clips;for(const n of R.emo){const c=T[n]||EMO.clips[n];if(c&&!s.clips['e_'+n]){const ac=c.clone();ac.name=(q.av?q.av+'/':'')+role+':e_'+n;ac.uuid=ac.name;s.clips['e_'+n]=ac;s.meta['e_'+n]={dur:c.duration,v:0}}}}   // the emote library's clips join this role's set (e_jab, e_cross ...)
+      const used=new Set(Object.values(R.loco));if(R.guard)used.add(R.guard);if(R.parry)for(const q of R.parry)used.add(q.c);if(R.dorm)used.add(R.dorm);if(R.wake)used.add(R.wake.c);if(R.death)used.add(R.death);if(R.hit)used.add(R.hit);if(R.px)for(const n of PXN)used.add(n);
       for(const m of Object.values(R.moves))for(const g of norm(m))used.add(g.c);
       names=[...used].filter(n=>s.clips[n]);I.names=names;I.S=s;
       for(const n of names){const a=q.mixer.clipAction(s.clips[n]);a.enabled=false;a.setEffectiveWeight(.0001);I.A[n]=a;I.ws[n]=0}I.st='ready'};
-    const load=()=>fetchRole(role,q.av).then(init).catch(e=>{I.st='failed';I.err=String(e&&e.message||e);setTimeout(()=>{if(I.st!=='ready')load()},6000)});load();
+    const load=()=>fetchRole(role,q.av).then(s=>R.emo&&typeof loadEmotes==='function'?loadEmotes().catch(()=>0).then(()=>s):s).then(init).catch(e=>{I.st='failed';I.err=String(e&&e.message||e);setTimeout(()=>{if(I.st!=='ready')load()},6000)});load();
     const planOf=mv=>I.plans[mv.id]||(I.plans[mv.id]=specOf(R,mv.id)?plan(mv.phases,specOf(R,mv.id),c=>I.S.clips[c]?I.S.clips[c].duration:9):null);
     I.update=(f,fr,loco,dt,on)=>{
       if(I.st!=='ready')return false;const A=I.A,tgt={},tm={},tsc={};for(const n of names)tgt[n]=0;

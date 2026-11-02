@@ -5,12 +5,13 @@ const fs=require('fs'),vm=require('vm'),path=require('path'),R=path.join(__dirna
 const rd=f=>fs.readFileSync(R+f,'utf8');
 function hSource(){const idx=rd('index.html'),a=idx.indexOf('function H(x,z){');if(a<0)throw new Error('H() not found');return idx.slice(a,idx.indexOf('\n}\n',a)+3)}
 // H() text with every `// WARDEN:` block removed (marker line + the following line(s) up to and including the closing "}}" line)
-function hSourceNoWarden(src){const L=src.split('\n'),o=[];for(let i=0;i<L.length;i++){if(/\/\/\s*WARDEN:/.test(L[i])){i++;while(i<L.length&&!/^\s*\{if\(WRD\.on\)[\s\S]*$/.test(L[i])&&!/^\s*\}?\}\s*$/.test(L[i])&&!/\}\}\s*$/.test(L[i]))i++;
+function hSourceNoWarden(src){const L=src.split('\n').filter(l=>!/\{if\(DOJO\.on\)/.test(l)),o=[];for(let i=0;i<L.length;i++){if(/\/\/\s*WARDEN:/.test(L[i])){i++;while(i<L.length&&!/^\s*\{if\(WRD\.on\)[\s\S]*$/.test(L[i])&&!/^\s*\}?\}\s*$/.test(L[i])&&!/\}\}\s*$/.test(L[i]))i++;
       /* block lines: marker, then block until a line ending with '}}' */ 
       while(i<L.length&&!/\}\}\s*$/.test(L[i]))i++;continue}o.push(L[i])}return o.join('\n')}
 function makeH(wrdOn){
   const c={Math,console};vm.createContext(c);
   const parts=[rd('src/utils/math.js'),rd('src/utils/random.js'),rd('src/data/islands.js'),rd('src/data/dungeon.js'),rd('src/data/warden.js'),'const K=2.5;',hSource()];
+  parts.push('if(typeof DOJO!=="undefined")DOJO.on=false;');   // Iron Fist Isle is a later island: the baseline was made without it
   if(wrdOn!==undefined)parts.push('if(typeof WRD!=="undefined")WRD.on='+(wrdOn?'true':'false')+';');
   parts.push('this.H=H;this.D={ISL,OUT,TOWN,SKY,LOCS,WP,KT,FARM,PITCH};this.W=(typeof WRD!=="undefined")?WRD:null;');
   vm.runInContext(parts.join('\n'),c);return c;

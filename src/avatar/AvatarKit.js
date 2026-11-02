@@ -13,7 +13,9 @@ const AvatarKit=(()=>{
   const CAT={
     m:{id:'m',scale:.56,bulk:.05,name:'Crypto',label:'Male',glb:'avatars/crypto.glb',mask:'avatars/crypto.mask.png',dir:'avatars/crypto/',legacySkin:0,ref:.0211,headLabel:'Mask & hood',height:1.88},
     f:{id:'f',scale:.56,bulk:.04,name:'Madea',label:'Female',glb:'avatars/madea.glb',mask:'avatars/madea.mask.png',dir:'avatars/madea/',legacySkin:1,ref:.0115,headLabel:'Hair',height:1.70},
-    s:{id:'s',scale:.66,bulk:0,fixed:true,name:'Ronin',label:'Samurai',glb:'avatars/samurai.glb',mask:'avatars/samurai.mask.png',dir:'avatars/samurai/',legacySkin:2,ref:.02,headLabel:'Hat',height:2.36}
+    s:{id:'s',scale:.66,bulk:0,fixed:true,name:'Ronin',label:'Samurai',glb:'avatars/samurai.glb',mask:'avatars/samurai.mask.png',dir:'avatars/samurai/',legacySkin:2,ref:.02,headLabel:'Hat',height:2.36},
+    j:{id:'j',scale:.54,bulk:0,fixed:true,name:'Gi',label:'BJJ Fighter',glb:'avatars/bjj.glb',mask:'avatars/bjj.mask.png',dir:'avatars/bjj/',legacySkin:2,ref:.02,headLabel:'Hair',height:1.9},
+    g:{id:'g',scale:.535,bulk:0,fixed:true,name:'Gretel',label:'Wasteland',glb:'avatars/gretel.glb',mask:'avatars/gretel.mask.png',dir:'avatars/gretel/',legacySkin:1,ref:.02,headLabel:'Hair',height:1.75}
   };
   const DEFAULT_BASE='m';
   // clothing colours (sRGB hex) - the same palette for every look, filtered per look below
