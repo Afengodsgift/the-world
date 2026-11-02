@@ -29,7 +29,7 @@ ok(M.blink.phases[0].n===T.BLINK.WIND,'blink windup matches Tricks.BLINK.WIND');
 function sim(foe,dist,ticks,P0,seed){const A=AI.create(seed,{foe,intro:0}),D={id:'D',x:0,z:0,act:'free',hp:300,hpMax:300,rm:1,guard:false},P=Object.assign({id:'P',x:0,z:dist,act:'free',guard:false,hp:100,ph:null,pi:0},P0||{});const cnt={};
  for(let t=0;t<ticks;t++){const o=AI.think(A,P,D,[],t);for(const c of o.list)if(c.t==='atk'){cnt[c.m]=(cnt[c.m]||0)+1;D.act='attack';D.busy=t;setTimeout(()=>{},0)}
   if(D.act==='attack'&&t-D.busy>45){D.act='free'}}return{cnt,A}}
-{let blinks=0,snares=0;for(let s=1;s<=20;s++){blinks+=(sim('stalker',6,900,null,s).cnt.blink||0);snares+=(sim('trapper',7,900,null,s).cnt.snare||0)}
+{let blinks=0,snares=0;for(let s=1;s<=20;s++){blinks+=((c=>(c.blink||0)+(c.blinkm||0)+(c.blinkl||0))(sim('stalker',6,900,null,s).cnt));snares+=(sim('trapper',7,900,null,s).cnt.snare||0)}
  ok(blinks>=20,'Vael blinks from range (>= 1 per 15 s on average): '+blinks+' in 20 runs');ok(snares>=20,'Skrag lays snares regularly: '+snares+' in 20 runs')}
 {let b=0;for(let s=1;s<=20;s++){const A=AI.create(s,{foe:'stalker',intro:0}),D={id:'D',x:0,z:0,act:'free',hp:300,hpMax:300,rm:1},P={id:'P',x:0,z:2.2,act:'free',guard:true,hp:100};A.gP=60;A.bcd=0;const o=AI.think(A,P,D,[],5);if(o.list.some(c=>c.m==='blink'))b++}
  ok(b>=15,'a turtling player (guard held) is answered with a blink behind the guard ('+b+'/20)')}

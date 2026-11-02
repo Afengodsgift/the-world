@@ -444,7 +444,7 @@ const PlayerCombat=(()=>{
   // Camera framing: with 2+ awake foes and no lock, ease the camera yaw so both stay in view (unless you are dragging the camera yourself).
   function frameFoes(dt){
     if(ult&&ult.kind==='echo'){try{CameraRig.setFocus(null)}catch(e){}return}   // the camera must not lean toward the real one
-    try{const D0=target().f,fd=Math.hypot(D0.x-S.x,D0.z-S.z);CameraRig.setFocus(!lock&&P.act!=='dead'&&alive().some(F=>F.awake)&&fd>2?{x:D0.x,z:D0.z,k:.34}:null)}catch(e){}   // look a third of the way toward the foe: you stay low in the frame, the opponent sits in the middle
+    try{const D0=target().f,fd=Math.hypot(D0.x-S.x,D0.z-S.z);CameraRig.setFocus(P.act!=='dead'&&alive().some(F=>F.awake)&&fd>2?{x:D0.x,z:D0.z,k:lock?Math.min(.3,.12+fd*.018):.34,y:Math.min(1.6,Math.max(0,(((target().T||{}).scale)||1)-1.2)*1.8)}:null)}catch(e){}   // look a third of the way toward the foe: you stay low in the frame, the opponent sits in the middle
     if(ult)return;if(lock||P.act==='dead')return;const al=alive().filter(F=>F.awake);if(!al.length||performance.now()-(S._lk||0)<1500)return;
     let worst=0,sum=0;for(const F of al){const r=wrapA(Math.atan2(-(F.f.x-S.x),-(F.f.z-S.z))-S.yaw);worst=Math.max(worst,Math.abs(r));sum+=r}
     if(worst<(al.length>1?.9:.45))return;S.yaw+=sum/al.length*Math.min(1,dt*2.2)}
@@ -777,8 +777,9 @@ const PlayerCombat=(()=>{
     if(!on||!C||state!=='fight')return;
     for(const e of evs){
       if(e.t==='start'&&byId[e.a]&&byId[e.a].T.boss&&!byId[e.a].ghost&&!byId[e.a].script)for(const d of[decoy,rdecoy])if(d&&d.t>0&&!(d.seen>=2)){d.seen=(d.seen||0)+1;if(d.seen===2)try{toast('A boss sees through your shadow',1.8)}catch(x){}}   // a boss is fooled by a decoy twice, then it knows
-      if(e.t==='start'&&NET.mode!=='guest'){const F=byId[e.a];if(!F||F.ghost)continue;
-        if(e.move==='blink'&&F.T.blink&&!F.bl){const tg=aiTarget(F.f);F.bl={n:0,t:0,tg:tg.id,hide:false,lock:false};try{blinkFx(F)}catch(x){}}
+      if(e.t==='start'&&NET.mode!=='guest'){const F=byId[e.a];if(!F||F.ghost)continue;if(F.pre&&e.move!==undefined&&!Tricks.isBlink(e.move)){const f=F.f;F.pre=0;if(f.ph&&f.ph[0]&&f.ph[0].n-8>=18){f.pt=8;f.pk=8}}   // dynamic blink: the strike was already under way while he was gone (never cuts the windup under 18 ticks)
+
+        if(Tricks.isBlink(e.move)&&F.T.blink&&!F.bl){const tg=aiTarget(F.f);F.bl={n:0,t:0,tg:tg.id,hide:false,lock:false,vec:Tricks.blinkVec(Math.random,F.ai.ph2),sg:Math.random()<.5?1:-1,long:e.move==='blinkl',sw:0};try{blinkFx(F)}catch(x){}}
         else if(e.move==='snare'&&F.T.traps){F.sn={n:0,tg:aiTarget(F.f).id}}}
       else if(e.t==='hit'&&e.d==='P'&&byId[e.a]&&byId[e.a].T.vamp&&e.dmg>0){const A=byId[e.a],h=Tricks.heal(e.dmg,A.drunk||0,A.f.hpMax);if(h>0){A.drunk=(A.drunk||0)+h;
         if(NET.mode==='guest'){try{WardenNet.send({k:'sp',t:'vh',s:site.id,b:A.id,h:+h.toFixed(2)})}catch(x){}}else A.f.hp=Math.min(A.f.hpMax,A.f.hp+h);
@@ -788,21 +789,22 @@ const PlayerCombat=(()=>{
       if(F.bl&&F.bl.n!==undefined){const B=F.bl;B.n++;
         if(f.act==='dead'||f.act==='stun'){blinkEnd(F);continue}
         const tg=C.F[B.tg]||P;
-        if(B.n>=Tricks.BLINK.LOCK&&!B.lock){B.lock=true;B.spot=Tricks.blinkSpot(tg.x,tg.z,tg.face,C.arena);blinkRing(B.spot.x,B.spot.z,true);try{if(NET.mode==='host'&&Q)WardenNet.send({k:'sp',t:'br',s:site.id,b:F.id,x:+B.spot.x.toFixed(2),z:+B.spot.z.toFixed(2)})}catch(x){}}
+        if(B.n>=Tricks.BLINK.LOCK&&!B.lock){B.lock=true;B.spot=Tricks.blinkSpotV(B.vec||'behind',tg.x,tg.z,tg.face,C.arena,B.sg);blinkRing(B.spot.x,B.spot.z,true);try{if(NET.mode==='host'&&Q)WardenNet.send({k:'sp',t:'br',s:site.id,b:F.id,x:+B.spot.x.toFixed(2),z:+B.spot.z.toFixed(2)})}catch(x){}}
         if(B.n>=Tricks.BLINK.HIDE)f.inv=Math.max(f.inv,3)
         if(f.act==='attack'&&f.ph&&f.ph[f.pi]&&f.ph[f.pi].k==='release'&&f.pk===0){   // the reappearance
-          const sp=B.spot||Tricks.blinkSpot(tg.x,tg.z,tg.face,C.arena);try{WardenVfx.burst(sp.x,H(sp.x,sp.z)+1.2,sp.z,1);WardenVfx.slash(sp.x,H(sp.x,sp.z)+1.2,sp.z,tg.face,true,1);sfx('whoosh',.6,.7,()=>tone(200,80,.2,'sawtooth',.1))}catch(x){}
+          const sp=B.spot||Tricks.blinkSpot(tg.x,tg.z,tg.face,C.arena);try{WardenVfx.burst(sp.x,H(sp.x,sp.z)+1.2,sp.z,1);WardenVfx.slash(sp.x,H(sp.x,sp.z)+1.2,sp.z,tg.face,true,1);WardenVfx.slash(sp.x,H(sp.x,sp.z)+1.5,sp.z,tg.face+1.1,true,1);sfx('whoosh',.6,.7,()=>tone(200,80,.2,'sawtooth',.1))}catch(x){}
           f.x=sp.x;f.z=sp.z;f.face=Math.atan2(tg.x-sp.x,tg.z-sp.z);f.act='free';f.ph=null;f.mv=null;f.inv=0;f.pt=0;f.pk=0;F.ai.cool=0;F.ai.busy=false;
-          F.ai.follow=F.T.ai==='gdn'?(Math.random()<.55?'snakelash':'sunvolley'):F.T.ai==='samurai'||F.T.ai==='veil'?(F.ai.ph2&&!F.ai.chain&&Math.random()<(F.ai.cov?.95:.55)?(F.ai.chain=1,'blink'):(F.ai.chain=0,F.T.ai==='samurai'&&F.ai.ph3&&Math.random()<.4?'hundred':Math.random()<.7?'iai':'cut')):Math.random()<.45?'twin':'cut';blinkEnd(F)}}
+          F.ai.follow=F.T.ai==='gdn'?(Math.random()<.55?'snakelash':'sunvolley'):F.T.ai==='samurai'||F.T.ai==='veil'?(F.ai.ph2&&!F.ai.chain&&Math.random()<(F.ai.cov?.95:.55)?(F.ai.chain=1,'blink'):(F.ai.chain=0,F.T.ai==='samurai'&&F.ai.ph3&&Math.random()<.4?'hundred':Math.random()<.7?'iai':'cut')):Math.random()<.45?'twin':'cut';if(F.T.ai!=='gdn'&&F.ai.follow!=='blink'){if(B.vec==='above')F.ai.follow='fall';else if(B.vec!=='behind'&&F.ai.follow==='iai')F.ai.follow=Math.random()<.5?'iai':'cut';F.pre=8}blinkEnd(F)}}
       if(F.sn){const S_=F.sn;S_.n++;if(f.act!=='attack'||!f.mv||f.mv.id!=='snare'){F.sn=null;continue}
         if(f.ph&&f.ph[f.pi]&&f.ph[f.pi].k==='release'&&f.pk===0){F.sn=null;const tg=C.F[S_.tg]||P,n=Tricks.count(F.ai.ph2,!!(Q&&NET.mode==='host')),seed=(Math.random()*2147483647)|0,cn=++trapN;
           trapsPlace(seed,n,tg.x,tg.z,cn);try{if(NET.mode==='host'&&Q)WardenNet.send({k:'sp',t:'tp',s:site.id,seed,n,x:+tg.x.toFixed(2),z:+tg.z.toFixed(2),c:cn})}catch(x){}}}}}
   function trickTick(dt){
     trapsTick(dt);
     for(const F of foes){if(!F.T.blink)continue;   // what is shown follows the synced sim state (act / move / phase tick), so host and guest agree even when a phone lags
-      const bl=F.f.act==='attack'&&F.f.mv&&F.f.mv.id==='blink';
+      const bl=F.f.act==='attack'&&F.f.mv&&Tricks.isBlink(F.f.mv.id);
       if(bl&&!F.bl&&NET.mode==='guest'){F.bl={t:0};blinkFx(F)}
-      if(F.bl){F.bl.t+=dt;if(!bl&&NET.mode==='guest'||F.bl.t>3||F.f.act==='dead')blinkEnd(F);else{const hide=bl&&F.f.pt>=Tricks.BLINK.HIDE;if(F.body.g.visible===hide)F.body.g.visible=!hide}}}}
+      if(F.bl){F.bl.t+=dt;if(F.bl.long&&bl&&F.f.pt>=Tricks.BLINK.HIDE){F.bl.sw-=dt;if(F.bl.sw<=0){F.bl.sw=.28;try{const a=Math.random()*6.28,r=1.6+Math.random()*1.4;WardenVfx.spawn(P.x+Math.cos(a)*r,H(P.x,P.z)+.6+Math.random()*1.2,P.z+Math.sin(a)*r,3,3,1.8,a,26)}catch(x){}}}
+        if(!bl&&NET.mode==='guest'||F.bl.t>(F.bl.long?6.5:4.2)||F.f.act==='dead')blinkEnd(F);else{const hide=bl&&F.f.pt>=Tricks.BLINK.HIDE;if(F.body.g.visible===hide)F.body.g.visible=!hide}}}}
   // The Three Oaths: one signature attack at a time (Tricks.sigBusy); F.sg counts the quiet gap after a signature move ends
   function Foes_sig(q,F){const inSig=q.act==='attack'&&q.mv&&Tricks.SIG[q.mv.id];if(inSig)F.sg=Tricks.GAP;else if(F.sg>0)F.sg--;
     return Tricks.sigBusy(foes.filter(o=>o.T.oath&&!o.ghost).map(o=>({id:o.id,alive:o.f.act!=='dead',act:o.f.act,mv:o.f.mv&&o.f.mv.id,gap:o.sg||0})),F.id)}
@@ -944,7 +946,7 @@ const PlayerCombat=(()=>{
     else if(e.t==='deflect'&&e.d==='P'){flash(.4,'rgba(190,225,255,.85)');try{CameraRig.shake(.42)}catch(x){}parryFx(e);
       if(e.pf&&!ult){try{CameraRig.pulse(-3.2);CameraRig.shake(.1)}catch(x){}hsT=Math.max(hsT,e.sq?.6:.22);flash(.45,'rgba(255,215,120,.8)');msg(e.sq?'PERFECT SEQUENCE':'PERFECT',e.sq?1.6:.7);try{sfx('clash',.6,1.7,()=>tone(1900,1100,.22,'sine',.1));if(e.sq)CameraRig.shake(.7)}catch(x){}
         if(NET.mode==='guest'){try{WardenNet.send({k:'sp',t:'pf',b:e.a,q:e.sq?1:0})}catch(x){}}}}
-    else if(e.t==='dodge'&&e.a==='P'){WardenVfx.spawn(P.x,H(P.x,P.z)+1,P.z,2,4,2.8,-P.face+Math.PI/2,30)}}
+    else if(e.t==='dodge'&&e.a==='P'){try{if(CAMS.move&&!ult&&!sv)CameraRig.pulse(1.6)}catch(x){}WardenVfx.spawn(P.x,H(P.x,P.z)+1,P.z,2,4,2.8,-P.face+Math.PI/2,30)}}
   // PARRY: a real sweep of the sword (pAnim.flick, alternating sides), a short hit-stop so you SEE the clash, a double burst of sparks between you and him, a bright ring and a rising ring tone
   let parryAlt=0,hsT=0;
   function parryFx(e){

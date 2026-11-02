@@ -13,6 +13,16 @@ const Tricks=(()=>{
   // where Vael lands: behind the target (target faces `face`), kept inside the arena
   function blinkSpot(tx,tz,face,arena){let x=tx-Math.sin(face)*BLINK.BEHIND,z=tz-Math.cos(face)*BLINK.BEHIND;
     if(arena){const dx=x-arena.x,dz=z-arena.z,d=Math.hypot(dx,dz),lim=arena.R-1;if(d>lim){x=arena.x+dx/d*lim;z=arena.z+dz/d*lim}}return{x,z}}
+  // DYNAMIC BLINK: where he lands (behind / front / side / above = the shadow comes down ON the marked spot) and how long he hangs (the move id: blink instant, blinkm ~2 s, blinkl ~4 s)
+  const VEC=['behind','side','front','above'];
+  function blinkVec(r,ph2){const x=r();return x<(ph2?.3:.55)?'behind':x<(ph2?.58:.8)?'side':x<(ph2?.8:1)?'front':'above'}
+  function blinkSpotV(vec,tx,tz,face,arena,sgn){const s=sgn<0?-1:1;let x,z;
+    if(vec==='front'){x=tx+Math.sin(face)*2.1;z=tz+Math.cos(face)*2.1}
+    else if(vec==='side'){x=tx+Math.cos(face)*2.0*s;z=tz-Math.sin(face)*2.0*s}
+    else if(vec==='above'){x=tx;z=tz}
+    else return blinkSpot(tx,tz,face,arena);
+    if(arena){const dx=x-arena.x,dz=z-arena.z,d=Math.hypot(dx,dz),lim=arena.R-1;if(d>lim){x=arena.x+dx/d*lim;z=arena.z+dz/d*lim}}return{x,z}}
+  const isBlink=id=>typeof id==='string'&&id.indexOf('blink')===0;
   const count=(ph2,co)=>(ph2?4:3)+(co?1:0);
   // traps scatter on a ring around the target (never on top of them), spread apart, inside the arena
   function snareLayout(seed,n,px,pz,arena){const r=rng(seed),out=[],a0=r()*Math.PI*2;
@@ -29,5 +39,5 @@ const Tricks=(()=>{
   // THE THREE OATHS: only one boss may START a signature attack at a time. A foe is 'busy' while it is inside a signature move and for GAP ticks after it ends; everyone else is locked out meanwhile.
   const SIG={verdict:1,groundbreaker:1,requiem:1,consecrate:1,procession:1},GAP=50;
   const sigBusy=(list,selfId)=>{for(const o of list)if(o.id!==selfId&&o.alive&&(o.gap>0||o.act==='attack'&&o.mv&&SIG[o.mv]))return true;return false};
-  return{BLINK,LEECH,SNARE,SIG,GAP,sigBusy,rng,heal,blinkSpot,count,snareLayout,armed,touch,bite}})();
+  return{BLINK,VEC,blinkVec,blinkSpotV,isBlink,LEECH,SNARE,SIG,GAP,sigBusy,rng,heal,blinkSpot,count,snareLayout,armed,touch,bite}})();
 if(typeof module!=='undefined')module.exports=Tricks;
