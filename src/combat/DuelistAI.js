@@ -7,7 +7,7 @@
 // Adaptive difficulty (learning your habits) is a separate layer, off by default, and is NOT in this file.
 const DuelistAI=(()=>{
   const REACH={bladestorm:16,swordring:3.4,sunvolley:18,snakelash:3.8,eclipse:7.6,charge:10,maul:3.2,tidal:6.4,spores:12,hundred:3.2,ashwave:16,crossflame:16,kingsfall:7,flurry:3,cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4,dash:2.4,leap:3.0,bash:2.3,orb:12,bolt:16,spin:2.9,hammer:2.7,lowsweep:3.1,blink:30,snare:30,lance:20,returning:18,consecrate:12,procession:11,march:2.7,groundbreaker:3.9,verdict:2.8,pursuit:3.1,iai:3.4,feint:3.4,moon:3.7,counter:2.9,requiem:5.2},REACT=14,INTRO=90;
-  Object.assign(REACH,{voidthrust:7,crownfissure:8.2,gateslam:11,rend:4.8,sunder:5.4,spear:20,storm:12,arrows:14,ruin:3.4,ruincollapse:3.4,heavenfall:3.1,hangfall:3.2,executioner:3,brokenadv:3.2,impaler:4.4,doubleimp:3.9,kingsweep:3.7,risingcrown:3.4,tempest:3.2,severance:3.2,twineclipse:3.4,eclipsecollapse:3.5,thousand:3.4,silentsev:3.4,stormgrid:18,crownfall:12,worldbreaker:7.6,aftershock:4.6,marks:12,finalsentence:12,sovereign:3.4});
+  Object.assign(REACH,{heavenfalld:3.1,heavenwave:12,voidthrust:7,crownfissure:8.2,gateslam:11,rend:4.8,sunder:5.4,spear:20,storm:12,arrows:14,ruin:3.4,ruincollapse:3.4,heavenfall:3.1,hangfall:3.2,executioner:3,brokenadv:3.2,impaler:4.4,doubleimp:3.9,kingsweep:3.7,risingcrown:3.4,tempest:3.2,severance:3.2,twineclipse:3.4,eclipsecollapse:3.5,thousand:3.4,silentsev:3.4,stormgrid:18,crownfall:12,worldbreaker:7.6,aftershock:4.6,marks:12,finalsentence:12,sovereign:3.4});
   const HR={sweep:3.0,slam:3.0,triple:2.8,quake:4.2};
   function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
   function create(seed,o){o=o||{};const r=mulberry(seed|0);return{foe:o.foe||'duelist',kid:o.kid||'',mast:!!o.mast,noAtk:false,gcool:0,r,t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,mood:'patient',moodT:90,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null,
@@ -216,7 +216,7 @@ const DuelistAI=(()=>{
   // ---- Signature Boss Move Library: SEQUENCES (named chains of the moves above), chosen by personality. Each step still starts only when the boss is free, so every move keeps its tell and recovery plus a rest of >=20
   // ticks between steps (that is the player's window); a step that is out of range ends the chain (a boss cannot chain forever), and a chain has a long cooldown. LAST SOVEREIGN (phase 3, or 2 in a Mastery rematch): ~10 s
   // empowered: shorter rests, signature moves and chains come twice as often, and it ends with a No-Retreat pursuit.
-  const CL={ruin:8.5,ruincollapse:8.5,heavenfall:8.5,spear:20,stormgrid:20,crownfall:12,worldbreaker:8,aftershock:6,marks:12,finalsentence:12,blink:30,pursuit:7.5,sovereign:9};
+  const CL={heavenfalld:8.5,heavenwave:12,ruin:8.5,ruincollapse:8.5,heavenfall:8.5,spear:20,stormgrid:20,crownfall:12,worldbreaker:8,aftershock:6,marks:12,finalsentence:12,blink:30,pursuit:7.5,sovereign:9};
   const SEQ={
     brokencrown:{q:['ruin','kingsweep'],ph:0,lo:3.6,hi:8,cd:720},stormexec:{q:['spear','heavenfall'],ph:2,lo:4.5,hi:14,cd:780},crimson:{q:['tempest','impaler'],ph:2,lo:1.6,hi:3.2,cd:760},
     kingdom:{q:['crownfall','worldbreaker'],ph:3,lo:2,hi:10,cd:1100},waltz:{q:['thousand','twineclipse'],ph:3,lo:1.4,hi:3.2,cd:900},phantom:{q:['blink','marks','silentsev'],ph:2,lo:3.6,hi:12,cd:900},
@@ -228,7 +228,7 @@ const DuelistAI=(()=>{
   const EXTRA={
     samurai:[{m:'severance',lo:1.4,hi:3.2,ph:0,cd:520,p:.22},{m:'silentsev',lo:2.6,hi:3.4,ph:2,cd:600,p:.25},{m:'thousand',lo:1.4,hi:3.2,ph:3,cd:700,p:.3}],
     dknight:[{m:'crownfall',lo:3,hi:12,ph:2,cd:640,p:.3},{m:'marks',lo:3,hi:12,ph:2,cd:700,p:.3},{m:'finalsentence',lo:3,hi:12,ph:3,cd:760,p:.3}],
-    darkknight:[{m:'ruin',lo:3.6,hi:8,ph:0,cd:480,p:.28},{m:'executioner',lo:1.4,hi:3,ph:0,cd:520,p:.25},{m:'ruincollapse',lo:3.6,hi:8,ph:2,cd:620,p:.3}],
+    darkknight:[{m:'ruin',lo:3.6,hi:8,ph:0,cd:480,p:.28},{m:'heavenfall',lo:3.6,hi:8,ph:2,cd:540,p:.3},{m:'executioner',lo:1.4,hi:3,ph:0,cd:520,p:.25},{m:'ruincollapse',lo:3.6,hi:8,ph:2,cd:620,p:.3}],
     gwyn:[{m:'stormgrid',lo:6,hi:16,ph:2,cd:520,p:.25},{m:'aftershock',lo:0,hi:4.6,ph:2,cd:800,p:.3}],
     oath4:[{m:'stormgrid',lo:6,hi:16,ph:2,cd:520,p:.25},{m:'finalsentence',lo:3,hi:12,ph:3,cd:760,p:.3}],
     gdn:[{m:'stormgrid',lo:6,hi:16,ph:2,cd:520,p:.25},{m:'crownfall',lo:3,hi:12,ph:2,cd:640,p:.3},{m:'finalsentence',lo:3,hi:12,ph:3,cd:760,p:.3}],
@@ -434,7 +434,7 @@ const DuelistAI=(()=>{
     if(A.ph3&&A.stl<=0&&dist>=2.4&&dist<=6&&D.act==='free'&&!A.follow&&A.r()<.03){A.stl=A.mast?520:720;A.still=60;A.spMsg=SPN[key].still;out.mx=out.mz=0;return out}
     return null}
   function start(A,out,m,hold,tick){if(A.mut[m]>0&&MUT[A.kid]&&MUT[A.kid][m]&&!A.follow){const r=MUT[A.kid][m];A.mut[m]--;A.follow=r[1];if(r[0]!==m){m=r[0];hold=0}}
-    A.last.push(m);if(A.last.length>3)A.last.shift();let om=m;if(m==='blink'&&DYNB[A.kid]){const q=A.r();om=(A.ph3||A.mast)&&q<.14?'blinkl':q<(A.ph2?.5:.38)?'blinkm':'blink'}out.list.push({t:'atk',m:om,hold,e:tick});out.mx=out.mz=0;return out}
+    A.last.push(m);if(A.last.length>3)A.last.shift();let om=m;if(m==='blink'&&DYNB[A.kid]){const q=A.r();om=(A.ph3||A.mast)&&q<.14?'blinkl':q<(A.ph2?.5:.38)?'blinkm':'blink'}else if(m==='heavenfall'&&A.kid==='darkknight'){const q=A.r();om=q<.3?'heavenfalld':q<.58?'heavenwave':'heavenfall'}out.list.push({t:'atk',m:om,hold,e:tick});out.mx=out.mz=0;return out}
   // the game calls this when the hunted player drinks a health flask: every foe ends its rest and stops breathing (at most once per 5 s each); Vael blinks onto you, Skrag fires the heavy bolt
   const hunt=(A)=>{if(A.hcd>0)return false;A.hcd=300;A.cool=Math.min(A.cool,6);A.breath=0;if(A.foe==='saint'||A.foe==='stalker'||A.foe==='trapper'||A.foe==='samurai'||A.foe==='veil'||A.foe==='penitent'||A.foe==='gwyn'||A.foe==='gdn')A.hunt=true;return true};   // everyone cuts their rest short; the hunters have a special answer
   return{create,think,hunt,onParry,MUT,HN,MIND,REACH:Object.assign({},REACH,HR),REACT,INTRO,SEQ,SEQS,SIG}})();

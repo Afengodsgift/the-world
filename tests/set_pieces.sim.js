@@ -55,3 +55,10 @@ console.log(n+' checks')
  ok3(used[0]===0,'no crown fissure in phase 1');ok3(used[2]>=5,'crown fissure appears in phase 2 ('+used[2]+')');
  {const A=DuelistAI.create(2,{foe:'gwyn',kid:'dknight',intro:0});A.on=true;A.follow='voidthrust';const D=mkD(),P=mkP(5);let got=false;const o=DuelistAI.think(A,P,D,[],1);for(const c of o.list)if(c.t==='atk'&&c.m==='voidthrust')got=true;ok3(got,'a queued Void Thrust is thrown at an afterimage 5 m away')}
  console.log(n2+' dark knight checks')}
+// ARTORIAS: Heavenfall comes in three forms (instant / hung / converted to a wave); other bosses never use the variants
+{let n3=0;const ok4=(c,m)=>{if(!c){console.log('FAIL '+m);process.exitCode=1}else n3++};
+ for(const[kid,foe,want]of[['darkknight','blackknight',true],['gwyn','gwyn',false]]){const cnt={};for(let sd=1;sd<=40;sd++){const A=DuelistAI.create(sd*29,{foe,kid,intro:0});A.on=true;A.ph2=true;const D=mkD(),P=mkP(6);
+   for(let t=0;t<3600;t++){if(D.act==='attack'&&t%50===0)D.act='free';const o=DuelistAI.think(A,P,D,[],t);for(const c of o.list)if(c.t==='atk'){D.act='attack';cnt[c.m]=(cnt[c.m]||0)+1}}}
+   if(want){ok4((cnt.heavenfall||0)>0&&(cnt.heavenfalld||0)>0&&(cnt.heavenwave||0)>0,kid+' mixes all three Heavenfalls '+JSON.stringify({a:cnt.heavenfall,b:cnt.heavenfalld,c:cnt.heavenwave}))}
+   else ok4(!cnt.heavenfalld&&!cnt.heavenwave,kid+' never uses the Abyss variants')}
+ console.log(n3+' artorias checks')}
