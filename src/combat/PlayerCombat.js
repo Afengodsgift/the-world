@@ -397,7 +397,7 @@ const PlayerCombat=(()=>{
     killDecoy(true);jumpCd=shCd=0;oathFirst=null;fightN++;hurt=false;fightVo=false;try{WardenSfx.load()}catch(e){}const R=site.wall?site.R-.5:site.dg?site.R-.3:site.R+10,sol=WardenSolids().filter(s=>Math.hypot(s.x-WRD.x-site.x,s.z-WRD.z-site.z)<site.R+14);
     C=CombatCore.create({arena:{x:WRD.x+site.x,z:WRD.z+site.z,R},solids:sol});try{CameraRig.setArena({x:WRD.x+site.x,z:WRD.z+site.z,R:site.wall||site.dg?R:site.R,sol:sol.filter(q=>!q.wall)})}catch(e){}ST=CombatCore.stepper(C,6);t0=performance.now();vt=0;vl=0;tsc=1;ult=null;
     if(site.duel&&DU.pair){const L=duelSide();S.x=WRD.x+site.x;S.z=WRD.z+site.z+9*L;S.rot=L>0?Math.PI:0;lx=S.x;lz=S.z}
-    P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});applyStats();spawnFoes();sup=Math.max(sup,20);WardenFx.clear();WardenVfx.clear();for(const F of foes)if(F.T.ai==='saint')try{WardenFx.orbit(F,6)}catch(e){};trapsClear();blinkRing(0,0,false);Q=null;spectate=false;netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
+    P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});applyStats();spawnFoes();sup=Math.max(sup,20);WardenFx.clear();WardenVfx.clear();for(const F of foes)if(F.T.ai==='saint')try{WardenFx.orbit(F,6)}catch(e){};trapsClear();blinkRing(0,0,false);Q=null;spectate=false;ls=null;netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
     flow=0;flowOn=false;flowN=0;fq=null;skillCD=0;bars.fl=-1;healLeft=0;mightT=0;itemLock=0;state='fight';stateT=0;lockOff=false;lock=(site.fog||site.duel||foes.some(F=>F.T.boss))&&!(site.duel&&!DU.pair);lockI=0;{const b=foes.find(F=>F.T.boss&&F.awake)||foes.find(F=>F.awake);if(b)lockI=b.i}lastEv=[];pv.init=false;down.guard=down.heavy=false;stW=0;gT=0;
     if(el)el.querySelector('#wLock').classList.toggle('on',lock);D=target().f}
   // Inside a walled arena the screen is the cost on a low-end phone: render at 1.25x (not 2x) while you fight, restore on leaving. Skipped when ?dpr= was given.
@@ -563,6 +563,24 @@ const PlayerCombat=(()=>{
   // target cutting from seven sides in a row (spirit slashes, 28 each) and land one finishing cut (90). You are untouchable throughout. All real sim moves (sever/sever2/severF), so damage, parry and
   // co-op sync are the normal rules; the camera orbits the target. Real-time timeline (the sim runs slowed by tsc).
   let sup=0,sv=null;const SV_N=7,SV_GAP=.3;
+  // SHARED LAST STAND (co-op): when one of you falls, the other has LS_WIN seconds to stand beside the body for LS_HOLD seconds and bring them back at 40% health.
+  // Each client is authoritative for its own defence, so the FALLEN player's client decides the revive (it sees the partner puppet beside it); the partner only sees a progress read-out. If the window closes or the partner falls too, the death is recorded as before.
+  const LS_WIN=25,LS_HOLD=3,LS_R=2.6;let ls=null,revT=0;
+  function lsStart(){ls={t:LS_WIN,hold:0,x:P.x,z:P.z}}
+  function lsFail(){if(!ls)return;ls=null;try{PG.die(site.id,P.x,P.z)}catch(e){}}
+  function lsTick(dt){
+    if(ls&&spectate&&P.act==='dead'){
+      if(!Q||Q.act==='dead'){lsFail();return}
+      ls.t-=dt;const near=Math.hypot(Q.x-ls.x,Q.z-ls.z)<LS_R;ls.hold=near?ls.hold+dt:Math.max(0,ls.hold-dt*2);
+      if(ls.hold>=LS_HOLD){lsRevive();return}
+      if(ls.t<=0){lsFail();spectate=false;state='lost';stateT=performance.now();return}
+      msg(near?'BROUGHT BACK IN '+Math.max(0,LS_HOLD-ls.hold).toFixed(1)+'s':'WAIT FOR YOUR PARTNER \u00b7 '+Math.ceil(ls.t)+'s',.3)}
+    else if(Q&&Q.act==='dead'&&P.act!=='dead'&&state==='fight'&&!site.duel){   // you are the one standing: show the read-out (the fallen client decides)
+      const near=Math.hypot(Q.x-P.x,Q.z-P.z)<LS_R;revT=near?revT+dt:0;if(near)msg('REVIVING \u00b7 stay beside them '+Math.max(0,LS_HOLD-revT).toFixed(1)+'s',.3)}
+    else revT=0}
+  function lsRevive(){
+    ls=null;spectate=false;P.act='free';P.hp=Math.max(1,P.hpMax*.4);P.mv=null;P.ph=null;P.sk=null;P.stun=0;P.guard=false;P.c=0;P.inv=Math.max(P.inv||0,150);
+    try{CameraRig.pulse(-5);CameraRig.shake(.5);flash(.7,'rgba(255,240,200,.85)');msg('BACK ON YOUR FEET',1.8);sfx('clash',.7,1.2,()=>tone(500,1400,.5,'triangle',.14))}catch(e){}}
   // SET PIECES: the fight reacts to how you fight it (Kage, the Dark Knight; the parry rules apply to any duelist with a MUT table).
   // - move tracking + parry adaptation (DuelistAI.onParry), - three PERFECT parries in a row within 7 s on a boss = the Deathblow opening: his guard breaks, time stalls, you get a free cut,
   // - a mood vignette that darkens the arena in phase 2 and 3 (a plain overlay: no extra lights, cheap on a phone).
@@ -581,9 +599,9 @@ const PlayerCombat=(()=>{
   function mood(k,col){
     if(!el)return;if(!moodEl){moodEl=document.createElement('div');moodEl.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:4;opacity:0;transition:opacity 2.4s ease;background:radial-gradient(ellipse at center,transparent 42%,var(--mc,rgba(120,20,0,.55)) 100%)';el.appendChild(moodEl)}
     if(col)moodEl.style.setProperty('--mc',col);moodEl.style.opacity=String(k)}
-  const MOODS={samurai:[['rgba(110,30,10,.5)',.7],['rgba(150,10,0,.7)',1]],dknight:[['rgba(40,10,70,.55)',.7],['rgba(10,0,30,.8)',1]]};
+  const MOODS={hollow:[['rgba(20,40,30,.55)',.65]],samurai:[['rgba(110,30,10,.5)',.7],['rgba(150,10,0,.7)',1]],dknight:[['rgba(40,10,70,.55)',.7],['rgba(10,0,30,.8)',1]]};
   function phaseBeat(F,n){
-    const m=MOODS[F.T.id==='dknight'?'dknight':F.T.ai==='samurai'?'samurai':''];if(!m||ult)return;
+    const m=MOODS[F.T.id==='dknight'?'dknight':F.T.ai==='samurai'?'samurai':F.T.id==='hollow'?'hollow':''];if(!m||!m[n-2]||ult)return;
     mood(m[n-2][1],m[n-2][0]);try{CameraRig.pulse(-3);CameraRig.shake(.5);flash(.5,n===3?'rgba(255,60,20,.55)':'rgba(255,180,90,.4)')}catch(x){}}
   function supEv(e){if(sv||ult||state!=='fight')return;let g=0;
     if(e.t==='hit'){if(e.a==='P'&&!e.fx)g=e.dmg>=20?5:3;else if(e.d==='P')g=2}
@@ -902,7 +920,7 @@ const PlayerCombat=(()=>{
     if(S.grounded||S.state==='swim')gBase=S.y;P.y=Math.max(0,S.y-gBase);
     decoyTick(decoy,'Z',dt);decoyTick(rdecoy,'Y',dt);
     const b=el&&el.querySelector('#wShadow');if(b){const t=shCd>0?Math.ceil(shCd):0;if(b._c!==t){b._c=t;b.textContent=t?'Shadow '+t:'Shadow';b.classList.toggle('cd',t>0)}}}
-  function leave(hold){pun=null;pcs.n=0;try{if(moodEl)moodEl.style.opacity='0'}catch(e){}svEnd();try{WardenFx.clear()}catch(e){}   // hold: keep the corpses of a cleared site in the world
+  function leave(hold){pun=null;pcs.n=0;ls=null;try{if(moodEl)moodEl.style.opacity='0'}catch(e){}svEnd();try{WardenFx.clear()}catch(e){}   // hold: keep the corpses of a cleared site in the world
     if(!on)return;endSet();trapsClear();try{blinkRing(0,0,false)}catch(e){}killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');document.body.classList.remove('warden-duel');if(sword&&sword.grip)sword.grip.visible=false;if(sword2&&sword2.grip)sword2.grip.visible=false;pendFace=null;
     if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.combat(0,0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
@@ -963,7 +981,7 @@ const PlayerCombat=(()=>{
       else if(e.t==='dead'&&T){if(T.T.oath&&!oathFirst){const rest=foes.filter(o=>o!==T&&o.T.oath&&o.f.act!=='dead');if(rest.length){oathFirst=T.T.ai;for(const o of rest){o.ai.cov=T.T.ai;o.ai.ph2=true}setTimeout(()=>{if(on)msg('THE COVENANT BREAKS',2.4)},900)}}if(!T.human&&!site.duel)flaskDrop(T.T);if(T.T.id==='oath4'){try{WardenProg.earn(600);toast('THE OATH IS BROKEN \u00b7 +600 embers',4)}catch(x){}}sfx('heavy',.7,.7,()=>tone(200,40,.5,'sawtooth',.14));if(T.body.T.body==='avatar')T.body.u.emoteReq='playdead';if(T.T.boss){if(!ult&&!foes.some(o=>o!==T&&o.T.boss&&o.f.act!=='dead')){hsT=Math.max(hsT,1.25);flash(.7,'rgba(255,255,255,.75)');try{CameraRig.shake(.6)}catch(x){}}CineCam.play('death',{x:T.f.x,z:T.f.z,h:1.2*T.T.scale,sc:Math.max(1,T.T.scale*.9)},{id:T.T.id});msg(T.T.name.toUpperCase()+' IS FELLED',3);setTimeout(()=>WardenSfx.play(hurt?'vo_winner':'vo_flawless_victory',.8,1,{nojit:1}),700)}
         if(lock&&lockI===T.i){const n=nearest();if(n&&n!==T)lockI=n.i;else{lock=false;el.querySelector('#wLock').classList.remove('on')}}
         if(!alive().length){state='won';stateT=performance.now();lock=false;el.querySelector('#wLock').classList.remove('on');if(site.duel)duelOver(true)}}
-      else if(e.t==='dead'&&e.d==='P'&&NET.mode==='host'&&Q&&Q.act!=='dead'){PG.die(site.id,P.x,P.z);msg('YOU DIED · your partner fights on',3);sfx('heavy',.8,.6,()=>tone(180,35,.6,'sawtooth',.16));spectate=true}
+      else if(e.t==='dead'&&e.d==='P'&&(NET.mode==='host'||NET.mode==='guest')&&Q&&Q.act!=='dead'&&!site.duel){lsStart();msg('YOU FELL \u00b7 your partner can bring you back',3);sfx('heavy',.8,.6,()=>tone(180,35,.6,'sawtooth',.16));spectate=true}
       else if(e.t==='dead'&&e.d==='P'){if(site.duel)setTimeout(()=>duelOver(false),0);else PG.die(site.id,P.x,P.z);msg('YOU DIED',3);sfx('heavy',.8,.6,()=>tone(180,35,.6,'sawtooth',.16));setTimeout(()=>WardenSfx.play('vo_game_over',.8,1,{nojit:1}),600);state='lost';stateT=performance.now()}}}
   // BARE HANDS feel: every connecting punch kicks the camera a little (more for heavy / finishing moves), throws and takedowns freeze the frame and flash, a takedown returns some health and fills Flow
   function fistImpact(e,T){const big=e.move==='take'?3:e.move==='throw'||e.move==='spin'||e.move==='round'||e.move==='power'||e.move==='drop'?2:e.move==='upper'?1.5:1;
@@ -1000,7 +1018,8 @@ const PlayerCombat=(()=>{
     {const rn=performance.now();if(!vl)vl=rn;const rd=Math.min(100,rn-vl);if(!ult&&!sv){if(hsT>0){hsT-=rd/1000;tsc=.16}else if(tsc===.16)tsc=1}vt+=rd*tsc;vl=rn;dt*=tsc}
     ensureAvatars();duelNet(dt);
     // end-of-fight handling
-    if(spectate&&(!Q||Q.act==='dead')){spectate=false;state='lost';stateT=performance.now()}
+    try{lsTick(dt)}catch(e){}
+    if(spectate&&(!Q||Q.act==='dead')){lsFail();spectate=false;state='lost';stateT=performance.now()}
     if(site.duel){if(DU.over&&performance.now()-DU.overT>4200){DU.over=false;if(DU.pair)duelBegin();else{startFight();msg('Again.',1.2)}}}
     else if(state==='lost'&&performance.now()-stateT>3200){startFight();msg('Again.',1.4)}
     else if(state==='won'&&performance.now()-stateT>(PC.loop?5000:4500)){
