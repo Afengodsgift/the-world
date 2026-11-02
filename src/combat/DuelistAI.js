@@ -39,9 +39,9 @@ const DuelistAI=(()=>{
       else{if(KN){out.mx=dist>1.9?ux*.9:-uz*A.strafe*.4;out.mz=dist>1.9?uz*.9:ux*A.strafe*.4}else{out.mx=0;out.mz=0}return out}}
     if(--A.strafeT<=0){A.strafe=A.r()<.5?-1:1;A.strafeT=70+Math.floor(A.r()*90)}
     // ---- movement: breathing = back off; otherwise close to the fighting distance (full speed when far), then circle ----
-    const want=SN?(A.ph2?5.6:6.6):PN?(A.ph2?1.5:1.8):SM?(A.ph2?1.9:2.3):AR?(A.ph2?9:10.5):TR?(A.ph2?6:7.2):SK?(A.ph2?1.5:1.8):H?2.3:DA?4.2:SO?1.9:KN?(A.ph2?1.8:2.1):A.mood==='aggro'?1.6:A.mood==='evasive'?3.0:2.1;let mx=0,mz=0;
+    const want=GD?(A.ph2?6.2:5.4):SN?(A.ph2?5.6:6.6):PN?(A.ph2?1.5:1.8):SM?(A.ph2?1.9:2.3):AR?(A.ph2?9:10.5):TR?(A.ph2?6:7.2):SK?(A.ph2?1.5:1.8):H?2.3:DA?4.2:SO?1.9:KN?(A.ph2?1.8:2.1):A.mood==='aggro'?1.6:A.mood==='evasive'?3.0:2.1;let mx=0,mz=0;
     if(A.breath>0&&A.t>A.intro){if(dist<4){mx=-ux*.8;mz=-uz*.8}else{mx=-uz*A.strafe*.4;mz=ux*A.strafe*.4}}
-    else if(dist>want+.5){const f=dist>7?1:.85;mx=ux*f;mz=uz*f}else if(dist<want-.6){mx=-ux*.7;mz=-uz*.7}else{mx=-uz*A.strafe*.55;mz=ux*A.strafe*.55}
+    else if(dist>want+.5){const f=dist>7?1:.85;mx=ux*f;mz=uz*f}else if(dist<want-.6){mx=-ux*(GD?1:.7);mz=-uz*(GD?1:.7)}else{const sf=GD?.95:.55;mx=-uz*A.strafe*sf;mz=ux*A.strafe*sf}
     out.mx=mx;out.mz=mz;
     if(A.t<=A.intro)return out;                       // the fight has not started yet: just square up
     if(A.breath>0)return out;                         // catching his breath: no attacks, the player may heal stamina / reposition

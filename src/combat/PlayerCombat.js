@@ -788,7 +788,7 @@ const PlayerCombat=(()=>{
       if(F.bl&&F.bl.n!==undefined){const B=F.bl;B.n++;
         if(f.act==='dead'||f.act==='stun'){blinkEnd(F);continue}
         const tg=C.F[B.tg]||P;
-        if(B.n>=Tricks.BLINK.LOCK&&!B.lock){B.lock=true;B.spot=Tricks.blinkSpotV(B.vec||'behind',tg.x,tg.z,tg.face,C.arena,B.sg);blinkRing(B.spot.x,B.spot.z,true);try{if(NET.mode==='host'&&Q)WardenNet.send({k:'sp',t:'br',s:site.id,b:F.id,x:+B.spot.x.toFixed(2),z:+B.spot.z.toFixed(2)})}catch(x){}}
+        if(!B.lock&&f.act==='attack'&&f.ph&&f.ph[0]&&f.pt>=f.ph[0].n-Tricks.BLINK.REVEAL){B.lock=true;B.spot=Tricks.blinkSpotV(B.vec||'behind',tg.x,tg.z,tg.face,C.arena,B.sg);blinkRing(B.spot.x,B.spot.z,true);try{if(NET.mode==='host'&&Q)WardenNet.send({k:'sp',t:'br',s:site.id,b:F.id,x:+B.spot.x.toFixed(2),z:+B.spot.z.toFixed(2)})}catch(x){}}
         if(B.n>=Tricks.BLINK.HIDE)f.inv=Math.max(f.inv,3)
         if(f.act==='attack'&&f.ph&&f.ph[f.pi]&&f.ph[f.pi].k==='release'&&f.pk===0){   // the reappearance
           const sp=B.spot||Tricks.blinkSpot(tg.x,tg.z,tg.face,C.arena);try{WardenVfx.burst(sp.x,H(sp.x,sp.z)+1.2,sp.z,1);WardenVfx.slash(sp.x,H(sp.x,sp.z)+1.2,sp.z,tg.face,true,1);WardenVfx.slash(sp.x,H(sp.x,sp.z)+1.5,sp.z,tg.face+1.1,true,1);sfx('whoosh',.6,.7,()=>tone(200,80,.2,'sawtooth',.1))}catch(x){}
