@@ -31,3 +31,10 @@ Fell the boss once -> "Mastery rematch unlocked". Next fights: 1.5x health, 1.25
 
 ## Still to build (per boss "defining spectacle")
 Arena changes at phase transitions, destructible structures, weapon loss -> new stance, boss reacting to a repeatedly parried signature, final-phase rhythm change, a cinematic counter for a difficult correct sequence.
+
+## Set pieces (Kage, the Dark Knight) — first batch
+- **Parry adaptation**: parry the same move three times (a perfect parry counts double) and the boss stops trusting it; for its next two uses it is feinted, delayed or chained (`DuelistAI.MUT`). A banner says so. Never changes a tell, only what follows it.
+- **The Stillness** (phase 3): he stops for one second (sheathes / kneels), then a double draw on a new rhythm. The stillness is the tell. Not during Last Sovereign or while an ally holds the boss token.
+- **Deathblow**: three perfect parries in a row (7 s window, no hit taken between) on a boss breaks its guard for 2 s, stalls time and costs it 4% HP; fills the Sever meter.
+- **Phase mood**: a vignette overlay darkens the arena at phase 2 and 3 (ember for Kage, void-violet for the Dark Knight).
+- Not built yet: destructible structures, weapon loss -> stance change (needs animation assets), arena hazards at phase changes.
