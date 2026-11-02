@@ -252,6 +252,7 @@ const PlayerCombat=(()=>{
       const b=el.querySelector('#wFlow');b.style.setProperty('--fl',(flow/100*360)+'deg');b.classList.toggle('full',full);b.classList.toggle('on',flowOn);b.textContent=flowOn?(flowN%2?'Meia':'Armada'):'Flow';
       setBar('.p .fl',flow/100);const fb=el.querySelector('.p .fl');fb.classList.toggle('full',full);fb.classList.toggle('on',flowOn)}}
   function press(name,tms){
+    if(pin&&on&&name!=='pause'){pin.n++;return true}
     if(!on||P.act==='dead'||DU.cd>0||CineCam.busy()&&CineCam.isActive()&&!ult)return false;const t=tms===undefined?now():tms;
     switch(name){
       case'light':{assist();reject();const c={t:'light',e:C.tick},d=stickDir(),fa=pendFace!==null?pendFace:S.rot;if(d&&d[0]*Math.sin(fa)+d[1]*Math.cos(fa)>.6)c.adv=true;if(D&&D.act!=='dead'&&Math.hypot(D.x-P.x,D.z-P.z)>4.5)c.far=true;ST.input('P',c,t);break}
@@ -396,7 +397,7 @@ const PlayerCombat=(()=>{
     killDecoy(true);jumpCd=shCd=0;oathFirst=null;fightN++;hurt=false;fightVo=false;try{WardenSfx.load()}catch(e){}const R=site.wall?site.R-.5:site.dg?site.R-.3:site.R+10,sol=WardenSolids().filter(s=>Math.hypot(s.x-WRD.x-site.x,s.z-WRD.z-site.z)<site.R+14);
     C=CombatCore.create({arena:{x:WRD.x+site.x,z:WRD.z+site.z,R},solids:sol});try{CameraRig.setArena({x:WRD.x+site.x,z:WRD.z+site.z,R:site.wall||site.dg?R:site.R,sol:sol.filter(q=>!q.wall)})}catch(e){}ST=CombatCore.stepper(C,6);t0=performance.now();vt=0;vl=0;tsc=1;ult=null;
     if(site.duel&&DU.pair){const L=duelSide();S.x=WRD.x+site.x;S.z=WRD.z+site.z+9*L;S.rot=L>0?Math.PI:0;lx=S.x;lz=S.z}
-    P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});applyStats();spawnFoes();sup=Math.max(sup,20);WardenFx.clear();WardenVfx.clear();for(const F of foes)if(F.T.ai==='saint')try{WardenFx.orbit(F,6)}catch(e){};trapsClear();blinkRing(0,0,false);Q=null;spectate=false;ls=null;ds=null;try{zonesClear()}catch(e){}netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
+    P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});applyStats();spawnFoes();sup=Math.max(sup,20);WardenFx.clear();WardenVfx.clear();for(const F of foes)if(F.T.ai==='saint')try{WardenFx.orbit(F,6)}catch(e){};trapsClear();blinkRing(0,0,false);Q=null;spectate=false;ls=null;ds=null;pin=null;try{zonesClear()}catch(e){}netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
     flow=0;flowOn=false;flowN=0;fq=null;skillCD=0;bars.fl=-1;healLeft=0;mightT=0;itemLock=0;state='fight';stateT=0;lockOff=false;lock=(site.fog||site.duel||foes.some(F=>F.T.boss))&&!(site.duel&&!DU.pair);lockI=0;{const b=foes.find(F=>F.T.boss&&F.awake)||foes.find(F=>F.awake);if(b)lockI=b.i}lastEv=[];pv.init=false;down.guard=down.heavy=false;stW=0;gT=0;
     if(el)el.querySelector('#wLock').classList.toggle('on',lock);D=target().f}
   // Inside a walled arena the screen is the cost on a low-end phone: render at 1.25x (not 2x) while you fight, restore on leaving. Skipped when ?dpr= was given.
@@ -583,37 +584,47 @@ const PlayerCombat=(()=>{
   // ZONES (the Dark Knight's Void Runes / Anchors). Each client is authoritative for its OWN defence, so every client damages only itself; the host decides when runes appear / detonate and tells the guest (sp: zr = rune at x,z, zd = detonate after a delay, za = anchors converge).
   // Runes are laid where he vanishes in a blink. Pursuit / Executioner's Advance arms them (0.9 s fuse, ring turns white): stand clear. Three anchors + a blink = the Convergence: lines run to you, you are dragged toward the centre, then Final Sentence.
   const RUNE_R=2.8;let zones=[],zoneG=null;
-  function zoneAdd(x,z,mine){
+  const VOLT_R=1.9;
+  function zoneAdd(x,z,mine,kind){kind=kind||'rune';const volt=kind==='volt';
     if(!zoneG){zoneG=new THREE.Group();scene.add(zoneG)}
-    while(zones.length>=5)zoneDel(zones[0]);
-    const m=new THREE.MeshBasicMaterial({color:0x8a3cff,transparent:true,opacity:.7,depthWrite:false,fog:false,side:THREE.DoubleSide}),g=new THREE.Mesh(new THREE.RingGeometry(.62,1,36),m);g.rotation.x=-Math.PI/2;g.scale.setScalar(RUNE_R);g.position.set(x,H(x,z)+.12,z);zoneG.add(g);
+    {const same=zones.filter(q=>q.kind===kind);while(same.length>=(volt?6:5)){zoneDel(same.shift())}}
+    const m=new THREE.MeshBasicMaterial({color:volt?0x66ccff:0x8a3cff,transparent:true,opacity:.7,depthWrite:false,fog:false,side:THREE.DoubleSide}),g=new THREE.Mesh(new THREE.RingGeometry(.62,1,36),m);g.rotation.x=-Math.PI/2;g.scale.setScalar(volt?VOLT_R:RUNE_R);g.position.set(x,H(x,z)+.12,z);zoneG.add(g);
     const lm=new THREE.LineBasicMaterial({color:0xc08cff,transparent:true,opacity:.9,fog:false,depthTest:false}),lg=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x,H(x,z)+.4,z),new THREE.Vector3(x,H(x,z)+.4,z)]),ln=new THREE.Line(lg,lm);ln.visible=false;ln.frustumCulled=false;ln.renderOrder=995;zoneG.add(ln);
-    zones.push({x,z,age:0,g,m,ln,lm,lg,fuse:-1,lit:0});
+    zones.push({x,z,age:0,g,m,ln,lm,lg,fuse:-1,lit:0,kind,tk:0,ch:0,nx:null});
     try{WardenVfx.spawn(x,H(x,z)+.5,z,3,3,2.2,Math.random()*6.28,24)}catch(e){}
-    if(mine&&NET.mode==='host'&&Q){try{WardenNet.send({k:'sp',t:'zr',s:site.id,x:+x.toFixed(2),z:+z.toFixed(2)})}catch(e){}}}
+    if(mine&&NET.mode==='host'&&Q){try{WardenNet.send({k:'sp',t:'zr',s:site.id,x:+x.toFixed(2),z:+z.toFixed(2),q:volt?'volt':'rune'})}catch(e){}}}
   function zoneDel(q){const i=zones.indexOf(q);if(i>=0)zones.splice(i,1);if(q.g.parent)q.g.parent.remove(q.g);if(q.ln.parent)q.ln.parent.remove(q.ln);q.m.dispose();q.lm.dispose();q.g.geometry.dispose();q.lg.dispose()}
   function zonesClear(){for(const q of zones.slice())zoneDel(q)}
-  function zoneArm(delay,mine){for(const q of zones)if(q.fuse<0)q.fuse=delay;
+  function zoneArm(delay,mine){for(const q of zones)if(q.fuse<0&&q.kind==='rune')q.fuse=delay;
     if(mine&&NET.mode==='host'&&Q){try{WardenNet.send({k:'sp',t:'zd',s:site.id,d:delay})}catch(e){}}}
-  function zoneConverge(mine){if(zones.length<3)return false;for(const q of zones){q.lit=1.5;q.fuse=1.5}
+  function zoneConverge(mine){const rs=zones.filter(q=>q.kind==='rune');if(rs.length<3)return false;for(const q of rs){q.lit=1.5;q.fuse=1.5}
     try{msg('THE ANCHORS CONVERGE',1.4);flash(.35,'rgba(150,80,255,.6)');CameraRig.pulse(2.5);tone(120,400,.6,'sawtooth',.12)}catch(e){}
     if(mine&&NET.mode==='host'&&Q){try{WardenNet.send({k:'sp',t:'za',s:site.id})}catch(e){}}return true}
+  // GWYN'S CONDUCTIVE GROUND: his lightning (Storm Grid, Spear, Crownfall) leaves volt patches for 6 s that sting while you stand in them; a heavy melee blow that lands while they are down makes the current jump patch to patch and blow them all.
+  function zoneChain(mine){const vs=zones.filter(q=>q.kind==='volt'&&q.fuse<0);if(vs.length<2)return false;
+    vs.forEach((q,i)=>{q.nx=vs[(i+1)%vs.length];q.ch=.7;q.fuse=.7});
+    try{msg('THE GROUND CONDUCTS',1.2);flash(.4,'rgba(150,210,255,.7)');CameraRig.shake(.35);tone(900,200,.4,'sawtooth',.1)}catch(e){}
+    if(mine&&NET.mode==='host'&&Q){try{WardenNet.send({k:'sp',t:'zc',s:site.id})}catch(e){}}return true}
+  function voltSpawn(tx,tz,mine,n,delayMs){setTimeout(()=>{if(!on||state!=='fight')return;const a0=Math.random()*6.28;for(let i=0;i<n;i++){const a=a0+i*6.28/n,r=2.6+Math.random()*1.6;let x=tx+Math.cos(a)*r,z=tz+Math.sin(a)*r;const A=C&&C.arena;if(A){const ax=x-A.x,az=z-A.z,ad=Math.hypot(ax,az),lim=A.R-1;if(ad>lim){x=A.x+ax/ad*lim;z=A.z+az/ad*lim}}zoneAdd(x,z,mine,'volt')}},delayMs)}
   function zoneTick(dt){
     if(!zones.length)return;
     let cx=0,cz=0,pull=false;
     for(const q of zones.slice()){q.age+=dt;
-      q.m.opacity=q.fuse>=0?.9:.45+.25*Math.sin(q.age*4);q.m.color.setHex(q.fuse>=0?0xffffff:0x8a3cff);if(q.age>13)q.g.visible=Math.floor(q.age*8)%2===0;
-      if(q.lit>0){q.lit-=dt;pull=true;cx+=q.x;cz+=q.z;q.ln.visible=true;const a=q.lg.attributes.position;a.setXYZ(1,S.x,H(S.x,S.z)+1,S.z);a.needsUpdate=true}else q.ln.visible=false;
+      const volt=q.kind==='volt',life=volt?6:16;
+      q.m.opacity=q.fuse>=0?.9:.45+.25*Math.sin(q.age*(volt?9:4));q.m.color.setHex(q.fuse>=0?0xffffff:volt?0x66ccff:0x8a3cff);if(q.age>life-2.5)q.g.visible=Math.floor(q.age*8)%2===0;
+      if(volt){if(q.ch>0&&q.nx){q.ch-=dt;q.ln.visible=true;const a=q.lg.attributes.position;a.setXYZ(0,q.x,H(q.x,q.z)+.5,q.z);a.setXYZ(1,q.nx.x,H(q.nx.x,q.nx.z)+.5,q.nx.z);a.needsUpdate=true}
+        q.tk-=dt;if(q.tk<=0&&q.fuse<0&&on&&state==='fight'&&P&&P.act!=='dead'&&Math.hypot(P.x-q.x,P.z-q.z)<VOLT_R&&!(P.inv>0)&&!(P.act==='dodge'&&P.pt>=Moves.dodge.iStart&&P.pt<=Moves.dodge.iEnd)){q.tk=.7;P.hp=Math.max(1,P.hp-Math.max(1,Math.round(P.hpMax*.015)));hurt=true;try{flash(.15,'rgba(150,210,255,.5)');tone(700,300,.08,'square',.05)}catch(e){}}}
+      if(volt){}else if(q.lit>0){q.lit-=dt;pull=true;cx+=q.x;cz+=q.z;q.ln.visible=true;const a=q.lg.attributes.position;a.setXYZ(1,S.x,H(S.x,S.z)+1,S.z);a.needsUpdate=true}else if(!volt)q.ln.visible=false;
       if(q.fuse>=0){q.fuse-=dt;if(q.fuse<=0){zoneBang(q);continue}}
-      if(q.age>16)zoneDel(q)}
+      if(q.age>life)zoneDel(q)}
     if(pull&&on&&state==='fight'&&P&&P.act!=='dead'&&!(P.act==='dodge'&&P.pt>=Moves.dodge.iStart&&P.pt<=Moves.dodge.iEnd)){const n=zones.filter(q=>q.lit>0).length;if(n){cx/=n;cz/=n;const dx=cx-S.x,dz=cz-S.z,d=Math.hypot(dx,dz)||1,st=Math.min(d,2.6*dt);let nx=S.x+dx/d*st,nz=S.z+dz/d*st;const A=C&&C.arena;if(A){const ax=nx-A.x,az=nz-A.z,ad=Math.hypot(ax,az),lim=A.R-1;if(ad>lim){nx=A.x+ax/ad*lim;nz=A.z+az/ad*lim}}S.x=nx;S.z=nz;P.x=nx;P.z=nz}}}
-  function zoneBang(q){
-    try{WardenVfx.burst(q.x,H(q.x,q.z)+1,q.z,3);WardenVfx.spawn(q.x,H(q.x,q.z)+.8,q.z,0,3,3.4,Math.random()*6.28,26)}catch(e){}
-    if(on&&state==='fight'&&P&&P.act!=='dead'&&Math.hypot(P.x-q.x,P.z-q.z)<RUNE_R&&!(P.act==='dodge'&&P.pt>=Moves.dodge.iStart&&P.pt<=Moves.dodge.iEnd)&&!(P.inv>0)){
-      P.hp=Math.max(1,P.hp-Math.round(P.hpMax*.2));P.act='stun';P.sk='hit';P.stun=30;P.guard=false;P.ph=null;P.mv=null;P.c=0;hurt=true;
-      try{flash(.55,'rgba(150,60,255,.6)');msg('VOID RUNE',.9);CameraRig.shake(.5);sfx('heavy',.8,.7,()=>tone(140,50,.3,'sawtooth',.14))}catch(e){}}
+  function zoneBang(q){const volt=q.kind==='volt',R=volt?VOLT_R+1.3:RUNE_R,dmg=volt?.12:.2;
+    try{WardenVfx.burst(q.x,H(q.x,q.z)+1,q.z,volt?2:3);WardenVfx.spawn(q.x,H(q.x,q.z)+.8,q.z,volt?2:0,3,volt?2.8:3.4,Math.random()*6.28,26)}catch(e){}
+    if(on&&state==='fight'&&P&&P.act!=='dead'&&Math.hypot(P.x-q.x,P.z-q.z)<R&&!(P.act==='dodge'&&P.pt>=Moves.dodge.iStart&&P.pt<=Moves.dodge.iEnd)&&!(P.inv>0)){
+      P.hp=Math.max(1,P.hp-Math.round(P.hpMax*dmg));P.act='stun';P.sk='hit';P.stun=volt?20:30;P.guard=false;P.ph=null;P.mv=null;P.c=0;hurt=true;
+      try{flash(.55,'rgba(150,60,255,.6)');msg(volt?'SHOCKED':'VOID RUNE',.9);CameraRig.shake(.5);sfx('heavy',.8,.7,()=>tone(140,50,.3,'sawtooth',.14))}catch(e){}}
     zoneDel(q)}
-  function zoneNet(p){if(!on||!site||p.s!==site.id)return;if(p.t==='zr')zoneAdd(p.x,p.z,false);else if(p.t==='zd')zoneArm(p.d||.9,false);else if(p.t==='za')zoneConverge(false)}
+  function zoneNet(p){if(!on||!site||p.s!==site.id)return;if(p.t==='zc')zoneChain(false);else if(p.t==='zr')zoneAdd(p.x,p.z,false,p.q);else if(p.t==='zd')zoneArm(p.d||.9,false);else if(p.t==='za')zoneConverge(false)}
   // SHADOW PIERCER: an afterimage made while the Dark Knight is winding up a heavy strike gets read: he cancels into a Void Thrust that impales the clone (and anything in the line) and takes some posture back.
   const HEAVYW=['fall','verdict','kingsfall','hammer','moon','groundbreaker','crownfissure','rend','sunder','worldbreaker','maul'];
   function shadowPiercer(){
@@ -637,6 +648,22 @@ const PlayerCombat=(()=>{
     if(q.phase===0&&q.t>.75){q.phase=1;try{CameraRig.pulse(-3);tone(300,150,.4,'triangle',.1);msg('LIFTED',.6)}catch(e){}}
     if(q.phase===1&&q.t>1.3){q.phase=2;P.hp=Math.max(1,P.hp-Math.round(P.hpMax*.3));P.stun=50;hurt=true;
       try{CameraRig.shake(1);flash(.9,'rgba(255,255,255,.9)');WardenVfx.burst(S.x,H(S.x,S.z)+.6,S.z,3);sfx('heavy',.9,.5,()=>tone(70,30,.6,'sawtooth',.18))}catch(e){}ds=null}}
+  // ARTORIAS: IMPALER'S OATH pins you (1.5 s) - mash any button to tear free; if you do not, his Executioner's Advance follows. ABYSSAL ROLL: dodge or guard EARLY into his Executioner's / Broken Advance and he cancels the wind-up into a roll to your flank and cuts.
+  let pin=null;
+  function pinStart(A){if(pin||ult||sv||P.act==='dead')return;pin={t:1.5,n:0,F:A};P.act='stun';P.sk='hit';P.stun=Math.max(P.stun,90);P.guard=false;P.ph=null;P.mv=null;
+    try{msg('PINNED \u00b7 MASH TO BREAK FREE',1.5);flash(.35,'rgba(120,40,200,.5)');CameraRig.shake(.35);tone(160,60,.4,'sawtooth',.12)}catch(e){}}
+  function pinTick(dt){if(!pin)return;if(!on||state!=='fight'||P.act==='dead'){pin=null;return}
+    pin.t-=dt;P.act='stun';P.sk='hit';P.stun=Math.max(P.stun,8);
+    if(pin.n>=6||pin.t<=0){const free=pin.n>=6,A=pin.F;pin=null;P.stun=free?0:4;if(free){P.act='free';P.sk=null;P.inv=Math.max(P.inv||0,30);try{msg('TORN FREE',.8);flash(.3,'rgba(255,255,255,.6)');tone(500,1200,.2,'triangle',.1)}catch(e){}}
+      else if(A&&A.f.act!=='dead'&&NET.mode!=='guest'){A.ai.follow='executioner';A.ai.cool=0}}}
+  let rollT=0;
+  function abyssTick(dt){if(rollT>0)rollT-=dt;if(NET.mode==='guest'||!on||state!=='fight'||ult||sv||rollT>0||!P||P.act==='dead')return;
+    const early=P.act==='dodge'||(P.guard&&P.act==='free');if(!early)return;
+    for(const F of foes){const f=F.f;if(F.T.id!=='darkknight'||!F.awake||F.ghost||f.act!=='attack'||!f.mv||(f.mv.id!=='executioner'&&f.mv.id!=='brokenadv'))continue;
+      const k=f.ph&&f.ph[f.pi]&&f.ph[f.pi].k;if(k!=='startup'||f.pt>16||Math.random()>.55)continue;
+      const dx=P.x-f.x,dz=P.z-f.z,d=Math.hypot(dx,dz)||1,sg=Math.random()<.5?1:-1;f.act='free';f.ph=null;f.mv=null;f.pt=0;f.pk=0;
+      try{WardenVfx.burst(f.x,H(f.x,f.z)+1.1,f.z,3);CombatCore.moveBy(C,f,-dz/d*2.8*sg+dx/d*.8,dx/d*2.8*sg+dz/d*.8);f.face=Math.atan2(P.x-f.x,P.z-f.z);WardenVfx.slash(f.x,H(f.x,f.z)+1.2,f.z,f.face,true,1);msg('ABYSSAL ROLL',.9);tone(240,90,.25,'sawtooth',.1)}catch(e){}
+      F.ai.follow=Math.random()<.5?'cut':'twin';F.ai.cool=0;F.ai.busy=false;rollT=7;break}}
   // SET PIECES: the fight reacts to how you fight it (Kage, the Dark Knight; the parry rules apply to any duelist with a MUT table).
   // - move tracking + parry adaptation (DuelistAI.onParry), - three PERFECT parries in a row within 7 s on a boss = the Deathblow opening: his guard breaks, time stalls, you get a free cut,
   // - a mood vignette that darkens the arena in phase 2 and 3 (a plain overlay: no extra lights, cheap on a phone).
@@ -647,7 +674,7 @@ const PlayerCombat=(()=>{
     if(e.t==='start'&&e.a!==undefined&&e.a!=='P')A.lm=e.move;
     else if(e.t==='deflect'&&e.d==='P'){DuelistAI.onParry(A.ai,A.lm,e.pf);
       if(e.pf&&A.T.boss){const n=performance.now();if(pcs.id===A.id&&n-pcs.t<7000)pcs.n++;else pcs.n=1;pcs.id=A.id;pcs.t=n;if(pcs.n>=3){pcs.n=0;deathblow(A)}}else if(!e.pf)pcs.n=Math.max(0,pcs.n-1)}
-    else if(e.t==='hit'&&e.d==='P'&&!e.fx)pcs.n=0}
+    else if(e.t==='hit'&&e.d==='P'&&!e.fx){pcs.n=0;if(A.T.id==='gwyn'&&A.f.mv&&HEAVYW.indexOf(A.f.mv.id)>=0)zoneChain(true);if(A.T.id==='darkknight'&&A.f.mv&&A.f.mv.id==='impaler')pinStart(A)}}
   function deathblow(A){
     if(NET.mode!=='guest'){CombatCore.stun(A.f,120,'stagger');A.f.hp=Math.max(1,A.f.hp-A.f.hpMax*.04)}
     else{try{WardenNet.send({k:'sp',t:'pf',b:A.id,q:1})}catch(x){}}
@@ -791,7 +818,7 @@ const PlayerCombat=(()=>{
   function bossReel(B,rw){if(!B||B.f.act==='dead')return;B.f.hp=Math.max(1,B.f.hp-B.f.hpMax*.1*rw);B.f.po=Math.min(B.f.poMax*.97,B.f.po+B.f.poMax*.6*rw)}   // host / solo only: the boss is the host's
   function spMsg(p){
     if(!on||!site||p.s!==site.id)return;
-    if(p.t==='zr'||p.t==='zd'||p.t==='za'){zoneNet(p);return}
+    if(p.t==='zr'||p.t==='zd'||p.t==='za'||p.t==='zc'){zoneNet(p);return}
     if(p.t==='tp'||p.t==='tx'||p.t==='vh'||p.t==='br'||p.t==='fk'||p.t==='bg'||p.t==='pf'){trickSp(p);return}
     if(p.t==='bs'&&NET.mode==='guest'&&!ult&&state==='fight'&&P.act!=='dead'&&!CineCam.busy()){const B=byId[p.b];if(B&&B.f.act!=='dead')startBarrage(B,{a0:p.a,co:true})}
     else if(p.t==='es'&&NET.mode==='guest'&&!ult&&state==='fight'&&P.act!=='dead'&&!CineCam.busy()){const B=byId[p.b];if(B&&B.f.act!=='dead')startEcho(B,{co:true,seed:p.seed,st:p.st})}
@@ -837,6 +864,7 @@ const PlayerCombat=(()=>{
       if(e.t==='start'&&byId[e.a]&&byId[e.a].T.boss&&!byId[e.a].ghost&&!byId[e.a].script)for(const d of[decoy,rdecoy])if(d&&d.t>0&&!(d.seen>=2)){d.seen=(d.seen||0)+1;if(d.seen===2)try{toast('A boss sees through your shadow',1.8)}catch(x){}}   // a boss is fooled by a decoy twice, then it knows
       if(e.t==='start'&&NET.mode!=='guest'){const F=byId[e.a];if(!F||F.ghost)continue;if(F.pre&&e.move!==undefined&&!Tricks.isBlink(e.move)){const f=F.f;F.pre=0;if(f.ph&&f.ph[0]&&f.ph[0].n-8>=18){f.pt=8;f.pk=8}}   // dynamic blink: the strike was already under way while he was gone (never cuts the windup under 18 ticks)
 
+        if(F.T.id==='gwyn'&&(e.move==='storm'||e.move==='stormgrid'||e.move==='spear'||e.move==='crownfall')){const tg=aiTarget(F.f);voltSpawn(tg.x,tg.z,true,e.move==='crownfall'?3:e.move==='spear'?2:3,e.move==='crownfall'?1000:900)}
         if(F.T.id==='dknight'){if(Tricks.isBlink(e.move))zoneAdd(F.f.x,F.f.z,true);else if(e.move==='pursuit'||e.move==='march'){if(zones.length)zoneArm(.9,true)}}
         if(Tricks.isBlink(e.move)&&F.T.blink&&!F.bl){const tg=aiTarget(F.f);F.bl={n:0,t:0,tg:tg.id,hide:false,lock:false,vec:Tricks.blinkVec(Math.random,F.ai.ph2),sg:Math.random()<.5?1:-1,long:e.move==='blinkl',sw:0};try{blinkFx(F)}catch(x){}}
         else if(e.move==='snare'&&F.T.traps){F.sn={n:0,tg:aiTarget(F.f).id}}}
@@ -858,7 +886,7 @@ const PlayerCombat=(()=>{
         if(f.ph&&f.ph[f.pi]&&f.ph[f.pi].k==='release'&&f.pk===0){F.sn=null;const tg=C.F[S_.tg]||P,n=Tricks.count(F.ai.ph2,!!(Q&&NET.mode==='host')),seed=(Math.random()*2147483647)|0,cn=++trapN;
           trapsPlace(seed,n,tg.x,tg.z,cn);try{if(NET.mode==='host'&&Q)WardenNet.send({k:'sp',t:'tp',s:site.id,seed,n,x:+tg.x.toFixed(2),z:+tg.z.toFixed(2),c:cn})}catch(x){}}}}}
   function trickTick(dt){
-    trapsTick(dt);try{zoneTick(dt);pierceTick(dt);dsTick(dt)}catch(e){}
+    trapsTick(dt);try{zoneTick(dt);pierceTick(dt);dsTick(dt);pinTick(dt);abyssTick(dt)}catch(e){}
     for(const F of foes){if(!F.T.blink)continue;   // what is shown follows the synced sim state (act / move / phase tick), so host and guest agree even when a phone lags
       const bl=F.f.act==='attack'&&F.f.mv&&Tricks.isBlink(F.f.mv.id);
       if(bl&&!F.bl&&NET.mode==='guest'){F.bl={t:0};blinkFx(F)}
@@ -981,7 +1009,7 @@ const PlayerCombat=(()=>{
     if(S.grounded||S.state==='swim')gBase=S.y;P.y=Math.max(0,S.y-gBase);
     decoyTick(decoy,'Z',dt);decoyTick(rdecoy,'Y',dt);
     const b=el&&el.querySelector('#wShadow');if(b){const t=shCd>0?Math.ceil(shCd):0;if(b._c!==t){b._c=t;b.textContent=t?'Shadow '+t:'Shadow';b.classList.toggle('cd',t>0)}}}
-  function leave(hold){pun=null;pcs.n=0;ls=null;ds=null;try{zonesClear()}catch(e){}try{if(moodEl)moodEl.style.opacity='0'}catch(e){}svEnd();try{WardenFx.clear()}catch(e){}   // hold: keep the corpses of a cleared site in the world
+  function leave(hold){pun=null;pcs.n=0;ls=null;ds=null;pin=null;try{zonesClear()}catch(e){}try{if(moodEl)moodEl.style.opacity='0'}catch(e){}svEnd();try{WardenFx.clear()}catch(e){}   // hold: keep the corpses of a cleared site in the world
     if(!on)return;endSet();trapsClear();try{blinkRing(0,0,false)}catch(e){}killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');document.body.classList.remove('warden-duel');if(sword&&sword.grip)sword.grip.visible=false;if(sword2&&sword2.grip)sword2.grip.visible=false;pendFace=null;
     if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.combat(0,0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}

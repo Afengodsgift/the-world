@@ -45,3 +45,9 @@ Arena changes at phase transitions, destructible structures, weapon loss -> new 
 - **Crown Fissure** (phase 2): the blade splits the floor; the cracks erupt ~1 s later in three beats. Rolling early is the mistake.
 - **Death's Sentence**: when your posture breaks with him within 4.6 m: dragged to his hand, lifted, slammed (30% max HP, never lethal, once per 20 s). Effects + camera only: no grab animation on the stock rig yet.
 - Not built: runes from the Phantom Barrage clones.
+
+## Gwyn and Artorias kits (batch 3)
+- **Gwyn, Conductive Ground**: Storm Grid, Spear and Crownfall leave volt patches (2-3, 6 s, max 6) that sting 1.5% HP per 0.7 s while you stand in them. A heavy melee blow (verdict / kingsfall / moon / hammer / groundbreaker / rend / sunder...) that lands while 2+ patches are down makes the current jump patch to patch (0.7 s fuse) and blow them all (12% HP, wide). Not built: wet tiles doubling the radius.
+- **Artorias, Heavenfall x3**: instant, hung (+0.6 s in the air), or converted to an Abyssal wave along the ground (`heavenfalld`, `heavenwave`). Heavenfall joins his kit from phase 2.
+- **Artorias, Impaler's Oath pin**: a landed Impaler pins you 1.5 s; mash any button (6 presses) to tear free with brief i-frames, otherwise Executioner's Advance follows (host only).
+- **Artorias, Abyssal Roll**: dodge or guard EARLY into his Executioner's / Broken Advance (first 16 ticks of the startup) and 55% of the time he cancels into a roll to your flank and cuts (7 s cooldown).
