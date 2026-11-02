@@ -10,7 +10,7 @@ ok(T.heal(20,119,300)===1&&T.heal(20,120,300)===0&&T.heal(20,500,300)===0,'heali
 {const s=T.blinkSpot(0,0,0,null);ok(Math.abs(s.x)<1e-9&&Math.abs(s.z+T.BLINK.BEHIND)<1e-9,'facing +z: he lands behind at -z');
  const s2=T.blinkSpot(5,5,Math.PI/2,null);ok(Math.abs(s2.x-(5-T.BLINK.BEHIND))<1e-9&&Math.abs(s2.z-5)<1e-9,'facing +x: he lands at -x');
  const A={x:0,z:0,R:10},s3=T.blinkSpot(9.5,0,Math.PI/2*0+Math.PI,A);ok(Math.hypot(s3.x,s3.z)<=A.R-1+1e-9,'never lands outside the arena');
- ok(T.BLINK.WIND-T.BLINK.LOCK>=20,'the destination is locked >= 20 ticks before he appears (a real warning)')}
+ ok(T.BLINK.REVEAL>=12&&T.BLINK.REVEAL<=18,'the landing mark shows 12-18 ticks before he appears (late, but still reactable)')}
 // ---- snare layout: deterministic, spread, off the target, inside the arena ----
 {const A={x:0,z:0,R:20};const a=T.snareLayout(123,4,3,2,A),b=T.snareLayout(123,4,3,2,A),c=T.snareLayout(124,4,3,2,A);
  ok(JSON.stringify(a)===JSON.stringify(b),'same seed -> identical traps on both clients');ok(JSON.stringify(a)!==JSON.stringify(c),'a new seed -> a new layout');
