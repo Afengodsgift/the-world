@@ -277,7 +277,7 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
     if(P.act==='dodge'&&!P._rolled){P._rolled=true;const dd=P.dir||[Math.sin(P.face),Math.cos(P.face)];P._back=dd[0]*Math.sin(P.face)+dd[1]*Math.cos(P.face)<-.5;P._dirA=Math.atan2(dd[0],dd[1]);me.userData.emote=P._back?'flipb':'roll'}else if(P.act!=='dodge')P._rolled=false;
     if(P.act==='dodge'&&!P._back&&P._dirA!==undefined)me.rotation.y=P._dirA;
     if(P.act==='stun'&&!P._hit){P._hit=true;me.userData.hitReq=1}else if(P.act!=='stun')P._hit=false;
-    if(P.act==='dead'&&!P._dead){P._dead=true;me.userData.emoteReq='playdead'}else if(P.act!=='dead'&&P._dead){P._dead=false;if(typeof emoStop==='function')emoStop(me.userData)}
+    if(P.act==='dead'&&!P._dead){P._dead=true;if(!pAnim)me.userData.emoteReq='playdead'}else if(P.act!=='dead'&&P._dead){P._dead=false;if(typeof emoStop==='function')emoStop(me.userData)}
     // 3) animation: real clips scrubbed by the sim
     const fr=C.hs>0?0:clamp(vt/16.6667-ST.skew-C.tick,0,1);
     if(!pAnim&&me.userData.mixer)pAnim=WardenMX.make(me.userData,'player_dojo');
@@ -291,7 +291,7 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
     if(!b.anim&&b.u.mixer)b.anim=WardenMX.make(b.u,'player_dojo');style(b,F.T);
     if(F.armed&&!F.prop)F.prop=holdStaff(b.u,F.T.scale,2.0);
     locoOf(b.loco,f.x,f.z,g.rotation.y,dt);const moving=b.loco.sp>.6&&f.act==='free';
-    if(f.act==='dead'){b.u.pp=null;b.u.v=0;if(!b.u.hold&&!b.u.emoteReq)b.u.emoteReq='playdead'}
+    if(f.act==='dead'){b.u.pp=null;b.u.v=0}
     if(typeof animate==='function')animate(g,dt,moving?'walk':'idle');
     if(b.anim)b.anim.update(f,fr,{moving,vf:b.loco.vf,vs:b.loco.vs},dt,true);
     F.flash=Math.max(0,F.flash-dt*5);if((F.flash>0||b.flashOn)&&b.u.model){b.flashOn=F.flash>0;b.u.model.traverse(c=>{if(c.isSkinnedMesh&&c.material&&c.material.emissive)c.material.emissive.setRGB(F.flash*.7,F.flash*.3,F.flash*.1)})}}

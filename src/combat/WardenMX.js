@@ -168,7 +168,8 @@ const WardenMX=(()=>{
     power:{c:'atk2',t0:.1,ch:[.1,.3],h:[[.3,.74]],e:1.2},heavy:{c:'atk2',t0:.1,ch:[.1,.3],h:[[.3,.74]],e:1.2},step:{c:'atk2',t0:.15,h:[[.3,.74]],e:1.15},
     dash:{c:'p_dash',t0:.05,h:[[.27,.4]],e:1.1},counter:{c:'e_cross',t0:0,h:[[.28,.52]],e:.97},push:{c:'kick',t0:0,h:[[.05,.3]],e:.9},drop:{c:'kick',t0:0,h:[[.05,.3]],e:.9},
     throw:{c:'e_throw',t0:.15,h:[[.5,.8]],e:1.3},take:{c:'atk',t0:.55,h:[[.9,1.3]],e:2.1}}});
-  ROLES.player_dojo.px='assets/warden_px_player.json';
+  ROLES.player_dojo.dojo=1;ROLES.player_dojo.hit='hit1';ROLES.player_dojo.death='death';ROLES.player_dojo.emo=['jab','cross','kick','throw','block','roll'];ROLES.player_dojo.moves.dash={c:'e_cross',t0:0,h:[[.28,.52]],e:.97};
+  // (the px pack clips are only baked for the stock rig, so on the human avatars the Iron Fist layer uses hit1 / death from the Mixamo set for flinches and falls, and the emote roll for dodges)
   // ---- the player's heavier weapons: the Great Sword pack (already baked onto the game rig for the Duelist) drives the Claymore and the Hand Axe ----
   ROLES.player_gs={file:'assets/warden_mx_duelist.json',guard:'guard',parry:[{c:'slash',a:.05,b:.6},{c:'slash5',a:.15,b:.62}],loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
     moves:{
@@ -223,8 +224,11 @@ const WardenMX=(()=>{
         if(I.mode==='sleep'&&R.dorm&&A[R.dorm]){I.mt+=dt;put(R.dorm,I.mt%Math.max(.1,A[R.dorm].getClip().duration-.02))}
         else if(I.mode==='wake'&&R.wake&&A[R.wake.c]){I.mt+=dt*R.wake.rate;const W=R.wake;I.wakeP=Math.min(1,(I.mt)/(W.t1-W.t0));put(W.c,W.t0+I.mt);if(W.t0+I.mt>=W.t1){I.mode=null;I.wakeDone=true}}
         else I.mode=null}
-      else if(f.act==='stun')I.sT+=dt;else I.sT=0;if(f.act==='dead')I.dT+=dt;else{I.dT=0;I.dv=-1}
+      else if(f.act==='stun')I.sT+=dt;else I.sT=0;if(f.act==='dead')I.dT+=dt;else{I.dT=0;I.dv=-1}if(f.act!=='dodge')I.dgT=0;
       if(I.mode&&f.act!=='dead'){}
+      else if(R.dojo&&f.act==='dead'&&A[R.death])put(R.death,I.dT);
+      else if(R.dojo&&f.act==='stun'&&A[R.hit]){const d=A[R.hit].getClip().duration,sg=f.sk==='stagger';if(I.sT<=dt*1.5)I.hv=(I.hv||0)^1;put(R.hit,sg?Math.min(I.sT*.6,d-.05):Math.min(I.sT*(I.hv?1:1.15),d-.05))}   // a flinch plays at once (alternating pace), a stagger is a slower, held wobble
+      else if(R.dojo&&f.act==='dodge'&&A.e_roll){I.dgT=(I.dgT||0)+dt;put('e_roll',.12+I.dgT*2.7)}
       else if(R.native&&f.act==='dead'&&R.px&&A.p_deathA){   // a random one of the three pack deaths (or his own) each time he falls
         if(I.dv===undefined||I.dv<0){const L=PXD.filter(n=>A[n]).concat(R.death&&A[R.death]?[R.death]:[]);I.dvL=L;I.dv=Math.floor(Math.random()*L.length)}put(I.dvL[I.dv],I.dT)}
       else if(R.native&&f.act==='dead'&&R.death&&A[R.death])put(R.death,I.dT);            // natively rigged foes have no game hit/death overlay: play the clip themselves
@@ -242,7 +246,8 @@ const WardenMX=(()=>{
         if(f.act==='charge'&&spec&&spec.ch){const s=norm(spec)[0];put(s.c,spec.ch[0]+(spec.ch[1]-spec.ch[0])*ease(f.c/16))}
         else if(f.act==='charge'){const m=R.moves.heavy;if(m&&m.ch)put(m.c,m.ch[0]+(m.ch[1]-m.ch[0])*ease(f.c/16))}
         else if(f.act==='attack'&&f.ph&&f.ph[f.pi]&&mv){const pl=planOf(mv),e=pl&&pl[f.pi];
-          if(e){const n=f.ph[f.pi].n||1,p=Math.min(1,(f.pk+fr)/n);let a=e.a;if(spec&&spec.ch&&f.pi===0)a=Math.max(a,spec.ch[1]);put(e.c,a+(e.b-a)*p)}}
+          if(e){const n=f.ph[f.pi].n||1;let p=Math.min(1,(f.pk+fr)/n);if(R.dojo){const kd=f.ph[f.pi].k;p=kd==='startup'?p*(.45+.55*p):kd==='active'?p:1-(1-p)*(1-p*.4)}let a=e.a;   // anticipation: the wind-up eases in and the strike snaps; the recovery settles
+          if(spec&&spec.ch&&f.pi===0)a=Math.max(a,spec.ch[1]);put(e.c,a+(e.b-a)*p)}}
         else if(f.pry>0&&f.act==='free'&&R.parry&&A[R.parry[0].c]){   // PARRY: a full sweep of the blade across the body (alternating sides), snapping in over the first 60% of the window, then held in guard
           if(f.pry>(I.lp||0))I.pa=(I.pa||0)^1;I.lp=f.pry;const q=R.parry[I.pa],u=(26-f.pry)/26,k=ease(Math.min(1,u/.55));put(q.c,q.a+(q.b-q.a)*k)}
         else if(I.flick&&f.act==='free'&&A[I.flick.c]&&(I.flick.t+=dt)<I.flick.d){const k=I.flick;put(k.c,k.a+(k.b-k.a)*ease(k.t/k.d))}   // a parry: a quick sword sweep out of the guard (the game sets I.flick on a deflect)
@@ -257,7 +262,7 @@ const WardenMX=(()=>{
           else if(A[L.idle])tgt[L.idle]=1}}
       if(R.native&&!names.some(n=>tgt[n]>0)&&A[R.loco.idle])tgt[R.loco.idle]=1;   // stunned / dodging / no clip for this state: never fall back to the bind (T) pose
       // smooth the shares, then convert to three.js weights relative to the game's own base layer (see Blend.js); loops free-run, attacks are scrubbed
-      const k=1-Math.exp(-dt*(f.act==='attack'?30:16));let sum=0;
+      const k=1-Math.exp(-dt*(f.act==='attack'?(R.dojo?24:30):(R.dojo?20:16)));let sum=0;
       for(const n of names){I.ws[n]+=(tgt[n]-I.ws[n])*k;if(I.ws[n]<.01&&tgt[n]===0)I.ws[n]=0;sum+=I.ws[n]}
       const tot=Math.min(1,sum),W=Blend.w(tot);let any=false;
       for(const n of names){const a=A[n],rr=I.ws[n];
