@@ -26,7 +26,7 @@ for(const[kid,foe]of[['samurai','samurai'],['dknight','gwyn']]){
   for(let s=1;s<=30;s++){for(const ph3 of[false,true]){const X=DuelistAI.create(s*7,{foe,kid,intro:0});X.on=true;X.ph2=true;X.ph3=ph3;X.stl=0;const D=mkD(),P=mkP(3.6);let was=0,last=-9999;
     for(let t=0;t<2400;t++){if(D.act==='attack'&&t%55===0)D.act='free';const o=DuelistAI.think(X,P,D,[],t);
       if(X.still>0&&!was){was=1;if(!ph3)early++;else{stills++;ok(t-last>=500||last<0,kid+': stillness respects its cooldown');last=t}}
-      if(was&&X.still===0){was=0;const a=o.list.find(c=>c.t==='atk');if(a&&a.m==='iai')iaiAfter++}
+      if(was&&X.still===0){was=0;const a=o.list.find(c=>c.t==='atk');if(a&&a.m==='iai')iaiAfter++;}
       for(const c of o.list)if(c.t==='atk')D.act='attack'}}}
   ok(early===0,kid+': no stillness before phase 3');ok(stills>=10,kid+': stillness appears in phase 3 ('+stills+')');ok(iaiAfter>=stills*.9,kid+': every stillness ends in the draw ('+iaiAfter+'/'+stills+')');
   // 4) stillness never starts while an ally holds the boss token or during the Last Sovereign
@@ -48,3 +48,10 @@ console.log(n+' checks')
    for(let t=0;t<3000;t++){if(D.act==='attack'&&t%50===0)D.act='free';const o=DuelistAI.think(A,P,D,[],t);for(const c of o.list)if(c.t==='atk'){D.act='attack';cnt[c.m]=(cnt[c.m]||0)+1}}}
    ok2((cnt.blink||0)>0&&(cnt.blinkm||0)>0&&(cnt.blinkl||0)>0,kid+' blinks on the instant / medium / long schedule '+JSON.stringify({a:cnt.blink,b:cnt.blinkm,c:cnt.blinkl}));ok2((cnt.blinkl||0)<(cnt.blinkm||0),kid+': the long hang is the rare one')}
  console.log(k+' blink checks')}
+// DARK KNIGHT: crown fissure only from phase 2; void thrust is reachable as a follow-up
+{let n2=0;const ok3=(c,m)=>{if(!c){console.log('FAIL '+m);process.exitCode=1}else n2++};
+ const used={0:0,2:0};for(const ph2 of[false,true]){for(let sd=1;sd<=25;sd++){const A=DuelistAI.create(sd*41,{foe:'gwyn',kid:'dknight',intro:0});A.on=true;A.ph2=ph2;const D=mkD(),P=mkP(4);
+   for(let t=0;t<3000;t++){if(D.act==='attack'&&t%55===0)D.act='free';const o=DuelistAI.think(A,P,D,[],t);for(const c of o.list)if(c.t==='atk'){D.act='attack';if(c.m==='crownfissure')used[ph2?2:0]++}}}}
+ ok3(used[0]===0,'no crown fissure in phase 1');ok3(used[2]>=5,'crown fissure appears in phase 2 ('+used[2]+')');
+ {const A=DuelistAI.create(2,{foe:'gwyn',kid:'dknight',intro:0});A.on=true;A.follow='voidthrust';const D=mkD(),P=mkP(5);let got=false;const o=DuelistAI.think(A,P,D,[],1);for(const c of o.list)if(c.t==='atk'&&c.m==='voidthrust')got=true;ok3(got,'a queued Void Thrust is thrown at an afterimage 5 m away')}
+ console.log(n2+' dark knight checks')}

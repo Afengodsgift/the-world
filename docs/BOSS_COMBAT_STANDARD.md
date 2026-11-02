@@ -38,3 +38,10 @@ Arena changes at phase transitions, destructible structures, weapon loss -> new 
 - **Deathblow**: three perfect parries in a row (7 s window, no hit taken between) on a boss breaks its guard for 2 s, stalls time and costs it 4% HP; fills the Sever meter.
 - **Phase mood**: a vignette overlay darkens the arena at phase 2 and 3 (ember for Kage, void-violet for the Dark Knight).
 - Not built yet: destructible structures, weapon loss -> stance change (needs animation assets), arena hazards at phase changes.
+
+## Dark Knight kit (batch 2)
+- **Void Runes / Anchors**: every blink leaves a rune where he vanished (max 5, 16 s). Iron Pursuit / Executioner's Advance arms them (0.9 s fuse, ring turns white); standing in one when it blows = 20% HP + stagger (never lethal). Three runes + a blink = the **Convergence**: lines run to you, you are dragged toward the centre for 1.5 s (dodge i-frames break the pull), the runes blow, then Final Sentence. Each client damages only itself; the host tells the guest (`sp` zr/zd/za).
+- **Shadow Piercer**: make an afterimage while he is winding up a heavy move and he cancels into a Void Thrust, pierces the clone and takes 35 posture back.
+- **Crown Fissure** (phase 2): the blade splits the floor; the cracks erupt ~1 s later in three beats. Rolling early is the mistake.
+- **Death's Sentence**: when your posture breaks with him within 4.6 m: dragged to his hand, lifted, slammed (30% max HP, never lethal, once per 20 s). Effects + camera only: no grab animation on the stock rig yet.
+- Not built: runes from the Phantom Barrage clones.
