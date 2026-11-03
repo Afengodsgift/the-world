@@ -25,7 +25,7 @@ const Foes=(()=>{
     goblin:{name:'Skrag, the Snare-Trapper',hp:300,r:.42,scale:.68,rm:.95,spd:1.65,dm:1.15,ai:'trapper',role:'goblin',body:'glb',file:'goblin',bright:2.6,boss:true,traps:true,aggro:16,ph2:'Skrag cackles. The ground is full of teeth.'},
     maw:{name:'The Maw',hp:460,r:1.15,scale:1.8,rm:1.7,spd:1.25,ai:'beast',role:'maw',body:'glb',file:'maw',bright:1.4,sa:true,boss:true,aggro:12,ph2:'The Maw bellows.'},
     bear:{name:'The Ashfur Bear',hp:300,r:1.0,scale:1.6,rm:1.5,spd:1.45,ai:'beast',role:'bear',body:'glb',file:'bear',bright:1.4,sa:true,boss:true,aggro:12,ph2:'The Bear goes berserk.'},
-    archer:{name:'Erika, the Ashen Huntress',hp:240,r:.5,scale:1.12,rm:1.1,spd:1.55,ai:'archer',role:'archer',body:'glb',file:'archer',bright:2.2,boss:true,aggro:16,ph2:'Erika draws faster.'},
+    archer:{name:'Erika, the Ashen Huntress',hp:240,blink:true,r:.5,scale:1.12,rm:1.1,spd:1.55,ai:'archer',role:'archer',body:'glb',file:'archer',bright:2.2,boss:true,aggro:16,ph2:'Erika draws faster.'},
     arissa:{name:'Arissa, the Cinder Dancer',hp:260,r:.55,scale:1.12,rm:1.12,spd:1.5,ai:'dancer',role:'arissa',body:'glb',file:'arissa',bright:2.0,boss:true,aggro:10,ph2:'Arissa quickens.'}};
   // the Ashen Catacombs' own foes: variants of existing bodies and movesets (data/dungeon.js uses these ids)
   const clone=(b,id,o)=>{TYPES[id]=Object.assign({},TYPES[b],o)};

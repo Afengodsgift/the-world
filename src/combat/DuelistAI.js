@@ -406,6 +406,7 @@ const DuelistAI=(()=>{
     return choose(A,out,w,dist,tick,REACH)}
   // The Ashen Huntress (Erika): holds a long range and shoots slow, readable arrows (sidestep or block them); inside two metres she kicks you away; the player's answer is to close the gap in a dodge.
   function archer(A,P,D,out,tick,dist,k){
+    if(A.bcd<=0&&dist<5.6&&A.last[A.last.length-1]!=='blink'&&A.r()<(A.ph2?.05:.025)){A.bcd=A.ph2?240:380;return start(A,out,'blink',0,tick)}   // Smoke Step: she vanishes (a smoke clone stays) and reappears far away, drawing
     if(dist<2.4){A.closeP=0;return start(A,out,'cut',0,tick)}
     if(A.ph2&&A.scd<=0&&dist>=5&&A.last[A.last.length-1]!=='consecrate'){A.scd=520;return start(A,out,'consecrate',0,tick)}   // Rain of Arrows (phase 2): marked circles around where you stand
     if(dist<4.5)return out;                            // too close to shoot, too far to kick: she is backing off (movement above)
@@ -421,7 +422,7 @@ const DuelistAI=(()=>{
   // SET PIECES (Kage, the Dark Knight): the fight reacts to how YOU fight it.
   // 1) Parry adaptation: parry the same move three times (a perfect parry counts double) and he stops trusting it: the next two times it is feinted, delayed or chained into something else. Banner tells you; the fix is to read it again, not to guess.
   // 2) The Stillness (phase 3): he stops, sheathes / kneels for a beat, then a double draw on a new rhythm. The tell is the stillness itself.
-  const DYNB={samurai:1,dknight:1,darkknight:1,stalker:1,veil:1};   // who blinks on the dynamic schedule (see Tricks.blinkVec)
+  const DYNB={samurai:1,dknight:1,darkknight:1,stalker:1,veil:1,archer:1};   // who blinks on the dynamic schedule (see Tricks.blinkVec)
   const MUT={samurai:{iai:['feint','iai'],twin:['blink','triple'],cut:['feint','twin'],moon:['feint','moon'],triple:['blink','iai']},
     dknight:{verdict:['feint','verdict'],cut:['blink','twin'],twin:['feint','twin'],moon:['feint','moon'],hammer:['feint','hammer'],march:['blink','cut']}};
   const SPN={samurai:{n:'KAGE',adapt:'KAGE NO LONGER TRUSTS THAT STRIKE',still:'KAGE SHEATHS HIS BLADE'},dknight:{n:'THE DARK KNIGHT',adapt:'THE KNIGHT CHANGES HIS RHYTHM',still:'THE DARK KNIGHT KNEELS'}};
