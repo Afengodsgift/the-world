@@ -68,3 +68,11 @@ console.log(n+' checks')
    for(let t=0;t<2400;t++){if(D.act==='attack'&&t%45===0)D.act='free';const o=DuelistAI.think(A,P,D,[],t);for(const c of o.list)if(c.t==='atk'){D.act='attack';t0++}}}return t0};
  const a0=atks(0),a5=atks(5);ok5(a5>a0*1.05,'five rhythm stacks make Arissa attack more often ('+a0+' -> '+a5+')');
  console.log(n4+' arissa checks')}
+// ERIKA: smoke step only from range-pressure, never in the middle of nothing, lands far (Tricks 'far')
+{let n5=0;const ok6=(c,m)=>{if(!c){console.log('FAIL '+m);process.exitCode=1}else n5++};
+ const T=(()=>{const c={console,Math};vm.createContext(c);vm.runInContext(fs.readFileSync('src/combat/Tricks.js','utf8')+';this.Tricks=Tricks;',c);return c.Tricks})();
+ let cnt={};for(let sd=1;sd<=30;sd++){const A=DuelistAI.create(sd*19,{foe:'archer',kid:'archer',intro:0});A.on=true;const D=mkD(),P=mkP(4.5);
+   for(let t=0;t<3000;t++){if(D.act==='attack'&&t%50===0)D.act='free';const o=DuelistAI.think(A,P,D,[],t);for(const c of o.list)if(c.t==='atk'){D.act='attack';cnt[c.m]=(cnt[c.m]||0)+1}}}
+ ok6((cnt.blink||0)+(cnt.blinkm||0)+(cnt.blinkl||0)>=5,'Erika smoke-steps when pressed ('+JSON.stringify(cnt)+')');
+ for(let i=0;i<50;i++){const s=T.blinkSpotV('far',0,0,0,{x:0,z:0,R:30},i%2?1:-1);ok6(Math.hypot(s.x,s.z)>=9,'far spot is at least 9 m away')}
+ console.log(n5+' erika checks')}

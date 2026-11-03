@@ -14,12 +14,13 @@ const Tricks=(()=>{
   function blinkSpot(tx,tz,face,arena){let x=tx-Math.sin(face)*BLINK.BEHIND,z=tz-Math.cos(face)*BLINK.BEHIND;
     if(arena){const dx=x-arena.x,dz=z-arena.z,d=Math.hypot(dx,dz),lim=arena.R-1;if(d>lim){x=arena.x+dx/d*lim;z=arena.z+dz/d*lim}}return{x,z}}
   // DYNAMIC BLINK: where he lands (behind / front / side / above = the shadow comes down ON the marked spot) and how long he hangs (the move id: blink instant, blinkm ~2 s, blinkl ~4 s)
-  const VEC=['behind','side','front','above'];
+  const VEC=['behind','side','front','above','far'];
   function blinkVec(r,ph2){const x=r();return x<(ph2?.3:.55)?'behind':x<(ph2?.58:.8)?'side':x<(ph2?.8:1)?'front':'above'}
   function blinkSpotV(vec,tx,tz,face,arena,sgn){const s=sgn<0?-1:1;let x,z;
     if(vec==='front'){x=tx+Math.sin(face)*2.1;z=tz+Math.cos(face)*2.1}
     else if(vec==='side'){x=tx+Math.cos(face)*2.0*s;z=tz-Math.sin(face)*2.0*s}
     else if(vec==='above'){x=tx;z=tz}
+    else if(vec==='far'){const an=face+Math.PI+s*(.5+Math.random()*.9);x=tx+Math.sin(an)*9.5;z=tz+Math.cos(an)*9.5}   // Erika's smoke step: she lands well away, bow ready
     else return blinkSpot(tx,tz,face,arena);
     if(arena){const dx=x-arena.x,dz=z-arena.z,d=Math.hypot(dx,dz),lim=arena.R-1;if(d>lim){x=arena.x+dx/d*lim;z=arena.z+dz/d*lim}}return{x,z}}
   const isBlink=id=>typeof id==='string'&&id.indexOf('blink')===0;

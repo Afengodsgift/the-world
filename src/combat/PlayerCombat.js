@@ -708,11 +708,17 @@ const PlayerCombat=(()=>{
       try{WardenVfx.burst(f.x,H(f.x,f.z)+1.2,f.z,1);msg('TIME ANCHOR \u00b7 HE REWINDS',1.5);flash(.3,'rgba(255,220,120,.5)');tone(900,200,.4,'triangle',.1)}catch(x){}}return}
     if(e.t==='hit'&&e.d==='P'){const F=byId[e.a];if(F&&F.T.id==='arissa'&&F.ai){F.ai.rh=Math.min(5,(F.ai.rh||0)+1);if(F.ai.rh===3||F.ai.rh===5)try{msg('ARISSA QUICKENS',.9)}catch(x){}}}
     else if(e.t==='deflect'&&e.d==='P'){const F=byId[e.a];if(F&&F.T.id==='arissa'&&F.ai)F.ai.rh=0}
-    else if(e.t==='hit'&&e.a==='P'&&!e.fx){const F=byId[e.d];if(F&&F.T.id==='arissa'&&F.ai){F.ai.rh=0;const f=F.f;
+    else if(e.t==='hit'&&e.a==='P'&&!e.fx){const F=byId[e.d];if(F&&F.sm>0){F.sm=.05;F.shot=true;for(const q of zones.slice())if(q.kind==='mshot'&&q.F===F)zoneDel(q);try{msg('THE SMOKE CLONE DISPERSES',1)}catch(x){}}if(F&&F.T.id==='arissa'&&F.ai){F.ai.rh=0;const f=F.f;
       if(NET.mode!=='guest'&&swayT<=0&&f.act==='attack'&&f.ph&&f.ph[f.pi]&&(f.ph[f.pi].k==='startup'||f.ph[f.pi].k==='windup')&&f.pt<=14&&Math.random()<.5){
         const dx=P.x-f.x,dz=P.z-f.z,d=Math.hypot(dx,dz)||1,sg=Math.random()<.5?1:-1;f.act='free';f.ph=null;f.mv=null;f.pt=0;f.pk=0;
         try{CombatCore.moveBy(C,f,-dz/d*2.2*sg,dx/d*2.2*sg);f.face=Math.atan2(P.x-f.x,P.z-f.z);WardenVfx.burst(f.x,H(f.x,f.z)+1,f.z,2);msg('MIRROR SWAY',.9)}catch(x){}
         F.ai.follow='lowsweep';F.ai.cool=0;F.ai.busy=false;swayT=6}}}}
+  // ERIKA, SMOKE STEP: she dissolves (the blink), a violet smoke clone of her stays where she stood for 3.4 s, takes aim and looses a shot at where you will be (marked 0.9 s), then bursts. Cut the clone and it pops harmlessly: no damage, no reward, but the shot never comes.
+  function smokeClone(F){if(NET.mode==='guest'||C.F.v||!on||state!=='fight')return;
+    try{const g=addGhost(F,3,F.f.x,F.f.z,'sm');g.f.face=F.f.face;g.sm=3.4;g.shot=false;g.owner=F;try{WardenVfx.burst(F.f.x,H(F.f.x,F.f.z)+1,F.f.z,1);WardenVfx.spawn(F.f.x,H(F.f.x,F.f.z)+1,F.f.z,3,3,3,Math.random()*6.28,30)}catch(e){}}catch(e){}}
+  function smokeTick(dt){for(const F of foes.slice()){if(!(F.sm>0))continue;F.sm-=dt;const f=F.f;f.face=Math.atan2(S.x-f.x,S.z-f.z);
+      if(!F.shot&&F.sm<1.9){F.shot=true;const px=S.x+pvx*.7,pz=S.z+pvz*.7;zoneAdd(px,pz,true,'mshot',.9,F,{x:f.x,y:1.5,z:f.z})}
+      if(F.sm<=0||!on||state!=='fight'){try{WardenVfx.burst(f.x,H(f.x,f.z)+1,f.z,1);WardenVfx.spawn(f.x,H(f.x,f.z)+1,f.z,3,3,3.2,Math.random()*6.28,30)}catch(e){}rmGhost(F)}}}
   // SET PIECES: the fight reacts to how you fight it (Kage, the Dark Knight; the parry rules apply to any duelist with a MUT table).
   // - move tracking + parry adaptation (DuelistAI.onParry), - three PERFECT parries in a row within 7 s on a boss = the Deathblow opening: his guard breaks, time stalls, you get a free cut,
   // - a mood vignette that darkens the arena in phase 2 and 3 (a plain overlay: no extra lights, cheap on a phone).
@@ -915,10 +921,11 @@ const PlayerCombat=(()=>{
 
         if(F.T.id==='gwyn'&&(e.move==='storm'||e.move==='stormgrid'||e.move==='spear'||e.move==='crownfall')){const tg=aiTarget(F.f);voltSpawn(tg.x,tg.z,true,e.move==='crownfall'?3:e.move==='spear'?2:3,e.move==='crownfall'?1000:900)}
         if(F.T.id==='gdn'&&e.move==='sunvolley')mirrorVolley();
+        if(F.T.ai==='archer'&&Tricks.isBlink(e.move))smokeClone(F);
         if(F.T.id==='vampire'&&Tricks.isBlink(e.move))zoneAdd(F.f.x,F.f.z,true,'decoy',undefined,F);
         if(F.T.id==='ganfaul'){const mm=Moves[e.move];if(mm&&mm.dmg>0&&!mm.fx&&mm.reach<=4.6&&F.f.ph&&F.f.ph[0]){const wf=F.f,wn=Math.round(wf.ph[0].n/60*1000),ax=wf.x+Math.sin(wf.face)*mm.reach*.55,az=wf.z+Math.cos(wf.face)*mm.reach*.55;setTimeout(()=>{if(on&&state==='fight')zoneAdd(ax,az,true,'echo',1.5)},wn)}}
         if(F.T.id==='dknight'){if(Tricks.isBlink(e.move))zoneAdd(F.f.x,F.f.z,true);else if(e.move==='pursuit'||e.move==='march'){if(zones.length)zoneArm(.9,true)}}
-        if(Tricks.isBlink(e.move)&&F.T.blink&&!F.bl){const tg=aiTarget(F.f);F.bl={n:0,t:0,tg:tg.id,hide:false,lock:false,vec:Tricks.blinkVec(Math.random,F.ai.ph2),sg:Math.random()<.5?1:-1,long:e.move==='blinkl',sw:0};try{blinkFx(F)}catch(x){}}
+        if(Tricks.isBlink(e.move)&&F.T.blink&&!F.bl){const tg=aiTarget(F.f);F.bl={n:0,t:0,tg:tg.id,hide:false,lock:false,vec:F.T.ai==='archer'?'far':Tricks.blinkVec(Math.random,F.ai.ph2),sg:Math.random()<.5?1:-1,long:e.move==='blinkl',sw:0};try{blinkFx(F)}catch(x){}}
         else if(e.move==='snare'&&F.T.traps){F.sn={n:0,tg:aiTarget(F.f).id}}}
       else if(e.t==='hit'&&e.d==='P'&&byId[e.a]&&byId[e.a].T.vamp&&e.dmg>0){const A=byId[e.a],h=Tricks.heal(e.dmg,A.drunk||0,A.f.hpMax);if(h>0){A.drunk=(A.drunk||0)+h;
         if(NET.mode==='guest'){try{WardenNet.send({k:'sp',t:'vh',s:site.id,b:A.id,h:+h.toFixed(2)})}catch(x){}}else A.f.hp=Math.min(A.f.hpMax,A.f.hp+h);
@@ -933,13 +940,13 @@ const PlayerCombat=(()=>{
         if(f.act==='attack'&&f.ph&&f.ph[f.pi]&&f.ph[f.pi].k==='release'&&f.pk===0){   // the reappearance
           const sp=B.spot||Tricks.blinkSpot(tg.x,tg.z,tg.face,C.arena);try{WardenVfx.burst(sp.x,H(sp.x,sp.z)+1.2,sp.z,1);WardenVfx.slash(sp.x,H(sp.x,sp.z)+1.2,sp.z,tg.face,true,1);WardenVfx.slash(sp.x,H(sp.x,sp.z)+1.5,sp.z,tg.face+1.1,true,1);sfx('whoosh',.6,.7,()=>tone(200,80,.2,'sawtooth',.1))}catch(x){}
           f.x=sp.x;f.z=sp.z;f.face=Math.atan2(tg.x-sp.x,tg.z-sp.z);f.act='free';f.ph=null;f.mv=null;f.inv=0;f.pt=0;f.pk=0;F.ai.cool=0;F.ai.busy=false;
-          F.ai.follow=F.T.ai==='gdn'?(Math.random()<.55?'snakelash':'sunvolley'):F.T.ai==='samurai'||F.T.ai==='veil'?(F.ai.ph2&&!F.ai.chain&&Math.random()<(F.ai.cov?.95:.55)?(F.ai.chain=1,'blink'):(F.ai.chain=0,F.T.ai==='samurai'&&F.ai.ph3&&Math.random()<.4?'hundred':Math.random()<.7?'iai':'cut')):Math.random()<.45?'twin':'cut';if(F.T.ai==='stalker'&&F.ai.ph2&&(F.ai.mc||0)<3&&Math.random()<.6){F.ai.mc=(F.ai.mc||0)+1;F.ai.follow='blink'}else if(F.T.ai==='stalker')F.ai.mc=0;
-          if(F.T.id==='dknight'&&zones.length>=3&&zoneConverge(true)){F.ai.follow='finalsentence';F.pre=0}else if(F.T.ai!=='gdn'&&F.ai.follow!=='blink'){if(B.vec==='above')F.ai.follow='fall';else if(B.vec!=='behind'&&F.ai.follow==='iai')F.ai.follow=Math.random()<.5?'iai':'cut';F.pre=8}blinkEnd(F)}}
+          F.ai.follow=F.T.ai==='gdn'?(Math.random()<.55?'snakelash':'sunvolley'):F.T.ai==='samurai'||F.T.ai==='veil'?(F.ai.ph2&&!F.ai.chain&&Math.random()<(F.ai.cov?.95:.55)?(F.ai.chain=1,'blink'):(F.ai.chain=0,F.T.ai==='samurai'&&F.ai.ph3&&Math.random()<.4?'hundred':Math.random()<.7?'iai':'cut')):Math.random()<.45?'twin':'cut';if(F.T.ai==='archer'){F.ai.follow='bolt'}else if(F.T.ai==='stalker'&&F.ai.ph2&&(F.ai.mc||0)<3&&Math.random()<.6){F.ai.mc=(F.ai.mc||0)+1;F.ai.follow='blink'}else if(F.T.ai==='stalker')F.ai.mc=0;
+          if(F.T.id==='dknight'&&zones.length>=3&&zoneConverge(true)){F.ai.follow='finalsentence';F.pre=0}else if(F.T.ai!=='gdn'&&F.T.ai!=='archer'&&F.ai.follow!=='blink'){if(B.vec==='above')F.ai.follow='fall';else if(B.vec!=='behind'&&F.ai.follow==='iai')F.ai.follow=Math.random()<.5?'iai':'cut';F.pre=8}blinkEnd(F)}}
       if(F.sn){const S_=F.sn;S_.n++;if(f.act!=='attack'||!f.mv||f.mv.id!=='snare'){F.sn=null;continue}
         if(f.ph&&f.ph[f.pi]&&f.ph[f.pi].k==='release'&&f.pk===0){F.sn=null;const tg=C.F[S_.tg]||P,n=Tricks.count(F.ai.ph2,!!(Q&&NET.mode==='host')),seed=(Math.random()*2147483647)|0,cn=++trapN;
           trapsPlace(seed,n,tg.x,tg.z,cn);try{if(NET.mode==='host'&&Q)WardenNet.send({k:'sp',t:'tp',s:site.id,seed,n,x:+tg.x.toFixed(2),z:+tg.z.toFixed(2),c:cn})}catch(x){}}}}}
   function trickTick(dt){
-    trapsTick(dt);try{if(pvl){pvx+=((S.x-pvl.x)/Math.max(dt,.001)-pvx)*.25;pvz+=((S.z-pvl.z)/Math.max(dt,.001)-pvz)*.25}pvl={x:S.x,z:S.z};zoneTick(dt);mirrorTick(dt);pierceTick(dt);dsTick(dt);pinTick(dt);abyssTick(dt);histTick(dt)}catch(e){}
+    trapsTick(dt);try{if(pvl){pvx+=((S.x-pvl.x)/Math.max(dt,.001)-pvx)*.25;pvz+=((S.z-pvl.z)/Math.max(dt,.001)-pvz)*.25}pvl={x:S.x,z:S.z};zoneTick(dt);mirrorTick(dt);smokeTick(dt);pierceTick(dt);dsTick(dt);pinTick(dt);abyssTick(dt);histTick(dt)}catch(e){}
     for(const F of foes){if(!F.T.blink)continue;   // what is shown follows the synced sim state (act / move / phase tick), so host and guest agree even when a phone lags
       const bl=F.f.act==='attack'&&F.f.mv&&Tricks.isBlink(F.f.mv.id);
       if(bl&&!F.bl&&NET.mode==='guest'){F.bl={t:0};blinkFx(F)}
