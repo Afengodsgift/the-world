@@ -61,3 +61,6 @@ Arena changes at phase transitions, destructible structures, weapon loss -> new 
 
 ## Erika, Smoke Step
 Pressed inside ~5.6 m she vanishes (the blink; mark shows 14 ticks before she lands), a violet smoke clone stays where she stood for 3.4 s, aims, and looses a shot at where you will be (ring 0.9 s); she reappears 9.5 m away and draws. Cut the clone and it disperses with no shot. Host/solo creates the clone body; the shot ring reaches a co-op guest through the zone message, the clone body itself does not (unverified).
+
+## The Capra Demon (new boss, The Capra Demon's Pit at x 120 z 130)
+Packed from the supplied DS model with `tools/pack_bip_char.mjs` (7,460 tris, 1.2 MB), Gwyn's clip set and reaction pack retargeted onto his skeleton with `tools/rebase_mx.mjs`. Fast (spd 2.05), 760 HP, Artorias-class AI (`blackknight`) with its own personality (short rests), Iron Pursuit into twin cuts, Heavenfall (three forms), Crimson Tempest from phase 2, Sunder from phase 3, Abyssal Roll, Last Sovereign. Not built: the two hounds (no dog model yet).

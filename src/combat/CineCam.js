@@ -37,7 +37,8 @@ const CineCam=(()=>{
     // the rig's own pose for this frame (to blend back into)
     RIG.p.copy(camera.position);RIG.q.copy(camera.quaternion);RIG.f=camera.fov;
     let fovT;
-    if(sub.drive){const D=sub.drive(dt);TMP.set(D.px,D.py,D.pz);LA.set(D.lx,D.ly,D.lz);M.lookAt(TMP,LA,UP);Q1.setFromRotationMatrix(M);fovT=D.fov}
+    if(sub.drive){const D=sub.drive(dt);if(!D){st='idle';blend=0;bar.style.display='none';sub=null;return}   // the driver is gone (the shot's owner ended it): hand the camera back instead of crashing
+    TMP.set(D.px,D.py,D.pz);LA.set(D.lx,D.ly,D.lz);M.lookAt(TMP,LA,UP);Q1.setFromRotationMatrix(M);fovT=D.fov}
     else{
     const s=shot(),u=ease(clamp((Math.min(t,pre.dur)-s.t0)/Math.max(.01,s.t1-s.t0),0,1));
     const sx=typeof sub.x==='function'?sub.x():sub.x,sz=typeof sub.z==='function'?sub.z():sub.z,sh=sub.h||2,gy=H(sx,sz);
