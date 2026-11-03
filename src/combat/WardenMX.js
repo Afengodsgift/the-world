@@ -170,7 +170,19 @@ const WardenMX=(()=>{
     power:{c:'atk2',t0:.1,ch:[.1,.3],h:[[.3,.74]],e:1.2},heavy:{c:'atk2',t0:.1,ch:[.1,.3],h:[[.3,.74]],e:1.2},step:{c:'atk2',t0:.15,h:[[.3,.74]],e:1.15},
     dash:{c:'p_dash',t0:.05,h:[[.27,.4]],e:1.1},counter:{c:'e_cross',t0:0,h:[[.28,.52]],e:.97},push:{c:'kick',t0:0,h:[[.05,.3]],e:.9},drop:{c:'kick',t0:0,h:[[.05,.3]],e:.9},
     throw:{c:'e_throw',t0:.15,h:[[.5,.8]],e:1.3},take:{c:'atk',t0:.55,h:[[.9,1.3]],e:2.1}}});
-  ROLES.player_dojo.dojo=1;ROLES.player_dojo.pxAv=1;ROLES.player_dojo.px='assets/warden_px_player.json';ROLES.player_dojo.hit='hit1';ROLES.player_dojo.death='death';ROLES.player_dojo.emo=['jab','cross','kick','throw','block','roll'];ROLES.player_dojo.moves.dash={c:'e_cross',t0:0,h:[[.28,.52]],e:.97};
+  ROLES.player_dojo.kk=1;ROLES.player_dojo.dojo=1;ROLES.player_dojo.pxAv=1;ROLES.player_dojo.px='assets/warden_px_player.json';ROLES.player_dojo.hit='hit1';ROLES.player_dojo.death='death';ROLES.player_dojo.emo=['jab','cross','kick','throw','block','roll'];ROLES.player_dojo.moves.dash={c:'e_cross',t0:0,h:[[.28,.52]],e:.97};
+  // MIXAMO UNARMED LIBRARY (boxing / MMA / strike clips baked by tools/avatar/bake_fbxpack.mjs into <avatar>/dojo_fx.json): real boxing stance, jab / cross / hooks / uppercuts, knee, roundhouse, side kick, spinning back kick, shoulder throw, takedown, hit reactions. Times (seconds in the clip): t0 = motion starts, h = hit window, e = settled.
+  ROLES.player_dojo.fxMoves={jab:{c:'fx_jab',t0:.03,h:[[.25,.4]],e:.8},cross:{c:'fx_cross',t0:.02,h:[[.15,.3]],e:.5},hook:{c:'fx_hook_r',t0:.12,h:[[.41,.56]],e:1.0},knee:{c:'fx_knee',t0:.12,h:[[.27,.42]],e:.95},
+    spin:{c:'fx_spinback',t0:.12,h:[[.82,.97]],e:1.3},upper:{c:'fx_upper_r',t0:.1,h:[[.5,.65]],e:1.1},round:{c:'fx_round',t0:.12,h:[[.62,.77]],e:1.2},
+    power:{c:'fx_hook_l',t0:.12,ch:[.12,.32],h:[[.37,.52]],e:1.0},heavy:{c:'fx_hook_l',t0:.12,ch:[.12,.32],h:[[.37,.52]],e:1.0},step:{c:'fx_combo2',t0:0,h:[[.47,.62]],e:1.0},dash:{c:'fx_cross',t0:.02,h:[[.15,.3]],e:.5},
+    counter:{c:'fx_upper_l',t0:.12,h:[[.42,.57]],e:.8},push:{c:'fx_side',t0:0,h:[[.37,.52]],e:1.0},drop:{c:'fx_stomp',t0:.07,h:[[.57,.72]],e:1.2},throw:{c:'fx_shoulder',t0:.12,h:[[.47,.62]],e:1.3},take:{c:'fx_takedown',t0:.12,h:[[.53,.68]],e:1.2}};
+  // KayKit combat-melee pack (CC0, baked by tools/avatar/bake_kaykit.mjs into <avatar>/dojo_kk.json): a real fighting-stance idle + guard, a punch, a kick, a counter, block reactions, directional dodges and the 2H staff swings
+  Object.assign(ROLES.player_dojo.loco={...ROLES.player_dojo.loco},{idle:'kk_idle'});ROLES.player_dojo.guard='kk_guard';
+  Object.assign(ROLES.player_dojo.moves,{step:{c:'kk_punch',t0:.12,h:[[.34,.52]],e:.95},dash:{c:'kk_punch',t0:.12,h:[[.34,.52]],e:.95},counter:{c:'kk_blockatk',t0:0,h:[[.3,.6]],e:.95},push:{c:'kk_kick',t0:.05,h:[[.28,.5]],e:.86},drop:{c:'kk_kick',t0:.05,h:[[.28,.5]],e:.86}});
+  ROLES.dojo_staff=Object.assign({},ROLES.player_dojo,{loco:{...ROLES.player_dojo.loco,idle:'kk_2h_idle'},moves:Object.assign({},ROLES.player_dojo.moves,{
+    jab:{c:'kk_2h_slice',t0:.1,h:[[.3,.46]],e:.85},cross:{c:'kk_2h_stab',t0:.05,h:[[.15,.4]],e:.95},hook:{c:'kk_2h_chop',t0:.45,h:[[.65,.9]],e:1.3},knee:{c:'kk_2h_stab',t0:.05,h:[[.15,.4]],e:.95},
+    spin:{c:'kk_2h_spin',t0:.3,h:[[.6,1.27]],e:2.0},upper:{c:'kk_2h_chop',t0:.45,h:[[.65,.9]],e:1.3},round:{c:'kk_2h_spinning',t0:0,h:[[.15,.55]],e:.66},heavy:{c:'kk_2h_chop',t0:.45,h:[[.65,.9]],e:1.3},power:{c:'kk_2h_chop',t0:.45,ch:[.45,.62],h:[[.65,.9]],e:1.3},step:{c:'kk_2h_slice',t0:.1,h:[[.3,.46]],e:.85},dash:{c:'kk_2h_stab',t0:.05,h:[[.15,.4]],e:.95}})});
+  ROLES.dojo_staff.fxMoves=null;
   // (the px pack clips are only baked for the stock rig, so on the human avatars the Iron Fist layer uses hit1 / death from the Mixamo set for flinches and falls, and the emote roll for dodges)
   // ---- the player's heavier weapons: the Great Sword pack (already baked onto the game rig for the Duelist) drives the Claymore and the Hand Axe ----
   ROLES.player_gs={file:'assets/warden_mx_duelist.json',guard:'guard',parry:[{c:'slash',a:.05,b:.6},{c:'slash5',a:.15,b:.62}],loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
@@ -202,18 +214,20 @@ const WardenMX=(()=>{
   const tryFetch=(u,n)=>fetch(u,n<6?{cache:'reload'}:undefined).then(r=>{if(!r.ok)throw new Error('http '+r.status);return r}).catch(e=>n>0?new Promise(r=>setTimeout(r,1500*(7-n))).then(()=>tryFetch(u,n-1)):Promise.reject(e));
   // av = a human avatar id (AvatarKit): the same role file baked for that avatar's proportions lives in assets/avatars/<name>/ (tools/avatar/retarget_clips.mjs); native (own-rig) roles never use it
   function fetchRole(role,av){const key=av?role+'@'+av:role,s=SH[key]||(SH[key]={st:'none',clips:null,meta:null,p:null}),file=av&&typeof AvatarKit!=='undefined'&&AvatarKit.CAT[av]&&!ROLES[role].native?AURL+AvatarKit.CAT[av].dir+ROLES[role].file.replace(/^.*\//,'')+AvatarKit.ASSET_V:ROLES[role].file,tag=(av?av+'/':'')+role;
-    if(!s.p)s.p=Promise.all([tryFetch(file,6).then(r=>r.json()),ROLES[role].px&&(!av||ROLES[role].pxAv)?tryFetch(av?AURL+AvatarKit.CAT[av].dir+'warden_px_player.json'+AvatarKit.ASSET_V:ROLES[role].px,6).then(r=>r.json()).catch(()=>[]):[]]).then(([a,x])=>a.concat(x)).then(j=>{s.clips={};s.meta={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=tag+':'+c.name;ac.uuid=tag+':'+c.name;s.clips[c.name]=ac;   // unique uuid per role: three.js caches actions by clip uuid, and the game's own clips are also called idle/walk/jump (sharing one action stole the game's base layer -> T-pose on hit)
+    if(!s.p)s.p=Promise.all([tryFetch(file,6).then(r=>r.json()),ROLES[role].px&&(!av||ROLES[role].pxAv)?tryFetch(av?AURL+AvatarKit.CAT[av].dir+'warden_px_player.json'+AvatarKit.ASSET_V:ROLES[role].px,6).then(r=>r.json()).catch(()=>[]):[],ROLES[role].kk&&av?tryFetch(AURL+AvatarKit.CAT[av].dir+'dojo_kk.json'+AvatarKit.ASSET_V,6).then(r=>r.json()).catch(()=>[]):[],ROLES[role].kk&&av?tryFetch(AURL+AvatarKit.CAT[av].dir+'dojo_fx.json'+AvatarKit.ASSET_V,6).then(r=>r.json()).catch(()=>[]):[]]).then(([a,x,k,f])=>a.concat(x,k,f)).then(j=>{s.clips={};s.meta={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=tag+':'+c.name;ac.uuid=tag+':'+c.name;s.clips[c.name]=ac;   // unique uuid per role: three.js caches actions by clip uuid, and the game's own clips are also called idle/walk/jump (sharing one action stole the game's base layer -> T-pose on hit)
       s.meta[c.name]={dur:c.duration,v:(av&&AvatarKit.set(av)?AvatarKit.set(av).mxK||1:1)*Math.hypot(c.trav?c.trav[0]:0,c.trav?c.trav[1]:0)/Math.max(.1,c.duration)}}s.st='ready';return s}).catch(e=>{s.st='failed';s.err=String(e&&e.message||e);s.p=null;throw e});return s.p}
   // a signature variant (Moves[id].as) animates with the first base move this role has
   function specOf(R,id){let s=R.moves[id];if(s)return s;const as=(typeof Moves!=='undefined'&&Moves[id]&&Moves[id].as)||[];for(const b of as)if(R.moves[b])return R.moves[b];return null}
   function make(q,role){
     const R=ROLES[role],I={st:'none',role,A:{},ws:{},gT:0,sT:0,dT:0,sw:0,lastLight:-1e9,ready:()=>I.st==='ready',variant:'light_b',alt:{},plans:{},tmem:{}};
-    I.mode=null;I.mt=0;I.wakeP=0;I.wakeDone=false;I.setMode=m=>{I.mode=m;I.mt=0;I.wakeP=m==='wake'?0:1;I.wakeDone=false};
+    I.bh=0;I.blockHit=()=>{I.bh=.45};I.mode=null;I.mt=0;I.wakeP=0;I.wakeDone=false;I.setMode=m=>{I.mode=m;I.mt=0;I.wakeP=m==='wake'?0:1;I.wakeDone=false};
     I.pickAlt=()=>{};I.nextLight=()=>'light_b';
     let names=[];
     const init=s=>{if(R.emo&&typeof EMO!=='undefined'){const T=(q.av&&typeof AvatarKit!=='undefined'&&AvatarKit.emoTable&&AvatarKit.emoTable(q))||EMO.clips;for(const n of R.emo){const c=T[n]||EMO.clips[n];if(c&&!s.clips['e_'+n]){const ac=c.clone();ac.name=(q.av?q.av+'/':'')+role+':e_'+n;ac.uuid=ac.name;s.clips['e_'+n]=ac;s.meta['e_'+n]={dur:c.duration,v:0}}}}   // the emote library's clips join this role's set (e_jab, e_cross ...)
+      if(R.fxMoves&&s.clips.fx_jab){if(!R.moves0)R.moves0=R.moves;R.moves=Object.assign({},R.moves0,R.fxMoves);R.loco={...R.loco,idle:'fx_idle'};R.guard='fx_guard'}
       const used=new Set(Object.values(R.loco));if(R.guard)used.add(R.guard);if(R.parry)for(const q of R.parry)used.add(q.c);if(R.dorm)used.add(R.dorm);if(R.wake)used.add(R.wake.c);if(R.death)used.add(R.death);if(R.hit)used.add(R.hit);if(R.px)for(const n of PXN)used.add(n);
       for(const m of Object.values(R.moves))for(const g of norm(m))used.add(g.c);
+      if(R.dojo)for(const n of ['fx_hit_hl','fx_hit_hr','fx_hit_hs','fx_hit_b','fx_hit_st','fx_hit_big','fx_ko','fx_blockreact','kk_blockhit','kk_dodge_b','kk_dodge_f','kk_dodge_l','kk_dodge_r','e_roll'])used.add(n);
       names=[...used].filter(n=>s.clips[n]);I.names=names;I.S=s;
       for(const n of names){const a=q.mixer.clipAction(s.clips[n]);a.enabled=false;a.setEffectiveWeight(.0001);I.A[n]=a;I.ws[n]=0}I.st='ready'};
     const load=()=>fetchRole(role,q.av).then(s=>R.emo&&typeof loadEmotes==='function'?loadEmotes().catch(()=>0).then(()=>s):s).then(init).catch(e=>{I.st='failed';I.err=String(e&&e.message||e);setTimeout(()=>{if(I.st!=='ready')load()},6000)});load();
@@ -229,8 +243,10 @@ const WardenMX=(()=>{
       else if(f.act==='stun')I.sT+=dt;else I.sT=0;if(f.act==='dead')I.dT+=dt;else{I.dT=0;I.dv=-1}if(f.act!=='dodge')I.dgT=0;
       if(I.mode&&f.act!=='dead'){}
       else if(R.dojo&&!A.p_deathA&&f.act==='dead'&&A[R.death])put(R.death,I.dT);
+      else if(R.dojo&&A.fx_hit_hl&&f.act==='stun'&&f.sk!=='rise'){const HL=['fx_hit_hl','fx_hit_hr','fx_hit_hs','fx_hit_b','fx_hit_st','fx_hit_big'];if(I.sT<=dt*1.5)I.hi=((I.hi||0)+1+(Math.random()*2|0))%HL.length;   // real boxing hit reactions, varied; a stagger is the knocked-back-and-reeling clip
+        if(f.sk==='stagger'&&A.fx_ko)put('fx_ko',Math.min(I.sT*.85,A.fx_ko.getClip().duration-.05));else{const c=HL[I.hi||0];put(c,Math.min(I.sT*1.1,A[c].getClip().duration-.05))}}
       else if(R.dojo&&!A.p_hitc&&f.act==='stun'&&A[R.hit]){const d=A[R.hit].getClip().duration,sg=f.sk==='stagger';if(I.sT<=dt*1.5)I.hv=(I.hv||0)^1;put(R.hit,sg?Math.min(I.sT*.6,d-.05):Math.min(I.sT*(I.hv?1:1.15),d-.05))}   // a flinch plays at once (alternating pace), a stagger is a slower, held wobble
-      else if(R.dojo&&f.act==='dodge'&&A.e_roll){I.dgT=(I.dgT||0)+dt;put('e_roll',.12+I.dgT*2.7)}
+      else if(R.dojo&&f.act==='dodge'&&(A.kk_dodge_b||A.e_roll)){if(!I.dgT){const vf=loco?loco.vf:0,vs=loco?loco.vs:0;I.dgK=Math.hypot(vf,vs)<.4?'kk_dodge_b':Math.abs(vs)>Math.abs(vf)?(vs>0?'kk_dodge_l':'kk_dodge_r'):(vf>0?'kk_dodge_f':'kk_dodge_b')}I.dgT=(I.dgT||0)+dt;if(A[I.dgK])put(I.dgK,I.dgT*1.15);else put('e_roll',.12+I.dgT*2.7)}
       else if(R.native&&f.act==='dead'&&R.px&&A.p_deathA){   // a random one of the three pack deaths (or his own) each time he falls
         if(I.dv===undefined||I.dv<0){const L=PXD.filter(n=>A[n]).concat(R.death&&A[R.death]?[R.death]:[]);I.dvL=L;I.dv=Math.floor(Math.random()*L.length)}put(I.dvL[I.dv],I.dT)}
       else if(R.native&&f.act==='dead'&&R.death&&A[R.death])put(R.death,I.dT);            // natively rigged foes have no game hit/death overlay: play the clip themselves
@@ -253,6 +269,7 @@ const WardenMX=(()=>{
         else if(f.pry>0&&f.act==='free'&&R.parry&&A[R.parry[0].c]){   // PARRY: a full sweep of the blade across the body (alternating sides), snapping in over the first 60% of the window, then held in guard
           if(f.pry>(I.lp||0))I.pa=(I.pa||0)^1;I.lp=f.pry;const q=R.parry[I.pa],u=(26-f.pry)/26,k=ease(Math.min(1,u/.55));put(q.c,q.a+(q.b-q.a)*k)}
         else if(I.flick&&f.act==='free'&&A[I.flick.c]&&(I.flick.t+=dt)<I.flick.d){const k=I.flick;put(k.c,k.a+(k.b-k.a)*ease(k.t/k.d))}   // a parry: a quick sword sweep out of the guard (the game sets I.flick on a deflect)
+        else if(R.dojo&&I.bh>0&&f.guard&&(A.fx_blockreact||A.kk_blockhit)){I.bh-=dt;if(A.fx_blockreact)put('fx_blockreact',Math.min(1.2,.45-I.bh+.02));else put('kk_blockhit',Math.min(.9,.45-I.bh+.05))}   // a blocked hit: the guard takes the shock
         else if(f.guard&&f.act==='free'&&R.guard&&A[R.guard]){I.gT+=dt;put(R.guard,Math.min(I.gT,A[R.guard].getClip().duration-.05))}
         else{I.gT=0;
           const L=R.loco,sp=loco&&loco.moving?Math.max(.01,Math.hypot(loco.vf,loco.vs)):0;
