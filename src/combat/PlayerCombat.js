@@ -677,7 +677,7 @@ const PlayerCombat=(()=>{
   let rollT=0;
   function abyssTick(dt){if(rollT>0)rollT-=dt;if(NET.mode==='guest'||!on||state!=='fight'||ult||sv||rollT>0||!P||P.act==='dead')return;
     const early=P.act==='dodge'||(P.guard&&P.act==='free');if(!early)return;
-    for(const F of foes){const f=F.f;if(F.T.id!=='darkknight'||!F.awake||F.ghost||f.act!=='attack'||!f.mv||(f.mv.id!=='executioner'&&f.mv.id!=='brokenadv'))continue;
+    for(const F of foes){const f=F.f;if((F.T.id!=='darkknight'&&F.T.id!=='capra')||!F.awake||F.ghost||f.act!=='attack'||!f.mv||(f.mv.id!=='executioner'&&f.mv.id!=='brokenadv'))continue;
       const k=f.ph&&f.ph[f.pi]&&f.ph[f.pi].k;if(k!=='startup'||f.pt>16||Math.random()>.55)continue;
       const dx=P.x-f.x,dz=P.z-f.z,d=Math.hypot(dx,dz)||1,sg=Math.random()<.5?1:-1;f.act='free';f.ph=null;f.mv=null;f.pt=0;f.pk=0;
       try{WardenVfx.burst(f.x,H(f.x,f.z)+1.1,f.z,3);CombatCore.moveBy(C,f,-dz/d*2.8*sg+dx/d*.8,dx/d*2.8*sg+dz/d*.8);f.face=Math.atan2(P.x-f.x,P.z-f.z);WardenVfx.slash(f.x,H(f.x,f.z)+1.2,f.z,f.face,true,1);msg('ABYSSAL ROLL',.9);tone(240,90,.25,'sawtooth',.1)}catch(e){}
@@ -759,12 +759,12 @@ const PlayerCombat=(()=>{
     try{
       CineCam.PRESETS.sever={dur:4.9,freeze:false,noskip:true,shots:[]};
       const ease=u=>u*u*(3-2*u),seg=(t,a,b)=>ease(cl((t-a)/(b-a),0,1));
-      const drive=()=>{const V=sv;if(!V)return null;const T=V.T,t=(performance.now()-V.t0)/1000,bx=T.f.x,bz=T.f.z,gy=H(bx,bz),sc=Math.max(1,T.T.scale*.8);
+      let lastD=null;const drive=()=>{const V=sv;if(!V)return lastD;const T=V.T,t=(performance.now()-V.t0)/1000,bx=T.f.x,bz=T.f.z,gy=H(bx,bz),sc=Math.max(1,T.T.scale*.8);
         const u1=seg(t,0,.7),u2=seg(t,.7,3.0),fz=V.fin?seg((performance.now()-V.fin)/1000,0,.6):0,ou=V.out?seg((performance.now()-V.out)/1000,0,.9):0;
         const kick=Math.max(0,1-(performance.now()-V.lastB*1000-V.t0)/220);   // each cut nudges the lens
         const ang=V.a0+mixn(.2,.9,u1)+u2*3.4+fz*.5-ou*.4,d=(mixn(8.5,7.2,u1)-u2*1.6-fz*2.2+ou*4.5-kick*.35)*sc,hy=gy+(1.5+u2*.5-fz*.7+ou*.9)*sc;
         const px=bx+Math.sin(ang)*d,pz=bz+Math.cos(ang)*d;
-        return{px,py:Math.max(hy,H(px,pz)+.6),pz,lx:bx,ly:gy+1.25*T.T.scale,lz:bz,fov:mixn(56,50,u1)-u2*3-fz*9+ou*8-kick*2}};
+        return lastD={px,py:Math.max(hy,H(px,pz)+.6),pz,lx:bx,ly:gy+1.25*T.T.scale,lz:bz,fov:mixn(56,50,u1)-u2*3-fz*9+ou*8-kick*2}};
       CineCam.play('sever',{x:()=>T.f.x,z:()=>T.f.z,h:1.5*T.T.scale,drive},{force:true})}catch(x){}
     return true}
   function svRing(id,x,z,r,mv){WardenFx.event({t:'fx',k:'aoe',fid:id,a:'P',move:mv,x:x,z:z,r:r,delay:1,dur:3});WardenFx.event({t:'fxburst',fid:id,x:x,z:z,r:r});setTimeout(()=>{try{WardenFx.event({t:'fxend',fid:id,why:'done',x:x,z:z})}catch(e){}},160)}

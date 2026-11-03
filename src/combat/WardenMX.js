@@ -155,6 +155,8 @@ const WardenMX=(()=>{
   // The Veiled Saint (uploaded Queen of Swords rig, packed by tools/pack_ue_char.mjs): the Huntress's cast / kick / power-up set retargeted onto her; every area attack is a cast
   ROLES.saint=Object.assign({},ROLES.archer,{file:'assets/warden_mx_saint.json',moves:Object.assign({},ROLES.archer.moves,{
     lance:{c:'spell',t0:0,e:1.1},returning:{c:'spell',t0:0,e:1.1},consecrate:{c:'power',t0:.3,e:2.0},procession:{c:'power',t0:.3,e:2.0},bladestorm:{c:'spell',t0:0,e:1.1},swordring:{c:'power',t0:.3,e:2.0}})});
+  // The Capra Demon (uploaded DS rig, tools/pack_bip_char.mjs): Gwyn's clip set retargeted onto his skeleton (tools/rebase_mx.mjs)
+  ROLES.capra=Object.assign({},ROLES.gwyn,{file:'assets/warden_mx_capra.json'});
   // Dark Sun Gwyndolin (uploaded DS rig, no legs - she floats; tools/pack_gdn_char.mjs): the Saint's cast / kick / power set retargeted onto her
   ROLES.gdn=Object.assign({},ROLES.saint,{file:'assets/warden_mx_gdn.json',moves:Object.assign({},ROLES.saint.moves,{sunvolley:{c:'spell',t0:0,e:1.1},snakelash:{c:'power',t0:.3,e:2.0},eclipse:{c:'power',t0:.3,e:2.0},blink:{c:'power',t0:.3,e:.96}})});
   // Skrag, the Snare-Trapper (uploaded goblin rig): the Longbow set (arrow cast, kick, power-up) retargeted onto his skeleton; the long power-up clip is his snare-laying
@@ -195,7 +197,7 @@ const WardenMX=(()=>{
     light:{c:'atk',t0:0,h:[[.37,.52]],e:1.0},light2:{c:'slash',t0:.05,h:[[.45,.8]],e:1.2},rising:{c:'slash3',t0:.2,h:[[.6,1.0]],e:1.6}})});
   // the Phantom-Blade pack (assets/warden_px_<role>.json, tools/bake_pack.mjs): reactions every role with .px shares - knock-back, hurt loop, two flinches, three deaths
   const PXN=['p_knock','p_hurt','p_hitc','p_hith','p_deathA','p_deathB','p_deathC'],PXD=['p_deathA','p_deathB','p_deathC'];
-  for(const r of['penitent','gwyn','saint','veil','samurai','vampire','paladin','arissa','archer','gdn','ganfaul']){const R=ROLES[r];if(!R)continue;R.px='assets/warden_px_'+r+'.json';const M=R.moves=Object.assign({},R.moves);
+  for(const r of['penitent','gwyn','capra','saint','veil','samurai','vampire','paladin','arissa','archer','gdn','ganfaul']){const R=ROLES[r];if(!R)continue;R.px='assets/warden_px_'+r+'.json';const M=R.moves=Object.assign({},R.moves);
     if(M.bash)M.bash={c:'p_kick',t0:.25,h:[[.46,.68]],e:1.2};
     if(M.flurry)M.flurry={c:'p_combo',t0:0,h:[[.2,.32],[.68,.8],[1.48,1.6]],e:2.3};if(M.dash)M.dash={c:'p_dash',t0:.05,h:[[.28,.42]],e:1.1}}
   // the player's own roles: the same reactions (knock-back, hurt loop, flinches, deaths) plus a kick for the shove and the dash cut for the lunge
