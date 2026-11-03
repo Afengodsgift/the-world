@@ -397,7 +397,7 @@ const PlayerCombat=(()=>{
     killDecoy(true);jumpCd=shCd=0;oathFirst=null;fightN++;hurt=false;fightVo=false;try{WardenSfx.load()}catch(e){}const R=site.wall?site.R-.5:site.dg?site.R-.3:site.R+10,sol=WardenSolids().filter(s=>Math.hypot(s.x-WRD.x-site.x,s.z-WRD.z-site.z)<site.R+14);
     C=CombatCore.create({arena:{x:WRD.x+site.x,z:WRD.z+site.z,R},solids:sol});try{CameraRig.setArena({x:WRD.x+site.x,z:WRD.z+site.z,R:site.wall||site.dg?R:site.R,sol:sol.filter(q=>!q.wall)})}catch(e){}ST=CombatCore.stepper(C,6);t0=performance.now();vt=0;vl=0;tsc=1;ult=null;
     if(site.duel&&DU.pair){const L=duelSide();S.x=WRD.x+site.x;S.z=WRD.z+site.z+9*L;S.rot=L>0?Math.PI:0;lx=S.x;lz=S.z}
-    P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});applyStats();spawnFoes();sup=Math.max(sup,20);WardenFx.clear();WardenVfx.clear();for(const F of foes)if(F.T.ai==='saint')try{WardenFx.orbit(F,6)}catch(e){};trapsClear();blinkRing(0,0,false);Q=null;spectate=false;ls=null;ds=null;pin=null;try{zonesClear()}catch(e){}netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
+    P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});applyStats();spawnFoes();sup=Math.max(sup,20);WardenFx.clear();WardenVfx.clear();for(const F of foes)if(F.T.ai==='saint')try{WardenFx.orbit(F,6)}catch(e){};trapsClear();blinkRing(0,0,false);Q=null;spectate=false;ls=null;ds=null;pin=null;try{zonesClear();mirrorsClear()}catch(e){}netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
     flow=0;flowOn=false;flowN=0;fq=null;skillCD=0;bars.fl=-1;healLeft=0;mightT=0;itemLock=0;state='fight';stateT=0;lockOff=false;lock=(site.fog||site.duel||foes.some(F=>F.T.boss))&&!(site.duel&&!DU.pair);lockI=0;{const b=foes.find(F=>F.T.boss&&F.awake)||foes.find(F=>F.awake);if(b)lockI=b.i}lastEv=[];pv.init=false;down.guard=down.heavy=false;stW=0;gT=0;
     if(el)el.querySelector('#wLock').classList.toggle('on',lock);D=target().f}
   // Inside a walled arena the screen is the cost on a low-end phone: render at 1.25x (not 2x) while you fight, restore on leaving. Skipped when ?dpr= was given.
@@ -584,16 +584,31 @@ const PlayerCombat=(()=>{
   // ZONES (the Dark Knight's Void Runes / Anchors). Each client is authoritative for its OWN defence, so every client damages only itself; the host decides when runes appear / detonate and tells the guest (sp: zr = rune at x,z, zd = detonate after a delay, za = anchors converge).
   // Runes are laid where he vanishes in a blink. Pursuit / Executioner's Advance arms them (0.9 s fuse, ring turns white): stand clear. Three anchors + a blink = the Convergence: lines run to you, you are dragged toward the centre, then Final Sentence.
   const RUNE_R=2.8;let zones=[],zoneG=null;
-  const VOLT_R=1.9;
-  function zoneAdd(x,z,mine,kind){kind=kind||'rune';const volt=kind==='volt';
+  // ZONE LOOK: every ring is built in world space with the TERRAIN's height at each vertex (a flat disc gets chopped by slopes), additive so it glows, with a soft fill and a light pillar so it reads from across the arena.
+  // Beams are thin additive cylinders (a 1 px GL line is invisible on a phone).
+  const BEAM_G=new THREE.CylinderGeometry(1,1,1,6,1,true),_by=new THREE.Vector3(0,1,0),_bd=new THREE.Vector3();
+  function beamSet(m,x0,y0,z0,x1,y1,z1,w){_bd.set(x1-x0,y1-y0,z1-z0);const L=_bd.length()||.001;m.position.set((x0+x1)/2,(y0+y1)/2,(z0+z1)/2);m.quaternion.setFromUnitVectors(_by,_bd.multiplyScalar(1/L));m.scale.set(w||.09,L,w||.09);m.visible=true}
+  function ringGeo(x,z,r0,r1,seg,dy){const pos=[],idx=[];for(let i=0;i<=seg;i++){const a=i/seg*Math.PI*2,c=Math.cos(a),sn=Math.sin(a),ax=x+c*r0,az=z+sn*r0,bx=x+c*r1,bz=z+sn*r1;pos.push(ax,H(ax,az)+dy,az,bx,H(bx,bz)+dy,bz)}
+    for(let i=0;i<seg;i++){const k=i*2;idx.push(k,k+1,k+2,k+1,k+3,k+2)}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setIndex(idx);return g}
+  function discGeo(x,z,r,seg,dy){const pos=[x,H(x,z)+dy,z],idx=[];for(let i=0;i<=seg;i++){const a=i/seg*Math.PI*2,ax=x+Math.cos(a)*r,az=z+Math.sin(a)*r;pos.push(ax,H(ax,az)+dy,az)}for(let i=1;i<=seg;i++)idx.push(0,i,i+1);const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setIndex(idx);return g}
+  const addMat=(c,vc)=>new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:.7,depthWrite:false,fog:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,vertexColors:!!vc});
+  // one mesh per zone (a phone cannot afford three): ring + soft fill + pillar merged, intensity per part carried in the vertex colour (additive blending: dimmer = fainter)
+  function mergeG(parts){const pos=[],col=[],idx=[];let off=0;for(const pr of parts){const g=pr[0],k=pr[1],p=g.attributes.position,n=p.count;for(let i=0;i<n;i++){pos.push(p.getX(i),p.getY(i),p.getZ(i));col.push(k,k,k)}const ix=g.index;for(let i=0;i<ix.count;i++)idx.push(ix.getX(i)+off);off+=n;g.dispose()}
+    const r=new THREE.BufferGeometry();r.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));r.setAttribute('color',new THREE.Float32BufferAttribute(col,3));r.setIndex(idx);return r}
+  const VOLT_R=1.9,ZK={rune:{r:2.8,bang:2.8,life:16,col:0x8a3cff,dmg:.2,st:30,tx:'VOID RUNE',cap:5},volt:{r:1.9,bang:3.2,life:6,col:0x66ccff,dmg:.12,st:20,tx:'SHOCKED',cap:6},echo:{r:2.2,bang:2.2,life:4,col:0xffd060,dmg:.1,st:20,tx:'ECHO BLADE',cap:6},mshot:{r:1.7,bang:1.7,life:3,col:0xbfe6ff,dmg:.1,st:16,tx:'REFLECTED',cap:6},decoy:{r:1.5,bang:0,life:1.2,col:0xff2a3a,dmg:0,st:0,tx:'',cap:3}};
+  function zoneAdd(x,z,mine,kind,fuse,F,src){kind=kind||'rune';const volt=kind==='volt',K=ZK[kind]||ZK.rune;
     if(!zoneG){zoneG=new THREE.Group();scene.add(zoneG)}
-    {const same=zones.filter(q=>q.kind===kind);while(same.length>=(volt?6:5)){zoneDel(same.shift())}}
-    const m=new THREE.MeshBasicMaterial({color:volt?0x66ccff:0x8a3cff,transparent:true,opacity:.7,depthWrite:false,fog:false,side:THREE.DoubleSide}),g=new THREE.Mesh(new THREE.RingGeometry(.62,1,36),m);g.rotation.x=-Math.PI/2;g.scale.setScalar(volt?VOLT_R:RUNE_R);g.position.set(x,H(x,z)+.12,z);zoneG.add(g);
-    const lm=new THREE.LineBasicMaterial({color:0xc08cff,transparent:true,opacity:.9,fog:false,depthTest:false}),lg=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x,H(x,z)+.4,z),new THREE.Vector3(x,H(x,z)+.4,z)]),ln=new THREE.Line(lg,lm);ln.visible=false;ln.frustumCulled=false;ln.renderOrder=995;zoneG.add(ln);
-    zones.push({x,z,age:0,g,m,ln,lm,lg,fuse:-1,lit:0,kind,tk:0,ch:0,nx:null});
+    {const same=zones.filter(q=>q.kind===kind);while(same.length>=K.cap){zoneDel(same.shift())}}
+    const R=K.r,m=addMat(K.col,true),parts=[[ringGeo(x,z,R*.86,R,40,.12),1],[discGeo(x,z,R*.86,24,.1),.2]];
+    if(kind!=='mshot'&&kind!=='decoy'){const pg=new THREE.CylinderGeometry(R*.07,R*.16,2.8,10,1,true);pg.translate(x,H(x,z)+1.4,z);parts.push([pg,.28])}
+    const g=new THREE.Mesh(mergeG(parts),m);g.frustumCulled=false;
+    zoneG.add(g);
+    const lm=addMat(0xc08cff);lm.depthTest=false;const ln=new THREE.Mesh(BEAM_G,lm);ln.visible=false;ln.frustumCulled=false;ln.renderOrder=995;zoneG.add(ln);
+    zones.push({x,z,age:0,g,m,ln,lm,fuse:fuse===undefined?-1:fuse,lit:0,kind,tk:0,ch:0,nx:null,F:F||null,hit:0,col:K.col});
+    if(src)beamSet(ln,src.x,src.y===undefined?1.8:src.y,src.z,x,H(x,z)+.4,z,.07);
     try{WardenVfx.spawn(x,H(x,z)+.5,z,3,3,2.2,Math.random()*6.28,24)}catch(e){}
-    if(mine&&NET.mode==='host'&&Q){try{WardenNet.send({k:'sp',t:'zr',s:site.id,x:+x.toFixed(2),z:+z.toFixed(2),q:volt?'volt':'rune'})}catch(e){}}}
-  function zoneDel(q){const i=zones.indexOf(q);if(i>=0)zones.splice(i,1);if(q.g.parent)q.g.parent.remove(q.g);if(q.ln.parent)q.ln.parent.remove(q.ln);q.m.dispose();q.lm.dispose();q.g.geometry.dispose();q.lg.dispose()}
+    if(mine&&NET.mode==='host'&&Q){try{WardenNet.send({k:'sp',t:'zr',s:site.id,x:+x.toFixed(2),z:+z.toFixed(2),q:kind,f:fuse})}catch(e){}}}
+  function zoneDel(q){const i=zones.indexOf(q);if(i>=0)zones.splice(i,1);if(q.g.parent)q.g.parent.remove(q.g);if(q.ln.parent)q.ln.parent.remove(q.ln);q.g.geometry.dispose();q.m.dispose();q.lm.dispose()}
   function zonesClear(){for(const q of zones.slice())zoneDel(q)}
   function zoneArm(delay,mine){for(const q of zones)if(q.fuse<0&&q.kind==='rune')q.fuse=delay;
     if(mine&&NET.mode==='host'&&Q){try{WardenNet.send({k:'sp',t:'zd',s:site.id,d:delay})}catch(e){}}}
@@ -610,21 +625,24 @@ const PlayerCombat=(()=>{
     if(!zones.length)return;
     let cx=0,cz=0,pull=false;
     for(const q of zones.slice()){q.age+=dt;
-      const volt=q.kind==='volt',life=volt?6:16;
-      q.m.opacity=q.fuse>=0?.9:.45+.25*Math.sin(q.age*(volt?9:4));q.m.color.setHex(q.fuse>=0?0xffffff:volt?0x66ccff:0x8a3cff);if(q.age>life-2.5)q.g.visible=Math.floor(q.age*8)%2===0;
-      if(volt){if(q.ch>0&&q.nx){q.ch-=dt;q.ln.visible=true;const a=q.lg.attributes.position;a.setXYZ(0,q.x,H(q.x,q.z)+.5,q.z);a.setXYZ(1,q.nx.x,H(q.nx.x,q.nx.z)+.5,q.nx.z);a.needsUpdate=true}
+      const volt=q.kind==='volt',K=ZK[q.kind]||ZK.rune,life=K.life;
+      q.m.opacity=q.fuse>=0?.9:.45+.25*Math.sin(q.age*(volt?9:4));{const cc=q.fuse>=0&&(q.kind==='rune'||q.kind==='volt'||q.fuse<.35)&&q.kind!=='decoy'?0xffffff:K.col;q.m.color.setHex(cc);q.lm.opacity=.85;q.m.opacity=Math.min(1,q.m.opacity*1.25)}if(q.age>life-2.5)q.g.visible=Math.floor(q.age*8)%2===0;
+      if(q.kind==='decoy'){if(!q.hit&&on&&state==='fight'&&P&&P.act!=='dead'&&Math.hypot(P.x-q.x,P.z-q.z)<K.r&&!(P.inv>0)&&!(P.act==='dodge'&&P.pt>=Moves.dodge.iStart&&P.pt<=Moves.dodge.iEnd)){q.hit=1;const dr=Math.max(1,Math.round(P.hp*.15));P.hp=Math.max(1,P.hp-dr);hurt=true;if(q.F&&NET.mode!=='guest'&&q.F.f.act!=='dead'){q.F.f.hp=Math.min(q.F.f.hpMax,q.F.f.hp+dr);q.F.f.po=Math.max(0,q.F.f.po-30)}try{msg('LIFE DRAINED',1);flash(.35,'rgba(255,40,60,.55)');tone(300,120,.25,'sawtooth',.1)}catch(e){}}
+        q.g.visible=Math.floor(q.age*14)%2===0}
+      if(q.kind==='mshot'&&q.fuse<.25)q.ln.visible=false;
+      if(volt){if(q.ch>0&&q.nx){q.ch-=dt;beamSet(q.ln,q.x,H(q.x,q.z)+.5,q.z,q.nx.x,H(q.nx.x,q.nx.z)+.5,q.nx.z,.11)}
         q.tk-=dt;if(q.tk<=0&&q.fuse<0&&on&&state==='fight'&&P&&P.act!=='dead'&&Math.hypot(P.x-q.x,P.z-q.z)<VOLT_R&&!(P.inv>0)&&!(P.act==='dodge'&&P.pt>=Moves.dodge.iStart&&P.pt<=Moves.dodge.iEnd)){q.tk=.7;P.hp=Math.max(1,P.hp-Math.max(1,Math.round(P.hpMax*.015)));hurt=true;try{flash(.15,'rgba(150,210,255,.5)');tone(700,300,.08,'square',.05)}catch(e){}}}
-      if(volt){}else if(q.lit>0){q.lit-=dt;pull=true;cx+=q.x;cz+=q.z;q.ln.visible=true;const a=q.lg.attributes.position;a.setXYZ(1,S.x,H(S.x,S.z)+1,S.z);a.needsUpdate=true}else if(!volt)q.ln.visible=false;
+      if(volt){}else if(q.lit>0){q.lit-=dt;pull=true;cx+=q.x;cz+=q.z;beamSet(q.ln,q.x,H(q.x,q.z)+.5,q.z,S.x,H(S.x,S.z)+1,S.z,.1)}else if(!volt)q.ln.visible=false;
       if(q.fuse>=0){q.fuse-=dt;if(q.fuse<=0){zoneBang(q);continue}}
       if(q.age>life)zoneDel(q)}
     if(pull&&on&&state==='fight'&&P&&P.act!=='dead'&&!(P.act==='dodge'&&P.pt>=Moves.dodge.iStart&&P.pt<=Moves.dodge.iEnd)){const n=zones.filter(q=>q.lit>0).length;if(n){cx/=n;cz/=n;const dx=cx-S.x,dz=cz-S.z,d=Math.hypot(dx,dz)||1,st=Math.min(d,2.6*dt);let nx=S.x+dx/d*st,nz=S.z+dz/d*st;const A=C&&C.arena;if(A){const ax=nx-A.x,az=nz-A.z,ad=Math.hypot(ax,az),lim=A.R-1;if(ad>lim){nx=A.x+ax/ad*lim;nz=A.z+az/ad*lim}}S.x=nx;S.z=nz;P.x=nx;P.z=nz}}}
-  function zoneBang(q){const volt=q.kind==='volt',R=volt?VOLT_R+1.3:RUNE_R,dmg=volt?.12:.2;
+  function zoneBang(q){const volt=q.kind==='volt',K=ZK[q.kind]||ZK.rune,R=K.bang,dmg=K.dmg;
     try{WardenVfx.burst(q.x,H(q.x,q.z)+1,q.z,volt?2:3);WardenVfx.spawn(q.x,H(q.x,q.z)+.8,q.z,volt?2:0,3,volt?2.8:3.4,Math.random()*6.28,26)}catch(e){}
     if(on&&state==='fight'&&P&&P.act!=='dead'&&Math.hypot(P.x-q.x,P.z-q.z)<R&&!(P.act==='dodge'&&P.pt>=Moves.dodge.iStart&&P.pt<=Moves.dodge.iEnd)&&!(P.inv>0)){
-      P.hp=Math.max(1,P.hp-Math.round(P.hpMax*dmg));P.act='stun';P.sk='hit';P.stun=volt?20:30;P.guard=false;P.ph=null;P.mv=null;P.c=0;hurt=true;
-      try{flash(.55,'rgba(150,60,255,.6)');msg(volt?'SHOCKED':'VOID RUNE',.9);CameraRig.shake(.5);sfx('heavy',.8,.7,()=>tone(140,50,.3,'sawtooth',.14))}catch(e){}}
-    zoneDel(q)}
-  function zoneNet(p){if(!on||!site||p.s!==site.id)return;if(p.t==='zc')zoneChain(false);else if(p.t==='zr')zoneAdd(p.x,p.z,false,p.q);else if(p.t==='zd')zoneArm(p.d||.9,false);else if(p.t==='za')zoneConverge(false)}
+      P.hp=Math.max(1,P.hp-Math.round(P.hpMax*dmg));P.act='stun';P.sk='hit';P.stun=K.st;P.guard=false;P.ph=null;P.mv=null;P.c=0;hurt=true;
+      try{flash(.55,'rgba(150,60,255,.6)');msg(K.tx,.9);CameraRig.shake(.5);sfx('heavy',.8,.7,()=>tone(140,50,.3,'sawtooth',.14))}catch(e){}}
+    q.ln.visible=false;zoneDel(q)}
+  function zoneNet(p){if(!on||!site||p.s!==site.id)return;if(p.t==='zc')zoneChain(false);else if(p.t==='zr')zoneAdd(p.x,p.z,false,p.q,p.f);else if(p.t==='zd')zoneArm(p.d||.9,false);else if(p.t==='za')zoneConverge(false)}
   // SHADOW PIERCER: an afterimage made while the Dark Knight is winding up a heavy strike gets read: he cancels into a Void Thrust that impales the clone (and anything in the line) and takes some posture back.
   const HEAVYW=['fall','verdict','kingsfall','hammer','moon','groundbreaker','crownfissure','rend','sunder','worldbreaker','maul'];
   function shadowPiercer(){
@@ -664,6 +682,37 @@ const PlayerCombat=(()=>{
       const dx=P.x-f.x,dz=P.z-f.z,d=Math.hypot(dx,dz)||1,sg=Math.random()<.5?1:-1;f.act='free';f.ph=null;f.mv=null;f.pt=0;f.pk=0;
       try{WardenVfx.burst(f.x,H(f.x,f.z)+1.1,f.z,3);CombatCore.moveBy(C,f,-dz/d*2.8*sg+dx/d*.8,dx/d*2.8*sg+dz/d*.8);f.face=Math.atan2(P.x-f.x,P.z-f.z);WardenVfx.slash(f.x,H(f.x,f.z)+1.2,f.z,f.face,true,1);msg('ABYSSAL ROLL',.9);tone(240,90,.25,'sawtooth',.1)}catch(e){}
       F.ai.follow=Math.random()<.5?'cut':'twin';F.ai.cool=0;F.ai.busy=false;rollT=7;break}}
+  // GWYNDOLIN'S MIRRORS (phase 2): three lunar mirrors stand round the arena. When she fires a Sun Volley each mirror throws its own shot at where you will BE (your velocity x 0.7 s): a ring marks it for 0.9 s, then it lands. Run in a straight line and you run into it.
+  let mirrors=[],pvx=0,pvz=0,pvl=null;
+  let mirTex=null;
+  function mirTexture(){if(mirTex)return mirTex;const c=document.createElement('canvas');c.width=64;c.height=128;const g=c.getContext('2d'),gr=g.createLinearGradient(0,0,0,128);gr.addColorStop(0,'rgba(210,240,255,.55)');gr.addColorStop(.5,'rgba(120,190,255,.22)');gr.addColorStop(1,'rgba(210,240,255,.55)');g.fillStyle=gr;g.fillRect(0,0,64,128);
+    g.strokeStyle='rgba(235,250,255,.95)';g.lineWidth=5;g.strokeRect(3,3,58,122);g.strokeStyle='rgba(255,255,255,.35)';g.lineWidth=7;g.beginPath();g.moveTo(8,118);g.lineTo(56,10);g.stroke();mirTex=new THREE.CanvasTexture(c);return mirTex}
+  function mirrorsAdd(){if(mirrors.length||!C||!C.arena)return;const A=C.arena;
+    for(let i=0;i<3;i++){const a=Math.PI/2+i*Math.PI*2/3,x=A.x+Math.cos(a)*A.R*.78,z=A.z+Math.sin(a)*A.R*.78;
+      const m=new THREE.MeshBasicMaterial({map:mirTexture(),transparent:true,opacity:.95,depthWrite:false,side:THREE.DoubleSide,fog:false,blending:THREE.AdditiveBlending}),g=new THREE.Mesh(new THREE.PlaneGeometry(1.9,3.4),m);
+      g.position.set(x,H(x,z)+2.3,z);g.rotation.y=Math.atan2(A.x-x,A.z-z);scene.add(g);
+      const rm=addMat(0xbfe6ff),rg=new THREE.Mesh(ringGeo(x,z,1.0,1.3,28,.1),rm);scene.add(rg);
+      mirrors.push({x,z,g,m,rg,rm,y0:H(x,z)+2.3,ph:i*2.1})}
+    try{msg('LUNAR MIRRORS RISE',1.6);flash(.3,'rgba(190,230,255,.5)')}catch(e){}}
+  function mirrorTick(dt){if(!mirrors.length)return;const t=performance.now()/1000;for(const q of mirrors){q.g.position.y=q.y0+Math.sin(t*1.3+q.ph)*.14;q.m.opacity=.8+.15*Math.sin(t*2.2+q.ph);q.rm.opacity=.45+.2*Math.sin(t*2.2+q.ph)}}
+  function mirrorsClear(){for(const q of mirrors){if(q.g.parent)q.g.parent.remove(q.g);if(q.rg.parent)q.rg.parent.remove(q.rg);q.m.dispose();q.rm.dispose();q.g.geometry.dispose();q.rg.geometry.dispose()}mirrors=[];if(mirTex){mirTex.dispose();mirTex=null}}
+  function mirrorVolley(){if(!mirrors.length||NET.mode==='guest')return;const px=S.x+pvx*.7,pz=S.z+pvz*.7;
+    setTimeout(()=>{if(!on||state!=='fight'||!mirrors.length)return;mirrors.forEach((q,i)=>{const j=i-1,x=px+j*1.3,z=pz+(i===1?1.2:-.6);zoneAdd(x,z,true,'mshot',.9,null,{x:q.x,y:2.1,z:q.z})})},500)}
+  // GANFAUL, TIME ANCHOR: stagger him in the middle of a heavy move and (60%) he rewinds to where he stood a second ago, posture half-restored, and answers with a thrust.
+  // ARISSA, RHYTHM + MIRROR SWAY: each hit she lands quickens her rests 5% (max 25%, her tells never change); landing a hit on her while she is still winding up a step (first 14 ticks) makes her slip to your flank and sweep (6 s cooldown). Parrying or hitting her breaks the rhythm.
+  let swayT=0;
+  function histTick(dt){if(swayT>0)swayT-=dt;const n=performance.now();for(const F of foes){if(F.T.id!=='ganfaul'||F.ghost)continue;(F.hist=F.hist||[]).push({t:n,x:F.f.x,z:F.f.z});while(F.hist.length&&n-F.hist[0].t>1100)F.hist.shift()}}
+  function setEv2(e){
+    if(e.t==='posturebreak'&&e.d!=='P'&&NET.mode!=='guest'){const F=byId[e.d];if(F&&F.T.id==='ganfaul'&&F.hist&&F.hist.length&&HEAVYW.indexOf(F.lm)>=0&&Math.random()<.6){const h=F.hist[0],f=F.f;
+      f.x=h.x;f.z=h.z;f.act='free';f.ph=null;f.mv=null;f.stun=0;f.po=f.poMax*.5;F.ai.follow='thrust';F.ai.cool=0;F.ai.busy=false;
+      try{WardenVfx.burst(f.x,H(f.x,f.z)+1.2,f.z,1);msg('TIME ANCHOR \u00b7 HE REWINDS',1.5);flash(.3,'rgba(255,220,120,.5)');tone(900,200,.4,'triangle',.1)}catch(x){}}return}
+    if(e.t==='hit'&&e.d==='P'){const F=byId[e.a];if(F&&F.T.id==='arissa'&&F.ai){F.ai.rh=Math.min(5,(F.ai.rh||0)+1);if(F.ai.rh===3||F.ai.rh===5)try{msg('ARISSA QUICKENS',.9)}catch(x){}}}
+    else if(e.t==='deflect'&&e.d==='P'){const F=byId[e.a];if(F&&F.T.id==='arissa'&&F.ai)F.ai.rh=0}
+    else if(e.t==='hit'&&e.a==='P'&&!e.fx){const F=byId[e.d];if(F&&F.T.id==='arissa'&&F.ai){F.ai.rh=0;const f=F.f;
+      if(NET.mode!=='guest'&&swayT<=0&&f.act==='attack'&&f.ph&&f.ph[f.pi]&&(f.ph[f.pi].k==='startup'||f.ph[f.pi].k==='windup')&&f.pt<=14&&Math.random()<.5){
+        const dx=P.x-f.x,dz=P.z-f.z,d=Math.hypot(dx,dz)||1,sg=Math.random()<.5?1:-1;f.act='free';f.ph=null;f.mv=null;f.pt=0;f.pk=0;
+        try{CombatCore.moveBy(C,f,-dz/d*2.2*sg,dx/d*2.2*sg);f.face=Math.atan2(P.x-f.x,P.z-f.z);WardenVfx.burst(f.x,H(f.x,f.z)+1,f.z,2);msg('MIRROR SWAY',.9)}catch(x){}
+        F.ai.follow='lowsweep';F.ai.cool=0;F.ai.busy=false;swayT=6}}}}
   // SET PIECES: the fight reacts to how you fight it (Kage, the Dark Knight; the parry rules apply to any duelist with a MUT table).
   // - move tracking + parry adaptation (DuelistAI.onParry), - three PERFECT parries in a row within 7 s on a boss = the Deathblow opening: his guard breaks, time stalls, you get a free cut,
   // - a mood vignette that darkens the arena in phase 2 and 3 (a plain overlay: no extra lights, cheap on a phone).
@@ -684,7 +733,7 @@ const PlayerCombat=(()=>{
     if(!el)return;if(!moodEl){moodEl=document.createElement('div');moodEl.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:4;opacity:0;transition:opacity 2.4s ease;background:radial-gradient(ellipse at center,transparent 42%,var(--mc,rgba(120,20,0,.55)) 100%)';el.appendChild(moodEl)}
     if(col)moodEl.style.setProperty('--mc',col);moodEl.style.opacity=String(k)}
   const MOODS={hollow:[['rgba(20,40,30,.55)',.65]],samurai:[['rgba(110,30,10,.5)',.7],['rgba(150,10,0,.7)',1]],dknight:[['rgba(40,10,70,.55)',.7],['rgba(10,0,30,.8)',1]]};
-  function phaseBeat(F,n){
+  function phaseBeat(F,n){if(F.T.id==='gdn'&&n===2)try{mirrorsAdd()}catch(x){}
     const m=MOODS[F.T.id==='dknight'?'dknight':F.T.ai==='samurai'?'samurai':F.T.id==='hollow'?'hollow':''];if(!m||!m[n-2]||ult)return;
     mood(m[n-2][1],m[n-2][0]);try{CameraRig.pulse(-3);CameraRig.shake(.5);flash(.5,n===3?'rgba(255,60,20,.55)':'rgba(255,180,90,.4)')}catch(x){}}
   function supEv(e){if(sv||ult||state!=='fight')return;let g=0;
@@ -865,6 +914,9 @@ const PlayerCombat=(()=>{
       if(e.t==='start'&&NET.mode!=='guest'){const F=byId[e.a];if(!F||F.ghost)continue;if(F.pre&&e.move!==undefined&&!Tricks.isBlink(e.move)){const f=F.f;F.pre=0;if(f.ph&&f.ph[0]&&f.ph[0].n-8>=18){f.pt=8;f.pk=8}}   // dynamic blink: the strike was already under way while he was gone (never cuts the windup under 18 ticks)
 
         if(F.T.id==='gwyn'&&(e.move==='storm'||e.move==='stormgrid'||e.move==='spear'||e.move==='crownfall')){const tg=aiTarget(F.f);voltSpawn(tg.x,tg.z,true,e.move==='crownfall'?3:e.move==='spear'?2:3,e.move==='crownfall'?1000:900)}
+        if(F.T.id==='gdn'&&e.move==='sunvolley')mirrorVolley();
+        if(F.T.id==='vampire'&&Tricks.isBlink(e.move))zoneAdd(F.f.x,F.f.z,true,'decoy',undefined,F);
+        if(F.T.id==='ganfaul'){const mm=Moves[e.move];if(mm&&mm.dmg>0&&!mm.fx&&mm.reach<=4.6&&F.f.ph&&F.f.ph[0]){const wf=F.f,wn=Math.round(wf.ph[0].n/60*1000),ax=wf.x+Math.sin(wf.face)*mm.reach*.55,az=wf.z+Math.cos(wf.face)*mm.reach*.55;setTimeout(()=>{if(on&&state==='fight')zoneAdd(ax,az,true,'echo',1.5)},wn)}}
         if(F.T.id==='dknight'){if(Tricks.isBlink(e.move))zoneAdd(F.f.x,F.f.z,true);else if(e.move==='pursuit'||e.move==='march'){if(zones.length)zoneArm(.9,true)}}
         if(Tricks.isBlink(e.move)&&F.T.blink&&!F.bl){const tg=aiTarget(F.f);F.bl={n:0,t:0,tg:tg.id,hide:false,lock:false,vec:Tricks.blinkVec(Math.random,F.ai.ph2),sg:Math.random()<.5?1:-1,long:e.move==='blinkl',sw:0};try{blinkFx(F)}catch(x){}}
         else if(e.move==='snare'&&F.T.traps){F.sn={n:0,tg:aiTarget(F.f).id}}}
@@ -881,12 +933,13 @@ const PlayerCombat=(()=>{
         if(f.act==='attack'&&f.ph&&f.ph[f.pi]&&f.ph[f.pi].k==='release'&&f.pk===0){   // the reappearance
           const sp=B.spot||Tricks.blinkSpot(tg.x,tg.z,tg.face,C.arena);try{WardenVfx.burst(sp.x,H(sp.x,sp.z)+1.2,sp.z,1);WardenVfx.slash(sp.x,H(sp.x,sp.z)+1.2,sp.z,tg.face,true,1);WardenVfx.slash(sp.x,H(sp.x,sp.z)+1.5,sp.z,tg.face+1.1,true,1);sfx('whoosh',.6,.7,()=>tone(200,80,.2,'sawtooth',.1))}catch(x){}
           f.x=sp.x;f.z=sp.z;f.face=Math.atan2(tg.x-sp.x,tg.z-sp.z);f.act='free';f.ph=null;f.mv=null;f.inv=0;f.pt=0;f.pk=0;F.ai.cool=0;F.ai.busy=false;
-          F.ai.follow=F.T.ai==='gdn'?(Math.random()<.55?'snakelash':'sunvolley'):F.T.ai==='samurai'||F.T.ai==='veil'?(F.ai.ph2&&!F.ai.chain&&Math.random()<(F.ai.cov?.95:.55)?(F.ai.chain=1,'blink'):(F.ai.chain=0,F.T.ai==='samurai'&&F.ai.ph3&&Math.random()<.4?'hundred':Math.random()<.7?'iai':'cut')):Math.random()<.45?'twin':'cut';if(F.T.id==='dknight'&&zones.length>=3&&zoneConverge(true)){F.ai.follow='finalsentence';F.pre=0}else if(F.T.ai!=='gdn'&&F.ai.follow!=='blink'){if(B.vec==='above')F.ai.follow='fall';else if(B.vec!=='behind'&&F.ai.follow==='iai')F.ai.follow=Math.random()<.5?'iai':'cut';F.pre=8}blinkEnd(F)}}
+          F.ai.follow=F.T.ai==='gdn'?(Math.random()<.55?'snakelash':'sunvolley'):F.T.ai==='samurai'||F.T.ai==='veil'?(F.ai.ph2&&!F.ai.chain&&Math.random()<(F.ai.cov?.95:.55)?(F.ai.chain=1,'blink'):(F.ai.chain=0,F.T.ai==='samurai'&&F.ai.ph3&&Math.random()<.4?'hundred':Math.random()<.7?'iai':'cut')):Math.random()<.45?'twin':'cut';if(F.T.ai==='stalker'&&F.ai.ph2&&(F.ai.mc||0)<3&&Math.random()<.6){F.ai.mc=(F.ai.mc||0)+1;F.ai.follow='blink'}else if(F.T.ai==='stalker')F.ai.mc=0;
+          if(F.T.id==='dknight'&&zones.length>=3&&zoneConverge(true)){F.ai.follow='finalsentence';F.pre=0}else if(F.T.ai!=='gdn'&&F.ai.follow!=='blink'){if(B.vec==='above')F.ai.follow='fall';else if(B.vec!=='behind'&&F.ai.follow==='iai')F.ai.follow=Math.random()<.5?'iai':'cut';F.pre=8}blinkEnd(F)}}
       if(F.sn){const S_=F.sn;S_.n++;if(f.act!=='attack'||!f.mv||f.mv.id!=='snare'){F.sn=null;continue}
         if(f.ph&&f.ph[f.pi]&&f.ph[f.pi].k==='release'&&f.pk===0){F.sn=null;const tg=C.F[S_.tg]||P,n=Tricks.count(F.ai.ph2,!!(Q&&NET.mode==='host')),seed=(Math.random()*2147483647)|0,cn=++trapN;
           trapsPlace(seed,n,tg.x,tg.z,cn);try{if(NET.mode==='host'&&Q)WardenNet.send({k:'sp',t:'tp',s:site.id,seed,n,x:+tg.x.toFixed(2),z:+tg.z.toFixed(2),c:cn})}catch(x){}}}}}
   function trickTick(dt){
-    trapsTick(dt);try{zoneTick(dt);pierceTick(dt);dsTick(dt);pinTick(dt);abyssTick(dt)}catch(e){}
+    trapsTick(dt);try{if(pvl){pvx+=((S.x-pvl.x)/Math.max(dt,.001)-pvx)*.25;pvz+=((S.z-pvl.z)/Math.max(dt,.001)-pvz)*.25}pvl={x:S.x,z:S.z};zoneTick(dt);mirrorTick(dt);pierceTick(dt);dsTick(dt);pinTick(dt);abyssTick(dt);histTick(dt)}catch(e){}
     for(const F of foes){if(!F.T.blink)continue;   // what is shown follows the synced sim state (act / move / phase tick), so host and guest agree even when a phone lags
       const bl=F.f.act==='attack'&&F.f.mv&&Tricks.isBlink(F.f.mv.id);
       if(bl&&!F.bl&&NET.mode==='guest'){F.bl={t:0};blinkFx(F)}
@@ -1009,7 +1062,7 @@ const PlayerCombat=(()=>{
     if(S.grounded||S.state==='swim')gBase=S.y;P.y=Math.max(0,S.y-gBase);
     decoyTick(decoy,'Z',dt);decoyTick(rdecoy,'Y',dt);
     const b=el&&el.querySelector('#wShadow');if(b){const t=shCd>0?Math.ceil(shCd):0;if(b._c!==t){b._c=t;b.textContent=t?'Shadow '+t:'Shadow';b.classList.toggle('cd',t>0)}}}
-  function leave(hold){pun=null;pcs.n=0;ls=null;ds=null;pin=null;try{zonesClear()}catch(e){}try{if(moodEl)moodEl.style.opacity='0'}catch(e){}svEnd();try{WardenFx.clear()}catch(e){}   // hold: keep the corpses of a cleared site in the world
+  function leave(hold){pun=null;pcs.n=0;ls=null;ds=null;pin=null;try{mirrorsClear()}catch(e){}try{zonesClear()}catch(e){}try{if(moodEl)moodEl.style.opacity='0'}catch(e){}svEnd();try{WardenFx.clear()}catch(e){}   // hold: keep the corpses of a cleared site in the world
     if(!on)return;endSet();trapsClear();try{blinkRing(0,0,false)}catch(e){}killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');document.body.classList.remove('warden-duel');if(sword&&sword.grip)sword.grip.visible=false;if(sword2&&sword2.grip)sword2.grip.visible=false;pendFace=null;
     if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.combat(0,0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
@@ -1050,7 +1103,7 @@ const PlayerCombat=(()=>{
     for(const e of evs){
       const A=byId[e.a],T=byId[e.d];
       if(e.t==='dead'&&T&&T.human&&!e._rep){T.f.act='free';T.f.hp=Math.max(1,T.f.hp);T.f.mv=null;T.f.ph=null;continue}
-      flowEv(e,T);supEv(e);svHit(e);try{spEv(e,A)}catch(x){}
+      flowEv(e,T);supEv(e);svHit(e);try{spEv(e,A)}catch(x){}try{setEv2(e)}catch(x){}
       if(e.t==='fx'||e.t==='fxburst'||e.t==='fxend'){if(e.t==='fx'&&A&&A.T)e.fk=A.T.id;WardenFx.event(e);
         if(e.t==='fxburst'&&!ult){const st=WardenFx.styleOf(e.fid);if(st==='lightning'||st==='sun'||st==='eclipse'){const dd=Math.hypot(P.x-e.x,P.z-e.z);if(dd<(e.r||3)+9){flash(st==='lightning'?.22:.16,st==='lightning'?'rgba(200,228,255,.5)':'rgba(255,220,150,.35)');try{CameraRig.shake(dd<(e.r||3)+1?.28:.12)}catch(x){}}}}}
       {const fp=e.t==='hit'||e.t==='block'||e.t==='deflect'||e.t==='posturebreak'||e.t==='guardbreak'?(T?T.f:(e.d==='P'?P:null)):null;if(fp){vfxAt(e,fp);punch(e,fp)}else if(e.t==='dodge')punch(e,P)}

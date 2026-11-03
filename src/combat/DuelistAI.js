@@ -13,7 +13,7 @@ const DuelistAI=(()=>{
   function create(seed,o){o=o||{};const r=mulberry(seed|0);return{foe:o.foe||'duelist',kid:o.kid||'',mast:!!o.mast,noAtk:false,gcool:0,r,t:0,cool:0,see:0,seenKey:'',strafe:1,strafeT:60,guardT:0,rip:0,gP:0,mood:'patient',moodT:90,last:[],intro:o.intro===undefined?INTRO:o.intro,on:true,log:null,
     bcd:240,scd:100,hcd:0,hcd2:0,hunt:false,follow:null,adaptCd:0,adapt:null,ph3:false,att:0,ccd:300,rcd:0,chain:0,moves:0,nextBreath:3+Math.floor(r()*3),breath:0,ph2:false,closeP:0,pw:{},mut:{},still:0,stl:300,spMsg:null}}
   const key=P=>P.act==='attack'&&P.ph&&P.ph[P.pi]?'a'+P.ph[P.pi].k:P.act==='stun'?'stun':P.act==='dodge'?'dodge':P.act==='charge'?'charge':P.guard?'guard':'free';
-  const rest=(A,lo,span)=>Math.max(20,Math.floor((lo+Math.floor(A.r()*span))*(A.ph3?.58:A.ph2?.75:1)*(A.rmul||1)));
+  const rest=(A,lo,span)=>Math.max(20,Math.floor((lo+Math.floor(A.r()*span))*(A.ph3?.58:A.ph2?.75:1)*(A.rmul||1)*(1-.05*(A.rh||0))));
   // A = ai state, P/D = sim fighters, evs = events of the previous tick. Returns {face,mx,mz,list}
   function think(A,P,D,evs,tick){
     const out={face:Math.atan2(P.x-D.x,P.z-D.z),mx:0,mz:0,list:[]};A.t++;
