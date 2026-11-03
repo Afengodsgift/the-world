@@ -62,3 +62,9 @@ console.log(n+' checks')
    if(want){ok4((cnt.heavenfall||0)>0&&(cnt.heavenfalld||0)>0&&(cnt.heavenwave||0)>0,kid+' mixes all three Heavenfalls '+JSON.stringify({a:cnt.heavenfall,b:cnt.heavenfalld,c:cnt.heavenwave}))}
    else ok4(!cnt.heavenfalld&&!cnt.heavenwave,kid+' never uses the Abyss variants')}
  console.log(n3+' artorias checks')}
+// ARISSA: rhythm stacks shorten her rests (tells untouched) and Vael chains blinks
+{let n4=0;const ok5=(c,m)=>{if(!c){console.log('FAIL '+m);process.exitCode=1}else n4++};
+ const atks=rh=>{let t0=0;for(let sd=1;sd<=30;sd++){const A=DuelistAI.create(sd*17,{foe:'dancer',kid:'arissa',intro:0});A.on=true;A.rh=rh;const D=mkD(),P=mkP(2.4);
+   for(let t=0;t<2400;t++){if(D.act==='attack'&&t%45===0)D.act='free';const o=DuelistAI.think(A,P,D,[],t);for(const c of o.list)if(c.t==='atk'){D.act='attack';t0++}}}return t0};
+ const a0=atks(0),a5=atks(5);ok5(a5>a0*1.05,'five rhythm stacks make Arissa attack more often ('+a0+' -> '+a5+')');
+ console.log(n4+' arissa checks')}

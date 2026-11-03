@@ -51,3 +51,10 @@ Arena changes at phase transitions, destructible structures, weapon loss -> new 
 - **Artorias, Heavenfall x3**: instant, hung (+0.6 s in the air), or converted to an Abyssal wave along the ground (`heavenfalld`, `heavenwave`). Heavenfall joins his kit from phase 2.
 - **Artorias, Impaler's Oath pin**: a landed Impaler pins you 1.5 s; mash any button (6 presses) to tear free with brief i-frames, otherwise Executioner's Advance follows (host only).
 - **Artorias, Abyssal Roll**: dodge or guard EARLY into his Executioner's / Broken Advance (first 16 ticks of the startup) and 55% of the time he cancels into a roll to your flank and cuts (7 s cooldown).
+
+## Ganfaul, Vael, Arissa, Gwyndolin (batch 4) and the zone look
+- **Ganfaul, Echo Blade**: every melee swing leaves a golden arc where the blade passed; 1.5 s later it detonates (10% HP). **Time Anchor**: stagger him mid heavy move and 60% of the time he rewinds to where he stood 1 s ago, posture half back, and thrusts.
+- **Vael, Shadow Decoy**: each blink leaves a red afterimage for 1.2 s; touching it drains 15% of your current HP, heals him and takes 30 posture off him. In phase 2 he chains up to 3 more blinks.
+- **Arissa, Rhythm**: every hit she lands quickens her rests 5% (max 25%); her tells never change. Parrying or hitting her breaks the rhythm. **Mirror Sway**: hit her in the first 14 ticks of a step and half the time she slips to your flank and sweeps (6 s cooldown).
+- **Gwyndolin, Lunar Mirrors** (phase 2): three mirrors stand round the arena; each Sun Volley, each mirror throws a shot at where you WILL be (velocity x 0.7 s), marked by a ring for 0.9 s. Not built: the two illusion copies.
+- **Zone look** (runes, volt, echo, mirror shots, decoys): rings are built with the terrain height at every vertex (a flat disc is chopped by slopes), additive glow, soft fill and a light pillar, merged into ONE mesh per zone; beams are thin additive cylinders (GL lines are invisible on a phone). Checked in a headless render (tools in the session scratchpad).
