@@ -132,7 +132,7 @@ const CombatCore=(()=>{
         if(gate>=0&&!t.pgd){if(t.hp<=gate)t.pgd=true;else if(nh<=gate){nh=gate;t.pgd=true;if(t.rise){t.inv=RISE+10;stunF(t,RISE,'rise');t.hold=0}else t.inv=PHI;emit(C,'phase',a.id,t.id,{rise:t.rise?1:0})}}
         t.hp=Math.max(0,nh);t.pr=0;emit(C,'hit',a.id,t.id,{move:mv.id,seg:o.seg,dmg:dm,crit:crit>1,fx:o.fx});hs=Math.max(hs,mv.hs);
         if(t.hp<=0){t.act='dead';t.guard=false;t.ph=null;t.mv=null;emit(C,'dead',a.id,t.id)}
-        else{const wasStag=t.act==='stun'&&t.sk==='stagger';if(!wasStag&&!t.sa&&!(t.act==='stun'&&t.sk==='rise'))stunF(t,mv.stun,'hit');addPo(C,t,mv.pdmg*sc*(t.sa?.8:1)*(a.pm||1));
+        else{t.lm=mv.id;const wasStag=t.act==='stun'&&t.sk==='stagger';if(!wasStag&&!t.sa&&!(t.act==='stun'&&t.sk==='rise'))stunF(t,mv.stun,'hit');addPo(C,t,mv.pdmg*sc*(t.sa?.8:1)*(a.pm||1));
           if(!t.sa){const bx=Math.sin(o.br+Math.PI),bz=Math.cos(o.br+Math.PI);t.kx=-bx;t.kz=-bz;t.kr=mv.kb*sc}
           // THROWN INTO THE SCENERY (hand moves only): a body that is thrown / shoved / dropped smashes into whoever stands behind it, and into the ring's rope
           if(a.fs&&!o.fx&&(mv.id==='throw'||mv.id==='push'||mv.id==='drop'||mv.id==='take')){const kx=Math.sin(o.br+Math.PI),kz=Math.cos(o.br+Math.PI),fly=1.2+mv.kb;

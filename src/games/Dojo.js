@@ -227,7 +227,7 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
           else if(e.crit)say('STAGGER HIT',.5,'#ffb060')}
         else if(e.d==='P'){combo=0;cs.shk=Math.max(cs.shk,.5);flash('rgba(255,30,20,.6)',1);tone(90,50,.18,'sawtooth',.14);sfx('heavy',.7,.7)}
         const T=byId[e.d];if(T)T.flash=1}
-      else if(e.t==='deflect'){if(e.d==='P'){flash('rgba(190,225,255,.7)',1);cs.shk=Math.max(cs.shk,.3);say(e.pf?'PERFECT PARRY':'PARRY',.7,'#bfe4ff');tone(900,1700,.25,'triangle',.12);sfx('clash',.7,1.2);burst(P.x,H(P.x,P.z)+1.3,P.z,'par',12)}
+      else if(e.t==='deflect'){{const pa=e.d==='P'?pAnim:byId[e.d]&&byId[e.d].body.anim;if(pa&&pa.parryHit)pa.parryHit()}if(e.d==='P'){flash('rgba(190,225,255,.7)',1);cs.shk=Math.max(cs.shk,.3);say(e.pf?'PERFECT PARRY':'PARRY',.7,'#bfe4ff');tone(900,1700,.25,'triangle',.12);sfx('clash',.7,1.2);burst(P.x,H(P.x,P.z)+1.3,P.z,'par',12)}
         else{const T=byId[e.d];if(T)burst(T.f.x,H(T.f.x,T.f.z)+1.3,T.f.z,'par',8);tone(700,1200,.15,'triangle',.08)}}
       else if(e.t==='block'){if(e.d==='P'&&pAnim&&pAnim.blockHit)pAnim.blockHit();else if(byId[e.d]&&byId[e.d].body.anim&&byId[e.d].body.anim.blockHit)byId[e.d].body.anim.blockHit();const pos=e.d==='P'?P:byId[e.d]&&byId[e.d].f;if(pos)burst(pos.x,H(pos.x,pos.z)+1.2,pos.z,'block',6);tone(180,140,.1,'square',.08);if(e.d==='P'){cs.shk=Math.max(cs.shk,.15);sfx('clash',.5,1.5)}}
       else if(e.t==='dodged'&&e.d==='P'){say('EVADE',.5,'#9fe8b8');tone(500,900,.1,'triangle',.06)}

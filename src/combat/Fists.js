@@ -26,7 +26,7 @@ const Fists=(()=>{
     push:{id:'push',who:'P',chain:0,stam:8,dmg:4,pdmg:44,hs:5,stun:30,kb:2.0,reach:2.1,w:.15,phases:[ph('startup',7),ph('active',3,{seg:0,a0:.4,a1:-.4}),ph('recovery',14)],cancel:{dodge:8,guard:6}},
     drop:{id:'drop',who:'P',chain:0,stam:14,dmg:28,pdmg:40,hs:7,stun:30,kb:1.3,reach:2.7,w:.2,phases:[ph('startup',8),ph('active',5,{seg:0,a0:.7,a1:-.7}),ph('recovery',24)]},
     // ---- grabs: gr = ignores guard and parry (a dodge still beats them). The takedown needs a foe in stagger ----
-    throw:{id:'throw',who:'P',chain:0,stam:14,dmg:22,pdmg:42,hs:8,stun:40,kb:2.3,reach:1.7,w:.2,gr:true,phases:[ph('startup',8),ph('active',3,{seg:0,a0:.4,a1:-.4}),ph('recovery',24)]},
+    throw:{id:'throw',who:'P',chain:0,stam:14,dmg:22,pdmg:42,hs:8,stun:96,kb:2.3,reach:1.7,w:.2,gr:true,phases:[ph('startup',8),ph('active',3,{seg:0,a0:.4,a1:-.4}),ph('recovery',24)]},
     take:{id:'take',who:'P',chain:0,stam:0,dmg:22,pdmg:0,hs:14,stun:60,kb:1.6,reach:2.6,w:.3,gr:true,phases:[ph('startup',12,{move:1.0}),ph('active',3,{seg:0,a0:.5,a1:-.5}),ph('recovery',30)]}
   };
   const IDS=Object.keys(M);

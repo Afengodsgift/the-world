@@ -1,0 +1,190 @@
+[
+{
+"name": "fx2_idle",
+"file": "<fbx-animations-curated>/animations/combat-unarmed/boxing/bouncing-boxing-idle.fbx"
+},
+{
+"name": "fx2_fwd",
+"file": "<fbx-animations-curated>/animations/combat-unarmed/boxing/boxing-advancing-forward.fbx"
+},
+{
+"name": "fx2_bwd",
+"file": "<fbx-animations-curated>/animations/combat-unarmed/boxing/medium-boxing-step-backward.fbx"
+},
+{
+"name": "fx2_stepl",
+"file": "<fbx-animations-curated>/animations/combat-unarmed/boxing/medium-left-boxing-side-step.fbx"
+},
+{
+"name": "fx2_stepr",
+"file": "<fbx-animations-curated>/animations/combat-unarmed/boxing/medium-right-boxing-side-step.fbx"
+},
+{
+"name": "fx2_dodge_f",
+"file": "<fbx-animations-curated>/animations/combat-unarmed/boxing/boxing-dodge-advance.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_dodge_b",
+"file": "<fbx-animations-curated>/animations/combat-unarmed/boxing/boxing-dodge-retreat.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_jabcross",
+"file": "<fbx-animations-curated>/animations/combat-unarmed/boxing/boxing-jab-cross-combo.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_hook_back",
+"file": "<fbx-animations-curated>/animations/combat-unarmed/boxing/boxing-back-hand-hook.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_upper_lead",
+"file": "<fbx-animations-curated>/animations/combat-unarmed/boxing/boxing-lead-hand-uppercut.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_kick_low",
+"file": "<fbx-animations-curated>/animations/combat-unarmed/martial-arts/mma-low-kick.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_kick_mid",
+"file": "<fbx-animations-curated>/animations/combat-unarmed/martial-arts/mma-medium-kick.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_kick_high",
+"file": "<fbx-animations-curated>/animations/combat-unarmed/martial-arts/mma-high-kick.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_kick_round",
+"file": "<fbx-animations-curated>/animations/combat-unarmed/martial-arts/mma-roundhouse-kick.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_knee_mt",
+"file": "<fbx-animations-curated>/animations/combat-unarmed/martial-arts/muay-thai-illegal-knee.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_block_l",
+"file": "<fbx-animations-curated>/animations/combat-unarmed/defence/high-left-block.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_block_r",
+"file": "<fbx-animations-curated>/animations/combat-unarmed/defence/high-right-block.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_block_in",
+"file": "<fbx-animations-curated>/animations/combat-unarmed/defence/blocking-inward.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_hit_f",
+"file": "<fbx-animations-curated>/animations/reactions/hit-reaction/large-hit-reaction-from-the-front.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_hit_bk",
+"file": "<fbx-animations-curated>/animations/reactions/hit-reaction/large-hit-reaction-from-the-back.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_hit_l",
+"file": "<fbx-animations-curated>/animations/reactions/hit-reaction/large-hit-reaction-from-the-left.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_hit_r",
+"file": "<fbx-animations-curated>/animations/reactions/hit-reaction/large-hit-reaction-from-the-right.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_down",
+"file": "<fbx-animations-curated>/animations/reactions/hit-reaction/knocked-down-to-stomach.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_getup",
+"file": "<fbx-animations-curated>/animations/reactions/hit-reaction/getting-up-from-being-knocked-down-on-the-ground.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_thrown",
+"file": "<fbx-animations-curated>/animations/reactions/hit-reaction/being-thrown-to-the-side.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_flip",
+"file": "<fbx-animations-curated>/animations/reactions/hit-reaction/getting-hit-and-flipping-backwards.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_rocked",
+"file": "<fbx-animations-curated>/animations/reactions/hit-reaction/getting-rocked-by-a-big-uppercut.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_swept",
+"file": "<fbx-animations-curated>/animations/reactions/hit-reaction/getting-feet-swept-out-from-underneath-and-falling.fbx",
+"o": {
+"trim": true
+}
+},
+{
+"name": "fx2_slam",
+"file": "<fbx-animations-curated>/animations/combat-unarmed/stance-attack/grabbing-and-slamming-someone-to-the-ground.fbx",
+"o": {
+"trim": true
+}
+}
+]
