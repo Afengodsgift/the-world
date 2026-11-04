@@ -7,7 +7,7 @@ const Dojo=(()=>{
   const SPD=3.7,GSPD=2.1,CSPD=1.7;
   let built=false,G=null,el=null,fighting=false,C=null,ST=null,P=null,foes=[],byId={},pool=[],pAnim=null,vt=0,tsc=1,tscT=0,state='idle',stateT=0,round=0,roundCleared=0,sessKills=0;
   let combo=0,comboT=0,best=0,lastEv=[],hurtT=0,flashT=0,sparks=[],mats={},down={heavy:false,guard:false},ptr={},pv={x:0,z:0,vf:0,vs:0,sp:0,init:false},seed=1,near=false,msgT=0,hintT=0,tsFix=0;
-  const cs={yaw:0,off:0,dragT:0,last:0,init:false,shk:0,fk:0,fov:54};
+  const cs={yaw:0,off:0,dragT:0,last:0,init:false,shk:0,fk:0,fov:54,D:5.2,H:1.9,lx:0,lz:0,tm:0};
   const SAVE=(()=>{let j={};try{j=JSON.parse(localStorage.getItem('dojo')||'{}')}catch(e){}return Object.assign({cleared:0,best:0,wins:0,rounds:0,style:'striker'},j)})();
   const save=()=>{try{localStorage.setItem('dojo',JSON.stringify(SAVE))}catch(e){}};
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),wrap=a=>Math.atan2(Math.sin(a),Math.cos(a)),now=()=>vt;
@@ -320,18 +320,27 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
   function cam(dt){
     if(fighting&&P){bodyLayer(pLay,me.userData,P,dt);for(const F of foes)if(F.body.g.visible)bodyLayer(F.body.lay||(F.body.lay={}),F.body.u,F.f,dt)}   // after the frame's animate() calls, just before render
     if(!fighting||!P)return;
-    const T=target(),tx=T?T.f.x:S.x+Math.sin(S.rot)*4,tz=T?T.f.z:S.z+Math.cos(S.rot)*4,d=Math.hypot(tx-S.x,tz-S.z),n=alive().length;
-    // the camera sits behind you on the line from the foe, a little over your shoulder; dragging swings it round and it drifts back
-    if(!cs.init){cs.yaw=Math.atan2(S.x-tx,S.z-tz)+.5;cs.last=S.yaw=cs.yaw;cs.init=true}
+    const T=target(),tx=T?T.f.x:S.x+Math.sin(S.rot)*4,tz=T?T.f.z:S.z+Math.cos(S.rot)*4,d=Math.hypot(tx-S.x,tz-S.z);
+    // Sifu-style: tight over-the-shoulder, the camera sits behind you on the line from the foe, swings to a three-quarter view when close so both fighters read,
+    // and widens (not pulls out far) when more than one foe is near. Dragging swings it round and it drifts back. No allocations here.
+    if(!cs.init){cs.yaw=Math.atan2(S.x-tx,S.z-tz)+.5;cs.last=S.yaw=cs.yaw;cs.D=5.2;cs.H=1.9;cs.lx=S.x;cs.lz=S.z;cs.init=true}
     const dr=wrap(S.yaw-cs.last);if(Math.abs(dr)>1e-4){cs.off=clamp(cs.off+dr,-1.5,1.5);cs.dragT=1.8}
     if(cs.dragT>0)cs.dragT-=dt;else cs.off*=Math.exp(-dt*1.6);
-    const y0=Math.atan2(S.x-tx,S.z-tz)+clamp(.92-d*.1,.46,.72)+cs.off;   // close in: swing round to a three-quarter side view so both fighters stay readablecs.yaw+=wrap(y0-cs.yaw)*(1-Math.exp(-dt*(P.act==='attack'?2.6:5)));cs.last=S.yaw=cs.yaw;
-    const D=clamp(4.9+d*.5+(n>1?1.5:0),5.6,9.8),y=S.y+1.7+D*.17;
+    // weight the framing toward the other foes that are close (up to 3), so a flank is never out of shot
+    let wx=0,wz=0,wn=0,near=0;for(let i=0;i<foes.length;i++){const F=foes[i];if(F.f.act==='dead'||F===T)continue;const fx=F.f.x-S.x,fz=F.f.z-S.z,fd=Math.hypot(fx,fz);if(fd<7){wx+=fx;wz+=fz;wn++;near++}}
+    const yaw0=Math.atan2(S.x-tx,S.z-tz)+clamp(.92-d*.1,.46,.72)+cs.off,atk=P.act==='attack'||P.act==='stun';
+    cs.yaw+=wrap(yaw0-cs.yaw)*(1-Math.exp(-dt*(atk?2.4:4.5)));cs.last=S.yaw=cs.yaw;
+    const Dt=clamp(3.9+d*.42+near*.9,4.4,8.2),Ht=1.55+Dt*.15;   // closer than before (was 5.6–9.8 m)
+    const sm=1-Math.exp(-dt*3.2);cs.D+=(Dt-cs.D)*sm;cs.H+=(Ht-cs.H)*sm;
+    const D=cs.D,y=S.y+cs.H;
     let px=S.x+Math.sin(cs.yaw)*D,pz=S.z+Math.cos(cs.yaw)*D;
     const ad=Math.hypot(px-CX(),pz-CZ()),lim=YARD()+6;if(ad>lim){px=CX()+(px-CX())/ad*lim;pz=CZ()+(pz-CZ())/ad*lim}
-    const k=.5,lx=S.x+(tx-S.x)*k,lz=S.z+(tz-S.z)*k;
-    cs.shk*=Math.exp(-dt*8);cs.fk*=Math.exp(-dt*9);const sh=cs.shk*.16;
-    camera.position.set(px+(Math.random()-.5)*sh,y+(Math.random()-.5)*sh,pz+(Math.random()-.5)*sh);camera.lookAt(lx,S.y+1.25,lz);
-    const fT=53+cs.fk+(P.act==='dead'?-6:0);if(Math.abs(camera.fov-fT)>.05){camera.fov+=(fT-camera.fov)*(1-Math.exp(-dt*10));camera.updateProjectionMatrix()}}
+    // look point: between you and the target, nudged toward other close foes; eased so it never snaps when the lock changes
+    const k=.5,tlx=S.x+(tx-S.x)*k+(wn?wx/wn*.12:0),tlz=S.z+(tz-S.z)*k+(wn?wz/wn*.12:0),lsm=1-Math.exp(-dt*9);
+    cs.lx+=(tlx-cs.lx)*lsm;cs.lz+=(tlz-cs.lz)*lsm;
+    // smooth shake (summed sines, decays quickly) instead of per-frame random jitter, which looked like noise on a phone
+    cs.shk*=Math.exp(-dt*8);cs.fk*=Math.exp(-dt*9);cs.tm=(cs.tm||0)+dt;const sh=cs.shk*.2,tt=cs.tm*47;
+    camera.position.set(px+Math.sin(tt)*sh,y+Math.sin(tt*1.31+1.7)*sh,pz+Math.cos(tt*.93+.6)*sh);camera.lookAt(cs.lx,S.y+1.3,cs.lz);
+    const fT=57+cs.fk+(P.act==='dead'?-6:0);if(Math.abs(camera.fov-fT)>.05){camera.fov+=(fT-camera.fov)*(1-Math.exp(-dt*10));camera.updateProjectionMatrix()}}
   return{build,tick,cam,speedMul,fighting:()=>fighting,start,leave:()=>leave(true),belt,save:()=>SAVE,
     _t:()=>({C,P,foes,state,round,cs,ST,SAVE}),_go:r=>{round=r;mkFoes()},_dis:()=>disarm(foes[0])}})();
