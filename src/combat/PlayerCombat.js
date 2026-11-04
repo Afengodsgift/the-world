@@ -74,8 +74,26 @@ const PlayerCombat=(()=>{
   const styId=()=>site&&site.duel?WardenStyle.DEFAULT:myStyle;   // duels ignore styles
   function setStyle(id){if(!WardenStyle.valid(id))return false;myStyle=id;if(id!=='twin'&&sword2){sword2.dead=true;try{sword2.grip&&sword2.grip.parent&&sword2.grip.parent.remove(sword2.grip)}catch(e){}sword2=null}sty=WardenStyle.get(id);try{localStorage.setItem('wstyle',id)}catch(e){}if(on&&P)applyStats();try{if(NET.mode!=='solo')WardenNet.send({k:'sty',s:NET.site,y:id})}catch(e){}return true}
   function applyStats(){const duel=site&&site.duel,st=duel?{hp:100,st:100,dm:1,belt:0}:PG.stats();wst=WardenGear.stats();sty=WardenStyle.get(styId());const m=WardenStyle.mix(wst,styId());wst=Object.assign({},wst,{flow:m.flow});const hp=Math.round(st.hp*m.hp);P.hpMax=hp;P.hp=hp;P.stMax=Math.round(st.st*(sty.st||1));P.st=P.stMax;baseDm=st.dm*m.dm;P.dm=baseDm;P.rm=wst.rm;P.sm=m.sm;P.pm=m.pm;P.dfl=m.dfl+(duel&&DU.pair?3:0);P.bk=sty.back||0}
-  const pRole=()=>WardenGear.TYPES[WardenGear.equipped().ty].role||'player';
-  function swapModel(){if(pAnim){try{pAnim.off()}catch(e){}pAnim=null}for(const w of [sword,sword2])if(w){w.dead=true;try{if(w.grip&&w.grip.parent)w.grip.parent.remove(w.grip)}catch(e){}}sword=null;sword2=null;swordTried=false}
+  // ---- TWIN BLADES stance (src/combat/Twin.js): swap mid-fight between your equipped weapon and two short blades. The swap is a free action in the sim ({t:'stance'}), never blocks a dodge or a roll. ----
+  let stance='main',swapCd=0,twinR=null,twinL=null;const TWB={f:'warden/w_katana.glb',want:.62,l0:1};
+  const baseRole=()=>WardenGear.TYPES[WardenGear.equipped().ty].role||'player';
+  const pRole=()=>stance==='twin'?'player_twin':baseRole();
+  function dropTwin(){for(const w of [twinR,twinL])if(w){w.dead=true;try{if(w.grip&&w.grip.parent)w.grip.parent.remove(w.grip)}catch(e){}}twinR=null;twinL=null}
+  function syncWeapons(){const tw=stance==='twin';if(sword&&sword.grip)sword.grip.visible=on&&!tw;if(sword2&&sword2.grip)sword2.grip.visible=on&&!tw;
+    if(tw&&me&&me.userData.bones){if(!twinR)twinR=attachSword(me,TWB.f,TWB.want,{len:TWB.l0});if(!twinL&&me.userData.bones.LeftHand)twinL=attachSword(me,TWB.f,TWB.want,{len:TWB.l0},null,'LeftHand')}
+    for(const w of [twinR,twinL])if(w&&w.grip)w.grip.visible=on&&tw}
+  function swapStance(force){
+    if(!on||!P||P.act==='dead'||ult||sv||site&&site.duel&&!force)return false;if(swapCd>0)return false;
+    stance=stance==='twin'?'main':'twin';swapCd=.32;
+    ST.input('P',{t:'stance',tw:stance==='twin'?1:0,e:C.tick},now());
+    if(pAnim){try{pAnim.off()}catch(e){}pAnim=null}                   // the clip layer is rebuilt for the new stance on the next frame (twin and player share one clip file, so no download)
+    syncWeapons();try{WardenFx.build();WardenVfx.burst(P.x,H(P.x,P.z)+1.1,P.z,stance==='twin'?1:3)}catch(e){}sfx('clash',.5,1.6);
+    msg(stance==='twin'?'TWIN BLADES':'WEAPON',.9);const b=el&&el.querySelector('#wSwap');if(b){b.classList.toggle('on',stance==='twin');b.textContent=stance==='twin'?'Blade':'Twin'}
+    if(!swapTip){swapTip=1;toast('Swap Strike: your first hits after a swap deal +25%',3)}
+    try{if(NET.mode!=='solo')WardenNet.send({k:'sty',s:NET.site,y:stance==='twin'?'twin':myStyle})}catch(e){}
+    return true}
+  let swapTip=0;
+  function swapModel(){dropTwin();if(pAnim){try{pAnim.off()}catch(e){}pAnim=null}for(const w of [sword,sword2])if(w){w.dead=true;try{if(w.grip&&w.grip.parent)w.grip.parent.remove(w.grip)}catch(e){}}sword=null;sword2=null;swordTried=false}
   if(typeof AvatarKit!=='undefined')AvatarKit.onSwap(g=>{if(typeof me!=='undefined'&&g===me)swapModel()});   // the player's avatar body changed: drop the sword + clip layer built on the old rig (rebuilt on the next frame)
   function toast(t,sec){if(!toastEl){toastEl=document.createElement('div');toastEl.id='wtoast';document.body.appendChild(toastEl)}toastEl.textContent=t;toastEl.classList.add('on');toastT=sec||2.4}
   function say(t,sec){if(on&&el)msg(t,sec);else toast(t,sec)}
@@ -226,30 +244,31 @@ const PlayerCombat=(()=>{
   // ---------- Flow: the meter fills from dodges / deflects / hits / posture breaks. Not full: the Flow button is a stamina skill (Cinder Arc; with the stick held it is the Ginga Step: a sidestep with i-frames into an evasive slash).
   // Full: it starts Flow (the meter drains for ~9 s) and the button becomes a finisher (Armada, then Meia Lua), each paid for out of the meter.
   let flow=0,flowOn=false,flowN=0,fq=null,skillCD=0;
-  const FLOW_COST=32,FIN=['armada','martelo','meia','rasteira'];
-  function flowAdd(n){if(!on)return;const was=flow;flow=Math.min(100,flow+n*wst.flow);if(flow>=100&&was<100&&!flowOn){msg('FLOW READY',1.2);tone(660,990,.18,'sine',.1)}}
+  const FLOW_COST=32,FIN=['armada','martelo','meia','rasteira'],FINALL=FIN.concat(typeof Twin!=='undefined'?Twin.FIN:[]);
+  function flowAdd(n){if(!on)return;const was=flow;flow=Math.min(100,flow+n*wst.flow*(stance==='twin'?1.4:1));if(flow>=100&&was<100&&!flowOn){msg('FLOW READY',1.2);tone(660,990,.18,'sine',.1)}}
   function flowPress(t){
-    if(flowOn){fq={m:FIN[flowN%FIN.length],t:now()};return}
+    if(flowOn){const L=stance==='twin'&&typeof Twin!=='undefined'?Twin.FIN:FIN;fq={m:L[flowN%L.length],t:now()};return}
     if(flow>=100){flowOn=true;flowN=0;msg('FLOW',1.2);sfx('heavy',.5,1.5,()=>tone(300,800,.3,'sine',.12));return}
     if(skillCD>0||P.st<24){reject();return}
     const d=stickDir();
     if(d){skillCD=3;const c={t:'dodge',e:C.tick,dx:d[0],dz:d[1]};ST.input('P',c,t);ST.input('P',{t:'light',e:C.tick,adv:false},t+330);msg('GINGA',.7)}      // Ginga Step: dodge in the stick direction, then the evasive slash
-    else{skillCD=3;fq={m:'cinder',t:now()}}}
+    else{skillCD=3;fq={m:stance==='twin'&&typeof Twin!=='undefined'?Twin.SKILL:'cinder',t:now()}}}
   function flowEv(e,T){
     if(e.t==='hit'&&e.a==='P')flowAdd(e.dmg>=20?9:5);
     else if(e.t==='dodged'&&e.d==='P'){flowAdd(22);msg('ESQUIVA',.6)}
     else if(e.t==='deflect'&&!T)flowAdd(28);
     else if(e.t==='posturebreak'&&T)flowAdd(30);
     else if(e.t==='start'&&e.a==='P'&&e.move==='plunge'){S.vy=-17;S.coy=0;setTimeout(()=>{if(on)WardenVfx.burst(P.x+Math.sin(P.face)*1.6,H(P.x,P.z)+.3,P.z+Math.cos(P.face)*1.6,2)},110);sfx('heavy',.6,.7)}
+    else if(e.t==='start'&&e.a==='P'&&e.move==='twshade'){WardenVfx.burst(P.x,H(P.x,P.z)+1,P.z,1);setTimeout(()=>{if(on){WardenVfx.slash(P.x,H(P.x,P.z)+1.2,P.z,P.face,true,1);WardenVfx.burst(P.x,H(P.x,P.z)+1,P.z,1)}},110);sfx('clash',.5,1.4)}
     else if(e.t==='start'&&e.a==='P'&&e.move==='cinder'){WardenVfx.slash(P.x,H(P.x,P.z)+1.2,P.z,P.face,true,3);setTimeout(()=>{if(on)WardenVfx.slash(P.x,H(P.x,P.z)+1.2,P.z,P.face,true,3)},180)}
-    else if(e.t==='start'&&e.a==='P'&&FIN.indexOf(e.move)>=0){setTimeout(()=>{if(on)WardenVfx.burst(P.x,H(P.x,P.z)+1.1,P.z,3)},330);flow=Math.max(0,flow-FLOW_COST);flowN++;if(flow<=0)flowOff()}}
+    else if(e.t==='start'&&e.a==='P'&&FINALL.indexOf(e.move)>=0){setTimeout(()=>{if(on)WardenVfx.burst(P.x,H(P.x,P.z)+1.1,P.z,3)},330);flow=Math.max(0,flow-FLOW_COST);flowN++;if(flow<=0)flowOff()}}
   function flowOff(){if(flowOn){flowOn=false;msg('FLOW ENDS',.8)}}
   function flowTick(dt){
-    if(skillCD>0)skillCD-=dt;
+    if(skillCD>0)skillCD-=dt;if(swapCd>0)swapCd-=dt;
     if(flowOn){flow-=dt*11;if(flow<=0){flow=0;flowOff()}}
-    if(fq){if(now()-fq.t>320)fq=null;else if(P.act==='free'&&(fq.m==='cinder'?P.st>=22:flow>=8)){ST.input('P',{t:'atk',m:fq.m},now());assist();fq=null}}
+    if(fq){if(now()-fq.t>320)fq=null;else if(P.act==='free'&&(fq.m==='cinder'||fq.m==='twshade'?P.st>=(fq.m==='cinder'?22:16):flow>=8)){ST.input('P',{t:'atk',m:fq.m},now());assist();fq=null}}
     const f=Math.round(flow/100*60),full=flow>=100&&!flowOn;if(bars.fl!==f||bars.fon!==flowOn||bars.ffull!==full||bars.fn!==flowN){bars.fl=f;bars.fon=flowOn;bars.ffull=full;bars.fn=flowN;
-      const b=el.querySelector('#wFlow');b.style.setProperty('--fl',(flow/100*360)+'deg');b.classList.toggle('full',full);b.classList.toggle('on',flowOn);b.textContent=flowOn?(flowN%2?'Meia':'Armada'):'Flow';
+      const b=el.querySelector('#wFlow');b.style.setProperty('--fl',(flow/100*360)+'deg');b.classList.toggle('full',full);b.classList.toggle('on',flowOn);b.textContent=flowOn?(stance==='twin'?(flowN%2?'Dance':'Moon'):(flowN%2?'Meia':'Armada')):'Flow';
       setBar('.p .fl',flow/100);const fb=el.querySelector('.p .fl');fb.classList.toggle('full',full);fb.classList.toggle('on',flowOn)}}
   function press(name,tms){
     if(pin&&on&&name!=='pause'){pin.n++;return true}
@@ -265,6 +284,7 @@ const PlayerCombat=(()=>{
       case'lock':toggleLock();break;
       case'jump':fightJump();break;
       case'shadow':shadowStep();break;
+      case'swap':swapStance();break;
       default:return false}
     return true}
   function release(name,tms){
@@ -298,7 +318,7 @@ const PlayerCombat=(()=>{
     else lock=false;
     lockOff=!lock;   // the player turned it off on purpose: do not auto-lock again until they turn it on
     if(el)el.querySelector('#wLock').classList.toggle('on',lock)}
-  const KEY={Digit1:'ihp',Digit2:'ist',Digit3:'imt',KeyE:'flow',KeyF:'light',KeyG:'heavy',KeyQ:'guard',KeyR:'sup',Space:'dodge',Tab:'lock'};
+  const KEY={Digit1:'ihp',Digit2:'ist',Digit3:'imt',KeyE:'flow',KeyF:'light',KeyG:'heavy',KeyQ:'guard',KeyR:'sup',Space:'dodge',Tab:'lock',KeyZ:'swap'};
   function onKey(e){
     if(!on||e.target&&e.target.tagName==='INPUT')return;const n=KEY[e.code];
     if(e.type==='keydown'){if(n){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)press(n,stamp(e.timeStamp))}else if(e.code==='KeyB'){e.stopImmediatePropagation()}}
@@ -313,11 +333,11 @@ const PlayerCombat=(()=>{
   function build(){WardenNet.setHandler(netMsg);
     el=document.createElement('div');el.id='wroot';
     el.innerHTML='<div id="wh"><div class="wb p"><i class="hp"><b></b></i><i class="st"><b></b></i><i class="fl"><b></b></i></div><div class="wb d"><span>The Duelist</span><i class="hp"><b></b></i><i class="po"><b></b></i></div></div><div id="wmsg"></div><div id="wem"></div><button id="wQuit">Leave arena</button><div id="whd" style="position:fixed;left:50%;top:46%;width:0;height:0;pointer-events:none;z-index:50;opacity:0;transition:opacity .5s"><div style="position:absolute;left:-26px;top:-150px;width:0;height:0;border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:54px solid #ff2a1a;filter:drop-shadow(0 0 8px #ff6a2a)"></div></div><div id="whn" style="position:fixed;left:0;right:0;top:34%;text-align:center;pointer-events:none;z-index:50;color:#ffb27a;font:700 15px sans-serif;letter-spacing:.14em;text-shadow:0 0 6px #000,0 0 3px #000;opacity:0;transition:opacity .5s"></div>'+
-      '<div id="wc"><button id="wLight">Light</button><button id="wHeavy">Heavy</button><button id="wGuard">Parry</button><button id="wDodge">Dodge</button><button id="wFlow">Flow</button><button id="wIhp" class="wi"><b>\u2764</b><i>3</i></button><button id="wIst" class="wi"><b>\u26A1</b><i>2</i></button><button id="wImt" class="wi"><b>\u2694</b><i>1</i></button><button id="wLock">Lock</button><button id="wJump">Jump</button><button id="wShadow">Shadow</button><button id="wSup">Sever</button></div>'+
-      '<div id="whint">F light (x3, then G = Tempest) · Guard+Light = Shove · dodge then G = Lunge · G heavy (hold) · Q guard · Space dodge · E flow · R Spirit Sever · 1/2/3 flasks · Tab lock</div>';
+      '<div id="wc"><button id="wLight">Light</button><button id="wHeavy">Heavy</button><button id="wGuard">Parry</button><button id="wDodge">Dodge</button><button id="wFlow">Flow</button><button id="wIhp" class="wi"><b>\u2764</b><i>3</i></button><button id="wIst" class="wi"><b>\u26A1</b><i>2</i></button><button id="wImt" class="wi"><b>\u2694</b><i>1</i></button><button id="wLock">Lock</button><button id="wJump">Jump</button><button id="wShadow">Shadow</button><button id="wSwap">Twin</button><button id="wSup">Sever</button></div>'+
+      '<div id="whint">F light (x3, then G = Tempest) · Guard+Light = Shove · dodge then G = Lunge · G heavy (hold) · Q guard · Space dodge · E flow · R Spirit Sever · 1/2/3 flasks · Tab lock · Z swap to Twin Blades</div>';
     document.body.appendChild(el);
     {const q=el.querySelector('#wQuit'),go=e=>{e.preventDefault();e.stopPropagation();quitArena()};q.addEventListener('pointerdown',e=>e.stopPropagation());q.addEventListener('click',go)}
-    bind(el.querySelector('#wLight'),'light');bind(el.querySelector('#wHeavy'),'heavy');bind(el.querySelector('#wGuard'),'guard');bind(el.querySelector('#wDodge'),'dodge');bind(el.querySelector('#wFlow'),'flow');bind(el.querySelector('#wIhp'),'ihp');bind(el.querySelector('#wIst'),'ist');bind(el.querySelector('#wImt'),'imt');flaskUi();bind(el.querySelector('#wLock'),'lock');bind(el.querySelector('#wJump'),'jump');bind(el.querySelector('#wShadow'),'shadow');bind(el.querySelector('#wSup'),'sup');
+    bind(el.querySelector('#wLight'),'light');bind(el.querySelector('#wHeavy'),'heavy');bind(el.querySelector('#wGuard'),'guard');bind(el.querySelector('#wDodge'),'dodge');bind(el.querySelector('#wFlow'),'flow');bind(el.querySelector('#wIhp'),'ihp');bind(el.querySelector('#wIst'),'ist');bind(el.querySelector('#wImt'),'imt');flaskUi();bind(el.querySelector('#wLock'),'lock');bind(el.querySelector('#wJump'),'jump');bind(el.querySelector('#wShadow'),'shadow');bind(el.querySelector('#wSwap'),'swap');bind(el.querySelector('#wSup'),'sup');
     addEventListener('keydown',onKey,true);addEventListener('keyup',onKey,true);
     addEventListener('blur',releaseAll);document.addEventListener('visibilitychange',releaseAll);addEventListener('orientationchange',releaseAll)}
   const bars={};
@@ -409,11 +429,12 @@ const PlayerCombat=(()=>{
     if(!pAnim&&me.userData.mixer)pAnim=WardenMX.make(me.userData,pRole());
     if(!sword&&!swordTried&&me.userData.bones){swordTried=true;{const WT=WardenGear.TYPES[WardenGear.equipped().ty];sword=attachSword(me,WT.file,WT.want,{len:WT.l0,set tried(v){swordTried=v}})}}
     if(sword&&!sword2&&sty&&sty.dual&&me.userData.bones&&me.userData.bones.LeftHand){const WT=WardenGear.TYPES[WardenGear.equipped().ty];sword2=attachSword(me,WT.file,WT.want,{len:WT.l0},null,'LeftHand')}
+    syncWeapons();
     if(sword2&&!(sty&&sty.dual)){sword2.dead=true;try{if(sword2.grip&&sword2.grip.parent)sword2.grip.parent.remove(sword2.grip)}catch(e){}sword2=null}
     for(const F of foes){const b=F.body;if(!b.u.mixer)continue;styleBody(b);if(!b.anims[F.T.role])b.anims[F.T.role]=WardenMX.make(b.u,F.T.role);F.anim=b.anims[F.T.role]}}
-  function engage(s){
+  function engage(s){stance='main';swapCd=0;
     try{if(typeof loadEmotes==='function')loadEmotes().catch(()=>{})}catch(e){}   // the 'playdead' fall clip lives in the emote library: without it corpses (and you) just stand there
-    if(on)return;if(!el)build();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenFx.build();WardenVfx.build();WardenMX.fetch(pRole(),me.userData.av).catch(()=>{});
+    if(on)return;if(!el)build();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenFx.build();WardenVfx.build();WardenMX.fetch(pRole(),me.userData.av).catch(()=>{});WardenMX.fetch('player_twin',me.userData.av).catch(()=>{});
     site=s;fightN=0;mastery=!!(s.mast&&PG.S.mast&&PG.S.mast[s.id]);const hh=WardenNet.hostFor(s.id);NET.joined=false;startFight();if(s.duel){}else if(hh)netJoin();else netHost();for(const F of foes)WardenMX.fetch(F.T.role).catch(()=>{});
     lx=S.x;lz=S.z;on=true;if(mastery)setTimeout(()=>{if(on)msg('MASTERY REMATCH',2.4)},500);document.body.classList.add('warden-fight');document.body.classList.toggle('warden-duel',!!s.duel);ensureAvatars();if(sword&&sword.grip)sword.grip.visible=true;if(sword2&&sword2.grip)sword2.grip.visible=true;
     for(const F of foes)for(const k of['sword','sword2','shield'])if(F.body[k]){const o=F.body[k].grip||F.body[k];if(o)o.visible=true}
@@ -1070,7 +1091,7 @@ const PlayerCombat=(()=>{
     decoyTick(decoy,'Z',dt);decoyTick(rdecoy,'Y',dt);
     const b=el&&el.querySelector('#wShadow');if(b){const t=shCd>0?Math.ceil(shCd):0;if(b._c!==t){b._c=t;b.textContent=t?'Shadow '+t:'Shadow';b.classList.toggle('cd',t>0)}}}
   function leave(hold){pun=null;pcs.n=0;ls=null;ds=null;pin=null;try{mirrorsClear()}catch(e){}try{zonesClear()}catch(e){}try{if(moodEl)moodEl.style.opacity='0'}catch(e){}svEnd();try{WardenFx.clear()}catch(e){}   // hold: keep the corpses of a cleared site in the world
-    if(!on)return;endSet();trapsClear();try{blinkRing(0,0,false)}catch(e){}killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');document.body.classList.remove('warden-duel');if(sword&&sword.grip)sword.grip.visible=false;if(sword2&&sword2.grip)sword2.grip.visible=false;pendFace=null;
+    if(!on)return;endSet();trapsClear();try{blinkRing(0,0,false)}catch(e){}killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');document.body.classList.remove('warden-duel');if(sword&&sword.grip)sword.grip.visible=false;if(sword2&&sword2.grip)sword2.grip.visible=false;pendFace=null;for(const w of [twinR,twinL])if(w&&w.grip)w.grip.visible=false;if(stance==='twin'){stance='main';if(pAnim){try{pAnim.off()}catch(e){}pAnim=null}try{const b=el&&el.querySelector('#wSwap');if(b){b.classList.remove('on');b.textContent='Twin'}}catch(e){}}
     if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.combat(0,0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
     try{if(site&&site.fog)WardenIsles.fog(site.id,rt(site).cleared?'gone':'idle')}catch(e){}}
@@ -1203,7 +1224,7 @@ const PlayerCombat=(()=>{
     else if(lock&&D.act!=='dead'){const a=heading();S.rot=a;lockCam(a,dt)}
     me.position.x=S.x;me.position.z=S.z;me.rotation.y=S.rot;
     // dodge visual = the existing roll clip, played once per dodge; getting hit = the game's own hit reaction
-    if(P.act==='dodge'&&!P._rolled){P._rolled=true;const dd=P.dir||[Math.sin(P.face),Math.cos(P.face)];P._back=dd[0]*Math.sin(P.face)+dd[1]*Math.cos(P.face)<-.5;P._dirA=Math.atan2(dd[0],dd[1]);me.userData.emote=P._back?'flipb':'roll'}else if(P.act!=='dodge')P._rolled=false;
+    if(P.act==='dodge'&&!P._rolled){P._rolled=true;const dd=P.dir||[Math.sin(P.face),Math.cos(P.face)],fw=dd[0]*Math.sin(P.face)+dd[1]*Math.cos(P.face),sd=dd[0]*Math.cos(P.face)-dd[1]*Math.sin(P.face),clip=!!(pAnim&&pAnim.dodgeClips&&pAnim.dodgeClips());P._back=clip?(fw<-.5||Math.abs(sd)>.6&&!(fw>.75)):fw<-.5;P._dirA=Math.atan2(dd[0],dd[1]);if(!clip)me.userData.emote=P._back?'flipb':'roll'}else if(P.act!=='dodge')P._rolled=false;
     if(P.act==='dodge'&&!P._back&&P._dirA!==undefined)me.rotation.y=P._dirA;      // roll / sidestep TOWARD the stick; a backward dodge flips away while still facing the foe
     if(P.act==='stun'&&!P._hit){P._hit=true;me.userData.hitReq=1}else if(P.act!=='stun')P._hit=false;
     if(P.act==='dead'&&!P._dead){P._dead=true;me.userData.emoteReq='playdead'}else if(P.act!=='dead'&&P._dead){P._dead=false;if(typeof emoStop==='function')emoStop(me.userData)}

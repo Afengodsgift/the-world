@@ -1,0 +1,115 @@
+{
+"root": "/home/claude/seedexr/fbx-animations-curated/animations",
+"fps": 18,
+"dg": 3,
+"clips": [
+{
+"name": "t_out",
+"file": "combat-armed/sword/outward-slashing-with-a-sword-standing-stable.fbx",
+"from": 0.35,
+"to": 1.5
+},
+{
+"name": "t_in",
+"file": "combat-armed/sword/inward-slashing-with-a-sword-standing-stable.fbx",
+"from": 0.6,
+"to": 1.7
+},
+{
+"name": "t_combo",
+"file": "combat-armed/sword/one-handed-sword-combo-attack.fbx",
+"from": 0.4,
+"to": 3.3
+},
+{
+"name": "t_thrust",
+"file": "combat-armed/sword/thrust-and-slash-with-blade.fbx",
+"from": 0.2,
+"to": 1.9
+},
+{
+"name": "t_dag",
+"file": "combat-armed/knife/static-double-dagger-stab-with-outward-grip.fbx",
+"from": 0.1,
+"to": 2.1
+},
+{
+"name": "t_stabL",
+"file": "combat-armed/knife/male-knife-stab-with-lead-hand-and-fore-grip.fbx",
+"from": 0,
+"to": 1.5
+},
+{
+"name": "t_stabR",
+"file": "combat-armed/knife/male-knife-stab-with-the-rear-hand-and-fore-grip.fbx",
+"from": 0,
+"to": 1.4
+},
+{
+"name": "t_rev",
+"file": "combat-armed/knife/male-knife-stab-with-the-rear-hand-and-reverse-grip.fbx",
+"from": 0.2,
+"to": 1.9
+},
+{
+"name": "t_flipkick",
+"file": "combat-unarmed/strike-leg/flipping-backwards-to-kick.fbx",
+"from": 0,
+"to": 1.9
+},
+{
+"name": "t_frontkick",
+"file": "combat-unarmed/strike-leg/front-flip-to-kick.fbx",
+"from": 0,
+"to": 1.8
+},
+{
+"name": "t_spinkick",
+"file": "combat-unarmed/strike-leg/spinning-flip-kick.fbx",
+"from": 0.9,
+"to": 2.2
+},
+{
+"name": "d_roll",
+"file": "traversal/acrobatics/quick-roll-eveade-to-run.fbx",
+"from": 0,
+"to": 1.1
+},
+{
+"name": "d_back",
+"file": "combat-armed/bow/dodge-backward-with-bow.fbx",
+"from": 0,
+"to": 0.95
+},
+{
+"name": "d_fwd",
+"file": "combat-armed/bow/dodge-forward-with-bow.fbx",
+"from": 0,
+"to": 0.9
+},
+{
+"name": "d_l",
+"file": "combat-armed/bow/dodge-left-with-bow.fbx",
+"from": 0,
+"to": 0.9
+},
+{
+"name": "d_r",
+"file": "combat-armed/bow/dodge-right-with-bow.fbx",
+"from": 0,
+"to": 0.9
+},
+{
+"name": "d_flip",
+"file": "traversal/acrobatics/standing-backflip.fbx",
+"from": 0,
+"to": 1.3
+},
+{
+"name": "d_cart",
+"file": "combat-unarmed/capoeira/capoeira-side-step-flip-escape.fbx",
+"from": 0,
+"to": 1.8
+}
+]
+}

@@ -215,6 +215,16 @@ const WardenMX=(()=>{
   for(const r of['player','player_gs','player_axe']){const R=ROLES[r];if(!R)continue;R.px='assets/warden_px_player.json';const M=R.moves=Object.assign({},R.moves);
     M.sever={c:'slash',t0:.15,h:[[.46,.68]],e:1.0};M.sever2={c:'slash5',t0:.1,h:[[.5,.82]],e:1.0};M.severF={c:'p_combo',t0:.9,h:[[1.5,1.6]],e:2.6};
     if(M.shove)M.shove={c:'p_kick',t0:.2,h:[[.5,.8]],e:1.3};if(M.lunge)M.lunge={c:'p_dash',t0:.05,h:[[.27,.4]],e:1.1}}
+  // ---- Twin Blades (second stance, src/combat/Twin.js): the player's own clip set + ninja clips (t_* / d_* from the Seede XR library, baked by tools/avatar/bake_human.mjs --twin). Windows are clip seconds. ----
+  ROLES.player_twin=Object.assign({},ROLES.player,{alias:'player',moves:Object.assign({},ROLES.player.moves,{
+    twa:{c:'t_out',t0:.2,h:[[.42,.67]],e:1.1},twb:{c:'t_in',t0:.2,h:[[.47,.78]],e:1.1},twc:{c:'t_stabL',t0:0,h:[[.48,.72]],e:1.0},twd:{c:'t_rev',t0:.1,h:[[.32,.75]],e:1.2},twe:{c:'t_spinkick',t0:.3,h:[[.47,.75]],e:1.3},
+    twstep:{c:'t_stabR',t0:0,h:[[.23,.45]],e:.8},twdash:{c:'t_thrust',t0:.1,h:[[.4,.68]],e:1.0},twcounter:{c:'t_stabL',t0:0,h:[[.13,.38]],e:.8},twkick:{c:'t_flipkick',t0:.1,h:[[.47,.83]],e:1.2},twplunge:{c:'t_frontkick',t0:0,h:[[.2,.6]],e:1.2},
+    twx:{c:'t_dag',t0:.6,h:[[.93,1.12]],e:1.5},twwhirl:{c:'t_combo',t0:1.0,h:[[1.47,1.85]],e:2.1},twpierce:{c:'t_stabR',t0:.6,h:[[.98,1.18]],e:1.4},twshade:{c:'t_rev',t0:.9,h:[[1.37,1.7]],e:1.9},
+    twmoon:{c:'t_combo',t0:.2,h:[[.47,.8],[1.47,1.85]],e:2.2},
+    twdance:{seq:[{c:'t_stabL',t0:0,h:[.13,.38],e:.45},{c:'t_stabL',t0:.4,h:[.48,.72],e:.8},{c:'t_dag',t0:.8,h:[.93,1.1],e:1.2},{c:'t_combo',t0:2.2,h:[2.43,2.7],e:2.9}]}})});
+  // dodge clips (a window of each clip is scrubbed over the sim's dodge ticks): [clip, from, to] by direction relative to where you face. Missing clips fall back to the game's roll emote.
+  const DG={roll:['d_roll',0,.75],back:['d_back',0,.62],fwd:['d_fwd',0,.55],l:['d_l',0,.6],r:['d_r',0,.6]};
+  ROLES.player.dg=DG;ROLES.player_gs.dg=DG;ROLES.player_axe.dg=DG;ROLES.player_twin.dg=Object.assign({},DG,{back:['d_flip',0,1.0]});
   // The Unbroken Oath (Three Oaths stage 4): the Penitent's body and clips with Gwyn's waves + the Saint's blades + the Dancer's chain
   ROLES.oath4=Object.assign({},ROLES.penitent,{px:'assets/warden_px_penitent.json',moves:Object.assign({},ROLES.gwyn.moves,{bladestorm:{c:'power',t0:.3,e:2.0},swordring:{c:'power',t0:.3,e:2.0},
     hundred:{seq:[{c:'slash3',t0:.2,h:[.55,.85],e:1.0},{c:'slash5',t0:.1,h:[.5,.82],e:.95},{c:'slash3',t0:.2,h:[.55,.85],e:1.0},{c:'slash4',t0:.4,h:[.9,1.4],e:1.6}]}})});
@@ -228,19 +238,19 @@ const WardenMX=(()=>{
   // a dropped request is retried (3 times, growing gaps) before the role is declared failed: a role that failed once never recovers within a session
   const tryFetch=(u,n)=>fetch(u,n<6?{cache:'reload'}:undefined).then(r=>{if(!r.ok)throw new Error('http '+r.status);return r}).catch(e=>n>0?new Promise(r=>setTimeout(r,1500*(7-n))).then(()=>tryFetch(u,n-1)):Promise.reject(e));
   // av = a human avatar id (AvatarKit): the same role file baked for that avatar's proportions lives in assets/avatars/<name>/ (tools/avatar/retarget_clips.mjs); native (own-rig) roles never use it
-  function fetchRole(role,av){const key=av?role+'@'+av:role,s=SH[key]||(SH[key]={st:'none',clips:null,meta:null,p:null}),file=av&&typeof AvatarKit!=='undefined'&&AvatarKit.CAT[av]&&!ROLES[role].native?AURL+AvatarKit.CAT[av].dir+ROLES[role].file.replace(/^.*\//,'')+AvatarKit.ASSET_V:ROLES[role].file,tag=(av?av+'/':'')+role;
+  function fetchRole(role,av){role=ROLES[role]&&ROLES[role].alias||role;const key=av?role+'@'+av:role,s=SH[key]||(SH[key]={st:'none',clips:null,meta:null,p:null}),file=av&&typeof AvatarKit!=='undefined'&&AvatarKit.CAT[av]&&!ROLES[role].native?AURL+AvatarKit.CAT[av].dir+ROLES[role].file.replace(/^.*\//,'')+AvatarKit.ASSET_V:ROLES[role].file,tag=(av?av+'/':'')+role;
     if(!s.p)s.p=Promise.all([tryFetch(file,6).then(r=>r.json()),ROLES[role].px&&(!av||ROLES[role].pxAv)?tryFetch(av?AURL+AvatarKit.CAT[av].dir+'warden_px_player.json'+AvatarKit.ASSET_V:ROLES[role].px,6).then(r=>r.json()).catch(()=>[]):[],ROLES[role].kk&&av?tryFetch(AURL+AvatarKit.CAT[av].dir+'dojo_kk.json'+AvatarKit.ASSET_V,6).then(r=>r.json()).catch(()=>[]):[],ROLES[role].kk&&av?tryFetch(AURL+AvatarKit.CAT[av].dir+'dojo_fx.json'+AvatarKit.ASSET_V,6).then(r=>r.json()).catch(()=>[]):[]]).then(([a,x,k,f])=>a.concat(x,k,f)).then(j=>{s.clips={};s.meta={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=tag+':'+c.name;ac.uuid=tag+':'+c.name;s.clips[c.name]=ac;   // unique uuid per role: three.js caches actions by clip uuid, and the game's own clips are also called idle/walk/jump (sharing one action stole the game's base layer -> T-pose on hit)
       s.meta[c.name]={dur:c.duration,v:(av&&AvatarKit.set(av)?AvatarKit.set(av).mxK||1:1)*Math.hypot(c.trav?c.trav[0]:0,c.trav?c.trav[1]:0)/Math.max(.1,c.duration)}}s.st='ready';return s}).catch(e=>{s.st='failed';s.err=String(e&&e.message||e);s.p=null;throw e});return s.p}
   // a signature variant (Moves[id].as) animates with the first base move this role has
   function specOf(R,id){let s=R.moves[id];if(s)return s;const as=(typeof Moves!=='undefined'&&Moves[id]&&Moves[id].as)||[];for(const b of as)if(R.moves[b])return R.moves[b];return null}
   function make(q,role){
     const R=ROLES[role],I={st:'none',role,A:{},ws:{},gT:0,sT:0,dT:0,sw:0,lastLight:-1e9,ready:()=>I.st==='ready',variant:'light_b',alt:{},plans:{},tmem:{}};
-    I.bh=0;I.blockHit=()=>{I.bh=.45};I.mode=null;I.mt=0;I.wakeP=0;I.wakeDone=false;I.setMode=m=>{I.mode=m;I.mt=0;I.wakeP=m==='wake'?0:1;I.wakeDone=false};
+    I.bh=0;I.blockHit=()=>{I.bh=.45};I.dodgeClips=()=>!!(R.dg&&I.A&&I.A.d_roll);I.dgCls=null;I.mode=null;I.mt=0;I.wakeP=0;I.wakeDone=false;I.setMode=m=>{I.mode=m;I.mt=0;I.wakeP=m==='wake'?0:1;I.wakeDone=false};
     I.pickAlt=()=>{};I.nextLight=()=>'light_b';
     let names=[];
     const init=s=>{if(R.emo&&typeof EMO!=='undefined'){const T=(q.av&&typeof AvatarKit!=='undefined'&&AvatarKit.emoTable&&AvatarKit.emoTable(q))||EMO.clips;for(const n of R.emo){const c=T[n]||EMO.clips[n];if(c&&!s.clips['e_'+n]){const ac=c.clone();ac.name=(q.av?q.av+'/':'')+role+':e_'+n;ac.uuid=ac.name;s.clips['e_'+n]=ac;s.meta['e_'+n]={dur:c.duration,v:0}}}}   // the emote library's clips join this role's set (e_jab, e_cross ...)
       if(R.fxMoves&&s.clips.fx_jab){if(!R.moves0)R.moves0=R.moves;R.moves=Object.assign({},R.moves0,R.fxMoves);R.loco={...R.loco,idle:'fx_idle'};R.guard='fx_guard'}
-      const used=new Set(Object.values(R.loco));if(R.guard)used.add(R.guard);if(R.parry)for(const q of R.parry)used.add(q.c);if(R.dorm)used.add(R.dorm);if(R.wake)used.add(R.wake.c);if(R.death)used.add(R.death);if(R.hit)used.add(R.hit);if(R.px)for(const n of PXN)used.add(n);
+      const used=new Set(Object.values(R.loco));if(R.guard)used.add(R.guard);if(R.parry)for(const q of R.parry)used.add(q.c);if(R.dorm)used.add(R.dorm);if(R.wake)used.add(R.wake.c);if(R.death)used.add(R.death);if(R.hit)used.add(R.hit);if(R.dg)for(const k in R.dg)used.add(R.dg[k][0]);if(R.px)for(const n of PXN)used.add(n);
       for(const m of Object.values(R.moves))for(const g of norm(m))used.add(g.c);
       if(R.dojo)for(const n of ['fx_hit_hl','fx_hit_hr','fx_hit_hs','fx_hit_b','fx_hit_st','fx_hit_big','fx_ko','fx_blockreact','kk_blockhit','kk_dodge_b','kk_dodge_f','kk_dodge_l','kk_dodge_r','e_roll'])used.add(n);
       names=[...used].filter(n=>s.clips[n]);I.names=names;I.S=s;
@@ -261,6 +271,7 @@ const WardenMX=(()=>{
       else if(R.dojo&&A.fx_hit_hl&&f.act==='stun'&&f.sk!=='rise'){const HL=['fx_hit_hl','fx_hit_hr','fx_hit_hs','fx_hit_b','fx_hit_st','fx_hit_big'];if(I.sT<=dt*1.5)I.hi=((I.hi||0)+1+(Math.random()*2|0))%HL.length;   // real boxing hit reactions, varied; a stagger is the knocked-back-and-reeling clip
         if(f.sk==='stagger'&&A.fx_ko)put('fx_ko',Math.min(I.sT*.85,A.fx_ko.getClip().duration-.05));else{const c=HL[I.hi||0];put(c,Math.min(I.sT*1.1,A[c].getClip().duration-.05))}}
       else if(R.dojo&&!A.p_hitc&&f.act==='stun'&&A[R.hit]){const d=A[R.hit].getClip().duration,sg=f.sk==='stagger';if(I.sT<=dt*1.5)I.hv=(I.hv||0)^1;put(R.hit,sg?Math.min(I.sT*.6,d-.05):Math.min(I.sT*(I.hv?1:1.15),d-.05))}   // a flinch plays at once (alternating pace), a stagger is a slower, held wobble
+      else if(R.dg&&f.act==='dodge'&&f.dir&&A.d_roll){const dx=f.dir[0],dz=f.dir[1],fw=dx*Math.sin(f.face)+dz*Math.cos(f.face),sd=dx*Math.cos(f.face)-dz*Math.sin(f.face),cls=fw<-.5?'back':Math.abs(sd)>.6&&!(fw>.75)?(sd>0?'l':'r'):'roll',D=R.dg[cls],u=Math.max(0,Math.min(1,(f.pt+1)/(f.side?16:22)));I.dgCls=cls;const cn=A[D[0]]?D[0]:'d_roll',e=D[0]===cn?D:R.dg.roll;put(cn,e[1]+(e[2]-e[1])*u*u*(3-2*u)*.35+(e[2]-e[1])*u*.65)}
       else if(R.dojo&&f.act==='dodge'&&(A.kk_dodge_b||A.e_roll)){if(!I.dgT){const vf=loco?loco.vf:0,vs=loco?loco.vs:0;I.dgK=Math.hypot(vf,vs)<.4?'kk_dodge_b':Math.abs(vs)>Math.abs(vf)?(vs>0?'kk_dodge_l':'kk_dodge_r'):(vf>0?'kk_dodge_f':'kk_dodge_b')}I.dgT=(I.dgT||0)+dt;if(A[I.dgK])put(I.dgK,I.dgT*1.15);else put('e_roll',.12+I.dgT*2.7)}
       else if(R.native&&f.act==='dead'&&R.px&&A.p_deathA){   // a random one of the three pack deaths (or his own) each time he falls
         if(I.dv===undefined||I.dv<0){const L=PXD.filter(n=>A[n]).concat(R.death&&A[R.death]?[R.death]:[]);I.dvL=L;I.dv=Math.floor(Math.random()*L.length)}put(I.dvL[I.dv],I.dT)}
