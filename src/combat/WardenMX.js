@@ -177,16 +177,16 @@ const WardenMX=(()=>{
   // jab / cross / kick / throw / block (loaded into the layer as e_<name>) are scrubbed by the sim exactly like sword moves. Keys are the Fists move ids (src/combat/Fists.js).
   ROLES.player_dojo=Object.assign({},ROLES.player,{emo:['jab','cross','kick','throw','block'],guard:'e_block',parry:null,moves:{
     jab:{c:'e_jab',t0:0,h:[[.2,.4]],e:.82},cross:{c:'e_cross',t0:0,h:[[.28,.52]],e:.97},hook:{c:'atk4',t0:.3,h:[[.4,.56]],e:.95},knee:{c:'e_kick',t0:.12,h:[[.34,.6]],e:.9},
-    spin:{c:'armada',t0:0,h:[[.6,1.05]],e:1.6},upper:{c:'atk3',t0:.35,h:[[.52,.9]],e:1.6},round:{c:'martelo',t0:0,h:[[.28,.55]],e:1.3},
+    f_spin:{c:'armada',t0:0,h:[[.6,1.05]],e:1.6},upper:{c:'atk3',t0:.35,h:[[.52,.9]],e:1.6},round:{c:'martelo',t0:0,h:[[.28,.55]],e:1.3},
     power:{c:'atk2',t0:.1,ch:[.1,.3],h:[[.3,.74]],e:1.2},heavy:{c:'atk2',t0:.1,ch:[.1,.3],h:[[.3,.74]],e:1.2},step:{c:'atk2',t0:.15,h:[[.3,.74]],e:1.15},
-    dash:{c:'p_dash',t0:.05,h:[[.27,.4]],e:1.1},counter:{c:'e_cross',t0:0,h:[[.28,.52]],e:.97},push:{c:'kick',t0:0,h:[[.05,.3]],e:.9},drop:{c:'kick',t0:0,h:[[.05,.3]],e:.9},
+    f_dash:{c:'p_dash',t0:.05,h:[[.27,.4]],e:1.1},f_counter:{c:'e_cross',t0:0,h:[[.28,.52]],e:.97},push:{c:'kick',t0:0,h:[[.05,.3]],e:.9},drop:{c:'kick',t0:0,h:[[.05,.3]],e:.9},
     throw:{c:'e_throw',t0:.15,h:[[.5,.8]],e:1.3},take:{c:'atk',t0:.55,h:[[.9,1.3]],e:2.1}}});
-  ROLES.player_dojo.kk=1;ROLES.player_dojo.dojo=1;ROLES.player_dojo.pxAv=1;ROLES.player_dojo.px='assets/warden_px_player.json';ROLES.player_dojo.hit='hit1';ROLES.player_dojo.death='death';ROLES.player_dojo.emo=['jab','cross','kick','throw','block','roll'];ROLES.player_dojo.moves.dash={c:'e_cross',t0:0,h:[[.28,.52]],e:.97};
+  ROLES.player_dojo.kk=1;ROLES.player_dojo.dojo=1;ROLES.player_dojo.pxAv=1;ROLES.player_dojo.px='assets/warden_px_player.json';ROLES.player_dojo.hit='hit1';ROLES.player_dojo.death='death';ROLES.player_dojo.emo=['jab','cross','kick','throw','block','roll'];ROLES.player_dojo.moves.f_dash={c:'e_cross',t0:0,h:[[.28,.52]],e:.97};
   // MIXAMO UNARMED LIBRARY (boxing / MMA / strike clips baked by tools/avatar/bake_fbxpack.mjs into <avatar>/dojo_fx.json): real boxing stance, jab / cross / hooks / uppercuts, knee, roundhouse, side kick, spinning back kick, shoulder throw, takedown, hit reactions. Times (seconds in the clip): t0 = motion starts, h = hit window, e = settled.
   ROLES.player_dojo.fxMoves={jab:{c:'fx_jab',t0:.03,h:[[.25,.4]],e:.8},cross:{c:'fx_cross',t0:.02,h:[[.15,.3]],e:.5},hook:{c:'fx_hook_r',t0:.12,h:[[.41,.56]],e:1.0},knee:{c:'fx_knee',t0:.12,h:[[.27,.42]],e:.95},
-    spin:{c:'fx_spinback',t0:.12,h:[[.82,.97]],e:1.3},upper:{c:'fx_upper_r',t0:.1,h:[[.5,.65]],e:1.1},round:{c:'fx_round',t0:.12,h:[[.62,.77]],e:1.2},
-    power:{c:'fx_hook_l',t0:.12,ch:[.12,.32],h:[[.37,.52]],e:1.0},heavy:{c:'fx_hook_l',t0:.12,ch:[.12,.32],h:[[.37,.52]],e:1.0},step:{c:'fx_combo2',t0:0,h:[[.47,.62]],e:1.0},dash:{c:'fx_cross',t0:.02,h:[[.15,.3]],e:.5},
-    counter:{c:'fx_upper_l',t0:.12,h:[[.42,.57]],e:.8},push:{c:'fx_side',t0:0,h:[[.37,.52]],e:1.0},drop:{c:'fx_stomp',t0:.07,h:[[.57,.72]],e:1.2},throw:{c:'fx_shoulder',t0:.12,h:[[.47,.62]],e:1.3},take:{c:'fx_takedown',t0:.12,h:[[.53,.68]],e:1.2}};
+    f_spin:{c:'fx_spinback',t0:.12,h:[[.82,.97]],e:1.3},upper:{c:'fx_upper_r',t0:.1,h:[[.5,.65]],e:1.1},round:{c:'fx_round',t0:.12,h:[[.62,.77]],e:1.2},
+    power:{c:'fx_hook_l',t0:.12,ch:[.12,.32],h:[[.37,.52]],e:1.0},heavy:{c:'fx_hook_l',t0:.12,ch:[.12,.32],h:[[.37,.52]],e:1.0},step:{c:'fx_combo2',t0:0,h:[[.47,.62]],e:1.0},f_dash:{c:'fx_cross',t0:.02,h:[[.15,.3]],e:.5},
+    f_counter:{c:'fx_upper_l',t0:.12,h:[[.42,.57]],e:.8},push:{c:'fx_side',t0:0,h:[[.37,.52]],e:1.0},drop:{c:'fx_stomp',t0:.07,h:[[.57,.72]],e:1.2},throw:{c:'fx_shoulder',t0:.12,h:[[.47,.62]],e:1.3},take:{c:'fx_takedown',t0:.12,h:[[.53,.68]],e:1.2}};
   // KayKit combat-melee pack (CC0, baked by tools/avatar/bake_kaykit.mjs into <avatar>/dojo_kk.json): a real fighting-stance idle + guard, a punch, a kick, a counter, block reactions, directional dodges and the 2H staff swings
   Object.assign(ROLES.player_dojo.loco={...ROLES.player_dojo.loco},{idle:'kk_idle'});ROLES.player_dojo.guard='kk_guard';
   Object.assign(ROLES.player_dojo.moves,{step:{c:'kk_punch',t0:.12,h:[[.34,.52]],e:.95},dash:{c:'kk_punch',t0:.12,h:[[.34,.52]],e:.95},counter:{c:'kk_blockatk',t0:0,h:[[.3,.6]],e:.95},push:{c:'kk_kick',t0:.05,h:[[.28,.5]],e:.86},drop:{c:'kk_kick',t0:.05,h:[[.28,.5]],e:.86}});

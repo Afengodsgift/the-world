@@ -44,7 +44,7 @@ for(const n of Object.keys(D.foes)){const s=fight([n],{ticks:2400,player:'idle'}
 {const a=fight(['boxer','brawler'],{ticks:1500}),b=fight(['boxer','brawler'],{ticks:1500});ok(JSON.stringify([a.hits,a.starts,a.ticks,Math.round(a.php)])===JSON.stringify([b.hits,b.starts,b.ticks,Math.round(b.php)]),'the same fight twice gives the same result')}
 // ---- reactions: a slow move gets parried / dodged sometimes, a jab never ----
 {let slow=0,quick=0,tot=0;for(let seed=1;seed<=60;seed++){const C=CC.create({arena:{x:0,z:0,R:14}}),P=C.add('P',{x:0,z:1.6,face:Math.PI,team:'p',fs:1,hp:300}),f=C.add('D',{x:0,z:0,face:0,team:'e',fs:1,hp:300});const B=AI.create(seed,D.foes.tech.ai,{intro:0});B.rdy=0;B.cd=999;
-    for(const mv of['spin','jab']){C.start('P',mv);for(let t=0;t<30;t++){const nt=C.tick+1;AI.noticeStart(B,{a:'P',move:mv},C,f);const h=AI.think(B,f,C,nt,[f]);if(B.react){if(mv==='spin')slow++;else quick++;B.react=null}break}}tot++}
+    for(const mv of['f_spin','jab']){C.start('P',mv);for(let t=0;t<30;t++){const nt=C.tick+1;AI.noticeStart(B,{a:'P',move:mv},C,f);const h=AI.think(B,f,C,nt,[f]);if(B.react){if(mv==='f_spin')slow++;else quick++;B.react=null}break}}tot++}
   ok(slow>=10&&quick===0,'the Technician plans a reaction to slow moves ('+slow+'/'+tot+') and never to a quick jab ('+quick+')')}
 // ---- habit reading ----
 {const C=CC.create({arena:{x:0,z:0,R:14}});C.add('P',{x:0,z:1.6,face:Math.PI,team:'p',fs:1});const f=C.add('D',{x:0,z:0,face:0,team:'e',fs:1,hp:300});const B=AI.create(4,D.foes.tech.ai,{intro:0});let r=0;

@@ -16,14 +16,14 @@ ok(tot('jab')<=18&&tot('jab')<tot('cross')+4,'the jab is the fastest string open
 ok(tot('jab')<20,'faster than the sword light (20 ticks)');
 // ---- B. resolver ----
 const L=(x)=>F.light(Object.assign({sinceDodge:99,chain:0},x));
-ok(L({})==='jab'&&L({from:'jab'})==='cross'&&L({from:'cross'})==='hook'&&L({from:'hook'})==='knee'&&L({from:'knee'})==='spin','the string: jab > cross > hook > knee > spin');
+ok(L({})==='jab'&&L({from:'jab'})==='cross'&&L({from:'cross'})==='hook'&&L({from:'hook'})==='knee'&&L({from:'knee'})==='f_spin','the string: jab > cross > hook > knee > spin');
 ok(L({chain:3})==='knee'&&L({chain:5})==='jab','a short gap continues the string; a finished string starts over');
-ok(L({adv:1})==='step'&&L({far:1})==='dash'&&L({sinceDodge:5})==='counter'&&L({air:1})==='drop'&&L({guard:1})==='push','context moves: step, dash, counter-after-dodge, drop kick, push kick');
+ok(L({adv:1})==='step'&&L({far:1})==='f_dash'&&L({sinceDodge:5})==='f_counter'&&L({air:1})==='drop'&&L({guard:1})==='push','context moves: step, dash, counter-after-dodge, drop kick, push kick');
 ok(F.heavy({from:'jab'})==='upper'&&F.heavy({from:'cross'})==='upper'&&F.heavy({from:'hook'})==='round'&&F.heavy({from:'knee'})==='round'&&F.heavy({from:null})===null,'heavy branches: uppercut after jab/cross, roundhouse after hook/knee, a charge from neutral');
 // ---- C. the sim ----
 {const{C,P,D}=duel();const seen=[];C.step({P:{list:[{t:'light'}]}});seen.push(P.mv&&P.mv.id);
   for(let n=0;n<4;n++){let t=0;while(!(P.act==='attack'&&P.mv&&P.mv.cancel&&P.mv.cancel.light!==undefined&&C.tick>0&&P.ph[P.pi].k==='recovery'&&P.pk>=P.mv.cancel.light)&&t++<80)C.step({});C.step({P:{list:[{t:'light'}]}});seen.push(P.mv&&P.mv.id)}
-  ok(seen.join()==='jab,cross,hook,knee,spin','a fighter with fs walks the whole string through cancel windows ('+seen.join()+')')}
+  ok(seen.join()==='jab,cross,hook,knee,f_spin','a fighter with fs walks the whole string through cancel windows ('+seen.join()+')')}
 {const{C,P}=duel({D:{x:0,z:50}});C.step({P:{list:[{t:'light'}]}});let n=1;while(P.act!=='free'&&n<200){C.step({});n++}ok(P.mv===null&&n===tot('jab'),'jab: acts again after exactly '+tot('jab')+' ticks (got '+n+')')}
 {const a=duel({P:{fs:0}});a.C.step({P:{list:[{t:'light'}]}});ok(a.P.mv.id==='light','a sword fighter (fs 0) still gets the sword string')}
 // a chain of hits lands and builds posture damage
@@ -53,5 +53,9 @@ function fight(){const{C,P,D}=duel({D:{hp:160}});const log=[];let t=0;
     for(const e of C.step(cm))if(e.t==='hit'&&e.a==='P')log.push(e.move)}
   return{log,t,hp:D.hp,po:D.po,dead:D.act==='dead'}}
 const r1=fight(),r2=fight();ok(JSON.stringify(r1)===JSON.stringify(r2),'a scripted fight is deterministic');
-console.log('   fight: '+r1.log.length+' hits in '+r1.t+' ticks, foe '+(r1.dead?'dead':'alive hp '+r1.hp.toFixed(0)));ok(r1.log.length>=8&&r1.log.includes('jab')&&r1.log.includes('spin')&&r1.log.includes('take'),'a long string lands every kind of hit ('+[...new Set(r1.log)].join(' ')+')');
+console.log('   fight: '+r1.log.length+' hits in '+r1.t+' ticks, foe '+(r1.dead?'dead':'alive hp '+r1.hp.toFixed(0)));ok(r1.log.length>=8&&r1.log.includes('jab')&&r1.log.includes('f_spin')&&r1.log.includes('take'),'a long string lands every kind of hit ('+[...new Set(r1.log)].join(' ')+')');
+// Fists must not overwrite the shared Warden duelist moves (spin/dash/counter) that Moves.js defines: both tables live in one global
+{ok(M.spin&&M.spin.who==='D'&&M.dash&&M.dash.who==='D'&&M.counter&&M.counter.who==='D','Fists leaves the Warden duelist spin/dash/counter alone');
+ ok(M.f_spin&&M.f_dash&&M.f_counter&&M.f_spin.who==='P','Fists moves live under f_spin / f_dash / f_counter');
+ for(const k of['spin','dash','counter']){const t=M[k].phases.filter(p=>p.k!=='active'&&p.k!=='recovery').reduce((a,p)=>a+p.n,0);ok(t>=M.TELL_MIN,'duelist '+k+' keeps its fair tell ('+t+' ticks)')}}
 console.log(bad?`\n${bad} FAILED`:'\nall ok');process.exit(bad?1:0);

@@ -201,7 +201,7 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
       const d=r.querySelector('.card div');d.innerHTML='<button data-a="again">Fight again</button><button class="s" data-a="leave">Leave</button>';d.onclick=ev=>{const a=ev.target.dataset.a;if(a==='again'){r.classList.remove('on');restart()}else if(a==='leave'){r.classList.remove('on');leave(true)}};r.classList.add('on')},2200)}
   function restart(){fighting=false;el.classList.remove('on');document.body.classList.remove('dojo-fight');try{Expedition.release('dojo')}catch(e){}if(pAnim)pAnim.off();for(const k in C.F)delete C.F[k];start()}
   // ---------- events ----------
-  function hitFx(e,T){const t=byId[e.d],pos=e.d==='P'?P:t&&t.f,big=['spin','upper','round','power','take','throw','dash','drop'].includes(e.move);if(!pos)return;
+  function hitFx(e,T){const t=byId[e.d],pos=e.d==='P'?P:t&&t.f,big=['f_spin','upper','round','power','take','throw','f_dash','drop'].includes(e.move);if(!pos)return;
     burst(pos.x,H(pos.x,pos.z)+1.25,pos.z,big?'big':'hit',big?14:8)}
   // ---------- weapons: the Staff Fighter's bo staff. GRAB it or PERFECT-PARRY it and it is yours for a while (+45% damage) ----------
   let pStaff=null,wT=0;
@@ -216,7 +216,7 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
       if(e.t==='collide'){say('SMASH!',.8,'#ffb060');cs.shk=Math.max(cs.shk,.5);tone(110,45,.2,'square',.14);sfx('heavy',.8,.8);const U=byId[e.d];if(U){U.flash=1;burst(U.f.x,H(U.f.x,U.f.z)+1,U.f.z,'big',12)}}
       else if(e.t==='slam'){say('RING-OUT SLAM',1,'#ff9a3a');cs.shk=Math.max(cs.shk,.7);tsc=.4;tscT=.4;tone(90,40,.3,'sawtooth',.16);burst(e.x,H(e.x,e.z)+.6,e.z,'big',16)}
       else if(e.t==='deflect'&&e.d==='P'&&e.pf&&byId[e.a]&&byId[e.a].armed){disarm(byId[e.a])}
-      if(e.t==='hit'){const mine=e.a==='P';hitFx(e);if(mine&&(e.move==='take'||e.move==='throw')&&byId[e.d]&&byId[e.d].armed)disarm(byId[e.d]);const big=['spin','upper','round','power','take','throw','dash','drop'].includes(e.move);
+      if(e.t==='hit'){const mine=e.a==='P';hitFx(e);if(mine&&(e.move==='take'||e.move==='throw')&&byId[e.d]&&byId[e.d].armed)disarm(byId[e.d]);const big=['f_spin','upper','round','power','take','throw','f_dash','drop'].includes(e.move);
         if(mine){combo++;comboT=2.4;best=Math.max(best,combo);cs.shk=Math.max(cs.shk,big?.55:.2);cs.fk=big?-4:-1.6;tone(big?120:200,big?60:100,big?.16:.08,'square',.12);sfx(big?'heavy':'strike',big?.8:.6,.9+Math.random()*.2);
           if(e.move==='take'){P.hp=Math.min(P.hpMax,P.hp+P.hpMax*.1);say('TAKEDOWN',1,'#ffd070');tsc=.3;tscT=.5}
           else if(e.move==='throw'){say('THROW',.8,'#d6a8ff');throwSplash(e)}

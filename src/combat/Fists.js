@@ -14,15 +14,15 @@ const Fists=(()=>{
     cross:{id:'cross',who:'P',chain:2,stam:6,dmg:9,pdmg:11,hs:3,stun:16,kb:.4,reach:2.0,w:.12,phases:[ph('startup',5),ph('active',3,{seg:0,a0:.3,a1:-.3}),ph('recovery',8)],cancel:{light:2,heavy:3,dodge:4,guard:5}},
     hook:{id:'hook',who:'P',chain:3,stam:7,dmg:11,pdmg:14,hs:4,stun:18,kb:.55,reach:2.0,w:.13,phases:[ph('startup',7),ph('active',3,{seg:0,a0:1.0,a1:-1.0}),ph('recovery',10)],cancel:{light:3,heavy:4,dodge:5}},
     knee:{id:'knee',who:'P',chain:4,stam:8,dmg:13,pdmg:16,hs:4,stun:20,kb:.7,reach:1.9,w:.13,phases:[ph('startup',7,{move:.5}),ph('active',3,{seg:0,a0:.4,a1:-.4}),ph('recovery',11)],cancel:{light:3,heavy:4,dodge:6}},
-    spin:{id:'spin',who:'P',chain:5,stam:12,dmg:20,pdmg:26,hs:7,stun:26,kb:1.5,reach:2.5,w:.14,phases:[ph('startup',10),ph('active',4,{seg:0,a0:1.4,a1:-1.4}),ph('recovery',18)],cancel:{dodge:8}},
+    f_spin:{id:'f_spin',who:'P',chain:5,stam:12,dmg:20,pdmg:26,hs:7,stun:26,kb:1.5,reach:2.5,w:.14,phases:[ph('startup',10),ph('active',4,{seg:0,a0:1.4,a1:-1.4}),ph('recovery',18)],cancel:{dodge:8}},
     // ---- heavy branches ----
     upper:{id:'upper',who:'P',chain:0,stam:12,dmg:18,pdmg:30,hs:6,stun:26,kb:1.0,reach:1.9,w:.13,phases:[ph('startup',9,{move:.5}),ph('active',4,{seg:0,a0:.5,a1:-.5}),ph('recovery',18)],cancel:{dodge:8}},
     round:{id:'round',who:'P',chain:0,stam:13,dmg:22,pdmg:28,hs:7,stun:26,kb:1.4,reach:2.6,w:.14,phases:[ph('startup',11),ph('active',4,{seg:0,a0:1.3,a1:-1.3}),ph('recovery',20)],cancel:{dodge:9}},
     power:{id:'power',who:'P',stam:16,dmg:28,pdmg:36,hs:8,stun:28,kb:1.5,reach:2.2,w:.14,chargeMin:18,chargeMax:45,phases:[ph('startup',12,{move:.9}),ph('active',5,{seg:0,a0:.5,a1:-.5}),ph('recovery',24)]},
     // ---- context moves ----
     step:{id:'step',who:'P',chain:2,stam:7,dmg:10,pdmg:12,hs:3,stun:16,kb:.5,reach:2.3,w:.12,phases:[ph('startup',6,{move:1.2}),ph('active',3,{seg:0,a0:.3,a1:-.3}),ph('recovery',10)],cancel:{light:3,heavy:4,dodge:5}},
-    dash:{id:'dash',who:'P',chain:2,stam:9,dmg:12,pdmg:14,hs:4,stun:18,kb:.8,reach:2.3,w:.13,phases:[ph('startup',6,{move:4.0}),ph('active',4,{seg:0,a0:.4,a1:-.4}),ph('recovery',16)],cancel:{light:4,heavy:5,dodge:7}},
-    counter:{id:'counter',who:'P',chain:2,stam:6,dmg:14,pdmg:22,hs:5,stun:20,kb:.6,reach:2.1,w:.13,phases:[ph('startup',4),ph('active',3,{seg:0,a0:.4,a1:-.4}),ph('recovery',10)],cancel:{light:2,heavy:3,dodge:4}},
+    f_dash:{id:'f_dash',who:'P',chain:2,stam:9,dmg:12,pdmg:14,hs:4,stun:18,kb:.8,reach:2.3,w:.13,phases:[ph('startup',6,{move:4.0}),ph('active',4,{seg:0,a0:.4,a1:-.4}),ph('recovery',16)],cancel:{light:4,heavy:5,dodge:7}},
+    f_counter:{id:'f_counter',who:'P',chain:2,stam:6,dmg:14,pdmg:22,hs:5,stun:20,kb:.6,reach:2.1,w:.13,phases:[ph('startup',4),ph('active',3,{seg:0,a0:.4,a1:-.4}),ph('recovery',10)],cancel:{light:2,heavy:3,dodge:4}},
     push:{id:'push',who:'P',chain:0,stam:8,dmg:4,pdmg:44,hs:5,stun:30,kb:2.0,reach:2.1,w:.15,phases:[ph('startup',7),ph('active',3,{seg:0,a0:.4,a1:-.4}),ph('recovery',14)],cancel:{dodge:8,guard:6}},
     drop:{id:'drop',who:'P',chain:0,stam:14,dmg:28,pdmg:40,hs:7,stun:30,kb:1.3,reach:2.7,w:.2,phases:[ph('startup',8),ph('active',5,{seg:0,a0:.7,a1:-.7}),ph('recovery',24)]},
     // ---- grabs: gr = ignores guard and parry (a dodge still beats them). The takedown needs a foe in stagger ----
@@ -30,24 +30,24 @@ const Fists=(()=>{
     take:{id:'take',who:'P',chain:0,stam:0,dmg:22,pdmg:0,hs:14,stun:60,kb:1.6,reach:2.6,w:.3,gr:true,phases:[ph('startup',12,{move:1.0}),ph('active',3,{seg:0,a0:.5,a1:-.5}),ph('recovery',30)]}
   };
   const IDS=Object.keys(M);
-  const CHAIN_GAP=30,EVADE_GAP=18,STRING=['jab','cross','hook','knee','spin'];
+  const CHAIN_GAP=30,EVADE_GAP=18,STRING=['jab','cross','hook','knee','f_spin'];
   // the Light resolver: same contract as Combos.light (ctx: {from,air,guard,adv,far,chain,sinceDodge}) -> a move id from M
   function light(ctx){
     const f=ctx.from;
     if(ctx.air&&!f)return 'drop';
     if(ctx.guard&&!f)return 'push';
-    if(f){const nx={jab:'cross',cross:'hook',hook:'knee',knee:'spin',step:'hook',dash:'cross',counter:'hook'}[f];return nx||'jab'}
-    if(ctx.far)return 'dash';
+    if(f){const nx={jab:'cross',cross:'hook',hook:'knee',knee:'f_spin',step:'hook',f_dash:'cross',f_counter:'hook'}[f];return nx||'jab'}
+    if(ctx.far)return 'f_dash';
     if(ctx.adv)return 'step';
-    if(ctx.sinceDodge<=EVADE_GAP)return 'counter';
+    if(ctx.sinceDodge<=EVADE_GAP)return 'f_counter';
     if(ctx.chain>=1&&ctx.chain<5)return STRING[ctx.chain];
     return 'jab'}
   // Heavy tapped inside a string's cancel window: the branch finisher. null = no branch (the Heavy starts charging as usual)
-  function heavy(ctx){const f=ctx.from;return f==='jab'||f==='cross'||f==='step'||f==='dash'||f==='counter'?'upper':f==='hook'||f==='knee'||f==='spin'?'round':null}
+  function heavy(ctx){const f=ctx.from;return f==='jab'||f==='cross'||f==='step'||f==='f_dash'||f==='f_counter'?'upper':f==='hook'||f==='knee'||f==='f_spin'?'round':null}
   // install into Moves (the table the sim reads); safe to call twice
   function install(MV){if(!MV)return;for(const k of IDS)MV[k]=M[k]}
   if(typeof Moves!=='undefined')install(Moves);
-  const Combos={light,heavy,CHAIN_GAP,EVADE_GAP,IDS:['drop','push','jab','cross','hook','knee','spin','upper','round','step','dash','counter']};
+  const Combos={light,heavy,CHAIN_GAP,EVADE_GAP,IDS:['drop','push','jab','cross','hook','knee','f_spin','upper','round','step','f_dash','f_counter']};
   // takedown geometry: a staggered foe in front of you, close enough
   const TAKE_RANGE=3.0,THROW_RANGE=2.2;
 
@@ -78,10 +78,10 @@ const Fists=(()=>{
   const mir=p=>{const f=v=>[-v[0],v[1],v[2]];return Object.assign({},p,{ru:f(p.lu),rf:f(p.lf),lu:f(p.ru),lf:f(p.rf),rt:f(p.lt),rs:f(p.ls),lt:f(p.rt),ls:f(p.rs),tw:-p.tw})};
   // move id -> {a: wind-up pose, i: impact pose, m: mirrored (left-handed)}. Moves not listed (Flow skills etc.) borrow a family below.
   const SPEC={
-    jab:{a:'crossA',i:'crossI',m:1},cross:{a:'crossA',i:'crossI'},hook:{a:'hookA',i:'hookI',m:1},knee:{a:'kneeA',i:'kneeI'},spin:{a:'spinA',i:'spinI'},
-    upper:{a:'upA',i:'upI'},round:{a:'roundA',i:'roundI'},power:{a:'powA',i:'powI'},step:{a:'crossA',i:'crossI'},dash:{a:'flyA',i:'flyI'},counter:{a:'crossA',i:'crossI'},
+    jab:{a:'crossA',i:'crossI',m:1},cross:{a:'crossA',i:'crossI'},hook:{a:'hookA',i:'hookI',m:1},knee:{a:'kneeA',i:'kneeI'},f_spin:{a:'spinA',i:'spinI'},
+    upper:{a:'upA',i:'upI'},round:{a:'roundA',i:'roundI'},power:{a:'powA',i:'powI'},step:{a:'crossA',i:'crossI'},f_dash:{a:'flyA',i:'flyI'},f_counter:{a:'crossA',i:'crossI'},
     push:{a:'pushA',i:'pushI'},drop:{a:'dropA',i:'dropI'},throw:{a:'grabA',i:'throwI'},take:{a:'takeA',i:'takeI'}};
-  const BORROW={light:'jab',light2:'cross',light3:'hook',advance:'step',rush:'dash',evade:'counter',plunge:'drop',rising:'upper',heavy:'power',shove:'push',lunge:'step',whirl:'spin',cinder:'round',armada:'spin',meia:'round',martelo:'drop',rasteira:'round'};
+  const BORROW={light:'jab',light2:'cross',light3:'hook',advance:'step',rush:'f_dash',evade:'f_counter',plunge:'drop',rising:'upper',heavy:'power',shove:'push',lunge:'step',whirl:'f_spin',cinder:'round',armada:'f_spin',meia:'round',martelo:'drop',rasteira:'round'};
   const specOf=id=>SPEC[id]||SPEC[BORROW[id]]||SPEC.jab;
   const ease=u=>u<=0?0:u>=1?1:u*u*(3-2*u);
   // which pose pair is this fighter in right now? f = a CombatCore fighter. Returns {a,b,u,w} with pose NAMES (+ mirror flags) so the caller can mix them

@@ -20,10 +20,10 @@ const DOJO_BELTS=[{n:'White',c:'#f4f4f4'},{n:'Yellow',c:'#f2d23a'},{n:'Orange',c
 const DOJO_BELT_EVERY=4;
 // fighting styles: per-move damage multipliers (mm), posture damage (pm), hp bonus, wider parry window (dfl, ticks). The player picks one at the ring.
 const DOJO_STYLES={
-  striker:{n:'Striker',ic:'\u{1F44A}',tip:'Fast punches hit harder',mm:{jab:1.3,cross:1.3,hook:1.3,knee:1.15,step:1.3,dash:1.2},pm:1.05,hp:0,dfl:0},
-  kicker:{n:'Kicker',ic:'\u{1F9B6}',tip:'Kicks, spins and shoves hit harder',mm:{round:1.4,spin:1.4,knee:1.25,push:1.4,drop:1.3,upper:1.15},pm:1.0,hp:0,dfl:0},
+  striker:{n:'Striker',ic:'\u{1F44A}',tip:'Fast punches hit harder',mm:{jab:1.3,cross:1.3,hook:1.3,knee:1.15,step:1.3,f_dash:1.2},pm:1.05,hp:0,dfl:0},
+  kicker:{n:'Kicker',ic:'\u{1F9B6}',tip:'Kicks, spins and shoves hit harder',mm:{round:1.4,f_spin:1.4,knee:1.25,push:1.4,drop:1.3,upper:1.15},pm:1.0,hp:0,dfl:0},
   grappler:{n:'Grappler',ic:'\u{1F91C}',tip:'Throws and takedowns wreck; extra hp',mm:{throw:1.8,take:1.5,push:1.3,drop:1.3},pm:1.2,hp:16,dfl:0},
-  counter:{n:'Counter',ic:'\u{1F300}',tip:'Wider parry window, huge counters',mm:{counter:2.2,upper:1.3,cross:1.1},pm:1.1,hp:0,dfl:3}};
+  counter:{n:'Counter',ic:'\u{1F300}',tip:'Wider parry window, huge counters',mm:{f_counter:2.2,upper:1.3,cross:1.1},pm:1.1,hp:0,dfl:3}};
 const DOJO_STYLE_ORDER=['striker','kicker','grappler','counter'];
 const DojoData={styles:DOJO_STYLES,styleOrder:DOJO_STYLE_ORDER,
   foes:DOJO_FOES,rounds:DOJO_ROUNDS,pool:DOJO_POOL,belts:DOJO_BELTS,
