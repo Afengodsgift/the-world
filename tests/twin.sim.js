@@ -41,4 +41,8 @@ for(const id of T.IDS){const m=M[id];const rec=m.phases[m.phases.length-1].n;ok(
   for(const id of T.IDS){const sp=Rr.moves[id];ok(sp,'role has a clip spec for '+id);if(!sp)continue;const seq=W.norm(sp);for(const s of seq){ok(names.has(s.c),id+': clip '+s.c+' exists');const h=s.h;if(h)ok(h[1]<=dur[s.c]+.05,id+': hit window ends inside the clip ('+h[1]+' <= '+dur[s.c]+')')}
    const act=M[id].phases.filter(p=>p.k==='active').length,pl=W.plan(M[id].phases,sp,cn=>dur[cn]||9);ok(pl.every(x=>x&&x.c),id+': every phase has a clip slice');ok(seq.length===act,id+': '+act+' active phase(s) = '+seq.length+' clip window(s)')}
   for(const k in Rr.dg)ok(names.has(Rr.dg[k][0]),'dodge clip '+Rr.dg[k][0]+' exists')}}
+// Hundred Shadows (Twin super)
+for(const id of Object.keys(T.SUPER)){const m=M[id];ok(m&&m.who==='P','super move '+id+' is installed');const act=m.phases.filter(p=>p.k==='active').length;ok(act===(id==='twsevF'?2:1),id+': '+act+' active windows');
+  if(c.X&&c.X.ROLES.player_twin){const sp=c.X.ROLES.player_twin.moves[id];ok(sp,'clip spec for '+id);if(sp){const seq=c.X.norm(sp);ok(seq.length===act,id+': clip windows match active phases')}}}
+{const{C,P,D}=duel({D:{z:2}});P.tw=1;C.step({P:{list:[{t:'atk',m:'twsevF'}]}});let hit=0;for(let i=0;i<120;i++)for(const e of C.step({}))if(e.t==='hit'&&e.a==='P')hit++;ok(hit===2,'the finishing X lands twice ('+hit+')')}
 console.log(n+' checks')

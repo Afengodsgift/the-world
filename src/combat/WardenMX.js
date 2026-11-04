@@ -219,6 +219,7 @@ const WardenMX=(()=>{
     twstep:{c:'t_stabR',t0:0,h:[[.23,.45]],e:.8},twdash:{c:'t_thrust',t0:.1,h:[[.4,.68]],e:1.0},twcounter:{c:'t_stabL',t0:0,h:[[.13,.38]],e:.8},twkick:{c:'t_flipkick',t0:.1,h:[[.47,.83]],e:1.2},twplunge:{c:'t_frontkick',t0:0,h:[[.2,.6]],e:1.2},
     twx:{c:'t_dag',t0:.6,h:[[.93,1.12]],e:1.5},twwhirl:{c:'t_combo',t0:1.0,h:[[1.47,1.85]],e:2.1},twpierce:{c:'t_stabR',t0:.6,h:[[.98,1.18]],e:1.4},twshade:{c:'t_rev',t0:.9,h:[[1.37,1.7]],e:1.9},
     twmoon:{c:'t_combo',t0:.2,h:[[.47,.8],[1.47,1.85]],e:2.2},
+    twsev:{c:'t_stabL',t0:0,h:[[.13,.38]],e:.6},twsev2:{c:'t_stabR',t0:.1,h:[[.23,.45]],e:.7},twsevF:{c:'t_combo',t0:.2,h:[[.47,.8],[1.47,1.85]],e:2.2},
     twdance:{seq:[{c:'t_stabL',t0:0,h:[.13,.38],e:.45},{c:'t_stabL',t0:.4,h:[.48,.72],e:.8},{c:'t_dag',t0:.8,h:[.93,1.1],e:1.2},{c:'t_combo',t0:2.2,h:[2.43,2.7],e:2.9}]}})});
   // dodge clips (a window of each clip is scrubbed over the sim's dodge ticks): [clip, from, to] by direction relative to where you face. Missing clips fall back to the game's roll emote.
   const DG={roll:['d_roll',0,.75],back:['d_back',0,.62],fwd:['d_fwd',0,.55],l:['d_l',0,.6],r:['d_r',0,.6]};
@@ -232,6 +233,7 @@ const WardenMX=(()=>{
   const GS={spin:{c:'g_spinrun',t0:0,h:[[.52,.75]],e:1.5},fourfold:{c:'g_gcombo',t0:.15,h:[[.6,.78],[1.33,1.5],[2.1,2.45]],e:3.0},wyrmstrike:{c:'g_jump',t0:.1,h:[[.95,1.2]],e:2.0},undertow:{c:'g_slide',t0:.45,h:[[1.3,1.6]],e:2.0},
     moonfall:{c:'g_pslash',t0:.15,h:[[.7,.92]],e:1.7},pommel:{c:'g_hilt',t0:.1,h:[[.42,.58]],e:1.1},kickwheel:{seq:[{c:'g_skick',t0:.15,h:[.35,.62],e:.9},{c:'g_spkick',t0:.1,h:[.42,.95],e:1.4}]},abyssring:{c:'g_charge',t0:.2,e:2.6},undercut:{c:'g_low',t0:.2,h:[[1.0,1.3]],e:1.8}};
   Object.assign(ROLES.penitent.moves,GS);Object.assign(ROLES.dknight.moves,GS);
+  for(const r of['dknight','penitent','gwyn','capra','samurai','vampire','saint','veil','oath4']){const R=ROLES[r];if(!R)continue;R.pack=true;R.g=r==='dknight'||r==='penitent'||r==='gwyn'||r==='capra'||r==='oath4'}
   const BUILD='mx3';const SH={};      // role -> {st,clips,p}
   // a dropped request is retried (3 times, growing gaps) before the role is declared failed: a role that failed once never recovers within a session
   const tryFetch=(u,n)=>fetch(u,n<6?{cache:'reload'}:undefined).then(r=>{if(!r.ok)throw new Error('http '+r.status);return r}).catch(e=>n>0?new Promise(r=>setTimeout(r,1500*(7-n))).then(()=>tryFetch(u,n-1)):Promise.reject(e));
@@ -240,7 +242,29 @@ const WardenMX=(()=>{
     if(!s.p)s.p=Promise.all([tryFetch(file,6).then(r=>r.json()),ROLES[role].px&&(!av||ROLES[role].pxAv)?tryFetch(av?AURL+AvatarKit.CAT[av].dir+'warden_px_player.json'+AvatarKit.ASSET_V:ROLES[role].px,6).then(r=>r.json()).catch(()=>[]):[],ROLES[role].kk&&av?tryFetch(AURL+AvatarKit.CAT[av].dir+'dojo_kk.json'+AvatarKit.ASSET_V,6).then(r=>r.json()).catch(()=>[]):[],ROLES[role].kk&&av?tryFetch(AURL+AvatarKit.CAT[av].dir+'dojo_fx.json'+AvatarKit.ASSET_V,6).then(r=>r.json()).catch(()=>[]):[]]).then(([a,x,k,f])=>a.concat(x,k,f)).then(j=>{s.clips={};s.meta={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=tag+':'+c.name;ac.uuid=tag+':'+c.name;s.clips[c.name]=ac;   // unique uuid per role: three.js caches actions by clip uuid, and the game's own clips are also called idle/walk/jump (sharing one action stole the game's base layer -> T-pose on hit)
       s.meta[c.name]={dur:c.duration,v:(av&&AvatarKit.set(av)?AvatarKit.set(av).mxK||1:1)*Math.hypot(c.trav?c.trav[0]:0,c.trav?c.trav[1]:0)/Math.max(.1,c.duration)}}s.st='ready';return s}).catch(e=>{s.st='failed';s.err=String(e&&e.message||e);s.p=null;throw e});return s.p}
   // a signature variant (Moves[id].as) animates with the first base move this role has
-  function specOf(R,id){let s=R.moves[id];if(s)return s;const as=(typeof Moves!=='undefined'&&Moves[id]&&Moves[id].as)||[];for(const b of as)if(R.moves[b])return R.moves[b];return null}
+  function specOf(R,id){let s=R.moves[id];if(s)return s;const as=(typeof Moves!=='undefined'&&Moves[id]&&Moves[id].as)||[];for(const b of as)if(R.moves[b])return R.moves[b];return R.pack?auto(R,id):null}
+  // ---- NIGHTMARE PACK: library clips (sword-and-shield, axe, club, magic, great sword) baked on every humanoid boss rig (tools/mixamo/pack.json, tools/clip_windows.mjs). A move with no hand-made spec gets a real clip chosen by what it IS (kick / spin / overhead / cast / N-hit chain), with windows taken from the clip's hand-speed peaks - so no boss move is ever left without an animation. ----
+  const PK={sx_cross:[1.67,[.35,.53],[.75,.93]],sx_combo:[3.53,[.55,.73],[1.15,1.33],[1.75,1.93],[2.35,2.53]],sx_high:[1.3,[.49,.67]],sx_low:[1.73,[.62,.8]],sx_pow:[2.43,[.65,.83],[1.25,1.43]],sx_jump:[2.33,[1.12,1.3]],sx_kick:[1.2,[.39,.57]],sx_down:[1.5,[.52,.7],[.99,1.17]],sx_hilt:[1,[.19,.37]],
+    ax_spin:[2.5,[.49,.67],[.82,1]],ax_three:[4.2,[.85,1.03],[1.52,1.7],[2.42,2.6]],ax_down:[2.27,[.79,.97]],ax_back:[3.17,[.65,.83],[1.29,1.47]],ax_jump:[3.67,[1.62,1.8]],bl_two:[5.43,[1.32,1.5],[2.69,2.87],[3.79,3.97]],bl_over:[4,[1.35,1.53]],bl_knee:[6,[1.32,1.5]],
+    g_gcombo:[3.27,[.69,.87],[1.19,1.37],[1.69,1.87],[2.09,2.27]],g_spinrun:[1.87,[.55,.73],[.95,1.13]],g_pslash:[1.8,[.39,.57],[.67,.82]],g_low:[1.83,[.69,.87],[1.19,1.37]],g_down:[1.27,[.49,.67]],g_skick:[1.73,[.25,.43],[.55,.73],[.95,1.13]],g_spkick:[1.5,[.49,.67],[.85,1.03]]};
+  const CASTS=[['mg_one',1.5],['mg_two',1.6],['mg_wide',1.6],['mg_res',1.5],['mg_gs',2.4],['mg_throw',1.5]];
+  const hashId=id=>{let h=7;for(let i=0;i<id.length;i++)h=(h*31+id.charCodeAt(i))>>>0;return h};
+  function auto(R,id){
+    const cache=R.auto||(R.auto={});if(id in cache)return cache[id];
+    const m=typeof Moves!=='undefined'&&Moves[id];if(!m||!m.phases)return cache[id]=null;
+    if(/^blink/.test(id))return cache[id]=R.moves.blink||{c:'power',t0:0,e:.7};
+    const act=m.phases.filter(p=>p.k==='active').length,hs=hashId(id),ok=n=>PK[n]&&(n.charAt(0)!=='g'||R.g);
+    const pick=pool=>{const a=pool.filter(ok);return a.length?a[hs%a.length]:null};
+    if(!act){const c=CASTS[hs%CASTS.length],hasC=!!R.pack&&true;return cache[id]={c:c[0],t0:0,e:c[1]}}
+    let pool;
+    if(/kick|bash|shove|pommel|hilt|stomp/.test(id))pool=['sx_kick','g_skick','sx_hilt','g_spkick'];
+    else if(/spin|cyclone|tempest|whirl|sweep|ring|wheel|tengu|blade/.test(id))pool=['ax_spin','g_spinrun','ax_back'];
+    else if(/leap|jump|fall|crow|wyrm|heaven|plunge|crown|splitter|hang|ruin|world|sunder|break|maul|slam|rend|kings|verdict|execut|moon/.test(id))pool=['bl_over','ax_down','g_down','ax_jump','sx_jump','bl_knee'];
+    else pool=act===1?['sx_high','sx_low','ax_down','g_down','sx_hilt']:act===2?['sx_cross','sx_pow','sx_down','ax_back','g_pslash','g_low']:act===3?['ax_three','bl_two','g_gcombo']:['sx_combo','g_gcombo'];
+    let c=pick(pool.filter(n=>PK[n]&&PK[n].length-1>=act));if(!c)c=pick(pool)||'sx_combo';
+    const P=PK[c],W=P.slice(1),d=P[0];let hh=[];for(let k=0;k<act;k++)hh.push(W[k%W.length]);
+    if(act>W.length){const q=ok('bl_two')?'bl_two':'sx_combo',Q=PK[q];return cache[id]={seq:hh.map((h,k)=>k<W.length?{c,h,t0:k?undefined:Math.max(0,W[0][0]-.5),e:undefined}:{c:q,h:Q[1+(k-W.length)%(Q.length-1)],t0:Math.max(0,Q[1][0]-.5),e:k===act-1?Math.min(Q[0],Q[Q.length-1][1]+.55):undefined})}}
+    return cache[id]={c,t0:Math.max(0,W[0][0]-.5),h:hh,e:Math.min(d,hh[hh.length-1][1]+.55)}}
   function make(q,role){
     const R=ROLES[role],I={st:'none',role,A:{},ws:{},gT:0,sT:0,dT:0,sw:0,lastLight:-1e9,ready:()=>I.st==='ready',variant:'light_b',alt:{},plans:{},tmem:{}};
     I.bh=0;I.blockHit=()=>{I.bh=.45};I.dodgeClips=()=>!!(R.dg&&I.A&&I.A.d_roll);I.dgCls=null;I.mode=null;I.mt=0;I.wakeP=0;I.wakeDone=false;I.setMode=m=>{I.mode=m;I.mt=0;I.wakeP=m==='wake'?0:1;I.wakeDone=false};
@@ -250,6 +274,7 @@ const WardenMX=(()=>{
       if(R.fxMoves&&s.clips.fx_jab){if(!R.moves0)R.moves0=R.moves;R.moves=Object.assign({},R.moves0,R.fxMoves);R.loco={...R.loco,idle:'fx_idle'};R.guard='fx_guard'}
       const used=new Set(Object.values(R.loco));if(R.guard)used.add(R.guard);if(R.parry)for(const q of R.parry)used.add(q.c);if(R.dorm)used.add(R.dorm);if(R.wake)used.add(R.wake.c);if(R.death)used.add(R.death);if(R.hit)used.add(R.hit);if(R.dg)for(const k in R.dg)used.add(R.dg[k][0]);if(R.px)for(const n of PXN)used.add(n);
       for(const m of Object.values(R.moves))for(const g of norm(m))used.add(g.c);
+      if(R.pack){for(const n in PK)used.add(n);for(const c of CASTS)used.add(c[0])}   // the auto-assigned clips (nightmare pack) are not in R.moves, but they need mixer actions too
       if(R.dojo)for(const n of ['fx_hit_hl','fx_hit_hr','fx_hit_hs','fx_hit_b','fx_hit_st','fx_hit_big','fx_ko','fx_blockreact','kk_blockhit','kk_dodge_b','kk_dodge_f','kk_dodge_l','kk_dodge_r','e_roll'])used.add(n);
       names=[...used].filter(n=>s.clips[n]);I.names=names;I.S=s;
       for(const n of names){const a=q.mixer.clipAction(s.clips[n]);a.enabled=false;a.setEffectiveWeight(.0001);I.A[n]=a;I.ws[n]=0}I.st='ready'};
@@ -317,5 +342,5 @@ const WardenMX=(()=>{
       return any};
     I.off=()=>{for(const n of names){const a=I.A[n];if(a&&a.enabled){a.enabled=false;a.setEffectiveWeight(.0001)}I.ws[n]=0}I.gT=0};
     return I}
-  return{BUILD,ROLES,plan,norm,make,fetch:fetchRole,shared:SH}})();
+  return{BUILD,ROLES,plan,norm,specOf,make,fetch:fetchRole,shared:SH}})();
 if(typeof module!=='undefined')module.exports=WardenMX;

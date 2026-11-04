@@ -29,6 +29,11 @@ const Twin=(()=>{
     twshade:{id:'twshade',who:'P',stam:16,dmg:20,pdmg:24,hs:5,stun:22,kb:.9,reach:3.2,w:.14,inv:12,phases:[ph('startup',4,{move:3.9}),ph('active',4,{seg:0,a0:1.1,a1:-1.1}),ph('recovery',20)],cancel:{dodge:8}},   // Shade Strike: through the foe, cutting as you come out behind them
     twmoon:{id:'twmoon',who:'P',stam:0,dmg:15,pdmg:20,hs:5,stun:22,kb:1,reach:3.1,w:.15,phases:[ph('startup',12),ph('active',4,{seg:0,a0:2.6,a1:-2.6}),ph('rechamber',6),ph('active',4,{seg:1,a0:-2.6,a1:2.6}),ph('recovery',24)],cancel:{dodge:12}},   // Moonlit Spin: two full turns
     twdance:{id:'twdance',who:'P',stam:0,dmg:11,pdmg:14,hs:4,stun:20,kb:.6,reach:2.8,w:.14,sdm:[1,1,1,2],phases:[ph('startup',12),ph('active',3,{seg:0,a0:.9,a1:-.9}),ph('rechamber',5,{move:.6}),ph('active',3,{seg:1,a0:-.9,a1:.9}),ph('rechamber',5,{move:.6}),ph('active',3,{seg:2,a0:.9,a1:-.9}),ph('rechamber',7),ph('active',5,{seg:3,a0:.2,a1:-.2}),ph('recovery',26)],cancel:{dodge:12}}};   // Dance of Fangs: three quick cuts and a heavy fourth
+  // HUNDRED SHADOWS (the Twin Blades super, replaces Spirit Sever while the twin blades are drawn): eleven fast crossing cuts from every side, then a double finishing X. Same rules as the Sever (untouchable, the sim runs the real moves).
+  const SUPER={
+    twsev:{id:'twsev',who:'P',stam:0,dmg:17,pdmg:18,hs:4,stun:18,kb:.5,reach:3.9,w:.2,phases:[ph('startup',3),ph('active',4,{seg:0,a0:1.8,a1:-1.8}),ph('recovery',4)]},
+    twsev2:{id:'twsev2',who:'P',stam:0,dmg:17,pdmg:18,hs:4,stun:18,kb:.5,reach:3.9,w:.2,phases:[ph('startup',3),ph('active',4,{seg:0,a0:-1.8,a1:1.8}),ph('recovery',4)]},
+    twsevF:{id:'twsevF',who:'P',stam:0,dmg:48,pdmg:90,hs:12,stun:60,kb:2.2,reach:4.4,w:.3,sdm:[1,1.5],phases:[ph('startup',14),ph('active',4,{seg:0,a0:2.4,a1:-.4}),ph('rechamber',4),ph('active',5,{seg:1,a0:-2.4,a1:.4}),ph('recovery',34)]}};   // two hits: the X
   const IDS=Object.keys(M);
   const CHAIN_GAP=26,EVADE_GAP=18,STRING=['twa','twb','twc','twd','twe'];
   const OPEN=['twa','twstep','twdash','twcounter'];
@@ -43,9 +48,9 @@ const Twin=(()=>{
     if(ctx.chain>=1&&ctx.chain<=4)return STRING[ctx.chain];
     return 'twa'}
   function heavy(ctx){const f=ctx.from;return f==='twd'||f==='twe'?'twwhirl':f==='twa'||f==='twb'||f==='twc'||f==='twstep'||f==='twdash'||f==='twcounter'?'twx':null}
-  function install(MV){if(!MV)return;for(const k of IDS)MV[k]=M[k]}
+  function install(MV){if(!MV)return;for(const k of IDS)MV[k]=M[k];for(const k in SUPER)MV[k]=SUPER[k]}
   if(typeof Moves!=='undefined')install(Moves);
   const Combos={light,heavy,CHAIN_GAP,EVADE_GAP,IDS:['twa','twb','twc','twd','twe','twstep','twdash','twcounter','twkick','twplunge','twx','twwhirl','twpierce']};
   const FIN=['twmoon','twdance','twmoon','twdance'],SKILL='twshade',SWAP_BONUS=1.25,SWAP_TICKS=90,DODGE_STAM=.7;
-  return{M,IDS,STRING,Combos,light,heavy,install,CHAIN_GAP,EVADE_GAP,FIN,SKILL,SWAP_BONUS,SWAP_TICKS,DODGE_STAM}})();
+  return{M,IDS,STRING,Combos,light,heavy,install,SUPER,CHAIN_GAP,EVADE_GAP,FIN,SKILL,SWAP_BONUS,SWAP_TICKS,DODGE_STAM}})();
 if(typeof module!=='undefined')module.exports=Twin;
