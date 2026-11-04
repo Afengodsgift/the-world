@@ -6,7 +6,7 @@ const Dojo=(()=>{
   const RING=15.5,YARD=()=>DOJO.arenaR,CX=()=>DOJO.x,CZ=()=>DOJO.z;
   const SPD=3.7,GSPD=2.1,CSPD=1.7;
   let built=false,G=null,el=null,fighting=false,C=null,ST=null,P=null,foes=[],byId={},pool=[],pAnim=null,vt=0,tsc=1,tscT=0,state='idle',stateT=0,round=0,roundCleared=0,sessKills=0;
-  let combo=0,comboT=0,best=0,lastEv=[],hurtT=0,flashT=0,sparks=[],mats={},down={heavy:false,guard:false},ptr={},pv={x:0,z:0,vf:0,vs:0,sp:0,init:false},seed=1,near=false,msgT=0,hintT=0,tsFix=0;
+  let dirr=DojoAI.director(),combo=0,comboT=0,best=0,lastEv=[],hurtT=0,flashT=0,sparks=[],mats={},down={heavy:false,guard:false},ptr={},pv={x:0,z:0,vf:0,vs:0,sp:0,init:false},seed=1,near=false,msgT=0,hintT=0,tsFix=0;
   const cs={yaw:0,off:0,dragT:0,last:0,init:false,shk:0,fk:0,fov:54,D:5.2,H:1.9,lx:0,lz:0,tm:0};
   const SAVE=(()=>{let j={};try{j=JSON.parse(localStorage.getItem('dojo')||'{}')}catch(e){}return Object.assign({cleared:0,best:0,wins:0,rounds:0,style:'striker'},j)})();
   const save=()=>{try{localStorage.setItem('dojo',JSON.stringify(SAVE))}catch(e){}};
@@ -177,7 +177,7 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
     fighting=true;seed=(Date.now()&0x7fffffff)|1;round=0;sessKills=0;combo=0;best=0;state='intro';stateT=0;
     C=CombatCore.create({arena:{x:CX(),z:CZ(),R:RING-.8},solids:[]});ST=CombatCore.stepper(C,6);vt=0;tsc=1;
     S.x=CX();S.z=CZ()+4.5;S.rot=Math.PI;S.grounded=true;S.vy=0;
-    newPlayer();mkFoes();cs.init=false;cs.off=0;
+    dirr=DojoAI.director();newPlayer();mkFoes();cs.init=false;cs.off=0;
     q('.res').classList.remove('on');el.classList.add('on');document.body.classList.add('dojo-fight');goBtn.style.display='none';stBar.style.display='none';try{Expedition.hold('dojo')}catch(e){}
     paintBelt();say('ROUND 1',1.4,'#ffd070');tone(300,600,.25,'sawtooth',.1);sfx('vo_fight',.8,1)}
   const pLay={};let warmed=false;
@@ -267,7 +267,7 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
     {const ax=P.x-CX(),az=P.z-CZ(),ad=Math.hypot(ax,az),lim=RING-.8-P.r;if(ad>lim){P.x=CX()+ax/ad*lim;P.z=CZ()+az/ad*lim}}
     S.x=P.x;S.z=P.z;let lx=S.x,lz=S.z;
     const TF=target(),Df=TF?TF.f:null;
-    const held=nt=>{const h={P:{face:Df&&Df.act!=='dead'?Math.atan2(Df.x-S.x,Df.z-S.z):S.rot,mx:0,mz:0}};
+    const held=nt=>{if(state==='fight')DojoAI.plan(dirr,foes,C,nt);const h={P:{face:Df&&Df.act!=='dead'?Math.atan2(Df.x-S.x,Df.z-S.z):S.rot,mx:0,mz:0}};
       const fs=foes.map(F=>F.f);for(const F of foes){const f=F.f;if(f.act==='dead'){h[F.id]={face:f.face,mx:0,mz:0};continue}
         if(state!=='fight'){h[F.id]={face:Math.atan2(P.x-f.x,P.z-f.z),mx:0,mz:0};continue}
         h[F.id]=DojoAI.think(F.ai,f,C,nt,fs)}return h};

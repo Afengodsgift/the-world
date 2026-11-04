@@ -22,5 +22,12 @@ console.log(JSON.stringify(r));
 ok(r.has,'Dojo exists and island is on');if(r.has){ok(r.fighting&&r.foes>0,'a fight started with foes ('+r.foes+')');ok(r.finite,'camera position is finite');
   ok(r.cam0.d>2.5&&r.cam0.d<10,'camera distance behind the player is close but sane ('+r.cam0.d.toFixed(1)+' m)');ok(r.cam1.d<10,'camera stays within 10 m after moving ('+r.cam1.d.toFixed(1)+' m)')}
 if(shots&&r.has)await page.screenshot({path:path.join(shots,'dojo_fight.png')});
+// a three-foe round: the director must keep them spread and the page error-free; sample frame cost
+const m=await page.evaluate(async()=>{const wait=ms=>new Promise(r=>setTimeout(r,ms));Dojo._go(4);S.x=DOJO.x;S.z=DOJO.z+4.5;await wait(9000);
+  const t=Dojo._t(),fs=t.foes.filter(F=>F.f.act!=='dead').map(F=>F.f);let min=99;for(let i=0;i<fs.length;i++)for(let j=i+1;j<fs.length;j++)min=Math.min(min,Math.hypot(fs[i].x-fs[j].x,fs[i].z-fs[j].z));
+  const T=[];let last=performance.now();await new Promise(res=>{let n=0;const f=()=>{const n2=performance.now();T.push(n2-last);last=n2;if(++n<90)requestAnimationFrame(f);else res()};requestAnimationFrame(f)});
+  T.sort((a,b)=>a-b);return{foes:fs.length,minGap:min,p50:T[45],p95:T[85]}});
+console.log(JSON.stringify(m));ok(m.foes===3,'three foes in round 5');ok(m.minGap>1.0,'foes are not stacked on each other (closest pair '+m.minGap.toFixed(2)+' m)');
+if(shots)await page.screenshot({path:path.join(shots,'dojo_three.png')});
 const errs=real(page.errs);ok(errs.length===0,'no page errors '+JSON.stringify(errs.slice(0,3)));
 await page.close2();await T.close();console.log(bad?bad+' FAILED':'ALL OK');process.exit(bad?1:0);

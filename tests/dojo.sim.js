@@ -5,7 +5,7 @@ vm.runInContext(['combat/Moves','combat/SwordHit','combat/Combos','combat/Fists'
 const {M,CC,AI,D}=c;let bad=0;const ok=(v,m)=>{if(!v){console.log('FAIL',m);bad++}else console.log('ok  ',m)};
 // ---- data ----
 ok(Object.keys(D.foes).length>=6,'six archetypes: '+Object.keys(D.foes).join(','));
-for(const k in D.foes){const f=D.foes[k];ok(f.hp>0&&f.dm>0&&f.spd>0&&f.ai.range>1&&f.ai.reach>=f.ai.range&&f.ai.combo.length>0&&f.ai.combo.every(s=>/^[lhgp]+$/.test(s)),k+': sane stats and combo scripts')}
+for(const k in D.foes){const f=D.foes[k];ok(f.hp>0&&f.dm>0&&f.spd>0&&f.ai.range>1&&f.ai.reach>=f.ai.range&&f.ai.combo.length>0&&f.ai.combo.every(s=>/^[lhgpksndufg]+$/.test(s)),k+': sane stats and combo scripts')}
 ok(D.rounds.every(r=>r.every(n=>D.foes[n])),'every scripted round names real archetypes');
 ok(D.rounds[D.rounds.length-1].includes('enforcer'),'the last scripted round is the boss');
 {let s=7;const rnd=()=>{s=(s*16807)%2147483647;return s/2147483647};for(let r=0;r<40;r++){const l=D.lineup(r,rnd);if(!l.length||l.length>5||!l.every(n=>D.foes[n])){ok(false,'lineup '+r);break}}ok(true,'lineups for 40 rounds are valid and at most 5 foes')}
@@ -64,4 +64,16 @@ ok(D.foes.staff&&D.foes.staff.weapon==='bo'&&D.rounds.some(r=>r.includes('staff'
  for(let t=0;t<120;t++){const cm={P:{list:[]}};if(!P.guard&&!(P.pry>0)&&P.act==='free')cm.P.list.push({t:'guardDown'});if(t===60)C.start('D','jab');
   for(const e of C.step(cm)){if(e.t==='block'&&e.d==='P')blocked++;if(e.t==='hit'&&e.d==='P')landed++}if(P.guard)up++}
  ok(up>=100,'holding Guard keeps the guard up past the parry window ('+up+'/120 ticks)');ok(blocked>=1&&landed===0,'a held guard blocks a jab ('+blocked+' blocked, '+landed+' landed)')}
+// the combat director: two foes take turns (never both attacking), spread apart, no attack line through an ally; the Kickboxer really kicks
+{let both=0,close=0,thru=0,n=0,atk=0;
+ for(let seed=1;seed<=4;seed++){const C=CC.create({arena:{x:0,z:0,R:14.7}}),P=C.add('P',{x:0,z:4.5,face:Math.PI,hp:99999,team:'p',fs:1}),dir=AI.director(),F=[];
+  ['boxer','brawler'].forEach((nm,i)=>{const T=D.foes[nm],a=Math.PI+(i-.5)*.9,f=C.add('DE'[i],{x:Math.sin(a)*5.5,z:Math.cos(a)*5.5,face:0,hp:99999,team:'e',fs:1,dm:T.dm});f.spd=T.spd;f.r=.42*T.scale;F.push({f,ai:AI.create(seed*131+i*977,T.ai,{intro:50+i*22})})});
+  for(let t=0;t<2400;t++){const nt=C.tick+1,cm={};cm.P={face:Math.atan2(F[0].f.x-P.x,F[0].f.z-P.z),mx:0,mz:0,list:[]};AI.plan(dir,F,C,nt);for(const x of F)cm[x.f.id]=AI.think(x.ai,x.f,C,nt,F.map(y=>y.f));C.step(cm);if(t<200)continue;n++;
+   const a=F[0].f,b=F[1].f;if(a.act==='attack'&&b.act==='attack')both++;if(Math.hypot(a.x-b.x,a.z-b.z)<1.6)close++;
+   for(const[x,y]of[[a,b],[b,a]]){if(x.act!=='attack')continue;const dx=P.x-x.x,dz=P.z-x.z,tt=Math.max(0,Math.min(1,((y.x-x.x)*dx+(y.z-x.z)*dz)/(dx*dx+dz*dz||1)));if(tt>0&&tt<1&&Math.hypot(x.x+dx*tt-y.x,x.z+dz*tt-y.z)<.6)thru++}
+   if(a.act==='attack'||b.act==='attack')atk++}}
+ ok(both/n<.03,'two foes take turns: both attacking at once '+(100*both/n).toFixed(1)+'% of ticks');ok(close/n<.05,'two foes stay apart: closer than 1.6 m '+(100*close/n).toFixed(1)+'%');ok(thru/n<.005,'no attack line passes through an ally ('+thru+')');ok(atk/n>.4,'pressure stays on: someone is attacking '+(100*atk/n).toFixed(0)+'% of ticks')}
+{let leg=0;for(let seed=1;seed<=3;seed++){const C=CC.create({arena:{x:0,z:0,R:14.7}}),P=C.add('P',{x:0,z:3,face:Math.PI,hp:1e6,team:'p',fs:1}),T=D.foes.kicker,f=C.add('D',{x:0,z:-2.5,face:0,hp:1e6,team:'e',fs:1,dm:T.dm});f.spd=T.spd;const ai=AI.create(seed*131,T.ai,{intro:50});
+  for(let t=0;t<3600;t++){const nt=C.tick+1,cm={P:{face:Math.atan2(f.x-P.x,f.z-P.z),mx:0,mz:0,list:[]}};cm.D=AI.think(ai,f,C,nt,[f]);for(const e of C.step(cm))if(e.t==='start'&&e.a==='D'&&['round','push','drop'].includes(e.move))leg++}}
+ ok(leg>=30,'the Kickboxer throws kicks ('+leg+')')}
 console.log(bad?'FAILED '+bad:'ALL OK');process.exit(bad?1:0);
