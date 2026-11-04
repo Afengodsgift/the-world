@@ -10,7 +10,7 @@ const CombatCore=(()=>{
   const PHI=42,RISE=336;   // RISE: a boss that 'rises' is felled at its phase line, lies down ~5.6 s (untouchable), then gets up in its second phase
      // ticks of invulnerability while a boss changes phase (0.7 s)
   function mkFighter(id,o){o=o||{};return{id,x:o.x||0,z:o.z||0,y:0,r:.45,face:o.face||0,hp:o.hp||100,hpMax:o.hp||100,st:100,stMax:100,po:0,poMax:100,
-    team:o.team||null,fs:o.fs||0,sa:o.sa||0,pg:o.pg||0,rise:o.rise||0,tm:o.tm||1,pgd:false,inv:0,sm:1,pm:1,dfl:0,bk:0,dm:o.dm||1,rm:o.rm||1,act:'free',pt:0,ph:null,pi:0,pk:0,mv:null,hold:0,done:{},sk:null,stun:0,kx:0,kz:0,kr:0,dir:null,guard:false,pry:0,pfs:0,pfT:0,gpt:99,rel:99,sr:99,pr:99,c:0,rel2:false,buf:null,q:[],ex:0,ez:0,lc:0,lcT:-999,dEnd:-999}}
+    team:o.team||null,fs:o.fs||0,tw:o.tw||0,swb:-1,sa:o.sa||0,pg:o.pg||0,rise:o.rise||0,tm:o.tm||1,pgd:false,inv:0,sm:1,pm:1,dfl:0,bk:0,dm:o.dm||1,rm:o.rm||1,act:'free',pt:0,ph:null,pi:0,pk:0,mv:null,hold:0,done:{},sk:null,stun:0,kx:0,kz:0,kr:0,dir:null,guard:false,pry:0,pfs:0,pfT:0,gpt:99,rel:99,sr:99,pr:99,c:0,rel2:false,buf:null,q:[],ex:0,ez:0,lc:0,lcT:-999,dEnd:-999}}
   function create(o){o=o||{};const C={tick:0,hs:0,ev:[],fx:[],fxN:0,F:{},solids:(o.solids||[]).slice(),arena:o.arena||{x:0,z:0,R:1e9},order:[]};
     C.add=(id,fo)=>{C.F[id]=mkFighter(id,fo);C.order.push(id);return C.F[id]};
     C.step=cmds=>step(C,cmds||{});C.start=(id,m,hold)=>{const f=C.F[id];if(f&&Moves[m])startMove(C,f,m,hold|0)};return C}
@@ -32,7 +32,7 @@ const CombatCore=(()=>{
   function fistTarget(C,f,staggered){const R=staggered?Fists.TAKE_RANGE:Fists.THROW_RANGE;let best=null,bd=1e9;
     for(const id of C.order){const t=C.F[id];if(!enemyOf(f,t))continue;if(staggered&&!(t.act==='stun'&&t.sk==='stagger'))continue;
       const d=Math.hypot(t.x-f.x,t.z-f.z);if(d>R+t.r||d>=bd)continue;if(SwordHit.angd(f.face,Math.atan2(t.x-f.x,t.z-f.z))>1.15)continue;bd=d;best=t}return best}
-  function startMove(C,f,id,hold){const m=Moves[id];if(m&&m.gr)grabFace(C,f,id);f.act='attack';f.mv=m;f.ph=Moves.expand(id,hold,f.tm);f.hold=hold|0;f.pi=0;f.pk=0;f.pt=0;f.done={};f.guard=false;if(m.stam)spend(f,m.stam);emit(C,'start',f.id,null,{move:id,per:m.per?1:0});
+  function startMove(C,f,id,hold){const m=Moves[id];if(m&&m.gr)grabFace(C,f,id);f.act='attack';f.mv=m;f.ph=Moves.expand(id,hold,f.tm);f.hold=hold|0;f.pi=0;f.pk=0;f.pt=0;f.done={};f.guard=false;if(m.inv)f.inv=Math.max(f.inv||0,m.inv);if(m.stam)spend(f,m.stam);emit(C,'start',f.id,null,{move:id,per:m.per?1:0});
     if(m.fx)for(const d of m.fx)if(d.on==='start')spawnFx(C,f,d);skipEmpty(f)}
   const enemyOf=(a,t)=>t!==a&&t.act!=='dead'&&!(a.team&&t.team===a.team);
   function nearestFoe(C,a){let best=null,bd=1e9;for(const id of C.order){const t=C.F[id];if(!enemyOf(a,t))continue;const d=Math.hypot(t.x-a.x,t.z-a.z);if(d<bd){bd=d;best=t}}return best}
@@ -52,21 +52,23 @@ const CombatCore=(()=>{
     const free=f.act==='free'||(f.act==='charge'&&c.t!=='heavyUp');
     switch(c.t){
       case'light':{const from=f.act==='attack'&&f.mv?f.mv.id:null;if(!(f.act==='free'||canCancel(f,'light'))||f.st<=0)return false;
-        const CB=f.fs&&typeof Fists!=='undefined'?Fists.Combos:Combos;const id=CB.light({air:(f.y||0)>.7,guard:f.guard,from:f.act==='free'?null:from,adv:!!c.adv,far:!!c.far,chain:C.tick-f.lcT<=CB.CHAIN_GAP?f.lc:0,sinceDodge:C.tick-f.dEnd});startMove(C,f,id);f.lc=Moves[id].chain||0;return true}
+        const CB=f.tw&&typeof Twin!=='undefined'?Twin.Combos:f.fs&&typeof Fists!=='undefined'?Fists.Combos:Combos;const id=CB.light({air:(f.y||0)>.7,guard:f.guard,from:f.act==='free'?null:from,adv:!!c.adv,far:!!c.far,chain:C.tick-f.lcT<=CB.CHAIN_GAP?f.lc:0,sinceDodge:C.tick-f.dEnd});startMove(C,f,id);f.lc=Moves[id].chain||0;return true}
       case'atk':if(f.act==='free'){startMove(C,f,c.m,c.hold||0);return true}return false;
-      case'dodge':{if((f.act==='free'||f.act==='charge'||canCancel(f,'dodge'))&&f.st>0){const D=c.side?Moves.sidestep:Moves.dodge;f.side=c.side?1:0;let dx=c.dx,dz=c.dz;if(!(Math.hypot(dx||0,dz||0)>.01)){dx=-Math.sin(f.face);dz=-Math.cos(f.face)}const L=Math.hypot(dx,dz);f.dir=[dx/L,dz/L];f.act='dodge';f.pt=0;f.guard=false;f.ph=null;f.mv=null;f.c=0;spend(f,D.stam);emit(C,'dodge',f.id,null);return true}return false}
+      case'dodge':{if((f.act==='free'||f.act==='charge'||canCancel(f,'dodge'))&&f.st>0){const D=c.side?Moves.sidestep:Moves.dodge;f.side=c.side?1:0;let dx=c.dx,dz=c.dz;if(!(Math.hypot(dx||0,dz||0)>.01)){dx=-Math.sin(f.face);dz=-Math.cos(f.face)}const L=Math.hypot(dx,dz);f.dir=[dx/L,dz/L];f.act='dodge';f.pt=0;f.guard=false;f.ph=null;f.mv=null;f.c=0;spend(f,D.stam*(f.tw&&typeof Twin!=='undefined'?Twin.DODGE_STAM:1));emit(C,'dodge',f.id,null);return true}return false}
       case'guardDown':if(f.act==='free'||canCancel(f,'guard')){if(f.act==='attack'){f.act='free';f.ph=null;f.mv=null}f.guard=true;f.gpt=f.rel>=REARM?0:99;return true}return false;
       case'guardUp':if(f.guard&&!(f.pry>0)){f.guard=false;f.rel=0}return true;
       case'parry':if((f.act==='free'||canCancel(f,'guard'))&&f.rel>=REARM&&!(f.pry>0)){if(f.act==='attack'){f.act='free';f.ph=null;f.mv=null}f.guard=true;f.gpt=0;f.pry=PARRY_T;emit(C,'parry',f.id,null);return true}return false;   // a tap: a sweep of the blade; the first PARRY_W ticks DEFLECT, the rest block
       case'heavyDown':{const from=f.act==='attack'&&f.mv?f.mv.id:null;
-        if(f.fs&&typeof Fists!=='undefined'){   // BARE HANDS: a takedown on a posture-broken foe beats everything; Guard+Heavy is a throw (a grab)
+        if(f.tw&&typeof Twin!=='undefined'){if(from&&canCancel(f,'heavy')&&f.st>0){const id=Twin.heavy({from});if(id){startMove(C,f,id);f.lc=0;return true}}}
+        else if(f.fs&&typeof Fists!=='undefined'){   // BARE HANDS: a takedown on a posture-broken foe beats everything; Guard+Heavy is a throw (a grab)
           if((f.act==='free'||(from&&canCancel(f,'heavy')))&&fistTarget(C,f,true)){startMove(C,f,'take');f.lc=0;return true}
           if(f.act==='free'&&f.guard&&f.st>0&&!c.q&&fistTarget(C,f,false)){f.guard=false;f.pry=0;startMove(C,f,'throw');f.lc=0;return true}
           if(from&&canCancel(f,'heavy')&&f.st>0){const id=Fists.Combos.heavy({from});if(id){startMove(C,f,id);f.lc=Moves[id].chain||0;return true}}}
         else if(from&&canCancel(f,'heavy')&&f.st>0){const id=Combos.heavy({from});if(id){startMove(C,f,id);f.lc=Moves[id].chain||0;return true}}
-        if(!f.fs&&f.act==='free'&&f.st>0&&!f.guard&&C.tick-f.dEnd<=Combos.EVADE_GAP&&!c.q&&f.dEnd>-900){startMove(C,f,'lunge');f.lc=0;return true}
+        if(!f.fs&&f.act==='free'&&f.st>0&&!f.guard&&C.tick-f.dEnd<=Combos.EVADE_GAP&&!c.q&&f.dEnd>-900){startMove(C,f,f.tw?'twpierce':'lunge');f.lc=0;return true}
         if(f.act==='free'&&f.st>0&&!c.q){f.act='charge';f.c=0;f.rel2=false;f.guard=false;return true}return false}
-      case'heavyUp':if(f.act==='charge'){f.rel2=true}return true}
+      case'heavyUp':if(f.act==='charge'){f.rel2=true}return true;
+      case'stance':{const w=c.tw?1:0;if(f.tw===w)return true;f.tw=w;f.lc=0;f.swb=C.tick+(typeof Twin!=='undefined'?Twin.SWAP_TICKS:90);emit(C,'stance',f.id,null,{tw:w});return true}}   // a weapon swap costs no action: it works mid-dodge, mid-recovery, mid-anything but death
     return true}
   function step(C,cmds){
     C.tick++;C.ev=[];
@@ -75,7 +77,7 @@ const CombatCore=(()=>{
     // (1) commands (with a short input buffer for ones that cannot start yet)
     for(const id of C.order){const f=C.F[id];const q=f.q;f.q=[];for(const c of q){if(!tryCmd(C,f,c)){if((c.t==='light'||c.t==='dodge'||c.t==='parry')&&C.tick-c.e<BUF)f.q.push(c);else if(c.t==='heavyDown'&&f.act==='attack'&&C.tick-c.e<18)f.q.push(Object.assign({},c,{q:1}))}}}
     // heavy: strike once released and min charge reached, or max charge
-    for(const id of C.order){const f=C.F[id];if(f.act==='charge'&&((f.rel2&&f.c>=Moves.heavy.chargeMin)||f.c>=Moves.heavy.chargeMax)){{const ch=Math.max(0,Math.min(1,(f.c-Moves.heavy.chargeMin)/(Moves.heavy.chargeMax-Moves.heavy.chargeMin)));startMove(C,f,f.fs&&typeof Fists!=='undefined'?'power':'heavy');f.chg=ch}}}
+    for(const id of C.order){const f=C.F[id];if(f.act==='charge'&&((f.rel2&&f.c>=Moves.heavy.chargeMin)||f.c>=Moves.heavy.chargeMax)){{const ch=Math.max(0,Math.min(1,(f.c-Moves.heavy.chargeMin)/(Moves.heavy.chargeMax-Moves.heavy.chargeMin)));startMove(C,f,f.tw&&typeof Twin!=='undefined'?'twpierce':f.fs&&typeof Fists!=='undefined'?'power':'heavy');f.chg=ch}}}
     // (2) snapshot
     const snap={};for(const id of C.order){const f=C.F[id];snap[id]={x:f.x,z:f.z,r:f.r,rm:f.rm}}
     // (3) root motion
@@ -115,7 +117,7 @@ const CombatCore=(()=>{
     let hs=0;const stag0={};for(const id of C.order)stag0[id]=C.F[id].act==='stun'&&C.F[id].sk==='stagger';
     for(const o of out){const{a,t,mv}=o;
       if(o.k==='dodged'){emit(C,'dodged',a.id,t.id,{seg:o.seg});if(!o.fx&&mv&&mv.per&&a.act==='attack'&&!a.sa){stunF(a,46,'recoil');emit(C,'perdodge',a.id,t.id)}continue}
-      if(!o.fx)a.done[o.seg]=true;const sc=!o.fx&&a.mv&&(a.mv.id==='heavy'||a.mv.id==='power')?1+.5*(a.chg||0):1;
+      if(!o.fx)a.done[o.seg]=true;const sc=!o.fx&&a.mv&&(a.mv.id==='heavy'||a.mv.id==='power'||a.mv.id==='twpierce')?1+.5*(a.chg||0):1;
       if(o.k==='deflect'){if(!o.fx){addPo(C,a,mv.pdmg*1.6);if(mv.bg&&a.act==='attack'){stunF(a,84,'stagger');emit(C,'brokenguard',a.id,t.id)}else if(a.act==='attack')stunF(a,16,'recoil')}addPo(C,t,mv.pdmg*.15);
         // PERFECT PARRY (the first PERFECT ticks of the window): a longer recoil for the attacker; three in a row inside 5 s breaks the boss open (Phantom Blade style sequence)
         const pf=!o.fx&&t.pry>0&&t.gpt<=PERFECT+(t.dfl||0);let sq=0;
@@ -124,7 +126,7 @@ const CombatCore=(()=>{
       else if(o.k==='block'){t.st=mv.gb?0:Math.max(0,t.st-mv.dmg*.8*sc);t.sr=0;addPo(C,t,mv.pdmg*.7*sc);emit(C,'block',a.id,t.id,{seg:o.seg});hs=Math.max(hs,3);
         if(t.st<=0&&t.act==='free'){stunF(t,45,'stagger');emit(C,'guardbreak',a.id,t.id)}}
       else if(t.inv>0){emit(C,'immune',a.id,t.id,{seg:o.seg})}   // the phase roar: nothing lands (a few ticks, see below)
-      else{const crit=stag0[t.id]?2.5:1,back=a.bk&&SwordHit.angd(t.face,Math.atan2(a.x-t.x,a.z-t.z))>2.2?1+a.bk:1,dm=mv.dmg*sc*(!o.fx&&mv.sdm&&mv.sdm[o.seg]||1)*crit*back*(a.dm||1)*(a.mm&&a.mm[mv.id]||1);   // a.mm: per-move damage multipliers (the Iron Fist fighting styles)   // a.bk: the Shadow Edge style hits a foe that is facing away harder
+      else{const crit=stag0[t.id]?2.5:1,back=a.bk&&SwordHit.angd(t.face,Math.atan2(a.x-t.x,a.z-t.z))>2.2?1+a.bk:1,dm=mv.dmg*sc*(!o.fx&&mv.sdm&&mv.sdm[o.seg]||1)*crit*back*(a.dm||1)*(a.mm&&a.mm[mv.id]||1)*(a.swb>C.tick&&typeof Twin!=='undefined'?Twin.SWAP_BONUS:1);   // a.mm: per-move damage multipliers (the Iron Fist fighting styles)   // a.bk: the Shadow Edge style hits a foe that is facing away harder
         // PHASE GATE (bosses with .pg): damage that would carry the foe across its phase line, or kill it before the phase has happened, stops one point past the line and starts the roar. One-shots, huge crits and two co-op hits in the same tick can no longer skip a phase.
         const gate=t.pg>0?Math.ceil(t.hpMax*t.pg)-1:-1;let nh=t.hp-dm;
         if(gate>=0&&!t.pgd){if(t.hp<=gate)t.pgd=true;else if(nh<=gate){nh=gate;t.pgd=true;if(t.rise){t.inv=RISE+10;stunF(t,RISE,'rise');t.hold=0}else t.inv=PHI;emit(C,'phase',a.id,t.id,{rise:t.rise?1:0})}}

@@ -53,7 +53,7 @@ const sNodes = jointNode.map(nd => {
 });
 let src = new Rig(sNodes), sRest = src.fk(); const sByNode = new Map(sNodes.map(n => [n.nd, n.name]));
 let sClips = new Map();
-for (const a of sj.animations) {
+for (const a of (sj.animations || [])) {
   const ch = { rot: new Map(), pos: new Map() }; let dur = 0;
   for (const c of a.channels) {
     const nm = sByNode.get(c.target.node); if (!nm) continue; const sm = a.samplers[c.sampler], times = accOf(sm.input), vals = accOf(sm.output); dur = Math.max(dur, times[times.length - 1]);
@@ -97,13 +97,13 @@ legS = src.posOf(sRest, 'Hips').y - src.posOf(sRest, 'LeftFoot').y; legT = av.po
 srcPelRest = src.posOf(sRest, 'Hips');
 sFootRest = { f: soleY(src, sRest, 'LeftFoot'), t: soleY(src, sRest, 'LeftToeBase') };
 }
-prepare();
+if (!opt.twin) prepare();
 // avatar sole points: the mesh stands on y = 0; heel under the ankle, ball under the toe joint (stored in each bone's local frame)
 const GROUND = 0;
 const solePts = ['Left', 'Right'].flatMap(S => ['Foot', 'Toes'].map(n => { const i = av.by.get(S + n), p = V().setFromMatrixPosition(nRest[i]); return { node: i, local: V(p.x, GROUND, p.z).applyMatrix4(nRest[i].clone().invert()) }; }));
 const lowest = W => Math.min(...solePts.map(p => V().copy(p.local).applyMatrix4(W[p.node]).y));
 const FINGER = /HandIndex|HandThumb/;
-console.log(`leg ${legS.toFixed(3)} m -> ${legT.toFixed(3)} rig units (ratio ${RATIO.toFixed(3)}); avatar rest lowest sole ${lowest(nRest).toFixed(4)}; Root scale ${rootS}`);
+if (!opt.twin) console.log(`leg ${legS.toFixed(3)} m -> ${legT.toFixed(3)} rig units (ratio ${RATIO.toFixed(3)}); avatar rest lowest sole ${lowest(nRest).toFixed(4)}; Root scale ${rootS}`);
 
 // ---------------------------------------------------------------- bake one clip
 // o: {src, nat, win:[a,b], rm:'trend'|'none', floor:false|true, fps}
@@ -219,6 +219,30 @@ if (opt.mx) {
     }
     fs.writeFileSync(f, JSON.stringify(clips)); meta.sets[set] = fs.statSync(f).size; console.log(`-- ${set} (${(meta.sets[set] / 1024) | 0} KB)`); if (opt.report) console.log(rep.map(x => '   ' + x).join('\n'));
   }
+}
+// ---------------------------------------------------------------- Twin Blades / dodge clips (--twin=<config.json>, e.g. tools/mixamo/twin.json): library FBX clips (Mixamo skeleton, any rest pose carried by the files themselves)
+// are baked at their NATURAL duration and APPENDED to <dir>/warden_mx_player.json (same names replace). Stock-rig equivalent: tools/retarget_mixamo.js bake.
+if (opt.twin) {
+  globalThis.window = { URL: { createObjectURL: () => 'blob:x' } }; globalThis.document = { createElementNS: () => ({ style: {}, set src(v) {}, addEventListener() {} }), createElement: () => ({ style: {} }) }; globalThis.self = globalThis;
+  const { FBXLoader } = await import(pathToFileURL(path.join(NM, 'three/examples/jsm/loaders/FBXLoader.js')).href);
+  const loadFbx = f => { const b = fs.readFileSync(f); return new FBXLoader().parse(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength), ''); };
+  const strip = n => n.replace(/^mixamorig:?/, '');
+  const cfg = JSON.parse(fs.readFileSync(path.resolve(opt.twin), 'utf8')), nodes = [];
+  const restG = loadFbx(path.join(cfg.root, cfg.clips[0].file));
+  const add = (o, par) => { const nm = strip(o.name), n = { name: nm, parent: par, t: o.position.clone(), q: o.quaternion.clone(), s: V(1, 1, 1) }; nodes.push(n); const idx = nodes.length - 1; o.children.filter(c => c.isBone).forEach(c => add(c, idx)); };
+  restG.traverse(o => { if (o.isBone && /^mixamorig/.test(o.name) && !(o.parent && o.parent.isBone)) add(o, -1); });
+  src = new Rig(nodes); sRest = src.fk(); prepare();
+  console.log(`twin source: ${nodes.length} bones, leg ${legS.toFixed(1)} -> ratio ${RATIO.toFixed(4)}`);
+  const SETN = opt.set || 'warden_mx_player', f = path.join(dir, SETN + '.json'), clips = JSON.parse(fs.readFileSync(f, 'utf8'));
+  for (const c of cfg.clips.filter(c => !opt.prefix || c.name.startsWith(opt.prefix))) {
+    const g = loadFbx(path.join(cfg.root, c.file)), a = g.animations[0], ch = { rot: new Map(), pos: new Map() };
+    for (const tr of a.tracks) { const m = tr.name.match(/^mixamorig:?(.+)\.(quaternion|position)$/); if (!m) continue; (m[2] === 'quaternion' ? ch.rot : ch.pos).set(m[1], { times: Float32Array.from(tr.times), vals: Float32Array.from(tr.values) }); }
+    sClips = new Map([[c.name, { ch, dur: a.duration }]]);
+    const b = bake(c.name, { nat: true, rm: 'trend', fps: 18, win: [c.from || 0, c.to || a.duration], floor: !/^(d_|t_flip|t_front|t_spin)/.test(c.name) }, (c.to || a.duration) - (c.from || 0));
+    const out = { name: c.name, uuid: c.name, duration: b.clip.duration, tracks: b.clip.tracks }, i = clips.findIndex(x => x.name === c.name); if (i >= 0) clips[i] = out; else clips.push(out);
+    console.log('   ' + c.name.padEnd(12) + a.duration.toFixed(2) + 's');
+  }
+  fs.writeFileSync(f, JSON.stringify(clips)); console.log(`-- ${SETN} (${(fs.statSync(f).size / 1024) | 0} KB)`);
 }
 meta.source = path.basename(srcF); fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify(meta));
 console.log('gait', JSON.stringify(meta.gait));
