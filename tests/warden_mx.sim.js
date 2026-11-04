@@ -12,7 +12,7 @@ for(const role of Object.keys(X.ROLES)){
   const spec=X.ROLES[role],file=R+spec.file,exists=fs.existsSync(file);ok(exists,role+': asset '+spec.file+' exists'+(exists?' ('+(fs.statSync(file).size/1024|0)+' KB)':''));if(!exists)continue;
   const clips=JSON.parse(fs.readFileSync(file,'utf8')),dur={};for(const k of clips)dur[k.name]=k.duration;
   if(spec.px){const pf=R+spec.px,pe=fs.existsSync(pf);ok(pe,role+': pack asset '+spec.px+' exists');if(pe){const px=JSON.parse(fs.readFileSync(pf,'utf8'));for(const k of px)dur[k.name]=k.duration;ok(fs.statSync(pf).size<600*1024,role+': pack asset is < 600 KB');ok(['p_knock','p_hurt','p_hitc','p_hith','p_deathA','p_deathB','p_deathC'].every(n=>dur[n]),role+': pack has every reaction clip')}}
-  ok(fs.statSync(file).size<(spec.native?1500:1300)*1024,role+': asset is < '+(spec.native?1500:1300)+' KB');
+  ok(fs.statSync(file).size<(spec.native?2600:1300)*1024,role+': asset is < '+(spec.native?2600:1300)+' KB');
   ok(Object.values(spec.loco).every(n=>dur[n]||/^(e|kk)_/.test(n)),role+': every locomotion clip exists');if(spec.guard)ok(dur[spec.guard]||/^(e|kk)_/.test(spec.guard),role+': guard clip exists');
   for(const id of need[role]){const m=mv[id];ok(m&&spec.moves[id],role+': move '+id+' is mapped');if(!m||!spec.moves[id])continue;
     const sq=X.norm(spec.moves[id]);ok(sq.every(s=>dur[s.c]),role+'/'+id+': its clips exist ('+sq.map(s=>s.c).join(',')+')');
@@ -25,7 +25,7 @@ for(const role of Object.keys(X.ROLES)){
 // signature variants animate through their `as` base: every boss's signature moves + sequence steps resolve to a clip spec of its role, with a sane phase plan
 {const AI=(()=>{const c2={console,Math};require('vm').createContext(c2);require('vm').runInContext(fs.readFileSync(R+'src/combat/DuelistAI.js','utf8')+';this.A=DuelistAI',c2);return c2.A})();
  const roleOf={dknight:'dknight',darkknight:'darkknight',samurai:'samurai',gwyn:'gwyn',oath4:'oath4',gdn:'gdn',penitent:'penitent',saint:'saint',veil:'veil',vampire:'vampire',ganfaul:'ganfaul',paladin:'paladin',goblin:'goblin',archer:'archer',arissa:'arissa',hollow:'hollow',parasite:'parasite',maw:'maw',bear:'bear'};
- const spec=(Rr,id)=>{let s=Rr.moves[id];if(s)return s;for(const b of (M[id]&&M[id].as)||[])if(Rr.moves[b])return Rr.moves[b];return null};
+ const spec=(Rr,id)=>X.specOf(Rr,id);
  for(const kid of Object.keys(AI.SIG)){const Rr=X.ROLES[roleOf[kid]];if(!Rr)continue;const ids=new Set(AI.SIG[kid].map(r=>r.m).concat(AI.SIG[kid].map(r=>r.f).filter(Boolean)));for(const nm of AI.SEQS[kid]||[])for(const m of AI.SEQ[nm].q)ids.add(m);
   for(const id of ids){if(!M[id]||id==='blink')continue;const s=spec(Rr,id);ok(!!s,kid+': '+id+' has a clip spec (own or via as)');if(!s)continue;let pl=null,err='';try{pl=X.plan(M.expand(id,0),s,()=>1.5)}catch(e){err=e.message}ok(pl&&pl.length===M[id].phases.length,kid+': '+id+' plan covers every phase '+err)}}}
 

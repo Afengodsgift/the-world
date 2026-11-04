@@ -202,7 +202,7 @@ const DuelistAI=(()=>{
     oath4:[{m:'rend',lo:2.6,hi:4.8,ph:0,cd:480,p:.25},{m:'spear',lo:5,hi:16,ph:2,cd:460,p:.3},{m:'sunder',lo:0,hi:5,ph:2,cd:640,p:.3},{m:'storm',lo:3,hi:12,ph:3,cd:640,p:.3}],
     gdn:[{m:'spear',lo:6,hi:20,ph:0,cd:380,p:.3},{m:'arrows',lo:4,hi:14,ph:0,cd:480,p:.3},{m:'storm',lo:3,hi:13,ph:2,cd:700,p:.3}],
     penitent:[{m:'sunder',lo:0,hi:5,ph:0,cd:700,p:.3},{m:'rend',lo:2.6,hi:4.8,ph:2,cd:520,p:.25}],
-    saint:[{m:'spear',lo:6,hi:18,ph:0,cd:400,p:.3},{m:'storm',lo:3,hi:12,ph:2,cd:660,p:.3}],
+    saint:[{m:'spear',lo:6,hi:18,ph:0,cd:360,p:.34},{m:'storm',lo:3,hi:12,ph:0,cd:600,p:.3},{m:'rend',lo:2.6,hi:4.8,ph:0,cd:460,p:.28,f:'moon'}],
     veil:[{m:'rend',lo:2.8,hi:4.8,ph:0,cd:480,p:.25,f:'moon'}],
     vampire:[{m:'rend',lo:2.8,hi:5,ph:0,cd:420,p:.3}],
     ganfaul:[{m:'rend',lo:2.6,hi:4.8,ph:0,cd:520,p:.25},{m:'sunder',lo:0,hi:5,ph:2,cd:700,p:.3}],
@@ -226,9 +226,9 @@ const DuelistAI=(()=>{
     kingdom:{q:['crownfall','worldbreaker'],ph:3,lo:2,hi:10,cd:1100},waltz:{q:['thousand','twineclipse'],ph:3,lo:1.4,hi:3.2,cd:900},phantom:{q:['blink','marks','silentsev'],ph:2,lo:3.6,hi:12,cd:900},
     gridlock:{q:['stormgrid','storm'],ph:2,lo:5,hi:16,cd:820},dance:{q:['tempest','kingsweep','risingcrown'],ph:0,lo:1.4,hi:3.4,cd:640},echo:{q:['hangfall','impaler'],ph:0,lo:2,hi:3.2,cd:640},
     blinkchain:{q:['blink','tempest','impaler'],ph:0,lo:3.6,hi:10,cd:700}};
-  const SEQS={samurai:['nightfall','crowsong','tenguwheel','shadowrush','crimson','waltz'],dknight:['kickstorm','wyrmfall','abyssdance','phantom','kingdom','waltz'],darkknight:['brokencrown','crimson'],capra:['crimson','brokencrown'],gwyn:['stormexec','kingdom','brokencrown'],oath4:['stormexec','kingdom','waltz'],gdn:['gridlock'],
-    vampire:['blinkchain','crimson'],arissa:['dance'],ganfaul:['echo'],penitent:['kickstorm','wyrmfall','abyssdance','brokencrown'],paladin:['crimson'],saint:['gridlock'],veil:['crimson']};
-  const SOV={capra:1,gwyn:1,dknight:1,darkknight:1,samurai:1,oath4:1};
+  const SEQS={samurai:['nightfall','crowsong','tenguwheel','shadowrush','crimson','waltz'],dknight:['kickstorm','wyrmfall','abyssdance','phantom','kingdom','waltz'],darkknight:['brokencrown','crimson'],capra:['crimson','brokencrown','dance','waltz'],gwyn:['stormexec','kingdom','brokencrown','crimson','dance','waltz'],oath4:['stormexec','kingdom','waltz'],gdn:['gridlock'],
+    vampire:['blinkchain','crimson'],arissa:['dance'],ganfaul:['echo'],penitent:['kickstorm','wyrmfall','abyssdance','brokencrown'],paladin:['crimson'],saint:['gridlock','crimson','waltz','kingdom'],veil:['crimson']};
+  const SOV={saint:1,capra:1,gwyn:1,dknight:1,darkknight:1,samurai:1,oath4:1};
   const EXTRA={
     samurai:[{m:'kslide',lo:4,hi:8,ph:0,cd:420,p:.3,f:'cut'},{m:'crow',lo:3.6,hi:9,ph:0,cd:520,p:.28},{m:'cyclone',lo:1.4,hi:3,ph:0,cd:480,p:.28},{m:'tengu',lo:1.2,hi:2.5,ph:0,cd:440,p:.28,f:'iai'},{m:'thrustslash',lo:1.6,hi:3.4,ph:0,cd:480,p:.3},{m:'splitter',lo:2,hi:4,ph:2,cd:600,p:.28},{m:'reversemoon',lo:1.4,hi:2.6,ph:2,cd:520,p:.25,f:'iai'},{m:'kindle',lo:0,hi:4.4,ph:2,cd:800,p:.25},{m:'severance',lo:1.4,hi:3.2,ph:0,cd:520,p:.22},{m:'silentsev',lo:2.6,hi:3.4,ph:2,cd:600,p:.25},{m:'thousand',lo:1.4,hi:3.2,ph:3,cd:700,p:.3}],
     dknight:[{m:'fourfold',lo:1.4,hi:3,ph:0,cd:480,p:.28},{m:'undertow',lo:4,hi:8,ph:0,cd:420,p:.3,f:'undercut'},{m:'wyrmstrike',lo:3.6,hi:9,ph:0,cd:520,p:.26},{m:'moonfall',lo:2,hi:4,ph:2,cd:600,p:.28},{m:'pommel',lo:1,hi:2.4,ph:0,cd:400,p:.3,f:'fourfold'},{m:'kickwheel',lo:1.2,hi:2.5,ph:2,cd:520,p:.25},{m:'abyssring',lo:0,hi:4.4,ph:2,cd:800,p:.25},{m:'undercut',lo:1.4,hi:3,ph:0,cd:460,p:.26},{m:'crownfall',lo:3,hi:12,ph:2,cd:640,p:.3},{m:'marks',lo:3,hi:12,ph:2,cd:700,p:.3},{m:'finalsentence',lo:3,hi:12,ph:3,cd:760,p:.3}],
@@ -242,6 +242,7 @@ const DuelistAI=(()=>{
     ganfaul:[{m:'hangfall',lo:2,hi:3.2,ph:0,cd:460,p:.3},{m:'doubleimp',lo:2.4,hi:4,ph:2,cd:520,p:.25}],
     penitent:[{m:'fourfold',lo:1.4,hi:3,ph:0,cd:480,p:.28},{m:'undertow',lo:4,hi:8,ph:0,cd:420,p:.3,f:'undercut'},{m:'wyrmstrike',lo:3.6,hi:9,ph:0,cd:520,p:.26},{m:'moonfall',lo:2,hi:4,ph:2,cd:600,p:.28},{m:'pommel',lo:1,hi:2.4,ph:0,cd:400,p:.3,f:'fourfold'},{m:'kickwheel',lo:1.2,hi:2.5,ph:2,cd:520,p:.25},{m:'abyssring',lo:0,hi:4.4,ph:2,cd:800,p:.25},{m:'undercut',lo:1.4,hi:3,ph:0,cd:460,p:.26},{m:'ruin',lo:3.6,hi:8,ph:0,cd:520,p:.25},{m:'executioner',lo:1.4,hi:3,ph:2,cd:520,p:.25}],
     veil:[{m:'doubleimp',lo:2.4,hi:4,ph:2,cd:520,p:.25},{m:'silentsev',lo:2.6,hi:3.4,ph:2,cd:600,p:.25}],
+    saint:[{m:'bladestorm',lo:3,hi:12,ph:0,cd:520,p:.3},{m:'swordring',lo:0,hi:4.4,ph:0,cd:440,p:.3},{m:'hundred',lo:1.4,hi:3.2,ph:2,cd:620,p:.3},{m:'severance',lo:1.4,hi:3.2,ph:0,cd:500,p:.26},{m:'impaler',lo:2.4,hi:4.4,ph:0,cd:560,p:.26,f:'doubleimp'},{m:'kingsweep',lo:1.4,hi:3.6,ph:2,cd:500,p:.28},{m:'thousand',lo:1.4,hi:3.2,ph:3,cd:700,p:.32},{m:'crownfall',lo:3,hi:12,ph:3,cd:760,p:.3},{m:'marks',lo:3,hi:12,ph:2,cd:700,p:.3}],
     paladin:[{m:'impaler',lo:3,hi:4.4,ph:0,cd:520,p:.25}]};
   for(const kd in EXTRA)SIG[kd]=(SIG[kd]||[]).concat(EXTRA[kd]);
   function sig(A,P,D,out,tick,dist,k){
@@ -252,7 +253,7 @@ const DuelistAI=(()=>{
     for(const r of L){if(r.ph&&!(r.ph===3?A.ph3:A.ph2)||(A.kc[r.m]||0)>0||L0===r.m||A.sigLock&&PER.indexOf(r.m)>=0||dist<r.lo||dist>r.hi)continue;
       if(r.f&&A.sigLock&&PER.indexOf(r.f)>=0)continue;if(A.r()<Math.min(.7,r.p*sv)){A.kc[r.m]=Math.floor(r.cd*1.3*(A.sov>0?.5:1)*(A.mast?.75:1));if(r.f)A.follow=r.f;return start(A,out,r.m,0,tick)}}
     return null}
-  const PERS={capra:{rest:.7,breath:.7},penitent:{rest:.85,breath:.8},saint:{rest:.9},vampire:{rest:.8,breath:.6},ganfaul:{rest:.85},paladin:{rest:.9},goblin:{rest:.9},archer:{rest:.85},arissa:{rest:.8,breath:.7},hollow:{rest:.85},parasite:{rest:.85},maw:{rest:.85},bear:{rest:.85},samurai:{rest:.78,breath:.6},dknight:{rest:.85,breath:.7},darkknight:{rest:.7,breath:.45},gwyn:{rest:1,desp:1,breath:.6},oath4:{rest:.8,breath:.6},gdn:{rest:.95}};
+  const PERS={capra:{rest:.7,breath:.7},penitent:{rest:.85,breath:.8},saint:{rest:.62,breath:.55},vampire:{rest:.8,breath:.6},ganfaul:{rest:.85},paladin:{rest:.9},goblin:{rest:.9},archer:{rest:.85},arissa:{rest:.8,breath:.7},hollow:{rest:.85},parasite:{rest:.85},maw:{rest:.85},bear:{rest:.85},samurai:{rest:.78,breath:.6},dknight:{rest:.85,breath:.7},darkknight:{rest:.7,breath:.45},gwyn:{rest:1,desp:1,breath:.6},oath4:{rest:.8,breath:.6},gdn:{rest:.95}};
   const COMBO={
     samurai:{cut:['moon',.25],twin:['fall',.3],triple:['moon',.3],iai:['blink',.25],moon:['iai',.3],kslide:['cut',.5],cyclone:['tengu',.35],tengu:['iai',.3],thrustslash:['moon',.3]},
     dknight:{bladestorm:['blink',.45],swordring:['hundred',.4],hundred:['verdict',.35],cut:['moon',.25],blink:['flurry',.2]},

@@ -309,7 +309,7 @@ const PlayerCombat=(()=>{
   function camMoves(){let d=0,f=0;if(CAMS.move&&state==='fight'&&!ult&&!sv)for(const F of foes){if(F.f.act!=='attack'||!F.f.mv||!F.awake)continue;const id=F.f.mv.id;for(const k in CAMM){const c=CAMM[k];if(c[2].indexOf(id)>=0){const near=Math.hypot(F.f.x-S.x,F.f.z-S.z)<14;if(near){d=Math.max(d,c[0]);f=Math.max(f,c[1])}}}}
     try{CameraRig.combat(d,f)}catch(e){}}
   // AUTO LOCK: the first boss that is awake and alive is locked as soon as you fight it (and the next one when it falls); turning lock off yourself stays off
-  function autoLock(){if(lock||lockOff||state!=='fight'||ult||sv||site&&site.duel)return;let b=null,bd=1e9;for(const F of foes){if(F.f.act==='dead'||F.ghost||!F.awake||!F.T.boss)continue;const d=Math.hypot(F.f.x-S.x,F.f.z-S.z);if(d<bd){bd=d;b=F}}if(b){lock=true;lockI=b.i;if(el)el.querySelector('#wLock').classList.add('on')}}
+  function autoLock(){if(lock||lockOff||state!=='fight'||ult||sv||site&&site.duel)return;let b=null,bd=1e9;for(const F of foes){if(F.f.act==='dead'||F.ghost||!F.awake||!F.T.boss)continue;const d=(F.woke||1e6)*1000+Math.hypot(F.f.x-S.x,F.f.z-S.z);if(d<bd){bd=d;b=F}}if(b){lock=true;lockI=b.i;if(el)el.querySelector('#wLock').classList.add('on')}}
   function toggleLock(){
     if(ult&&ult.kind==='echo'){msg('You cannot lock onto illusions',1);return}
     const al=alive();if(!al.length){lock=false}
@@ -401,7 +401,7 @@ const PlayerCombat=(()=>{
     L.push(b);return b}
   function freeBody(b){b.used=false;b.g.visible=false;if(b.anims)for(const k in b.anims)b.anims[k].off();for(const k of['sword','sword2','shield'])if(b[k]){const o=b[k].grip||b[k];if(o)o.visible=false}}
   // ---------- fight lifecycle ----------
-  function spawnFoes(){
+  function spawnFoes(){wokeN=0;
     for(const F of foes)freeBody(F.body);foes=[];byId={};
     const ids=Foes.ids(site.foes.length);
     site.foes.forEach((def,i)=>{
@@ -409,7 +409,7 @@ const PlayerCombat=(()=>{
       if(!C.order.includes(id))C.order.push(id);f.r=T.r;f.spd=(T.spd||1.3)*WardenProg.cycleMul().spd;
       const b=body(T,i);b.g.scale.setScalar(T.scale);b.g.position.set(f.x,H(f.x,f.z),f.z);b.g.rotation.y=f.face;
       if(b.u.mixer&&typeof emoStop==='function'&&T.body==='avatar')emoStop(b.u);
-      const F={i,id,T,f,body:b,human:hum,ai:DuelistAI.create(fightN*7919+i*131+1,{foe:T.ai,kid:T.id,mast:mastery&&!hum,intro:T.pack?25:75}),loco:{x:0,z:0,vf:0,vs:0,sp:0,init:false},flash:0,awake:!T.aggro&&!def.late,late:!!def.late,dorm:T.aggro||def.late?'sleep':null,dormSync:null,wakeT:0,ph2:false,home:{x:f.x,z:f.z}};
+      const F={i,id,T,f,body:b,human:hum,ai:DuelistAI.create(fightN*7919+i*131+1,{foe:T.ai,kid:T.id,mast:mastery&&!hum,intro:T.pack?25:75}),loco:{x:0,z:0,vf:0,vs:0,sp:0,init:false},flash:0,awake:!T.aggro&&!def.late,woke:(!T.aggro&&!def.late)?(wokeN=wokeN+1):0,late:!!def.late,dorm:T.aggro||def.late?'sleep':null,dormSync:null,wakeT:0,ph2:false,home:{x:f.x,z:f.z}};
       if(site.duel&&!DU.pair){F.wait=true;f.act='dead';f.hp=0;b.g.visible=false}   // no bot in the duel arena: until an opponent walks in there is only an empty ring
       foes.push(F);byId[id]=F});
     rt(site).foes=foes}
@@ -796,16 +796,16 @@ const PlayerCombat=(()=>{
   function supEv(e){if(sv||ult||state!=='fight')return;let g=0;
     if(e.t==='hit'){if(e.a==='P'&&!e.fx)g=e.dmg>=20?5:3;else if(e.d==='P')g=2}
     else if(e.t==='deflect'&&e.d==='P')g=e.pf?12:7;else if(e.t==='dodged'&&e.d==='P')g=5;else if(e.t==='perdodge'&&e.d==='P')g=9;
-    if(g){const was=sup;sup=Math.min(100,sup+g);if(was<100&&sup>=100){msg('SPIRIT SEVER READY',1.4);try{tone(600,1500,.3,'triangle',.12)}catch(x){}}}}
+    if(g){const was=sup;sup=Math.min(100,sup+g);if(was<100&&sup>=100){msg(stance==='twin'?'HUNDRED SHADOWS READY':'SPIRIT SEVER READY',1.4);try{tone(600,1500,.3,'triangle',.12)}catch(x){}}}}
   function supHud(){const b=el&&el.querySelector('#wSup');if(!b)return;const f=Math.round(sup/100*60),full=sup>=100&&!sv;if(bars.sp!==f||bars.spf!==full||bars.spv!==!!sv){bars.sp=f;bars.spf=full;bars.spv=!!sv;b.style.setProperty('--sp',(sup/100*360)+'deg');b.classList.toggle('full',full);b.classList.toggle('on',!!sv)}}
   function startSever(){
     if(!on||state!=='fight'||sv||ult||pun||P.act!=='free'||CineCam.busy()||P.act==='dead')return false;
     if(sup<100){toast('Spirit Sever '+Math.floor(sup)+'% · land hits, parry and dodge to charge it',2.2);return false}
     const T=target();if(!T||T.f.act==='dead'||T.f.inv>0||T.f.act==='stun'&&T.f.sk==='rise'){toast('The Sever cannot reach it right now \u00b7 wait for it to be vulnerable',1.8);return false}
     sup=0;const t0=performance.now(),a0=Math.atan2(S.x-T.f.x,S.z-T.f.z);
-    sv={T,t:0,n:0,next:.6,lastB:-9,a0,ph:'gather',fin:0,hit:false,hold:0,t0};
+    sv={T,t:0,n:0,next:.6,lastB:-9,a0,ph:'gather',fin:0,hit:false,hold:0,t0,tw:stance==='twin'};
     P.inv=Math.max(P.inv||0,400);tsc=.3;
-    msg('SPIRIT SEVER',1.6);flash(.5,'rgba(190,235,255,.75)');try{tone(300,1100,.6,'triangle',.14);sfx('heavy',.6,1.4)}catch(x){}
+    msg(sv.tw?'HUNDRED SHADOWS':'SPIRIT SEVER',1.6);flash(.5,sv.tw?'rgba(190,120,255,.75)':'rgba(190,235,255,.75)');try{tone(300,1100,.6,'triangle',.14);sfx('heavy',.6,1.4)}catch(x){}
     try{WardenVfx.burst(P.x,H(P.x,P.z)+1.1,P.z,2);svRing(90001,P.x,P.z,2.6,'sever')}catch(x){}
     try{
       CineCam.PRESETS.sever={dur:4.9,freeze:false,noskip:true,shots:[]};
@@ -824,7 +824,7 @@ const PlayerCombat=(()=>{
     try{WardenVfx.spawn(P.x,H(P.x,P.z)+1.2,P.z,2,3,2.2,0,26)}catch(x){}   // the afterimage where you were
     const nx=tx+Math.sin(a)*R,nz=tz+Math.cos(a)*R;CombatCore.moveBy(C,P,nx-P.x,nz-P.z);S.x=P.x;S.z=P.z;lx=S.x;lz=S.z;
     const fa=Math.atan2(tx-P.x,tz-P.z);S.rot=P.face=fa;pendFace=null;
-    ST.input('P',{t:'atk',m:fin?'severF':V.n%2?'sever2':'sever'},now());
+    ST.input('P',{t:'atk',m:V.tw?(fin?'twsevF':V.n%2?'twsev2':'twsev'):(fin?'severF':V.n%2?'sever2':'sever')},now());
     try{WardenVfx.slash(tx,H(tx,tz)+1.2,tz,fa,fin,2);WardenVfx.hit(tx,H(tx,tz)+1.2,tz,false,fin);if(!fin)svRing(90010+V.n,tx,tz,1.5,'sever')}catch(x){}
     try{tone(fin?180:700+V.n*90,fin?60:300,fin?.5:.12,'triangle',.1);CameraRig.shake(fin?.5:.12)}catch(x){}
     V.lastB=(performance.now()-V.t0)/1000}
@@ -835,8 +835,8 @@ const PlayerCombat=(()=>{
     if(T.f.act==='dead'&&V.ph!=='out'){V.ph='out';V.out=performance.now();V.hold=0}
     if(V.ph==='gather'){tsc=cl(.3+V.t*.5,.3,1);if(V.t>=V.next){V.ph='cut';tsc=1}return}
     if(V.ph==='cut'){tsc=1;
-      if(P.act==='free'&&performance.now()>=(V.nextAt||0)){V.nextAt=performance.now()+SV_GAP*1000;
-        if(V.n<SV_N){svBeat(V,false);V.n++}
+      if(P.act==='free'&&performance.now()>=(V.nextAt||0)){V.nextAt=performance.now()+(V.tw?.19:SV_GAP)*1000;
+        if(V.n<(V.tw?11:SV_N)){svBeat(V,false);V.n++}
         else{V.ph='fin';V.fin=performance.now();tsc=.35;svBeat(V,true);try{flash(.3,'rgba(255,255,255,.6)')}catch(x){}}}
       return}
     if(V.ph==='fin'){
@@ -849,8 +849,8 @@ const PlayerCombat=(()=>{
     if(!sv)return;sv=null;tsc=1;hsT=0;P.inv=Math.max(0,Math.min(P.inv||0,45));
     try{CineCam.skip()}catch(x){}}
   function svHit(e){   // the finishing cut lands: white-out, stillness, a pillar of light
-    if(!sv||e.t!=='hit'||e.a!=='P'||e.move!=='severF')return;sv.cut=true;const T=sv.T;
-    flash(.6,'rgba(255,255,255,.9)');msg('SEVERED',1.4);try{CameraRig.shake(.8);sfx('heavy',.8,.7,()=>tone(90,30,.6,'sawtooth',.16));WardenVfx.burst(T.f.x,H(T.f.x,T.f.z)+1.2,T.f.z,2);WardenVfx.burst(T.f.x,H(T.f.x,T.f.z)+1.2,T.f.z,0);
+    if(!sv||e.t!=='hit'||e.a!=='P'||e.move!=='severF'&&e.move!=='twsevF')return;sv.cut=true;const T=sv.T;
+    flash(.6,'rgba(255,255,255,.9)');msg(sv.tw?'A HUNDRED SHADOWS':'SEVERED',1.4);try{CameraRig.shake(.8);sfx('heavy',.8,.7,()=>tone(90,30,.6,'sawtooth',.16));WardenVfx.burst(T.f.x,H(T.f.x,T.f.z)+1.2,T.f.z,2);WardenVfx.burst(T.f.x,H(T.f.x,T.f.z)+1.2,T.f.z,0);
       svRing(90090,T.f.x,T.f.z,3.4,'severF')}catch(x){}}
   // ================= HOLLOW ECHO (Ganfaul's set piece; see Echo.js) =================
   // Ganfaul vanishes; the room fills with copies of him and ONE is real. The real one grounds a dark pool under his feet, the echoes float without one. Find him in time and strike: he reels. Strike an echo
@@ -1185,7 +1185,8 @@ const PlayerCombat=(()=>{
       else if(e.t==='dead'&&e.d==='P'){if(site.duel)setTimeout(()=>duelOver(false),0);else PG.die(site.id,P.x,P.z);msg('YOU DIED',3);sfx('heavy',.8,.6,()=>tone(180,35,.6,'sawtooth',.16));setTimeout(()=>WardenSfx.play('vo_game_over',.8,1,{nojit:1}),600);state='lost';stateT=performance.now()}}}
   // dormant foes sit / stand sheathed until you come near: rouse() starts the draw / roar / power-up clip, rise() hands them to the AI once it ends; a hit skips the show
   function rouse(F,skip){if(F.awake||F.dorm==='wake'&&!skip)return;if(skip||!F.anim){rise(F);return}F.dorm='wake';F.wakeT=0;if(F.T.boss){CineCam.play('intro',{x:()=>F.f.x,z:()=>F.f.z,h:1.75*F.T.scale,sc:Math.max(1,F.T.scale*.9)},{id:F.T.id});msg(F.T.name,2.4);sfx('heavy',.6,.55,()=>tone(90,45,.6,'sawtooth',.14));WardenSfx.play('vo_prepare_yourself',.8,1,{nojit:1})}else if(!fightVo){fightVo=true;WardenSfx.play('vo_fight',.8,1,{nojit:1})}}
-  function rise(F){F.dorm=null;F.awake=true;F.dormSync=null;if(F.anim&&F.anim.setMode)F.anim.setMode(null)}
+  let wokeN=0;
+  function rise(F){if(!F.woke)F.woke=++wokeN;F.dorm=null;F.awake=true;F.dormSync=null;if(F.anim&&F.anim.setMode)F.anim.setMode(null)}
   function wake(F,skip){rouse(F,skip);if(F.T.pack)for(const o of foes)if(o.T.pack&&!o.awake&&Math.hypot(o.f.x-F.f.x,o.f.z-F.f.z)<14)rouse(o,skip)}
   function locoOf(v,x,z,face,dt){   // smoothed world velocity -> speed + components along / to the left of the facing
     if(!v.init||dt<=0){v.x=x;v.z=z;v.init=true;v.vf=v.vs=v.sp=0;return}

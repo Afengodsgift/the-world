@@ -325,10 +325,11 @@ const SKINLABELS=['Man','Woman','Warrior','Robot'];   // the stock chibi skins: 
 // The player is either a full-human avatar (myApp = a wardrobe appearance) or, as before, one of the stock chibi skins (myApp = null, mySkin = 0..3). Both stay selectable.
 let myApp=AvatarKit.restore()||AvatarKit.defaults(AvatarKit.DEFAULT_BASE),mySkin=AvatarKit.legacySkin(myApp.b);
 try{const cs=localStorage.getItem('tw_chibi_v1');if(cs!==null&&+cs>=0&&+cs<SKINLABELS.length){myApp=null;mySkin=+cs}}catch(e){}
+if(myApp&&AvatarKit.CAT[myApp.b]&&AvatarKit.CAT[myApp.b].hidden){myApp=AvatarKit.defaults(AvatarKit.DEFAULT_BASE);mySkin=AvatarKit.legacySkin(myApp.b)}   // Ronin / Gi / Gretel are NPC-only now (Dojo opponents): an old save falls back to the default body
 const myAp=()=>myApp?AvatarKit.encode(myApp):undefined;
 function lobbyAvatarRow(){const row=$('skinRow');row.innerHTML='';
   const add=(txt,sel,fn)=>{const b=document.createElement('button');b.textContent=txt;if(sel)b.className='sel';b.onclick=fn;row.appendChild(b)};
-  for(const id of Object.keys(AvatarKit.CAT))add(AvatarKit.CAT[id].label,myApp&&myApp.b===id,()=>{myApp=AvatarKit.normalize(Object.assign({},myApp||AvatarKit.restore()||{},{b:id}));mySkin=AvatarKit.legacySkin(myApp.b);AvatarKit.save(myApp);try{localStorage.removeItem('tw_chibi_v1')}catch(e){}AvatarKit.preload(id).catch(()=>{});lobbyAvatarRow()});
+  for(const id of Object.keys(AvatarKit.CAT)){if(AvatarKit.CAT[id].hidden&&!(myApp&&myApp.b===id))continue;add(AvatarKit.CAT[id].label,myApp&&myApp.b===id,()=>{myApp=AvatarKit.normalize(Object.assign({},myApp||AvatarKit.restore()||{},{b:id}));mySkin=AvatarKit.legacySkin(myApp.b);AvatarKit.save(myApp);try{localStorage.removeItem('tw_chibi_v1')}catch(e){}AvatarKit.preload(id).catch(()=>{});lobbyAvatarRow()})}
   SKINLABELS.forEach((lab,i)=>add(lab,!myApp&&mySkin===i,()=>{myApp=null;mySkin=i;try{localStorage.setItem('tw_chibi_v1',i)}catch(e){}lobbyAvatarRow()}));   // the original chibi characters
   const w=document.createElement('button');w.textContent='\u{1F457} Wardrobe';w.onclick=()=>Wardrobe.open({current:myApp||AvatarKit.restore()||AvatarKit.defaults(AvatarKit.DEFAULT_BASE),onApply:a=>{myApp=a;mySkin=AvatarKit.legacySkin(a.b);AvatarKit.save(a);try{localStorage.removeItem('tw_chibi_v1')}catch(e){}lobbyAvatarRow()}});row.appendChild(w)}
 lobbyAvatarRow();if(myApp)AvatarKit.preload(myApp.b).catch(()=>{});   // start the download while the player types a name
