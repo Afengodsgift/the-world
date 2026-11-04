@@ -557,7 +557,7 @@ const PlayerCombat=(()=>{
     const A=C.arena,co=opt?!!opt.co:!!(Q&&NET.mode==='host'),ring=Math.min(2.9,A.R*.3),a0=opt&&opt.a0!==undefined?opt.a0:Math.atan2(B.f.x-S.x,B.f.z-S.z);
     killDecoy(true);   // an afterimage would pull the phantoms' aim and clutter the shot
     const pl=Barrage.plan(co),role=NET.mode==='guest'?'g':'h',sl=r=>{const o=Barrage.slot(r,a0,co);return{x:A.x+o.dx,z:A.z+o.dz}},SL={h:sl('h'),g:sl('g')};
-    ult={B,t:0,ph:'pop',hits:0,dodged:0,T0:0,all:[B],t2:0,res:null,co,role,roles:pl.roles,sl:SL,mine:new Set()};
+    ult={B,dk:B.T.id==='dknight',t:0,ph:'pop',hits:0,dodged:0,T0:0,all:[B],t2:0,res:null,co,role,roles:pl.roles,sl:SL,mine:new Set()};
     const me0=SL[role];S.x=P.x=me0.x;S.z=P.z=me0.z;lx=S.x;lz=S.z;S.rot=P.face=a0;pendFace=null;lock=false;try{el.querySelector('#wLock').classList.remove('on')}catch(e){}
     if(co&&Q){const o=SL[role==='h'?'g':'h'];Q.x=o.x;Q.z=o.z}
     const put=(F,a,r)=>{F.f.x=A.x+Math.sin(a)*ring;F.f.z=A.z+Math.cos(a)*ring;F.f.face=Math.atan2(SL[r].x-F.f.x,SL[r].z-F.f.z);F.f.vx=F.f.vz=0};
@@ -573,7 +573,7 @@ const PlayerCombat=(()=>{
     msg('PHANTOM BARRAGE',1.4)}
   function endBarrage(){
     if(!ult)return;const U=ult;ult=null;tsc=1;
-    for(const F of U.all){if(F.ghost){try{WardenVfx.burst(F.f.x,H(F.f.x,F.f.z)+1.2,F.f.z,1)}catch(e){}rmGhost(F)}else{F.script=false;if(F.rm0)F.f.rm=F.rm0;F.ai.cool=Math.max(F.ai.cool||0,70)}}
+    for(const F of U.all){if(F.ghost){try{WardenVfx.burst(F.f.x,H(F.f.x,F.f.z)+1.2,F.f.z,1);if(U.dk&&NET.mode!=='guest')zoneAdd(F.f.x,F.f.z,true,'rune',2.4+Math.random()*.6,null,null,true)}catch(e){}rmGhost(F)}else{F.script=false;if(F.rm0)F.f.rm=F.rm0;F.ai.cool=Math.max(F.ai.cool||0,70)}}
     try{CineCam.skip()}catch(e){}
     barLanes(false);
     if(barEl){barEl.classList.remove('on');barEl.style.display='none';bq('.tx').classList.remove('on');bq('.rr').classList.remove('on');for(const q of barEl.querySelectorAll('.rg'))q.style.opacity=0}
@@ -616,16 +616,16 @@ const PlayerCombat=(()=>{
   // one mesh per zone (a phone cannot afford three): ring + soft fill + pillar merged, intensity per part carried in the vertex colour (additive blending: dimmer = fainter)
   function mergeG(parts){const pos=[],col=[],idx=[];let off=0;for(const pr of parts){const g=pr[0],k=pr[1],p=g.attributes.position,n=p.count;for(let i=0;i<n;i++){pos.push(p.getX(i),p.getY(i),p.getZ(i));col.push(k,k,k)}const ix=g.index;for(let i=0;i<ix.count;i++)idx.push(ix.getX(i)+off);off+=n;g.dispose()}
     const r=new THREE.BufferGeometry();r.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));r.setAttribute('color',new THREE.Float32BufferAttribute(col,3));r.setIndex(idx);return r}
-  const VOLT_R=1.9,ZK={rune:{r:2.8,bang:2.8,life:16,col:0x8a3cff,dmg:.2,st:30,tx:'VOID RUNE',cap:5},volt:{r:1.9,bang:3.2,life:6,col:0x66ccff,dmg:.12,st:20,tx:'SHOCKED',cap:6},echo:{r:2.2,bang:2.2,life:4,col:0xffd060,dmg:.1,st:20,tx:'ECHO BLADE',cap:6},mshot:{r:1.7,bang:1.7,life:3,col:0xbfe6ff,dmg:.1,st:16,tx:'REFLECTED',cap:6},decoy:{r:1.5,bang:0,life:1.2,col:0xff2a3a,dmg:0,st:0,tx:'',cap:3}};
+  const VOLT_R=1.9,ZK={rune:{r:2.8,bang:2.8,life:16,col:0x8a3cff,dmg:.2,st:30,tx:'VOID RUNE',cap:5},volt:{r:1.9,bang:3.2,life:6,col:0x66ccff,dmg:.12,st:20,tx:'SHOCKED',cap:6},echo:{r:2.2,bang:2.2,life:4,col:0xffd060,dmg:.1,st:20,tx:'ECHO BLADE',cap:6},mshot:{r:1.7,bang:1.7,life:3,col:0xbfe6ff,dmg:.1,st:16,tx:'REFLECTED',cap:6},hound:{r:1.5,bang:1.5,life:3,col:0xff8a3c,dmg:.07,st:20,tx:'MAULED',cap:4},decoy:{r:1.5,bang:0,life:1.2,col:0xff2a3a,dmg:0,st:0,tx:'',cap:3}};
   function zoneAdd(x,z,mine,kind,fuse,F,src){kind=kind||'rune';const volt=kind==='volt',K=ZK[kind]||ZK.rune;
     if(!zoneG){zoneG=new THREE.Group();scene.add(zoneG)}
     {const same=zones.filter(q=>q.kind===kind);while(same.length>=K.cap){zoneDel(same.shift())}}
-    const R=K.r,m=addMat(K.col,true),parts=[[ringGeo(x,z,R*.86,R,40,.12),1],[discGeo(x,z,R*.86,24,.1),.2]];
+    const wet=volt&&wetT>0,R=K.r*(wet?2:1),m=addMat(wet?0x8fe3ff:K.col,true),parts=[[ringGeo(x,z,R*.86,R,40,.12),1],[discGeo(x,z,R*.86,24,.1),.2]];
     if(kind!=='mshot'&&kind!=='decoy'){const pg=new THREE.CylinderGeometry(R*.07,R*.16,2.8,10,1,true);pg.translate(x,H(x,z)+1.4,z);parts.push([pg,.28])}
     const g=new THREE.Mesh(mergeG(parts),m);g.frustumCulled=false;
     zoneG.add(g);
     const lm=addMat(0xc08cff);lm.depthTest=false;const ln=new THREE.Mesh(BEAM_G,lm);ln.visible=false;ln.frustumCulled=false;ln.renderOrder=995;zoneG.add(ln);
-    zones.push({x,z,age:0,g,m,ln,lm,fuse:fuse===undefined?-1:fuse,lit:0,kind,tk:0,ch:0,nx:null,F:F||null,hit:0,col:K.col});
+    zones.push({wet:wet?1:0,R:R,x:x,z:z,age:0,g,m,ln,lm,fuse:fuse===undefined?-1:fuse,lit:0,kind,tk:0,ch:0,nx:null,F:F||null,hit:0,col:K.col});
     if(src)beamSet(ln,src.x,src.y===undefined?1.8:src.y,src.z,x,H(x,z)+.4,z,.07);
     try{WardenVfx.spawn(x,H(x,z)+.5,z,3,3,2.2,Math.random()*6.28,24)}catch(e){}
     if(mine&&NET.mode==='host'&&Q){try{WardenNet.send({k:'sp',t:'zr',s:site.id,x:+x.toFixed(2),z:+z.toFixed(2),q:kind,f:fuse})}catch(e){}}}
@@ -643,6 +643,7 @@ const PlayerCombat=(()=>{
     if(mine&&NET.mode==='host'&&Q){try{WardenNet.send({k:'sp',t:'zc',s:site.id})}catch(e){}}return true}
   function voltSpawn(tx,tz,mine,n,delayMs){setTimeout(()=>{if(!on||state!=='fight')return;const a0=Math.random()*6.28;for(let i=0;i<n;i++){const a=a0+i*6.28/n,r=2.6+Math.random()*1.6;let x=tx+Math.cos(a)*r,z=tz+Math.sin(a)*r;const A=C&&C.arena;if(A){const ax=x-A.x,az=z-A.z,ad=Math.hypot(ax,az),lim=A.R-1;if(ad>lim){x=A.x+ax/ad*lim;z=A.z+az/ad*lim}}zoneAdd(x,z,mine,'volt')}},delayMs)}
   function zoneTick(dt){
+    if(wetT>0)wetT-=dt;
     if(!zones.length)return;
     let cx=0,cz=0,pull=false;
     for(const q of zones.slice()){q.age+=dt;
@@ -652,12 +653,12 @@ const PlayerCombat=(()=>{
         q.g.visible=Math.floor(q.age*14)%2===0}
       if(q.kind==='mshot'&&q.fuse<.25)q.ln.visible=false;
       if(volt){if(q.ch>0&&q.nx){q.ch-=dt;beamSet(q.ln,q.x,H(q.x,q.z)+.5,q.z,q.nx.x,H(q.nx.x,q.nx.z)+.5,q.nx.z,.11)}
-        q.tk-=dt;if(q.tk<=0&&q.fuse<0&&on&&state==='fight'&&P&&P.act!=='dead'&&Math.hypot(P.x-q.x,P.z-q.z)<VOLT_R&&!(P.inv>0)&&!(P.act==='dodge'&&P.pt>=Moves.dodge.iStart&&P.pt<=Moves.dodge.iEnd)){q.tk=.7;P.hp=Math.max(1,P.hp-Math.max(1,Math.round(P.hpMax*.015)));hurt=true;try{flash(.15,'rgba(150,210,255,.5)');tone(700,300,.08,'square',.05)}catch(e){}}}
+        q.tk-=dt;if(q.tk<=0&&q.fuse<0&&on&&state==='fight'&&P&&P.act!=='dead'&&Math.hypot(P.x-q.x,P.z-q.z)<(q.R||VOLT_R)&&!(P.inv>0)&&!(P.act==='dodge'&&P.pt>=Moves.dodge.iStart&&P.pt<=Moves.dodge.iEnd)){q.tk=.7;P.hp=Math.max(1,P.hp-Math.max(1,Math.round(P.hpMax*.015)));hurt=true;try{flash(.15,'rgba(150,210,255,.5)');tone(700,300,.08,'square',.05)}catch(e){}}}
       if(volt){}else if(q.lit>0){q.lit-=dt;pull=true;cx+=q.x;cz+=q.z;beamSet(q.ln,q.x,H(q.x,q.z)+.5,q.z,S.x,H(S.x,S.z)+1,S.z,.1)}else if(!volt)q.ln.visible=false;
       if(q.fuse>=0){q.fuse-=dt;if(q.fuse<=0){zoneBang(q);continue}}
       if(q.age>life)zoneDel(q)}
     if(pull&&on&&state==='fight'&&P&&P.act!=='dead'&&!(P.act==='dodge'&&P.pt>=Moves.dodge.iStart&&P.pt<=Moves.dodge.iEnd)){const n=zones.filter(q=>q.lit>0).length;if(n){cx/=n;cz/=n;const dx=cx-S.x,dz=cz-S.z,d=Math.hypot(dx,dz)||1,st=Math.min(d,2.6*dt);let nx=S.x+dx/d*st,nz=S.z+dz/d*st;const A=C&&C.arena;if(A){const ax=nx-A.x,az=nz-A.z,ad=Math.hypot(ax,az),lim=A.R-1;if(ad>lim){nx=A.x+ax/ad*lim;nz=A.z+az/ad*lim}}S.x=nx;S.z=nz;P.x=nx;P.z=nz}}}
-  function zoneBang(q){const volt=q.kind==='volt',K=ZK[q.kind]||ZK.rune,R=K.bang,dmg=K.dmg;
+  function zoneBang(q){const volt=q.kind==='volt',K=ZK[q.kind]||ZK.rune,R=K.bang*(q.wet?1.7:1),dmg=K.dmg;
     try{WardenVfx.burst(q.x,H(q.x,q.z)+1,q.z,volt?2:3);WardenVfx.spawn(q.x,H(q.x,q.z)+.8,q.z,volt?2:0,3,volt?2.8:3.4,Math.random()*6.28,26)}catch(e){}
     if(on&&state==='fight'&&P&&P.act!=='dead'&&Math.hypot(P.x-q.x,P.z-q.z)<R&&!(P.act==='dodge'&&P.pt>=Moves.dodge.iStart&&P.pt<=Moves.dodge.iEnd)&&!(P.inv>0)){
       P.hp=Math.max(1,P.hp-Math.round(P.hpMax*dmg));P.act='stun';P.sk='hit';P.stun=K.st;P.guard=false;P.ph=null;P.mv=null;P.c=0;hurt=true;
@@ -704,7 +705,7 @@ const PlayerCombat=(()=>{
       try{WardenVfx.burst(f.x,H(f.x,f.z)+1.1,f.z,3);CombatCore.moveBy(C,f,-dz/d*2.8*sg+dx/d*.8,dx/d*2.8*sg+dz/d*.8);f.face=Math.atan2(P.x-f.x,P.z-f.z);WardenVfx.slash(f.x,H(f.x,f.z)+1.2,f.z,f.face,true,1);msg('ABYSSAL ROLL',.9);tone(240,90,.25,'sawtooth',.1)}catch(e){}
       F.ai.follow=Math.random()<.5?'cut':'twin';F.ai.cool=0;F.ai.busy=false;rollT=7;break}}
   // GWYNDOLIN'S MIRRORS (phase 2): three lunar mirrors stand round the arena. When she fires a Sun Volley each mirror throws its own shot at where you will BE (your velocity x 0.7 s): a ring marks it for 0.9 s, then it lands. Run in a straight line and you run into it.
-  let mirrors=[],pvx=0,pvz=0,pvl=null;
+  let wetT=0,mirrors=[],pvx=0,pvz=0,pvl=null;
   let mirTex=null;
   function mirTexture(){if(mirTex)return mirTex;const c=document.createElement('canvas');c.width=64;c.height=128;const g=c.getContext('2d'),gr=g.createLinearGradient(0,0,0,128);gr.addColorStop(0,'rgba(210,240,255,.55)');gr.addColorStop(.5,'rgba(120,190,255,.22)');gr.addColorStop(1,'rgba(210,240,255,.55)');g.fillStyle=gr;g.fillRect(0,0,64,128);
     g.strokeStyle='rgba(235,250,255,.95)';g.lineWidth=5;g.strokeRect(3,3,58,122);g.strokeStyle='rgba(255,255,255,.35)';g.lineWidth=7;g.beginPath();g.moveTo(8,118);g.lineTo(56,10);g.stroke();mirTex=new THREE.CanvasTexture(c);return mirTex}
@@ -737,6 +738,35 @@ const PlayerCombat=(()=>{
   // ERIKA, SMOKE STEP: she dissolves (the blink), a violet smoke clone of her stays where she stood for 3.4 s, takes aim and looses a shot at where you will be (marked 0.9 s), then bursts. Cut the clone and it pops harmlessly: no damage, no reward, but the shot never comes.
   function smokeClone(F){if(NET.mode==='guest'||C.F.v||!on||state!=='fight')return;
     try{const g=addGhost(F,3,F.f.x,F.f.z,'sm');g.f.face=F.f.face;g.sm=3.4;g.shot=false;g.owner=F;try{WardenVfx.burst(F.f.x,H(F.f.x,F.f.z)+1,F.f.z,1);WardenVfx.spawn(F.f.x,H(F.f.x,F.f.z)+1,F.f.z,3,3,3,Math.random()*6.28,30)}catch(e){}}catch(e){}}
+  // THE CAPRA DEMON'S HOUNDS: two hounds (built from boxes, no dog model) pace round you at the edge of the fight. Every ~5 s one picks the spot you will be on and a ring marks it 0.9 s, then it leaps and mauls whatever stands there (7% HP, short stun). A clean cut on a pacing hound drives it off for 14 s. Host/solo only; the leap ring reaches a guest like any zone, the hound body does not (unverified).
+  let hounds=[],houndDone=false;
+  function houndBody(){const g=new THREE.Group(),mt=new THREE.MeshBasicMaterial({color:0x2a1a14}),em=new THREE.MeshBasicMaterial({color:0xff5a2a});
+    const bx=(w,h,d,x,y,z,m)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m||mt);o.position.set(x,y,z);g.add(o);return o};
+    bx(.5,.45,1.1,0,.62,0);bx(.36,.34,.42,0,.78,.72);bx(.2,.14,.3,0,.7,1.02);bx(.07,.07,.07,-.1,.86,.88,em);bx(.07,.07,.07,.1,.86,.88,em);bx(.12,.12,.5,0,.7,-.78);
+    for(const[x,z]of[[-.18,.4],[.18,.4],[-.18,-.4],[.18,-.4]])bx(.1,.5,.1,x,.25,z);
+    g.frustumCulled=false;return g}
+  function houndsAdd(){if(hounds.length||!C||!C.arena||!scene)return;for(let i=0;i<2;i++){const g=houndBody();scene.add(g);hounds.push({g,a:i*3.14+Math.random(),x:0,z:0,st:'lurk',t:2.5+i*2.6+Math.random()*2,dead:0,fx:0,fz:0,sx:0,sz:0})}houndDone=true}
+  function houndsClear(){for(const h of hounds){if(h.g.parent)h.g.parent.remove(h.g);h.g.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose()})}hounds=[];houndDone=false}
+  function houndTick(dt){
+    if(!houndDone&&on&&state==='fight'&&NET.mode!=='guest'&&foes.some(F=>F.T.id==='capra'&&F.awake&&F.f.act!=='dead'))houndsAdd();
+    if(!hounds.length)return;const live=foes.some(F=>F.T.id==='capra'&&F.f.act!=='dead');
+    for(const h of hounds){
+      if(!live||!on||state!=='fight'){h.g.visible=false;continue}
+      if(h.dead>0){h.dead-=dt;h.g.visible=false;if(h.dead<=0){h.st='lurk';h.t=2+Math.random()*2}continue}
+      h.g.visible=true;
+      if(h.st==='lurk'){h.a+=dt*.7;const A=C.arena,R=Math.min(6.5,A.R-1.5);h.x=S.x+Math.cos(h.a)*R;h.z=S.z+Math.sin(h.a)*R;const dx=h.x-A.x,dz=h.z-A.z,d=Math.hypot(dx,dz),lim=A.R-1;if(d>lim){h.x=A.x+dx/d*lim;h.z=A.z+dz/d*lim}
+        h.g.position.set(h.x,H(h.x,h.z)+Math.abs(Math.sin(h.a*9))*.08,h.z);h.g.rotation.y=Math.atan2(S.x-h.x,S.z-h.z);
+        if(P&&P.act==='attack'&&P.ph&&P.ph[P.pi]&&P.ph[P.pi].k==='active'&&Math.hypot(h.x-S.x,h.z-S.z)<3.1&&Math.abs(((Math.atan2(h.x-S.x,h.z-S.z)-P.face+9.42)%6.283)-3.14)<1.1){h.dead=14;try{WardenVfx.burst(h.x,H(h.x,h.z)+.7,h.z,1);msg('A HOUND YELPS AND FLEES',1)}catch(e){}continue}
+        h.t-=dt;if(h.t<=0&&P.act!=='dead'&&!hounds.some(q=>q!==h&&q.st==='leap')){h.st='leap';h.t=.9;h.sx=h.x;h.sz=h.z;h.fx=S.x+pvx*.6;h.fz=S.z+pvz*.6;const A=C.arena,dx=h.fx-A.x,dz=h.fz-A.z,d=Math.hypot(dx,dz),lim=A.R-1;if(d>lim){h.fx=A.x+dx/d*lim;h.fz=A.z+dz/d*lim}
+          zoneAdd(h.fx,h.fz,true,'hound',.9,null,{x:h.x,y:.9,z:h.z});try{tone(160,320,.2,'sawtooth',.08)}catch(e){}}}
+      else if(h.st==='leap'){h.t-=dt;const u=Math.max(0,Math.min(1,1-h.t/.9)),e=u*u*(3-2*u);h.x=h.sx+(h.fx-h.sx)*e;h.z=h.sz+(h.fz-h.sz)*e;h.g.position.set(h.x,H(h.x,h.z)+Math.sin(u*Math.PI)*1.3,h.z);h.g.rotation.y=Math.atan2(h.fx-h.sx,h.fz-h.sz);
+        if(h.t<=0){h.st='lurk';h.t=4.5+Math.random()*3;h.a=Math.atan2(h.z-S.z,h.x-S.x)}}}}
+  // GWYNDOLIN'S ILLUSIONS (phase 2): each Sun Volley she splits two moonlit copies either side of you. They hang 3.4 s, each looses its own marked shot at where you will be (1.9 s before they fade), and one clean cut disperses a copy (and its shot). Host/solo only (same body rules as the smoke clone).
+  function illusions(F){if(NET.mode==='guest'||!on||state!=='fight'||!F.ai||!F.ai.ph2||C.F.v||C.F.u||ult)return;
+    const a0=Math.atan2(F.f.x-S.x,F.f.z-S.z);let n=0;
+    for(const[k,da]of[[3,1.15],[4,-1.15]]){let x=S.x+Math.sin(a0+da)*4.6,z=S.z+Math.cos(a0+da)*4.6;const A=C.arena;if(A){const dx=x-A.x,dz=z-A.z,d=Math.hypot(dx,dz),lim=A.R-1.5;if(d>lim){x=A.x+dx/d*lim;z=A.z+dz/d*lim}}
+      try{const g=addGhost(F,k,x,z,'sm');g.f.face=Math.atan2(S.x-x,S.z-z);g.sm=3.4;g.shot=false;g.owner=F;g.illu=1;WardenVfx.burst(x,H(x,z)+1,z,1);WardenVfx.spawn(x,H(x,z)+1,z,3,3,3,Math.random()*6.28,30);n++}catch(e){}}
+    if(n)try{msg('MOONLIT ILLUSIONS',1.2)}catch(e){}}
   function smokeTick(dt){for(const F of foes.slice()){if(!(F.sm>0))continue;F.sm-=dt;const f=F.f;f.face=Math.atan2(S.x-f.x,S.z-f.z);
       if(!F.shot&&F.sm<1.9){F.shot=true;const px=S.x+pvx*.7,pz=S.z+pvz*.7;zoneAdd(px,pz,true,'mshot',.9,F,{x:f.x,y:1.5,z:f.z})}
       if(F.sm<=0||!on||state!=='fight'){try{WardenVfx.burst(f.x,H(f.x,f.z)+1,f.z,1);WardenVfx.spawn(f.x,H(f.x,f.z)+1,f.z,3,3,3.2,Math.random()*6.28,30)}catch(e){}rmGhost(F)}}}
@@ -940,8 +970,9 @@ const PlayerCombat=(()=>{
       if(e.t==='start'&&byId[e.a]&&byId[e.a].T.boss&&!byId[e.a].ghost&&!byId[e.a].script)for(const d of[decoy,rdecoy])if(d&&d.t>0&&!(d.seen>=2)){d.seen=(d.seen||0)+1;if(d.seen===2)try{toast('A boss sees through your shadow',1.8)}catch(x){}}   // a boss is fooled by a decoy twice, then it knows
       if(e.t==='start'&&NET.mode!=='guest'){const F=byId[e.a];if(!F||F.ghost)continue;if(F.pre&&e.move!==undefined&&!Tricks.isBlink(e.move)){const f=F.f;F.pre=0;if(f.ph&&f.ph[0]&&f.ph[0].n-8>=18){f.pt=8;f.pk=8}}   // dynamic blink: the strike was already under way while he was gone (never cuts the windup under 18 ticks)
 
+        if(F.T.id==='gwyn'&&(e.move==='storm'||e.move==='stormgrid')){wetT=9;try{msg('THE TILES RUN WET',1.4)}catch(x){}}
         if(F.T.id==='gwyn'&&(e.move==='storm'||e.move==='stormgrid'||e.move==='spear'||e.move==='crownfall')){const tg=aiTarget(F.f);voltSpawn(tg.x,tg.z,true,e.move==='crownfall'?3:e.move==='spear'?2:3,e.move==='crownfall'?1000:900)}
-        if(F.T.id==='gdn'&&e.move==='sunvolley')mirrorVolley();
+        if(F.T.id==='gdn'&&e.move==='sunvolley'){mirrorVolley();illusions(F)}
         if(F.T.ai==='archer'&&Tricks.isBlink(e.move))smokeClone(F);
         if(F.T.id==='vampire'&&Tricks.isBlink(e.move))zoneAdd(F.f.x,F.f.z,true,'decoy',undefined,F);
         if(F.T.id==='ganfaul'){const mm=Moves[e.move];if(mm&&mm.dmg>0&&!mm.fx&&mm.reach<=4.6&&F.f.ph&&F.f.ph[0]){const wf=F.f,wn=Math.round(wf.ph[0].n/60*1000),ax=wf.x+Math.sin(wf.face)*mm.reach*.55,az=wf.z+Math.cos(wf.face)*mm.reach*.55;setTimeout(()=>{if(on&&state==='fight')zoneAdd(ax,az,true,'echo',1.5)},wn)}}
@@ -957,7 +988,7 @@ const PlayerCombat=(()=>{
         if(f.act==='dead'||f.act==='stun'){blinkEnd(F);continue}
         const tg=C.F[B.tg]||P;
         if(!B.lock&&f.act==='attack'&&f.ph&&f.ph[0]&&f.pt>=f.ph[0].n-Tricks.BLINK.REVEAL){B.lock=true;B.spot=Tricks.blinkSpotV(B.vec||'behind',tg.x,tg.z,tg.face,C.arena,B.sg);blinkRing(B.spot.x,B.spot.z,true);try{if(NET.mode==='host'&&Q)WardenNet.send({k:'sp',t:'br',s:site.id,b:F.id,x:+B.spot.x.toFixed(2),z:+B.spot.z.toFixed(2)})}catch(x){}}
-        if(B.n>=Tricks.BLINK.HIDE)f.inv=Math.max(f.inv,3)
+        if(B.n>=Tricks.BLINK.HIDE||f.mv&&f.mv.id==='blinkz')f.inv=Math.max(f.inv,3)
         if(f.act==='attack'&&f.ph&&f.ph[f.pi]&&f.ph[f.pi].k==='release'&&f.pk===0){   // the reappearance
           const sp=B.spot||Tricks.blinkSpot(tg.x,tg.z,tg.face,C.arena);try{WardenVfx.burst(sp.x,H(sp.x,sp.z)+1.2,sp.z,1);WardenVfx.slash(sp.x,H(sp.x,sp.z)+1.2,sp.z,tg.face,true,1);WardenVfx.slash(sp.x,H(sp.x,sp.z)+1.5,sp.z,tg.face+1.1,true,1);sfx('whoosh',.6,.7,()=>tone(200,80,.2,'sawtooth',.1))}catch(x){}
           f.x=sp.x;f.z=sp.z;f.face=Math.atan2(tg.x-sp.x,tg.z-sp.z);f.act='free';f.ph=null;f.mv=null;f.inv=0;f.pt=0;f.pk=0;F.ai.cool=0;F.ai.busy=false;
@@ -967,12 +998,12 @@ const PlayerCombat=(()=>{
         if(f.ph&&f.ph[f.pi]&&f.ph[f.pi].k==='release'&&f.pk===0){F.sn=null;const tg=C.F[S_.tg]||P,n=Tricks.count(F.ai.ph2,!!(Q&&NET.mode==='host')),seed=(Math.random()*2147483647)|0,cn=++trapN;
           trapsPlace(seed,n,tg.x,tg.z,cn);try{if(NET.mode==='host'&&Q)WardenNet.send({k:'sp',t:'tp',s:site.id,seed,n,x:+tg.x.toFixed(2),z:+tg.z.toFixed(2),c:cn})}catch(x){}}}}}
   function trickTick(dt){
-    trapsTick(dt);try{if(pvl){pvx+=((S.x-pvl.x)/Math.max(dt,.001)-pvx)*.25;pvz+=((S.z-pvl.z)/Math.max(dt,.001)-pvz)*.25}pvl={x:S.x,z:S.z};zoneTick(dt);mirrorTick(dt);smokeTick(dt);pierceTick(dt);dsTick(dt);pinTick(dt);abyssTick(dt);histTick(dt)}catch(e){}
+    trapsTick(dt);try{if(pvl){pvx+=((S.x-pvl.x)/Math.max(dt,.001)-pvx)*.25;pvz+=((S.z-pvl.z)/Math.max(dt,.001)-pvz)*.25}pvl={x:S.x,z:S.z};zoneTick(dt);houndTick(dt);mirrorTick(dt);smokeTick(dt);pierceTick(dt);dsTick(dt);pinTick(dt);abyssTick(dt);histTick(dt)}catch(e){}
     for(const F of foes){if(!F.T.blink)continue;   // what is shown follows the synced sim state (act / move / phase tick), so host and guest agree even when a phone lags
       const bl=F.f.act==='attack'&&F.f.mv&&Tricks.isBlink(F.f.mv.id);
       if(bl&&!F.bl&&NET.mode==='guest'){F.bl={t:0};blinkFx(F)}
       if(F.bl){F.bl.t+=dt;if(F.bl.long&&bl&&F.f.pt>=Tricks.BLINK.HIDE){F.bl.sw-=dt;if(F.bl.sw<=0){F.bl.sw=.28;try{const a=Math.random()*6.28,r=1.6+Math.random()*1.4;WardenVfx.spawn(P.x+Math.cos(a)*r,H(P.x,P.z)+.6+Math.random()*1.2,P.z+Math.sin(a)*r,3,3,1.8,a,26)}catch(x){}}}
-        if(!bl&&NET.mode==='guest'||F.bl.t>(F.bl.long?6.5:4.2)||F.f.act==='dead')blinkEnd(F);else{const hide=bl&&F.f.pt>=Tricks.BLINK.HIDE;if(F.body.g.visible===hide)F.body.g.visible=!hide}}}}
+        if(!bl&&NET.mode==='guest'||F.bl.t>(F.bl.long?6.5:4.2)||F.f.act==='dead')blinkEnd(F);else{const hide=bl&&F.f.pt>=(F.f.mv&&F.f.mv.id==='blinkz'?1:Tricks.BLINK.HIDE);if(F.body.g.visible===hide)F.body.g.visible=!hide}}}}
   // The Three Oaths: one signature attack at a time (Tricks.sigBusy); F.sg counts the quiet gap after a signature move ends
   function Foes_sig(q,F){const inSig=q.act==='attack'&&q.mv&&Tricks.SIG[q.mv.id];if(inSig)F.sg=Tricks.GAP;else if(F.sg>0)F.sg--;
     return Tricks.sigBusy(foes.filter(o=>o.T.oath&&!o.ghost).map(o=>({id:o.id,alive:o.f.act!=='dead',act:o.f.act,mv:o.f.mv&&o.f.mv.id,gap:o.sg||0})),F.id)}
@@ -1090,7 +1121,7 @@ const PlayerCombat=(()=>{
     if(S.grounded||S.state==='swim')gBase=S.y;P.y=Math.max(0,S.y-gBase);
     decoyTick(decoy,'Z',dt);decoyTick(rdecoy,'Y',dt);
     const b=el&&el.querySelector('#wShadow');if(b){const t=shCd>0?Math.ceil(shCd):0;if(b._c!==t){b._c=t;b.textContent=t?'Shadow '+t:'Shadow';b.classList.toggle('cd',t>0)}}}
-  function leave(hold){pun=null;pcs.n=0;ls=null;ds=null;pin=null;try{mirrorsClear()}catch(e){}try{zonesClear()}catch(e){}try{if(moodEl)moodEl.style.opacity='0'}catch(e){}svEnd();try{WardenFx.clear()}catch(e){}   // hold: keep the corpses of a cleared site in the world
+  function leave(hold){wetT=0;try{houndsClear()}catch(e){}pun=null;pcs.n=0;ls=null;ds=null;pin=null;try{mirrorsClear()}catch(e){}try{zonesClear()}catch(e){}try{if(moodEl)moodEl.style.opacity='0'}catch(e){}svEnd();try{WardenFx.clear()}catch(e){}   // hold: keep the corpses of a cleared site in the world
     if(!on)return;endSet();trapsClear();try{blinkRing(0,0,false)}catch(e){}killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');document.body.classList.remove('warden-duel');if(sword&&sword.grip)sword.grip.visible=false;if(sword2&&sword2.grip)sword2.grip.visible=false;pendFace=null;for(const w of [twinR,twinL])if(w&&w.grip)w.grip.visible=false;if(stance==='twin'){stance='main';if(pAnim){try{pAnim.off()}catch(e){}pAnim=null}try{const b=el&&el.querySelector('#wSwap');if(b){b.classList.remove('on');b.textContent='Twin'}}catch(e){}}
     if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.combat(0,0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
