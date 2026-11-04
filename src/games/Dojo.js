@@ -206,7 +206,8 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
   function restart(){fighting=false;el.classList.remove('on');document.body.classList.remove('dojo-fight');try{Expedition.release('dojo')}catch(e){}if(pAnim)pAnim.off();for(const k in C.F)delete C.F[k];start()}
   // ---------- events ----------
   function hitFx(e,T){const t=byId[e.d],pos=e.d==='P'?P:t&&t.f,big=['f_spin','upper','round','power','take','throw','f_dash','drop'].includes(e.move);if(!pos)return;
-    burst(pos.x,H(pos.x,pos.z)+1.25,pos.z,big?'big':'hit',big?14:8)}
+    const zh=e.zone==='h'?1.65:e.zone==='l'?.55:1.2;burst(pos.x,H(pos.x,pos.z)+zh,pos.z,big?'big':'hit',big?14:8);
+    if(e.a==='P'&&e.zone==='h'&&!big&&Math.random()<.35){cs.shk=Math.max(cs.shk,.3)}else if(e.a==='P'&&e.zone==='l'&&t){hint('LEG HIT: slowed',.8)}}
   // ---------- weapons: the Staff Fighter's bo staff. GRAB it or PERFECT-PARRY it and it is yours for a while (+45% damage) ----------
   let pStaff=null,wT=0;
   function staffMesh(len){const g=new THREE.Group(),m=new THREE.Mesh(new THREE.CylinderGeometry(.028,.028,len,8),new THREE.MeshStandardMaterial({color:'#8a5a30',roughness:.7})),a=new THREE.Mesh(new THREE.CylinderGeometry(.036,.036,.16,8),new THREE.MeshStandardMaterial({color:'#2a2020',roughness:.6}));a.position.y=len/2-.08;const b=a.clone();b.position.y=-len/2+.08;g.add(m,a,b);g.traverse(c=>{if(c.isMesh)c.castShadow=true});return g}

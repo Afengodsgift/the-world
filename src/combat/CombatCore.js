@@ -32,7 +32,7 @@ const CombatCore=(()=>{
   function fistTarget(C,f,staggered){const R=staggered?Fists.TAKE_RANGE:Fists.THROW_RANGE;let best=null,bd=1e9;
     for(const id of C.order){const t=C.F[id];if(!enemyOf(f,t))continue;if(staggered&&!(t.act==='stun'&&t.sk==='stagger'))continue;
       const d=Math.hypot(t.x-f.x,t.z-f.z);if(d>R+t.r||d>=bd)continue;if(SwordHit.angd(f.face,Math.atan2(t.x-f.x,t.z-f.z))>1.15)continue;bd=d;best=t}return best}
-  function startMove(C,f,id,hold){const m=Moves[id];if(m&&m.gr)grabFace(C,f,id);f.act='attack';f.mv=m;f.ph=Moves.expand(id,hold,f.tm);f.hold=hold|0;f.pi=0;f.pk=0;f.pt=0;f.done={};f.guard=false;if(m.inv)f.inv=Math.max(f.inv||0,m.inv);if(m.stam)spend(f,m.stam);emit(C,'start',f.id,null,{move:id,per:m.per?1:0});
+  function startMove(C,f,id,hold){const m=Moves[id];if(m&&m.gr)grabFace(C,f,id);f.act='attack';f.mv=m;f.ph=Moves.expand(id,hold,f.tm);f.hold=hold|0;f.pi=0;f.pk=0;f.pt=0;f.done={};f.guard=false;if(m.zn){f.zc=(f.zc||0)+1;f.zn=m.zn.charAt((f.zc+f.id.charCodeAt(0))%m.zn.length)}else f.zn=null;if(m.inv)f.inv=Math.max(f.inv||0,m.inv);if(m.stam)spend(f,m.stam);emit(C,'start',f.id,null,{move:id,per:m.per?1:0});
     if(m.fx)for(const d of m.fx)if(d.on==='start')spawnFx(C,f,d);skipEmpty(f)}
   const enemyOf=(a,t)=>t!==a&&t.act!=='dead'&&!(a.team&&t.team===a.team);
   function nearestFoe(C,a){let best=null,bd=1e9;for(const id of C.order){const t=C.F[id];if(!enemyOf(a,t))continue;const d=Math.hypot(t.x-a.x,t.z-a.z);if(d<bd){bd=d;best=t}}return best}
@@ -82,7 +82,8 @@ const CombatCore=(()=>{
     const snap={};for(const id of C.order){const f=C.F[id];snap[id]={x:f.x,z:f.z,r:f.r,rm:f.rm}}
     // (3) root motion
     for(const id of C.order){const f=C.F[id];if(f.act==='dead')continue;if(f.inv>0)f.inv--;
-      if(f.act==='free'||f.act==='charge'){const k=(f.act==='charge'?.4:f.guard?.5:1)*(f.spd||1),L=Math.hypot(f.ex,f.ez),s=L>1?1/L:1;moveBy(C,f,f.ex*s*SPEED*k,f.ez*s*SPEED*k)}
+      if(f.limp>0)f.limp--;if(f.act==='stun'&&f.lm==='throw'&&f.sk!=='stagger'&&f.stun>0){if(!f.r0){f.r0=f.r;f.r=Math.max(f.r,.95)}}else if(f.r0){f.r=f.r0;f.r0=0}   // a thrown body lies on the floor: it takes real space until it gets up
+      if(f.act==='free'||f.act==='charge'){const k=(f.act==='charge'?.4:f.guard?.5:1)*(f.limp>0?.72:1)*(f.spd||1),L=Math.hypot(f.ex,f.ez),s=L>1?1/L:1;moveBy(C,f,f.ex*s*SPEED*k,f.ez*s*SPEED*k)}
       else if(f.act==='attack'){const p=f.ph[f.pi];if(p&&p.move){const d=p.move/p.n,[fx,fz]=faceV(f);moveBy(C,f,fx*d,fz*d)}}
       else if(f.act==='dodge'){const D=f.side?Moves.sidestep:Moves.dodge,R=f.side?Moves.sideRoot:Moves.dodgeRoot,i=f.pt-D.rootT0;if(i>=0&&i<R.length)moveBy(C,f,f.dir[0]*R[i],f.dir[1]*R[i])}
       if(f.kr>0){const s=Math.min(f.kr,.12);f.kr-=s;moveBy(C,f,f.kx*s,f.kz*s)}}
@@ -126,13 +127,14 @@ const CombatCore=(()=>{
       else if(o.k==='block'){t.st=mv.gb?0:Math.max(0,t.st-mv.dmg*.8*sc);t.sr=0;addPo(C,t,mv.pdmg*.7*sc);emit(C,'block',a.id,t.id,{seg:o.seg});hs=Math.max(hs,3);
         if(t.st<=0&&t.act==='free'){stunF(t,45,'stagger');emit(C,'guardbreak',a.id,t.id)}}
       else if(t.inv>0){emit(C,'immune',a.id,t.id,{seg:o.seg})}   // the phase roar: nothing lands (a few ticks, see below)
-      else{const crit=stag0[t.id]?2.5:1,back=a.bk&&SwordHit.angd(t.face,Math.atan2(a.x-t.x,a.z-t.z))>2.2?1+a.bk:1,dm=mv.dmg*sc*(!o.fx&&mv.sdm&&mv.sdm[o.seg]||1)*crit*back*(a.dm||1)*(a.mm&&a.mm[mv.id]||1)*(a.swb>C.tick&&typeof Twin!=='undefined'?Twin.SWAP_BONUS:1);   // a.mm: per-move damage multipliers (the Iron Fist fighting styles)   // a.bk: the Shadow Edge style hits a foe that is facing away harder
+      else{const zn=!o.fx&&mv.zn?a.zn:null,zd=zn==='h'?1.2:zn==='l'?.8:1,zp=zn==='m'?1.2:zn==='l'?.7:1;   // HIT ZONES (hand moves): head hits hurt and stun more, body hits break posture, leg hits hurt less but cripple the foe's footwork
+        const crit=stag0[t.id]?2.5:1,back=a.bk&&SwordHit.angd(t.face,Math.atan2(a.x-t.x,a.z-t.z))>2.2?1+a.bk:1,dm=mv.dmg*zd*sc*(!o.fx&&mv.sdm&&mv.sdm[o.seg]||1)*crit*back*(a.dm||1)*(a.mm&&a.mm[mv.id]||1)*(a.swb>C.tick&&typeof Twin!=='undefined'?Twin.SWAP_BONUS:1);   // a.mm: per-move damage multipliers (the Iron Fist fighting styles)   // a.bk: the Shadow Edge style hits a foe that is facing away harder
         // PHASE GATE (bosses with .pg): damage that would carry the foe across its phase line, or kill it before the phase has happened, stops one point past the line and starts the roar. One-shots, huge crits and two co-op hits in the same tick can no longer skip a phase.
         const gate=t.pg>0?Math.ceil(t.hpMax*t.pg)-1:-1;let nh=t.hp-dm;
         if(gate>=0&&!t.pgd){if(t.hp<=gate)t.pgd=true;else if(nh<=gate){nh=gate;t.pgd=true;if(t.rise){t.inv=RISE+10;stunF(t,RISE,'rise');t.hold=0}else t.inv=PHI;emit(C,'phase',a.id,t.id,{rise:t.rise?1:0})}}
-        t.hp=Math.max(0,nh);t.pr=0;emit(C,'hit',a.id,t.id,{move:mv.id,seg:o.seg,dmg:dm,crit:crit>1,fx:o.fx});hs=Math.max(hs,mv.hs);
+        t.hp=Math.max(0,nh);t.pr=0;emit(C,'hit',a.id,t.id,{move:mv.id,seg:o.seg,dmg:dm,crit:crit>1,fx:o.fx,zone:zn});hs=Math.max(hs,mv.hs);
         if(t.hp<=0){t.act='dead';t.guard=false;t.ph=null;t.mv=null;emit(C,'dead',a.id,t.id)}
-        else{t.lm=mv.id;const wasStag=t.act==='stun'&&t.sk==='stagger';if(!wasStag&&!t.sa&&!(t.act==='stun'&&t.sk==='rise'))stunF(t,mv.stun,'hit');addPo(C,t,mv.pdmg*sc*(t.sa?.8:1)*(a.pm||1));
+        else{t.lm=mv.id;const wasStag=t.act==='stun'&&t.sk==='stagger';if(!wasStag&&!t.sa&&!(t.act==='stun'&&t.sk==='rise'))stunF(t,Math.round(mv.stun*(zn==='h'?1.25:1)),'hit');t.hz=zn;if(zn==='l'&&!t.sa)t.limp=100;addPo(C,t,mv.pdmg*zp*sc*(t.sa?.8:1)*(a.pm||1));
           if(!t.sa){const bx=Math.sin(o.br+Math.PI),bz=Math.cos(o.br+Math.PI);t.kx=-bx;t.kz=-bz;t.kr=mv.kb*sc}
           // THROWN INTO THE SCENERY (hand moves only): a body that is thrown / shoved / dropped smashes into whoever stands behind it, and into the ring's rope
           if(a.fs&&!o.fx&&(mv.id==='throw'||mv.id==='push'||mv.id==='drop'||mv.id==='take')){const kx=Math.sin(o.br+Math.PI),kz=Math.cos(o.br+Math.PI),fly=1.2+mv.kb;

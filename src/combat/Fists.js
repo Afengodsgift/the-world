@@ -10,21 +10,21 @@ const Fists=(()=>{
   const ph=(k,n,o)=>Object.assign({k,n},o||{});
   const M={
     // ---- the light string (chain index 1..5; 5 = finished) ----
-    jab:{id:'jab',who:'P',chain:1,stam:5,dmg:7,pdmg:9,hs:3,stun:14,kb:.25,reach:1.9,w:.12,phases:[ph('startup',5),ph('active',3,{seg:0,a0:.3,a1:-.3}),ph('recovery',7)],cancel:{light:2,heavy:3,dodge:4,guard:5}},
-    cross:{id:'cross',who:'P',chain:2,stam:6,dmg:9,pdmg:11,hs:3,stun:16,kb:.4,reach:2.0,w:.12,phases:[ph('startup',5),ph('active',3,{seg:0,a0:.3,a1:-.3}),ph('recovery',8)],cancel:{light:2,heavy:3,dodge:4,guard:5}},
-    hook:{id:'hook',who:'P',chain:3,stam:7,dmg:11,pdmg:14,hs:4,stun:18,kb:.55,reach:2.0,w:.13,phases:[ph('startup',7),ph('active',3,{seg:0,a0:1.0,a1:-1.0}),ph('recovery',10)],cancel:{light:3,heavy:4,dodge:5}},
-    knee:{id:'knee',who:'P',chain:4,stam:8,dmg:13,pdmg:16,hs:4,stun:20,kb:.7,reach:1.9,w:.13,phases:[ph('startup',7,{move:.5}),ph('active',3,{seg:0,a0:.4,a1:-.4}),ph('recovery',11)],cancel:{light:3,heavy:4,dodge:6}},
-    f_spin:{id:'f_spin',who:'P',chain:5,stam:12,dmg:20,pdmg:26,hs:7,stun:26,kb:1.5,reach:2.5,w:.14,phases:[ph('startup',10),ph('active',4,{seg:0,a0:1.4,a1:-1.4}),ph('recovery',18)],cancel:{dodge:8}},
+    jab:{id:'jab',zn:'hm',who:'P',chain:1,stam:5,dmg:7,pdmg:9,hs:3,stun:14,kb:.25,reach:1.9,w:.12,phases:[ph('startup',5),ph('active',3,{seg:0,a0:.3,a1:-.3}),ph('recovery',7)],cancel:{light:2,heavy:3,dodge:4,guard:5}},
+    cross:{id:'cross',zn:'hm',who:'P',chain:2,stam:6,dmg:9,pdmg:11,hs:3,stun:16,kb:.4,reach:2.0,w:.12,phases:[ph('startup',5),ph('active',3,{seg:0,a0:.3,a1:-.3}),ph('recovery',8)],cancel:{light:2,heavy:3,dodge:4,guard:5}},
+    hook:{id:'hook',zn:'hm',who:'P',chain:3,stam:7,dmg:11,pdmg:14,hs:4,stun:18,kb:.55,reach:2.0,w:.13,phases:[ph('startup',7),ph('active',3,{seg:0,a0:1.0,a1:-1.0}),ph('recovery',10)],cancel:{light:3,heavy:4,dodge:5}},
+    knee:{id:'knee',zn:'m',who:'P',chain:4,stam:8,dmg:13,pdmg:16,hs:4,stun:20,kb:.7,reach:1.9,w:.13,phases:[ph('startup',7,{move:.5}),ph('active',3,{seg:0,a0:.4,a1:-.4}),ph('recovery',11)],cancel:{light:3,heavy:4,dodge:6}},
+    f_spin:{id:'f_spin',zn:'h',who:'P',chain:5,stam:12,dmg:20,pdmg:26,hs:7,stun:26,kb:1.5,reach:2.5,w:.14,phases:[ph('startup',10),ph('active',4,{seg:0,a0:1.4,a1:-1.4}),ph('recovery',18)],cancel:{dodge:8}},
     // ---- heavy branches ----
-    upper:{id:'upper',who:'P',chain:0,stam:12,dmg:18,pdmg:30,hs:6,stun:26,kb:1.0,reach:1.9,w:.13,phases:[ph('startup',9,{move:.5}),ph('active',4,{seg:0,a0:.5,a1:-.5}),ph('recovery',18)],cancel:{dodge:8}},
-    round:{id:'round',who:'P',chain:0,stam:13,dmg:22,pdmg:28,hs:7,stun:26,kb:1.4,reach:2.6,w:.14,phases:[ph('startup',11),ph('active',4,{seg:0,a0:1.3,a1:-1.3}),ph('recovery',20)],cancel:{dodge:9}},
-    power:{id:'power',who:'P',stam:16,dmg:28,pdmg:36,hs:8,stun:28,kb:1.5,reach:2.2,w:.14,chargeMin:18,chargeMax:45,phases:[ph('startup',12,{move:.9}),ph('active',5,{seg:0,a0:.5,a1:-.5}),ph('recovery',24)]},
+    upper:{id:'upper',zn:'h',who:'P',chain:0,stam:12,dmg:18,pdmg:30,hs:6,stun:26,kb:1.0,reach:1.9,w:.13,phases:[ph('startup',9,{move:.5}),ph('active',4,{seg:0,a0:.5,a1:-.5}),ph('recovery',18)],cancel:{dodge:8}},
+    round:{id:'round',zn:'hml',who:'P',chain:0,stam:13,dmg:22,pdmg:28,hs:7,stun:26,kb:1.4,reach:2.6,w:.14,phases:[ph('startup',11),ph('active',4,{seg:0,a0:1.3,a1:-1.3}),ph('recovery',20)],cancel:{dodge:9}},
+    power:{id:'power',zn:'h',who:'P',stam:16,dmg:28,pdmg:36,hs:8,stun:28,kb:1.5,reach:2.2,w:.14,chargeMin:18,chargeMax:45,phases:[ph('startup',12,{move:.9}),ph('active',5,{seg:0,a0:.5,a1:-.5}),ph('recovery',24)]},
     // ---- context moves ----
-    step:{id:'step',who:'P',chain:2,stam:7,dmg:10,pdmg:12,hs:3,stun:16,kb:.5,reach:2.3,w:.12,phases:[ph('startup',6,{move:1.2}),ph('active',3,{seg:0,a0:.3,a1:-.3}),ph('recovery',10)],cancel:{light:3,heavy:4,dodge:5}},
-    f_dash:{id:'f_dash',who:'P',chain:2,stam:9,dmg:12,pdmg:14,hs:4,stun:18,kb:.8,reach:2.3,w:.13,phases:[ph('startup',6,{move:4.0}),ph('active',4,{seg:0,a0:.4,a1:-.4}),ph('recovery',16)],cancel:{light:4,heavy:5,dodge:7}},
-    f_counter:{id:'f_counter',who:'P',chain:2,stam:6,dmg:14,pdmg:22,hs:5,stun:20,kb:.6,reach:2.1,w:.13,phases:[ph('startup',4),ph('active',3,{seg:0,a0:.4,a1:-.4}),ph('recovery',10)],cancel:{light:2,heavy:3,dodge:4}},
-    push:{id:'push',who:'P',chain:0,stam:8,dmg:4,pdmg:44,hs:5,stun:30,kb:2.0,reach:2.1,w:.15,phases:[ph('startup',7),ph('active',3,{seg:0,a0:.4,a1:-.4}),ph('recovery',14)],cancel:{dodge:8,guard:6}},
-    drop:{id:'drop',who:'P',chain:0,stam:14,dmg:28,pdmg:40,hs:7,stun:30,kb:1.3,reach:2.7,w:.2,phases:[ph('startup',8),ph('active',5,{seg:0,a0:.7,a1:-.7}),ph('recovery',24)]},
+    step:{id:'step',zn:'m',who:'P',chain:2,stam:7,dmg:10,pdmg:12,hs:3,stun:16,kb:.5,reach:2.3,w:.12,phases:[ph('startup',6,{move:1.2}),ph('active',3,{seg:0,a0:.3,a1:-.3}),ph('recovery',10)],cancel:{light:3,heavy:4,dodge:5}},
+    f_dash:{id:'f_dash',zn:'h',who:'P',chain:2,stam:9,dmg:12,pdmg:14,hs:4,stun:18,kb:.8,reach:2.3,w:.13,phases:[ph('startup',6,{move:4.0}),ph('active',4,{seg:0,a0:.4,a1:-.4}),ph('recovery',16)],cancel:{light:4,heavy:5,dodge:7}},
+    f_counter:{id:'f_counter',zn:'h',who:'P',chain:2,stam:6,dmg:14,pdmg:22,hs:5,stun:20,kb:.6,reach:2.1,w:.13,phases:[ph('startup',4),ph('active',3,{seg:0,a0:.4,a1:-.4}),ph('recovery',10)],cancel:{light:2,heavy:3,dodge:4}},
+    push:{id:'push',zn:'m',who:'P',chain:0,stam:8,dmg:4,pdmg:44,hs:5,stun:30,kb:2.0,reach:2.1,w:.15,phases:[ph('startup',7),ph('active',3,{seg:0,a0:.4,a1:-.4}),ph('recovery',14)],cancel:{dodge:8,guard:6}},
+    drop:{id:'drop',zn:'l',who:'P',chain:0,stam:14,dmg:28,pdmg:40,hs:7,stun:30,kb:1.3,reach:2.7,w:.2,phases:[ph('startup',8),ph('active',5,{seg:0,a0:.7,a1:-.7}),ph('recovery',24)]},
     // ---- grabs: gr = ignores guard and parry (a dodge still beats them). The takedown needs a foe in stagger ----
     throw:{id:'throw',who:'P',chain:0,stam:14,dmg:22,pdmg:42,hs:8,stun:96,kb:2.3,reach:1.7,w:.2,gr:true,phases:[ph('startup',8),ph('active',3,{seg:0,a0:.4,a1:-.4}),ph('recovery',24)]},
     take:{id:'take',who:'P',chain:0,stam:0,dmg:22,pdmg:0,hs:14,stun:60,kb:1.6,reach:2.6,w:.3,gr:true,phases:[ph('startup',12,{move:1.0}),ph('active',3,{seg:0,a0:.5,a1:-.5}),ph('recovery',30)]}

@@ -76,4 +76,20 @@ ok(D.foes.staff&&D.foes.staff.weapon==='bo'&&D.rounds.some(r=>r.includes('staff'
 {let leg=0;for(let seed=1;seed<=3;seed++){const C=CC.create({arena:{x:0,z:0,R:14.7}}),P=C.add('P',{x:0,z:3,face:Math.PI,hp:1e6,team:'p',fs:1}),T=D.foes.kicker,f=C.add('D',{x:0,z:-2.5,face:0,hp:1e6,team:'e',fs:1,dm:T.dm});f.spd=T.spd;const ai=AI.create(seed*131,T.ai,{intro:50});
   for(let t=0;t<3600;t++){const nt=C.tick+1,cm={P:{face:Math.atan2(f.x-P.x,f.z-P.z),mx:0,mz:0,list:[]}};cm.D=AI.think(ai,f,C,nt,[f]);for(const e of C.step(cm))if(e.t==='start'&&e.a==='D'&&['round','push','drop'].includes(e.move))leg++}}
  ok(leg>=30,'the Kickboxer throws kicks ('+leg+')')}
+// hit zones + body collision: head > body > leg damage, leg hits cripple footwork, a thrown body keeps floor space, zones are deterministic
+{const hitWith=zn=>{const C=CC.create({arena:{x:0,z:0,R:14}}),P=C.add('P',{x:0,z:0,face:0,team:'p',fs:1,hp:200}),T=C.add('D',{x:0,z:1.3,face:Math.PI,team:'e',fs:1,hp:500});
+   C.start('P','round');P.zn=zn;let dmg=0,po0=T.po;for(let t=0;t<60;t++)for(const e of C.step({P:{list:[]}}))if(e.t==='hit'&&e.a==='P'){dmg=e.dmg;P.zn=zn}return{dmg,po:T.po-po0,limp:T.limp>0,zone:C.ev&&0}};
+ // C.start sets the zone from the move; pin it after start through a hit-time hook instead: run once per zone by forcing P.zn each tick
+ const run=zn=>{const C=CC.create({arena:{x:0,z:0,R:14}}),P=C.add('P',{x:0,z:0,face:0,team:'p',fs:1,hp:200}),T=C.add('D',{x:0,z:1.3,face:Math.PI,team:'e',fs:1,hp:500});C.start('P','round');let dmg=0,zone=null;
+   for(let t=0;t<60;t++){P.zn=zn;for(const e of C.step({P:{list:[]}}))if(e.t==='hit'&&e.a==='P'){dmg=e.dmg;zone=e.zone}}return{dmg,zone,limp:T.limp>0,po:T.po}};
+ const h=run('h'),m2=run('m'),l=run('l');
+ ok(h.dmg>m2.dmg&&m2.dmg>l.dmg,'head hits hurt most, leg hits least ('+h.dmg.toFixed(1)+' > '+m2.dmg.toFixed(1)+' > '+l.dmg.toFixed(1)+')');
+ ok(m2.po>l.po,'body hits break more posture than leg hits ('+m2.po.toFixed(1)+' vs '+l.po.toFixed(1)+')');
+ ok(l.limp&&!h.limp&&!m2.limp,'only a leg hit cripples footwork');ok(h.zone==='h'&&l.zone==='l','the hit event reports the zone');}
+{const mk=()=>{const C=CC.create({arena:{x:0,z:0,R:14}}),P=C.add('P',{x:0,z:0,face:0,team:'p',fs:1,hp:200}),T=C.add('D',{x:0,z:1.3,face:Math.PI,team:'e',fs:1,hp:500});return{C,P,T}};
+ const a=mk(),b=mk();const za=[],zb=[];for(let i=0;i<5;i++){for(const x of[[a,za],[b,zb]]){x[0].P.act='free';x[0].C.start('P','round');x[1].push(x[0].P.zn);for(let t=0;t<70;t++)x[0].C.step({P:{list:[]}})}}
+ ok(za.join()===zb.join()&&new Set(za).size>1,'the zone sequence is deterministic and varies ('+za.join('')+')');}
+{const C=CC.create({arena:{x:0,z:0,R:14}}),P=C.add('P',{x:0,z:0,face:0,team:'p',fs:1,hp:200}),T=C.add('D',{x:0,z:1.3,face:Math.PI,team:'e',fs:1,hp:900});const r0=T.r;let big=0;C.start('P','throw');
+ for(let t=0;t<200;t++){C.step({P:{list:[]}});if(T.act==='stun'&&T.lm==='throw'&&T.r>r0)big=Math.max(big,T.r)}
+ ok(big>=.9&&Math.abs(T.r-r0)<1e-9,'a thrown body takes floor space ('+big.toFixed(2)+' m) and shrinks back when it gets up')}
 console.log(bad?'FAILED '+bad:'ALL OK');process.exit(bad?1:0);
