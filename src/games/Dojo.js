@@ -256,6 +256,8 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
     // the sim clock (slow-motion on big moments)
     if(tscT>0){tscT-=dt;if(tscT<=0)tsc=1}
     vt+=dt*1000*tsc;stateT+=dt;
+    // hold-to-block: a tap is a parry (the first PARRY_W ticks deflect); keep the button down and the guard re-raises as a plain block when the parry window ends
+    if(down.guard&&P&&P.act==='free'&&!P.guard&&!(P.pry>0)&&now()-(down.hg||0)>140){down.hg=now();ST.input('P',{t:'guardDown',e:C.tick},now())}
     if(state==='intro'&&stateT>1.6&&!foes.every(foeReady)){if(stateT>22){for(const F of foes)if(!foeReady(F)){F.fb=true;dress(F.body.g,0,null)}}else{hint('LOADING FIGHTERS...',.5)}}
     else if(state==='intro'&&stateT>1.6){state='fight';for(const F of foes)F.ai.rdy=Math.max(F.ai.rdy,20)}
     if(state==='clear'&&stateT>2.6&&P.act!=='dead')nextRound();

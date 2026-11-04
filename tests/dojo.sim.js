@@ -58,4 +58,10 @@ ok(D.foes.staff&&D.foes.staff.weapon==='bo'&&D.rounds.some(r=>r.includes('staff'
   ok(col===1&&U.hp<300,'a shoved fighter smashes into the one behind it ('+col+', hp '+U.hp.toFixed(0)+')')}
 {const C=CC.create({arena:{x:0,z:0,R:3}}),P=C.add('P',{x:0,z:1,face:0,team:'p',fs:1,hp:200}),T=C.add('D',{x:0,z:2.4,face:Math.PI,team:'e',fs:1,hp:300});C.start('P','push');let sl=0;for(let t=0;t<60;t++)for(const e of C.step({}))if(e.t==='slam')sl++;
   ok(sl===1,'a shove into the ring rope is a ring-out slam')}
+// hold-to-block: a tap is a parry; holding re-raises the guard as a plain block after the parry window (Dojo.js sends guardDown), and a foe's blow is then blocked, not landed
+{const C=CC.create({arena:{x:0,z:0,R:14}}),P=C.add('P',{x:0,z:0,face:0,team:'p',fs:1,hp:200}),F=C.add('D',{x:0,z:1.4,face:Math.PI,team:'e',fs:1,hp:300});
+ C.step({P:{list:[{t:'parry'}]}});let up=0,blocked=0,landed=0;
+ for(let t=0;t<120;t++){const cm={P:{list:[]}};if(!P.guard&&!(P.pry>0)&&P.act==='free')cm.P.list.push({t:'guardDown'});if(t===60)C.start('D','jab');
+  for(const e of C.step(cm)){if(e.t==='block'&&e.d==='P')blocked++;if(e.t==='hit'&&e.d==='P')landed++}if(P.guard)up++}
+ ok(up>=100,'holding Guard keeps the guard up past the parry window ('+up+'/120 ticks)');ok(blocked>=1&&landed===0,'a held guard blocks a jab ('+blocked+' blocked, '+landed+' landed)')}
 console.log(bad?'FAILED '+bad:'ALL OK');process.exit(bad?1:0);
