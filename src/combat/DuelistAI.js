@@ -6,7 +6,7 @@
 // they enter a second phase (faster, shorter rests, more gap closers). Moods (Duelist) vary the pacing; a turtling guard is punished; a visibly recovering player is punished.
 // Adaptive difficulty (learning your habits) is a separate layer, off by default, and is NOT in this file.
 const DuelistAI=(()=>{
-  const REACH={bladestorm:16,swordring:3.4,sunvolley:18,snakelash:3.8,eclipse:7.6,charge:10,maul:3.2,tidal:6.4,spores:12,hundred:3.2,ashwave:16,crossflame:16,kingsfall:7,flurry:3,cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4,dash:2.4,leap:3.0,bash:2.3,orb:12,bolt:16,spin:2.9,hammer:2.7,lowsweep:3.1,blink:30,snare:30,lance:20,returning:18,consecrate:12,procession:11,march:2.7,groundbreaker:3.9,verdict:2.8,pursuit:3.1,iai:3.4,feint:3.4,moon:3.7,counter:2.9,requiem:5.2},REACT=14,INTRO=90;
+  const REACH={bladestorm:16,swordring:3.4,sunvolley:18,snakelash:3.8,eclipse:7.6,charge:10,maul:3.2,tidal:6.4,spores:12,hundred:3.2,ashwave:16,crossflame:16,kingsfall:7,flurry:3,cut:2.3,fall:2.6,thrust:3.2,twin:2.3,riposte:2.4,dash:2.4,leap:3.0,bash:2.3,orb:12,bolt:16,spin:2.9,hammer:2.7,lowsweep:3.1,blink:30,snare:30,lance:20,returning:18,consecrate:12,procession:11,march:2.7,groundbreaker:3.9,verdict:2.8,pursuit:3.1,iai:3.4,feint:3.4,moon:3.7,counter:2.9,requiem:5.2,kslide:3.6,crow:3.4,cyclone:3,splitter:3.8,tengu:2.5,reversemoon:3,kindle:4.4,thrustslash:3.4},REACT=14,INTRO=90;
   Object.assign(REACH,{heavenfalld:3.1,heavenwave:12,voidthrust:7,crownfissure:8.2,gateslam:11,rend:4.8,sunder:5.4,spear:20,storm:12,arrows:14,ruin:3.4,ruincollapse:3.4,heavenfall:3.1,hangfall:3.2,executioner:3,brokenadv:3.2,impaler:4.4,doubleimp:3.9,kingsweep:3.7,risingcrown:3.4,tempest:3.2,severance:3.2,twineclipse:3.4,eclipsecollapse:3.5,thousand:3.4,silentsev:3.4,stormgrid:18,crownfall:12,worldbreaker:7.6,aftershock:4.6,marks:12,finalsentence:12,sovereign:3.4});
   const HR={sweep:3.0,slam:3.0,triple:2.8,quake:4.2};
   function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -220,15 +220,16 @@ const DuelistAI=(()=>{
   // empowered: shorter rests, signature moves and chains come twice as often, and it ends with a No-Retreat pursuit.
   const CL={heavenfalld:8.5,heavenwave:12,ruin:8.5,ruincollapse:8.5,heavenfall:8.5,spear:20,stormgrid:20,crownfall:12,worldbreaker:8,aftershock:6,marks:12,finalsentence:12,blink:30,pursuit:7.5,sovereign:9};
   const SEQ={
+    shadowrush:{q:['kslide','cyclone'],ph:0,lo:4.5,hi:8,cd:760},crowsong:{q:['crow','thrustslash','splitter'],ph:2,lo:3.6,hi:9,cd:900},tenguwheel:{q:['tengu','reversemoon','iai'],ph:2,lo:1.2,hi:3,cd:840},nightfall:{q:['kindle','cyclone','splitter','silentsev'],ph:3,lo:0,hi:4.6,cd:1000},
     brokencrown:{q:['ruin','kingsweep'],ph:0,lo:3.6,hi:8,cd:720},stormexec:{q:['spear','heavenfall'],ph:2,lo:4.5,hi:14,cd:780},crimson:{q:['tempest','impaler'],ph:2,lo:1.6,hi:3.2,cd:760},
     kingdom:{q:['crownfall','worldbreaker'],ph:3,lo:2,hi:10,cd:1100},waltz:{q:['thousand','twineclipse'],ph:3,lo:1.4,hi:3.2,cd:900},phantom:{q:['blink','marks','silentsev'],ph:2,lo:3.6,hi:12,cd:900},
     gridlock:{q:['stormgrid','storm'],ph:2,lo:5,hi:16,cd:820},dance:{q:['tempest','kingsweep','risingcrown'],ph:0,lo:1.4,hi:3.4,cd:640},echo:{q:['hangfall','impaler'],ph:0,lo:2,hi:3.2,cd:640},
     blinkchain:{q:['blink','tempest','impaler'],ph:0,lo:3.6,hi:10,cd:700}};
-  const SEQS={samurai:['crimson','waltz'],dknight:['phantom','kingdom','waltz'],darkknight:['brokencrown','crimson'],capra:['crimson','brokencrown'],gwyn:['stormexec','kingdom','brokencrown'],oath4:['stormexec','kingdom','waltz'],gdn:['gridlock'],
+  const SEQS={samurai:['nightfall','crowsong','tenguwheel','shadowrush','crimson','waltz'],dknight:['phantom','kingdom','waltz'],darkknight:['brokencrown','crimson'],capra:['crimson','brokencrown'],gwyn:['stormexec','kingdom','brokencrown'],oath4:['stormexec','kingdom','waltz'],gdn:['gridlock'],
     vampire:['blinkchain','crimson'],arissa:['dance'],ganfaul:['echo'],penitent:['brokencrown'],paladin:['crimson'],saint:['gridlock'],veil:['crimson']};
   const SOV={capra:1,gwyn:1,dknight:1,darkknight:1,samurai:1,oath4:1};
   const EXTRA={
-    samurai:[{m:'severance',lo:1.4,hi:3.2,ph:0,cd:520,p:.22},{m:'silentsev',lo:2.6,hi:3.4,ph:2,cd:600,p:.25},{m:'thousand',lo:1.4,hi:3.2,ph:3,cd:700,p:.3}],
+    samurai:[{m:'kslide',lo:4,hi:8,ph:0,cd:420,p:.3,f:'cut'},{m:'crow',lo:3.6,hi:9,ph:0,cd:520,p:.28},{m:'cyclone',lo:1.4,hi:3,ph:0,cd:480,p:.28},{m:'tengu',lo:1.2,hi:2.5,ph:0,cd:440,p:.28,f:'iai'},{m:'thrustslash',lo:1.6,hi:3.4,ph:0,cd:480,p:.3},{m:'splitter',lo:2,hi:4,ph:2,cd:600,p:.28},{m:'reversemoon',lo:1.4,hi:3,ph:2,cd:520,p:.25,f:'iai'},{m:'kindle',lo:0,hi:4.4,ph:2,cd:800,p:.25},{m:'severance',lo:1.4,hi:3.2,ph:0,cd:520,p:.22},{m:'silentsev',lo:2.6,hi:3.4,ph:2,cd:600,p:.25},{m:'thousand',lo:1.4,hi:3.2,ph:3,cd:700,p:.3}],
     dknight:[{m:'crownfall',lo:3,hi:12,ph:2,cd:640,p:.3},{m:'marks',lo:3,hi:12,ph:2,cd:700,p:.3},{m:'finalsentence',lo:3,hi:12,ph:3,cd:760,p:.3}],
     capra:[{m:'pursuit',lo:4,hi:9,ph:0,cd:360,p:.32,f:'twin'},{m:'heavenfall',lo:3.6,hi:8,ph:0,cd:480,p:.3},{m:'ruincollapse',lo:3.6,hi:8,ph:2,cd:600,p:.3}],
     darkknight:[{m:'ruin',lo:3.6,hi:8,ph:0,cd:480,p:.28},{m:'heavenfall',lo:3.6,hi:8,ph:2,cd:540,p:.3},{m:'executioner',lo:1.4,hi:3,ph:0,cd:520,p:.25},{m:'ruincollapse',lo:3.6,hi:8,ph:2,cd:620,p:.3}],
@@ -250,9 +251,9 @@ const DuelistAI=(()=>{
     for(const r of L){if(r.ph&&!(r.ph===3?A.ph3:A.ph2)||(A.kc[r.m]||0)>0||L0===r.m||A.sigLock&&PER.indexOf(r.m)>=0||dist<r.lo||dist>r.hi)continue;
       if(r.f&&A.sigLock&&PER.indexOf(r.f)>=0)continue;if(A.r()<Math.min(.7,r.p*sv)){A.kc[r.m]=Math.floor(r.cd*1.3*(A.sov>0?.5:1)*(A.mast?.75:1));if(r.f)A.follow=r.f;return start(A,out,r.m,0,tick)}}
     return null}
-  const PERS={capra:{rest:.7,breath:.7},penitent:{rest:.85,breath:.8},saint:{rest:.9},vampire:{rest:.8,breath:.6},ganfaul:{rest:.85},paladin:{rest:.9},goblin:{rest:.9},archer:{rest:.85},arissa:{rest:.8,breath:.7},hollow:{rest:.85},parasite:{rest:.85},maw:{rest:.85},bear:{rest:.85},samurai:{rest:.9},dknight:{rest:.85,breath:.7},darkknight:{rest:.7,breath:.45},gwyn:{rest:1,desp:1,breath:.6},oath4:{rest:.8,breath:.6},gdn:{rest:.95}};
+  const PERS={capra:{rest:.7,breath:.7},penitent:{rest:.85,breath:.8},saint:{rest:.9},vampire:{rest:.8,breath:.6},ganfaul:{rest:.85},paladin:{rest:.9},goblin:{rest:.9},archer:{rest:.85},arissa:{rest:.8,breath:.7},hollow:{rest:.85},parasite:{rest:.85},maw:{rest:.85},bear:{rest:.85},samurai:{rest:.78,breath:.6},dknight:{rest:.85,breath:.7},darkknight:{rest:.7,breath:.45},gwyn:{rest:1,desp:1,breath:.6},oath4:{rest:.8,breath:.6},gdn:{rest:.95}};
   const COMBO={
-    samurai:{cut:['moon',.25],twin:['fall',.3],triple:['moon',.3],iai:['blink',.25],moon:['iai',.3]},
+    samurai:{cut:['moon',.25],twin:['fall',.3],triple:['moon',.3],iai:['blink',.25],moon:['iai',.3],kslide:['cut',.5],cyclone:['tengu',.35],tengu:['iai',.3],thrustslash:['moon',.3]},
     dknight:{bladestorm:['blink',.45],swordring:['hundred',.4],hundred:['verdict',.35],cut:['moon',.25],blink:['flurry',.2]},
     capra:{cut:['twin',.4],twin:['lowsweep',.4],dash:['cut',.5],spin:['twin',.4],leap:['cut',.5]},
     darkknight:{cut:['spin',.25],twin:['lowsweep',.35],thrust:['fall',.3],spin:['twin',.4],leap:['twin',.5],lowsweep:['cut',.4]},
@@ -302,6 +303,7 @@ const DuelistAI=(()=>{
     if(A.ph3&&A.rcd<=0&&dist<5&&A.r()<.02){A.rcd=900;A.follow='moon';return start(A,out,'requiem',0,tick)}
     if(A.ph2&&A.ccd<=0&&A.att>=70&&dist<REACH.counter+.4){A.ccd=A.ph3?420:600;A.att=0;return start(A,out,'counter',0,tick)}   // you keep swinging at him: he waits for it
     const w={cut:3,twin:2.4,triple:1.2,iai:1.6,moon:.8,fall:.9,hundred:0};
+    if(A.foe==='samurai'){w.thrustslash=1.3;w.tengu=.8;if(A.ph2)w.cyclone=1.2;if(A.ph3){w.cyclone=2;w.splitter=.9}}
     if(A.foe==='samurai'&&A.ph2&&A.hcd2<=0&&L0!=='hundred'&&dist<=3.2){w.hundred=A.ph3?2.6:1.5}
     if(L0==='cut')w.twin*=1.8;else if(L0==='twin'){w.triple*=2;w.fall*=1.5}else if(L0==='blink'){w.iai*=2}else if(L0==='moon')w.cut*=1.6;
     if(A.gP>20){w.fall+=3.5;w.moon+=2;w.cut*=.3;w.twin*=.4}                                      // the guard punisher: a heavy overhead for turtling

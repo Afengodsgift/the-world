@@ -64,3 +64,10 @@ Pressed inside ~5.6 m she vanishes (the blink; mark shows 14 ticks before she la
 
 ## The Capra Demon (new boss, The Capra Demon's Pit at x 120 z 130)
 Packed from the supplied DS model with `tools/pack_bip_char.mjs` (7,460 tris, 1.2 MB), Gwyn's clip set and reaction pack retargeted onto his skeleton with `tools/rebase_mx.mjs`. Fast (spd 2.05), 760 HP, Artorias-class AI (`blackknight`) with its own personality (short rests), Iron Pursuit into twin cuts, Heavenfall (three forms), Crimson Tempest from phase 2, Sunder from phase 3, Abyssal Roll, Last Sovereign. Not built: the two hounds (no dog model yet).
+
+## Kage, second arsenal (real sword animation)
+Clips come from the Seede XR animation library (MIT, Mixamo skeleton): `tools/bake_mixamo_native.mjs` with `retarget`, `restFbx` = the library's `standard-t-pose.fbx`, `hipsScale` 0.4047, baked onto `assets/warden/samurai.glb` (14 `k_*` clips appended to `assets/warden_mx_samurai.json`). The Veil Dancer keeps her older set.
+* HP 680 -> 1050, speed 1.9, damage x1.45, shorter rests (`PERS.samurai`), a proper draw for Iai / Silent Severance, inward / outward cut pair for Cut / Twin / Triple.
+* New moves: Shadow Slide, Falling Crow (landing ring), Cyclone (two turns), Heaven-Splitter (travelling ground cut), Tengu Kicks, Reverse Moon (backflip kick), Kindle (flame ring), Thrust and Slash. Each hit has a tell >= 20 and a recovery >= 20; Splitter and Crow are perilous.
+* Choreographed chains: Shadow Rush (slide -> cyclone), Crow Song (crow -> thrust-slash -> splitter, phase 2), Tengu Wheel (tengu -> reverse moon -> iai, phase 2), Nightfall (kindle -> cyclone -> splitter -> silent severance, phase 3). Tested in `tests/kage_arsenal.sim.js`.
+* Not verified on a phone: how the retargeted clips look in motion at game speed (only pose sheets were checked), hit windows were taken from hand-speed peaks, not played.
