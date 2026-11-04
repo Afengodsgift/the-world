@@ -26,7 +26,10 @@ const Dojo=(()=>{
     if(h<1.3)c.lerp(new THREE.Color(.78,.7,.5),clamp((1.3-h)/1.3,0,1));if(h<-.4)c.lerp(new THREE.Color('#14587a'),clamp((-.4-h)/2.4,0,1))}
   function terrain(){const size=(DOJO.reach+8)*2,seg=120,geo=new THREE.PlaneGeometry(size,size,seg,seg);geo.rotateX(-Math.PI/2);
     const pos=geo.attributes.position,cols=new Float32Array(pos.count*3),c=new THREE.Color();
-    for(let i=0;i<pos.count;i++){const x=pos.getX(i)+CX(),z=pos.getZ(i)+CZ(),h=H(x,z);pos.setY(i,h);const sl=Math.hypot(H(x+2,z)-H(x-2,z),H(x,z+2)-H(x,z-2))/4;colour(h,x,z,sl,c);cols.set([c.r,c.g,c.b],i*3)}
+    // heights once per vertex (H() is the expensive world function); the slope for the colouring comes from the neighbouring grid heights, not 4 more H() calls
+    const W=seg+1,hs=new Float32Array(pos.count),st=size/seg;for(let i=0;i<pos.count;i++){const h=H(pos.getX(i)+CX(),pos.getZ(i)+CZ());hs[i]=h;pos.setY(i,h)}
+    for(let i=0;i<pos.count;i++){const ix=i%W,iz=(i/W)|0,xl=Math.max(0,ix-1),xr=Math.min(seg,ix+1),zl=Math.max(0,iz-1),zr=Math.min(seg,iz+1),h=hs[i];
+      const sl=Math.hypot((hs[iz*W+xr]-hs[iz*W+xl])/((xr-xl)*st),(hs[zr*W+ix]-hs[zl*W+ix])/((zr-zl)*st));colour(h,pos.getX(i)+CX(),pos.getZ(i)+CZ(),sl,c);cols.set([c.r,c.g,c.b],i*3)}
     geo.setAttribute('color',new THREE.BufferAttribute(cols,3));geo.computeVertexNormals();
     const tm=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1});if(typeof TERRAIN_MATS!=='undefined')TERRAIN_MATS.push(tm);
     const m=new THREE.Mesh(geo,tm);m.position.set(CX(),0,CZ());m.receiveShadow=true;G.add(m)}
@@ -105,6 +108,7 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
 #djgo{position:fixed;left:50%;bottom:22%;transform:translateX(-50%);z-index:47;display:none;padding:14px 30px;border-radius:14px;border:2px solid #ffd070;background:rgba(40,16,16,.82);color:#ffd070;font:900 20px system-ui;letter-spacing:.14em;pointer-events:auto;text-align:center}#djgo small{display:block;font-size:11px;letter-spacing:.1em;color:#fff;font-weight:600;margin-top:2px}
 `;document.head.appendChild(s)}
   function domBuild(){
+    qc={};
     if(el)return;el=document.createElement('div');el.id='dj';
     el.innerHTML='<div class="fl"></div><div class="bars"><div class="bar hp"><b></b></div><div class="bar st"><b></b></div><div class="belt"><i></i><span></span></div></div><div class="foes"></div><div class="top"></div><div class="combo"></div><div class="msg"></div><div class="hint"></div>'+
       '<button class="btn Hv" data-k="heavy"><b>\u{1F4A5}</b>Heavy</button><button class="btn L" data-k="light"><b>\u{1F44A}</b>Strike</button><button class="btn Gd" data-k="guard"><b>\u{1F6E1}</b>Guard</button><button class="btn Dg" data-k="dodge"><b>\u{1F4A8}</b>Dodge</button><button class="btn Gr" data-k="grab"><b>\u{1F91C}</b>Grab</button><button class="btn Lk on" data-k="lock">Lock</button><button class="btn Qt" data-k="quit">Leave</button>'+
@@ -122,7 +126,7 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
     addEventListener('keydown',onKey,true);addEventListener('keyup',onKey,true);addEventListener('blur',releaseAll)}
   let goBtn=null,stBar=null;
   function paintStyle(){if(!stBar)return;for(const b of stBar.children)b.classList.toggle('on',b.dataset.k===SAVE.style);const t=stBar.querySelector('i')||stBar.appendChild(document.createElement('i'));t.textContent=DojoData.styles[SAVE.style].tip}
-  const q=s=>el.querySelector(s);
+  let qc={};const q=s=>qc[s]||(qc[s]=el.querySelector(s));   // cached: hud() runs every frame
   function say(t,sec,col){const m=q('.msg');m.textContent=t;m.style.color=col||'#fff';m.style.opacity=1;msgT=sec||1.1}
   function hint(t,sec){const h=q('.hint');h.textContent=t;h.style.opacity=t?1:0;hintT=sec||1.2}
   function flash(col,a){const f=q('.fl');f.style.background='radial-gradient(transparent 38%,'+col+')';f.style.opacity=a;flashT=.22}
@@ -310,14 +314,14 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
     F.flash=Math.max(0,F.flash-dt*5);if((F.flash>0||b.flashOn)&&b.u.model){b.flashOn=F.flash>0;b.u.model.traverse(c=>{if(c.isSkinnedMesh&&c.material&&c.material.emissive)c.material.emissive.setRGB(F.flash*.7,F.flash*.3,F.flash*.1)})}}
   const bars={};
   function setBar(sel,v){const k=Math.round(clamp(v,0,1)*100);if(bars[sel]===k)return;bars[sel]=k;q(sel+' b').style.transform='scaleX('+k/100+')'}
-  let foeEls=[];
+  let foeEls=[],hudTop='',hudCombo='',lkSet=false;
   function hud(dt){
     setBar('.hp',P.hp/P.hpMax);setBar('.st',P.st/P.stMax);
     const fl=q('.foes');if(foeEls.length!==foes.length||foeEls[0]&&foeEls[0].dataset.r!==round+':'+seed){fl.innerHTML='';foeEls=foes.map(F=>{const d=document.createElement('div');d.className='fo';d.dataset.r=round+':'+seed;d.innerHTML=F.T.name+'<div class="bar hp"><b></b></div><div class="bar po"><b></b></div>';fl.appendChild(d);return d})}
-    const T=target();foes.forEach((F,i)=>{const d=foeEls[i];d.classList.toggle('t',F===T);d.classList.toggle('d',F.f.act==='dead');const h=d.querySelectorAll('b');const a=clamp(F.f.hp/F.f.hpMax,0,1),p=clamp(F.f.po/F.f.poMax,0,1);h[0].style.transform='scaleX('+a+')';h[1].style.transform='scaleX('+p+')'});
-    q('.top').textContent='ROUND '+(round+1)+(foes.some(F=>F.T.boss)?' · BOSS':'')+'  ·  '+alive().length+' left';
-    const cb=q('.combo');if(combo>=2){cb.style.opacity=1;cb.innerHTML=combo+' HITS<small>BEST '+best+'</small>'}else cb.style.opacity=0;
-    const lk=q('.Lk');lk.textContent='Lock'}
+    const T=target();foes.forEach((F,i)=>{const d=foeEls[i];const tg=F===T,dd=F.f.act==='dead';if(d._t!==tg){d._t=tg;d.classList.toggle('t',tg)}if(d._d!==dd){d._d=dd;d.classList.toggle('d',dd)}const h=d._b||(d._b=d.querySelectorAll('b'));const a=Math.round(clamp(F.f.hp/F.f.hpMax,0,1)*100),p=Math.round(clamp(F.f.po/F.f.poMax,0,1)*100);if(d._a!==a){d._a=a;h[0].style.transform='scaleX('+a/100+')'}if(d._p!==p){d._p=p;h[1].style.transform='scaleX('+p/100+')'}});
+    let nl=0;for(let i=0;i<foes.length;i++)if(foes[i].f.act!=='dead')nl++;const tp='ROUND '+(round+1)+(foes.some(F=>F.T.boss)?' · BOSS':'')+'  ·  '+nl+' left';if(tp!==hudTop){hudTop=tp;q('.top').textContent=tp}
+    const cb=q('.combo');if(combo>=2){cb.style.opacity=1;const ct=combo+':'+best;if(ct!==hudCombo){hudCombo=ct;cb.innerHTML=combo+' HITS<small>BEST '+best+'</small>'}}else cb.style.opacity=0;
+    if(!lkSet){lkSet=true;q('.Lk').textContent='Lock'}}
   // ---------- the fight camera ----------
   function cam(dt){
     if(fighting&&P){bodyLayer(pLay,me.userData,P,dt);for(const F of foes)if(F.body.g.visible)bodyLayer(F.body.lay||(F.body.lay={}),F.body.u,F.f,dt)}   // after the frame's animate() calls, just before render
