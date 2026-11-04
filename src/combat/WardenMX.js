@@ -220,6 +220,10 @@ const WardenMX=(()=>{
     hundred:{seq:[{c:'slash3',t0:.2,h:[.55,.85],e:1.0},{c:'slash5',t0:.1,h:[.5,.82],e:.95},{c:'slash3',t0:.2,h:[.55,.85],e:1.0},{c:'slash4',t0:.4,h:[.9,1.4],e:1.6}]}})});
   // The Dark Knight (the crowned one, a static model rigged by tools/pack_static_char.mjs): the Unbroken Oath's moves + the blink
   ROLES.dknight=Object.assign({},ROLES.oath4,{file:'assets/warden_mx_dknight.json',px:'assets/warden_px_dknight.json',moves:Object.assign({},ROLES.oath4.moves,{blink:{c:'crouch',t0:0,e:.66}})});
+  // Artorias + the Dark Knight: real two-handed clips (g_* from the Seede XR library, retargeted by tools/bake_mixamo_native.mjs) for a fourfold combo, a leap, a slide, a travelling overhead, a pommel jab, a kick pair and a ring
+  const GS={spin:{c:'g_spinrun',t0:0,h:[[.52,.75]],e:1.5},fourfold:{c:'g_gcombo',t0:.15,h:[[.6,.78],[1.33,1.5],[2.1,2.45]],e:3.0},wyrmstrike:{c:'g_jump',t0:.1,h:[[.95,1.2]],e:2.0},undertow:{c:'g_slide',t0:.45,h:[[1.3,1.6]],e:2.0},
+    moonfall:{c:'g_pslash',t0:.15,h:[[.7,.92]],e:1.7},pommel:{c:'g_hilt',t0:.1,h:[[.42,.58]],e:1.1},kickwheel:{seq:[{c:'g_skick',t0:.15,h:[.35,.62],e:.9},{c:'g_spkick',t0:.1,h:[.42,.95],e:1.4}]},abyssring:{c:'g_charge',t0:.2,e:2.6},undercut:{c:'g_low',t0:.2,h:[[1.0,1.3]],e:1.8}};
+  Object.assign(ROLES.penitent.moves,GS);Object.assign(ROLES.dknight.moves,GS);
   const BUILD='mx3';const SH={};      // role -> {st,clips,p}
   // a dropped request is retried (3 times, growing gaps) before the role is declared failed: a role that failed once never recovers within a session
   const tryFetch=(u,n)=>fetch(u,n<6?{cache:'reload'}:undefined).then(r=>{if(!r.ok)throw new Error('http '+r.status);return r}).catch(e=>n>0?new Promise(r=>setTimeout(r,1500*(7-n))).then(()=>tryFetch(u,n-1)):Promise.reject(e));
