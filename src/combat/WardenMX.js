@@ -151,7 +151,18 @@ const WardenMX=(()=>{
     iai:{c:'slash5',t0:.05,h:[[.5,.82]],e:1.3},feint:{c:'slash5',t0:.05,e:.55},moon:{c:'slash4',t0:.3,h:[[.9,1.4]],e:1.9},counter:{c:'slash',t0:.1,h:[[.5,.8]],e:1.2},requiem:{c:'power',t0:.3,e:2.1},
     hundred:{seq:[{c:'slash3',t0:.2,h:[.55,.85],e:1.0},{c:'slash5',t0:.1,h:[.5,.82],e:.95},{c:'slash3',t0:.2,h:[.55,.85],e:1.0},{c:'slash4',t0:.4,h:[.9,1.4],e:1.6}]}})});
   // The Veil Dancer (uploaded hooded rig, Mixamo skeleton): Kage's clip set retargeted onto her
-  ROLES.veil=Object.assign({},ROLES.samurai,{file:'assets/warden_mx_veil.json'});
+  ROLES.veil=Object.assign({},ROLES.samurai,{file:'assets/warden_mx_veil.json',moves:Object.assign({},ROLES.samurai.moves)});
+  // Kage's real sword work (k_* clips baked from the Seede XR library onto his skeleton): a proper draw, an inward / outward cut pair, a spin, kicks, a slide, a leap, a backflip kick. The Veil Dancer keeps the older set above.
+  Object.assign(ROLES.samurai.moves,{
+    cut:{c:'k_in',t0:.75,h:[[1.15,1.38]],e:1.9},
+    twin:{seq:[{c:'k_out',t0:.5,h:[.78,1.0],e:1.1},{c:'k_in',t0:.8,h:[1.15,1.38],e:1.9}]},
+    triple:{seq:[{c:'k_out',t0:.5,h:[.78,1.0],e:1.1},{c:'k_in',t0:.8,h:[1.15,1.38],e:1.6},{c:'k_combo',t0:2.45,h:[2.85,3.15],e:3.6}]},
+    iai:{c:'k_draw',t0:.25,h:[[.82,1.02]],e:1.5},silentsev:{c:'k_draw',t0:.25,h:[[.82,1.02]],e:1.5},feint:{c:'k_draw',t0:.25,e:.7},
+    counter:{c:'k_down',t0:.15,h:[[.5,.68]],e:1.2},spin:{c:'k_spinrun',t0:0,h:[[.52,.75]],e:1.5},
+    kslide:{c:'k_slide',t0:.45,h:[[1.3,1.6]],e:2.0},crow:{c:'k_jump',t0:.1,e:2.1},
+    cyclone:{c:'k_spinrun',t0:0,h:[[.52,.75],[.95,1.2]],e:1.6},splitter:{c:'k_pslash',t0:.15,h:[[.7,.9]],e:1.7},
+    tengu:{seq:[{c:'k_skick',t0:.15,h:[.4,.65],e:.9},{c:'k_spkick',t0:.1,h:[.45,.95],e:1.4}]},
+    reversemoon:{c:'k_flipkick',t0:.1,h:[[1.3,1.5]],e:2.0},kindle:{c:'k_charge',t0:.2,e:2.4},thrustslash:{c:'k_thrust',t0:.3,h:[[.65,.85],[1.45,1.65]],e:2.2}});
   // The Veiled Saint (uploaded Queen of Swords rig, packed by tools/pack_ue_char.mjs): the Huntress's cast / kick / power-up set retargeted onto her; every area attack is a cast
   ROLES.saint=Object.assign({},ROLES.archer,{file:'assets/warden_mx_saint.json',moves:Object.assign({},ROLES.archer.moves,{
     lance:{c:'spell',t0:0,e:1.1},returning:{c:'spell',t0:0,e:1.1},consecrate:{c:'power',t0:.3,e:2.0},procession:{c:'power',t0:.3,e:2.0},bladestorm:{c:'spell',t0:0,e:1.1},swordring:{c:'power',t0:.3,e:2.0}})});
