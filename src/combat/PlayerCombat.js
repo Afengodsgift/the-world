@@ -678,7 +678,8 @@ const PlayerCombat=(()=>{
   // DEATH'S SENTENCE: your posture breaks with the Dark Knight at your throat: a grab, a lift, a slam (the cinematic is effects + camera on the stock rig: no grab clip yet). Never lethal; once per 20 s.
   let ds=null,dsCd=0;
   function deathSentence(F){
-    if(ds||dsCd>0||ult||sv||!P||P.act==='dead')return;ds={t:0,F,phase:0,x0:S.x,z0:S.z};dsCd=20;
+    if(ds||dsCd>0||ult||sv||!P||P.act==='dead')return;ds={t:0,F,phase:0,x0:S.x,z0:S.z};dsCd=20;if(NET.mode!=='guest'&&F.ai){F.ai.follow='dsgrab';F.ai.cool=0}   // his body does the choke-lift clip while the game drags / lifts / slams you
+    
     try{msg('DEATH\u2019S SENTENCE',1.8);CameraRig.pulse(-6);flash(.5,'rgba(255,40,40,.6)');hsT=Math.max(hsT,.5);tone(90,40,.7,'sawtooth',.16)}catch(e){}}
   function dsTick(dt){
     if(dsCd>0)dsCd-=dt;if(!ds)return;
