@@ -325,7 +325,7 @@ const SKINLABELS=['Man','Woman','Warrior','Robot'];   // the stock chibi skins: 
 // The player is either a full-human avatar (myApp = a wardrobe appearance) or, as before, one of the stock chibi skins (myApp = null, mySkin = 0..3). Both stay selectable.
 let myApp=AvatarKit.restore()||AvatarKit.defaults(AvatarKit.DEFAULT_BASE),mySkin=AvatarKit.legacySkin(myApp.b);
 try{const cs=localStorage.getItem('tw_chibi_v1');if(cs!==null&&+cs>=0&&+cs<SKINLABELS.length){myApp=null;mySkin=+cs}}catch(e){}
-if(myApp&&AvatarKit.CAT[myApp.b]&&AvatarKit.CAT[myApp.b].hidden){myApp=AvatarKit.defaults(AvatarKit.DEFAULT_BASE);mySkin=AvatarKit.legacySkin(myApp.b)}   // Ronin / Gi / Gretel are NPC-only now (Dojo opponents): an old save falls back to the default body
+if(myApp&&AvatarKit.CAT[myApp.b]&&AvatarKit.CAT[myApp.b].hidden){myApp=AvatarKit.defaults(AvatarKit.DEFAULT_BASE);mySkin=AvatarKit.legacySkin(myApp.b)}   // Ronin / Gi / Boxer are NPC-only now (Dojo opponents): an old save falls back to the default body
 const myAp=()=>myApp?AvatarKit.encode(myApp):undefined;
 function lobbyAvatarRow(){const row=$('skinRow');row.innerHTML='';
   const add=(txt,sel,fn)=>{const b=document.createElement('button');b.textContent=txt;if(sel)b.className='sel';b.onclick=fn;row.appendChild(b)};

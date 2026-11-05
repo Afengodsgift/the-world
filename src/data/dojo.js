@@ -4,18 +4,19 @@
 //   ai.combo   attack scripts it picks from: l = Light (the string jab > cross > hook > knee > spin), h = Heavy (branches: uppercut, roundhouse; a takedown on a staggered foe), g = Guard + Heavy (a throw), p = a charged Power Strike; direct moves: k round kick, s push kick, n knee, d flying drop kick, u uppercut, f dash-in
 //   ai.fw footwork (circling speed)   ai.slip chance to slip a quick jab (Boxer)   ai.ctr counter-attacks after a slip / parry   ai.punish range at which it answers a careless approach with a push kick (Kickboxer)   ai.grab throws whenever close (Grappler)   ai.stag script it uses on a staggered player
 //   ai.par     chance it tries to parry a SLOW (>= 9 tick) attack of yours     ai.dg   chance it dodges one     ai.cd  pause between its attacks (ticks)     ai.read  1 = it learns your habits (Technician)
-//   hp / dm / spd are multiplied by the round's scaling. `look` is the real character model it wears (AvatarKit base: j = the BJJ fighter in a gi, g = Gretel), `tint` colours it (a white gi becomes a red / blue / green / black one).
+//   hp / dm / spd are multiplied by the round's scaling. `look` is the real character model it wears (AvatarKit base: j = the BJJ fighter in a gi, b = the boxer), `tint` colours it (a white gi becomes a red / blue / green / black one).
 const DOJO_FOES={
   brawler:{name:'Brawler',hp:78,dm:.8,spd:1.1,scale:1.0,look:'j',tint:[1,.36,.3],ai:{range:1.55,reach:2.0,combo:['sh','p','llh','ls'],par:.12,dg:.08,cd:[42,80],read:0,fw:.6},tip:'Wild, heavy combos'},
-  boxer:{name:'Boxer',hp:62,dm:.72,spd:1.45,scale:.97,look:'j',tint:[.38,.6,1],ai:{range:1.7,reach:2.1,combo:['ll','lll','llll','fll'],par:.28,dg:.22,cd:[26,52],read:0,slip:.18,ctr:1,fw:1.7},tip:'Fast hands, guards well'},
-  kicker:{name:'Kickboxer',hp:68,dm:.85,spd:1.3,scale:1.0,look:'g',tint:[1,1,1],ai:{range:2.5,reach:2.9,combo:['k','sk','kk','dk','nk'],par:.2,dg:.3,cd:[40,76],read:0,punish:1.6,fw:1.2},tip:'Long range kicks'},
+  boxer:{name:'Boxer',hp:62,dm:.72,spd:1.45,scale:.97,look:'b',tint:[1,1,1],ai:{range:1.7,reach:2.1,combo:['ll','lll','llll','fll'],par:.28,dg:.22,cd:[26,52],read:0,slip:.18,ctr:1,fw:1.7},tip:'Fast hands, guards well'},
+  kicker:{name:'Kickboxer',hp:68,dm:.85,spd:1.3,scale:1.0,look:'j',tint:[1,1,1],ai:{range:2.5,reach:2.9,combo:['k','sk','kk','dk','nk'],par:.2,dg:.3,cd:[40,76],read:0,punish:1.6,fw:1.2},tip:'Long range kicks'},
   grappler:{name:'Grappler',hp:120,dm:.9,spd:1,scale:1.12,look:'j',tint:[.42,.95,.42],ai:{range:1.45,reach:1.9,combo:['g','lg','fg','g'],par:.1,dg:.05,cd:[50,90],read:0,grab:1,stag:'h'},tip:'Throws if you turtle up'},
-  staff:{name:'Staff Fighter',hp:70,dm:.95,spd:1.25,scale:1.0,look:'g',tint:[.9,1,.8],weapon:'bo',ai:{range:2.4,reach:2.8,combo:['ll','lll','h','llh'],par:.2,dg:.2,cd:[34,66],read:0},tip:'Long reach. GRAB or PERFECT PARRY to disarm him'},
-  tech:{name:'Technician',hp:74,dm:.9,spd:1.35,scale:1.03,look:'g',tint:[.82,.9,1.15],ai:{range:1.8,reach:2.2,combo:['ll','lh','ls','llh','lk'],par:.35,dg:.3,cd:[30,60],read:1},tip:'Reads repeated attacks'},
+  heavy:{name:'Heavyweight',hp:150,dm:1.0,spd:1.0,scale:1.1,look:'b',tint:[.78,.74,.74],ai:{range:1.75,reach:2.15,combo:['llu','lh','p','ll','sh'],par:.22,dg:.06,cd:[46,86],read:0,fw:.7,ctr:1},tip:'Slow, huge hands. Do not trade punches'},
+  staff:{name:'Staff Fighter',hp:70,dm:.95,spd:1.25,scale:1.0,look:'j',tint:[.9,1,.8],weapon:'bo',ai:{range:2.4,reach:2.8,combo:['ll','lll','h','llh'],par:.2,dg:.2,cd:[34,66],read:0},tip:'Long reach. GRAB or PERFECT PARRY to disarm him'},
+  tech:{name:'Technician',hp:74,dm:.9,spd:1.35,scale:1.03,look:'j',tint:[.82,.9,1.15],ai:{range:1.8,reach:2.2,combo:['ll','lh','ls','llh','lk'],par:.35,dg:.3,cd:[30,60],read:1},tip:'Reads repeated attacks'},
   enforcer:{name:'The Enforcer',hp:330,dm:1.05,spd:1.15,scale:1.22,look:'j',tint:[.34,.34,.4],boss:true,ai:{range:1.8,reach:2.4,combo:['llll','lh','p','lg','sk','llh'],par:.3,dg:.2,cd:[26,54],read:1},tip:'Boss: everything, plus power strikes'}};
 // the trial: each round is a list of opponents. After the last, the trial goes on forever with a random pool and growing strength.
 const DOJO_ROUNDS=[['brawler'],['boxer','brawler'],['kicker','boxer'],['staff'],['grappler','brawler','brawler'],['tech','kicker','staff'],['enforcer']];
-const DOJO_POOL=['brawler','boxer','kicker','grappler','tech','staff'];
+const DOJO_POOL=['brawler','boxer','kicker','grappler','tech','staff','heavy'];
 // belts: every 4 rounds you clear (lifetime) earns the next belt = +hp, +damage
 const DOJO_BELTS=[{n:'White',c:'#f4f4f4'},{n:'Yellow',c:'#f2d23a'},{n:'Orange',c:'#f08a24'},{n:'Green',c:'#4fb34f'},{n:'Blue',c:'#3f7fe0'},{n:'Brown',c:'#8a5a34'},{n:'Black',c:'#222'}];
 const DOJO_BELT_EVERY=4;

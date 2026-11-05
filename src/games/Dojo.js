@@ -185,7 +185,7 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
     q('.res').classList.remove('on');el.classList.add('on');document.body.classList.add('dojo-fight');goBtn.style.display='none';stBar.style.display='none';try{Expedition.hold('dojo')}catch(e){}
     paintBelt();say('ROUND 1',1.4,'#ffd070');tone(300,600,.25,'sawtooth',.1);sfx('vo_fight',.8,1)}
   const pLay={};let warmed=false;
-  function warm(){if(warmed)return;warmed=true;try{WardenMX.fetch('player_dojo',me.userData.av).catch(()=>{});for(const l of ['j','g']){AvatarKit.preload(l).catch(()=>{});WardenMX.fetch('player_dojo',l).catch(()=>{});if(l==='g')WardenMX.fetch('dojo_staff',l).catch(()=>{})}if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});if(typeof WardenSfx!=='undefined')WardenSfx.load()}catch(e){}}
+  function warm(){if(warmed)return;warmed=true;try{WardenMX.fetch('player_dojo',me.userData.av).catch(()=>{});for(const l of ['j','b']){AvatarKit.preload(l).catch(()=>{});WardenMX.fetch('player_dojo',l).catch(()=>{});if(l==='j')WardenMX.fetch('dojo_staff',l).catch(()=>{})}if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});if(typeof WardenSfx!=='undefined')WardenSfx.load()}catch(e){}}
   const foeReady=F=>!!F.body.u.model&&(F.body.u.av===F.body.look||F.fb);
   function newPlayer(){const st=PS();P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:st.hp,team:'p',fs:1,dm:st.dm});P.fs=1;P.dm=st.dm;P.hpMax=st.hp;P.hp=st.hp;P.sm=.9;const sy=DojoData.styles[SAVE.style]||DojoData.styles.striker;P.mm=sy.mm;P.pm=1.05*sy.pm;P.dfl=sy.dfl;P.dm0=st.dm;if(sy.hp){P.hpMax+=sy.hp;P.hp=P.hpMax}dropStaff(true);
     if(!pAnim&&me.userData.mixer)pAnim=WardenMX.make(me.userData,'player_dojo')}
@@ -210,8 +210,12 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
     if(e.a==='P'&&e.zone==='h'&&!big&&Math.random()<.35){cs.shk=Math.max(cs.shk,.3)}else if(e.a==='P'&&e.zone==='l'&&t){hint('LEG HIT: slowed',.8)}}
   // ---------- weapons: the Staff Fighter's bo staff. GRAB it or PERFECT-PARRY it and it is yours for a while (+45% damage) ----------
   let pStaff=null,wT=0;
-  function staffMesh(len){const g=new THREE.Group(),m=new THREE.Mesh(new THREE.CylinderGeometry(.028,.028,len,8),new THREE.MeshStandardMaterial({color:'#8a5a30',roughness:.7})),a=new THREE.Mesh(new THREE.CylinderGeometry(.036,.036,.16,8),new THREE.MeshStandardMaterial({color:'#2a2020',roughness:.6}));a.position.y=len/2-.08;const b=a.clone();b.position.y=-len/2+.08;g.add(m,a,b);g.traverse(c=>{if(c.isMesh)c.castShadow=true});return g}
-  function holdStaff(u,sc,len){const hand=u.bones&&u.bones.RightHand;if(!hand)return null;const w=staffMesh(len),h=new THREE.Group();h.add(w);w.position.y=len*.28;h.rotation.set(Math.PI/2,0,0);hand.add(h);let o=hand;while(o.parent)o=o.parent;o.updateMatrixWorld(true);const ws=hand.getWorldScale(new THREE.Vector3()).x||1;h.scale.setScalar(1/ws);return h}
+  function staffMesh(len){const r=len*.012,g=new THREE.Group(),m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,len,8),new THREE.MeshStandardMaterial({color:'#8a5a30',roughness:.7})),a=new THREE.Mesh(new THREE.CylinderGeometry(r*1.3,r*1.3,len*.07,8),new THREE.MeshStandardMaterial({color:'#2a2020',roughness:.6}));a.position.y=len/2-len*.035;const b=a.clone();b.position.y=-len/2+len*.035;g.add(m,a,b);g.traverse(c=>{if(c.isMesh)c.castShadow=true});return g}
+  // the staff is sized from the BODY (head height above the feet, in the model's own world scale) and seated across the right fist, so it fits every character and never swallows the hand
+  function holdStaff(u,sc,len){const hand=u.bones&&u.bones.RightHand;if(!hand)return null;let o=hand;while(o.parent)o=o.parent;o.updateMatrixWorld(true);
+    const hd=u.bones.Head,hp=new THREE.Vector3(),fp=new THREE.Vector3();(hd||hand).getWorldPosition(hp);let ag=hand;while(ag&&ag.userData!==u)ag=ag.parent;(ag||o).getWorldPosition(fp);
+    const bodyH=Math.max(.5,Math.min(2.4,hd?hp.y-fp.y:1.6)),L=bodyH*(len>1.8?.92:.85);
+    const w=staffMesh(L),h=new THREE.Group();h.add(w);w.position.y=L*.1;h.rotation.set(Math.PI/2,0,0);hand.add(h);const ws=hand.getWorldScale(new THREE.Vector3()).x||1;h.scale.setScalar(1/ws);return h}
   function disarm(F){if(!F||!F.armed)return;F.armed=false;F.f.dm*=.6;F.f.rm=1;F.ai.A=Object.assign({},F.ai.A,{range:1.7,reach:2.1});if(F.prop){F.prop.parent&&F.prop.parent.remove(F.prop);F.prop=null}if(F.body.anim){F.body.anim.off();F.body.anim=null}
     say('DISARMED!',1.1,'#7fe8ff');hint('STAFF: +45% damage for 15s',2);tone(700,1400,.2,'triangle',.12);cs.shk=Math.max(cs.shk,.4);
     dropStaff(true);pStaff=holdStaff(me.userData,1,1.7);if(pStaff){wT=15;P.dm=P.dm0*1.45}}
