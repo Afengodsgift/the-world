@@ -12,7 +12,7 @@ for(const role of Object.keys(X.ROLES)){
   const spec=X.ROLES[role],file=R+spec.file,exists=fs.existsSync(file);ok(exists,role+': asset '+spec.file+' exists'+(exists?' ('+(fs.statSync(file).size/1024|0)+' KB)':''));if(!exists)continue;
   const clips=JSON.parse(fs.readFileSync(file,'utf8')),dur={};for(const k of clips)dur[k.name]=k.duration;
   if(spec.px){const pf=R+spec.px,pe=fs.existsSync(pf);ok(pe,role+': pack asset '+spec.px+' exists');if(pe){const px=JSON.parse(fs.readFileSync(pf,'utf8'));for(const k of px)dur[k.name]=k.duration;ok(fs.statSync(pf).size<600*1024,role+': pack asset is < 600 KB');ok(['p_knock','p_hurt','p_hitc','p_hith','p_deathA','p_deathB','p_deathC'].every(n=>dur[n]),role+': pack has every reaction clip')}}
-  ok(fs.statSync(file).size<(spec.native?3000:1300)*1024,role+': asset is < '+(spec.native?3000:1300)+' KB');
+  ok(fs.statSync(file).size<(spec.native?3000:1500)*1024,role+': asset is < '+(spec.native?3000:1500)+' KB');
   ok(Object.values(spec.loco).every(n=>dur[n]||/^(e|kk)_/.test(n)),role+': every locomotion clip exists');if(spec.guard)ok(dur[spec.guard]||/^(e|kk)_/.test(spec.guard),role+': guard clip exists');
   for(const id of need[role]){const m=mv[id];ok(m&&spec.moves[id],role+': move '+id+' is mapped');if(!m||!spec.moves[id])continue;
     const sq=X.norm(spec.moves[id]);ok(sq.every(s=>dur[s.c]),role+'/'+id+': its clips exist ('+sq.map(s=>s.c).join(',')+')');

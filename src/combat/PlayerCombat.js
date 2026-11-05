@@ -681,13 +681,14 @@ const PlayerCombat=(()=>{
     if(ds||dsCd>0||ult||sv||!P||P.act==='dead')return;ds={t:0,F,phase:0,x0:S.x,z0:S.z};dsCd=20;if(NET.mode!=='guest'&&F.ai){F.ai.follow='dsgrab';F.ai.cool=0}   // his body does the choke-lift clip while the game drags / lifts / slams you
     
     try{msg('DEATH\u2019S SENTENCE',1.8);CameraRig.pulse(-6);flash(.5,'rgba(255,40,40,.6)');hsT=Math.max(hsT,.5);tone(90,40,.7,'sawtooth',.16)}catch(e){}}
+  let dsAfter=0;
   function dsTick(dt){
-    if(dsCd>0)dsCd-=dt;if(!ds)return;
+    if(dsCd>0)dsCd-=dt;if(dsAfter>0){dsAfter+=dt;if(dsAfter>.95||!on)dsAfter=0}if(!ds)return;
     if(!on||state!=='fight'||P.act==='dead'){ds=null;return}
     const q=ds;q.t+=dt;P.act='stun';P.sk='hit';P.stun=Math.max(P.stun,30);P.guard=false;P.ph=null;P.mv=null;
     const f=q.F.f,dx=f.x-S.x,dz=f.z-S.z,d=Math.hypot(dx,dz)||1;if(d>1.5){const st=Math.min(d-1.5,7*dt);S.x+=dx/d*st;S.z+=dz/d*st;P.x=S.x;P.z=S.z}   // dragged to his hand
     if(q.phase===0&&q.t>.75){q.phase=1;try{CameraRig.pulse(-3);tone(300,150,.4,'triangle',.1);msg('LIFTED',.6)}catch(e){}}
-    if(q.phase===1&&q.t>1.3){q.phase=2;P.hp=Math.max(1,P.hp-Math.round(P.hpMax*.3));P.stun=50;hurt=true;
+    if(q.phase===1&&q.t>1.3){q.phase=2;P.hp=Math.max(1,P.hp-Math.round(P.hpMax*.3));P.stun=57;dsAfter=.001;hurt=true;
       try{CameraRig.shake(1);flash(.9,'rgba(255,255,255,.9)');WardenVfx.burst(S.x,H(S.x,S.z)+.6,S.z,3);sfx('heavy',.9,.5,()=>tone(70,30,.6,'sawtooth',.18))}catch(e){}ds=null}}
   // ARTORIAS: IMPALER'S OATH pins you (1.5 s) - mash any button to tear free; if you do not, his Executioner's Advance follows. ABYSSAL ROLL: dodge or guard EARLY into his Executioner's / Broken Advance and he cancels the wind-up into a roll to your flank and cuts.
   let pin=null;
@@ -1266,6 +1267,7 @@ const PlayerCombat=(()=>{
     locoOf(pv,S.x,S.z,S.rot,dt);const ploco={moving:pv.sp>.8&&P.act==='free',vf:pv.vf,vs:pv.vs};
     gT=P.guard?gT+1:0;const o=PC._pose?{a:WardenAnim.POSES[PC._pose[0]],b:WardenAnim.POSES[PC._pose[1]],u:PC._pose[2],w:1}:WardenAnim.target(P,gT);WardenAnim.mix(o.a,o.b,o.u,tg);stW+=((o.w)-stW)*Math.min(1,dt*10);
     {const k=Math.min(1,dt*40);for(const kk of['ru','rf','lu','lf'])cur[kk].lerp(tg[kk],k).normalize();cur.tw+=(tg.tw-cur.tw)*k;cur.ln+=(tg.ln-cur.ln)*k}
+    if(pAnim){pAnim.ds=ds?ds.t:0;pAnim.dsA=dsAfter}
     const used=pAnim?pAnim.update(P,fr,ploco,dt,true):false;if(!used&&!PC._skip)WardenAnim.apply(me.userData,cur,stW);
     for(const F of foes){if(F.bleed&&F.bleed.t>0&&F.f.act!=='dead'&&NET.mode!=='guest'){F.bleed.t-=dt;F.f.hp=Math.max(1,F.f.hp-F.bleed.dps*dt);F.flash=Math.max(F.flash,.25)}foeTick(F,dt,fr)}payFoes();
     WardenFx.update(dt);WardenVfx.update(dt);
