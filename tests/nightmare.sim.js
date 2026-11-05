@@ -16,4 +16,6 @@ for(const r of roles){const Ro=X.ROLES[r];ok(Ro&&Ro.pack,r+': uses the nightmare
     if(act&&Ro.auto&&Ro.auto[id]===sp)ok(seq.length>=act,r+':'+id+' '+act+' active phase(s) vs '+seq.length+' windows');
     const pl=X.plan(m.phases,sp,cn=>dur[cn]||9);ok(pl.every(q=>q&&q.c&&isFinite(q.a)&&isFinite(q.b)&&q.b>=q.a-1e-6),r+':'+id+' plan covers every phase with forward clip time')}
   ok(cnt>40,r+': '+cnt+' moves animated')}
+// hit reactions: the T-pose-on-hit fix needs the real flinch clips in every native boss file
+for(const r of roles.concat(['paladin','arissa','archer','ganfaul','gdn'])){const Ro=X.ROLES[r];ok(Ro&&Ro.hr,r+': uses the real hit-reaction clips');const cl=JSON.parse(fs.readFileSync(R+(Ro.file||X.ROLES.penitent.file),'utf8')),arr=Array.isArray(cl)?cl:cl.clips,nm=new Set(arr.map(x=>x.name));for(const h of['hr_chest','hr_sw','hr_head','hr_kid','hr_side','hr_L','hr_big','hr_up'])ok(nm.has(h),r+': has '+h)}
 console.log(n+' checks')

@@ -208,6 +208,7 @@ const WardenMX=(()=>{
   ROLES.player_axe=Object.assign({},ROLES.player_gs,{moves:Object.assign({},ROLES.player_gs.moves,{
     light:{c:'atk',t0:0,h:[[.37,.52]],e:1.0},light2:{c:'slash',t0:.05,h:[[.45,.8]],e:1.2},rising:{c:'slash3',t0:.2,h:[[.6,1.0]],e:1.6}})});
   // the Phantom-Blade pack (assets/warden_px_<role>.json, tools/bake_pack.mjs): reactions every role with .px shares - knock-back, hurt loop, two flinches, three deaths
+  const HR=['hr_chest','hr_sw','hr_head','hr_kid','hr_side','hr_L','hr_big','hr_up'];
   const PXN=['p_knock','p_hurt','p_hitc','p_hith','p_deathA','p_deathB','p_deathC'],PXD=['p_deathA','p_deathB','p_deathC'];
   for(const r of['penitent','gwyn','capra','saint','veil','samurai','vampire','paladin','arissa','archer','gdn','ganfaul']){const R=ROLES[r];if(!R)continue;R.px='assets/warden_px_'+r+'.json';const M=R.moves=Object.assign({},R.moves);
     if(M.bash)M.bash={c:'p_kick',t0:.25,h:[[.46,.68]],e:1.2};
@@ -236,6 +237,7 @@ const WardenMX=(()=>{
   const GS={spin:{c:'g_spinrun',t0:0,h:[[.52,.75]],e:1.5},fourfold:{c:'g_gcombo',t0:.15,h:[[.6,.78],[1.33,1.5],[2.1,2.45]],e:3.0},wyrmstrike:{c:'g_jump',t0:.1,h:[[.95,1.2]],e:2.0},undertow:{c:'g_slide',t0:.45,h:[[1.3,1.6]],e:2.0},
     moonfall:{c:'g_pslash',t0:.15,h:[[.7,.92]],e:1.7},pommel:{c:'g_hilt',t0:.1,h:[[.42,.58]],e:1.1},kickwheel:{seq:[{c:'g_skick',t0:.15,h:[.35,.62],e:.9},{c:'g_spkick',t0:.1,h:[.42,.95],e:1.4}]},abyssring:{c:'g_charge',t0:.2,e:2.6},undercut:{c:'g_low',t0:.2,h:[[1.0,1.3]],e:1.8}};
   Object.assign(ROLES.penitent.moves,GS);Object.assign(ROLES.dknight.moves,GS);
+  for(const r of['dknight','penitent','gwyn','capra','samurai','vampire','saint','veil','oath4','paladin','arissa','archer','ganfaul','gdn'])if(ROLES[r])ROLES[r].hr=true;
   for(const r of['dknight','penitent','gwyn','capra','samurai','vampire','saint','veil','oath4']){const R=ROLES[r];if(!R)continue;R.pack=true;R.g=r==='dknight'||r==='penitent'||r==='gwyn'||r==='capra'||r==='oath4'}
   const BUILD='mx3';const SH={};      // role -> {st,clips,p}
   // a dropped request is retried (3 times, growing gaps) before the role is declared failed: a role that failed once never recovers within a session
@@ -277,6 +279,7 @@ const WardenMX=(()=>{
       if(R.fxMoves&&s.clips.fx_jab){if(!R.moves0)R.moves0=R.moves;R.moves=Object.assign({},R.moves0,R.fxMoves);R.loco={...R.loco,idle:'fx_idle'};R.guard='fx_guard';if(s.clips.fx2_idle)R.loco={...R.loco,idle:'fx2_idle',walk:'fx2_fwd',run:'fx2_fwd',back:'fx2_bwd',sl:'fx2_stepl',sr:'fx2_stepr'}}   // boxing-stance bounce and steps for idle / walk / back / strafe
       const used=new Set(Object.values(R.loco));if(R.guard)used.add(R.guard);if(R.parry)for(const q of R.parry)used.add(q.c);if(R.dorm)used.add(R.dorm);if(R.wake)used.add(R.wake.c);if(R.death)used.add(R.death);if(R.hit)used.add(R.hit);if(R.dg)for(const k in R.dg)used.add(R.dg[k][0]);if(R.px)for(const n of PXN)used.add(n);
       for(const m of Object.values(R.moves)){for(const g of norm(m))used.add(g.c);if(m.v)for(const x of m.v)used.add(x.c)}
+      if(R.hr)for(const n of HR)used.add(n);
       if(R.pack){for(const n in PK)used.add(n);for(const c of CASTS)used.add(c[0])}   // the auto-assigned clips (nightmare pack) are not in R.moves, but they need mixer actions too
       if(R.dojo)for(const n of ['fx_hit_hl','fx_hit_hr','fx_hit_hs','fx_hit_b','fx_hit_st','fx_hit_big','fx_ko','fx_blockreact','kk_blockhit','kk_dodge_b','kk_dodge_f','kk_dodge_l','kk_dodge_r','e_roll','fx2_hit_f','fx2_hit_bk','fx2_hit_l','fx2_hit_r','fx2_rocked','fx2_flip','fx2_thrown','fx2_down','fx2_getup','fx2_block_l','fx2_block_r','fx2_block_in'])used.add(n);
       names=[...used].filter(n=>s.clips[n]);I.names=names;I.S=s;
@@ -310,6 +313,8 @@ const WardenMX=(()=>{
       else if(R.native&&f.act==='stun'&&f.sk==='rise'&&R.death&&A[R.death]){   // the phase fall: he drops (death clip), lies there, then the clip plays BACKWARDS as he gets up
         const D=Math.min(2.2,A[R.death].getClip().duration-.05),T=336/60,t=I.sT;put(R.death,t<D?t:t<T-D?D:Math.max(0,D-(t-(T-D))))}
       else if(R.native&&f.act==='stun'&&R.px&&A.p_knock&&f.sk==='stagger'){const kd=A.p_knock.getClip().duration;if(I.sT<kd)put('p_knock',I.sT);else put('p_hurt',(I.sT-kd)%1.6)}   // a stagger: thrown back, then the hurt loop
+      else if(R.native&&f.act==='stun'&&R.hr&&f.sk!=='rise'&&A.hr_chest){   // REAL hit reactions (library: punch / sword impact / head / kidney / side / left / big / uppercut), a different one most hits. The old p_hitc / p_hith flinch clips are almost a held T-pose on these rigs - that was the 'T-pose whenever I hit him'.
+        if(I.sT<=dt*1.5)I.hn=((I.hn||0)+1+(Math.random()*(HR.length-1)|0))%HR.length;const hn=HR[I.hn||0],hc=A[hn]||A.hr_chest;put(A[hn]?hn:'hr_chest',Math.min(I.sT*1.7,hc.getClip().duration-.05))}
       else if(R.native&&f.act==='stun'&&R.px&&A.p_hitc&&f.sk!=='rise'){if(I.sT<=dt*1.5)I.hv=(I.hv||0)^1;put(I.hv?'p_hith':'p_hitc',I.sT)}   // flinches alternate chest / head
       else if(R.native&&f.act==='stun'&&R.hit&&A[R.hit])put(R.hit,I.sT);
       else if(!R.native&&R.px&&A.p_hitc&&f.act==='stun'&&f.sk!=='rise'){   // the player: thrown back on a stagger, flinches (chest / head) otherwise
