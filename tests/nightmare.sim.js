@@ -18,4 +18,7 @@ for(const r of roles){const Ro=X.ROLES[r];ok(Ro&&Ro.pack,r+': uses the nightmare
   ok(cnt>40,r+': '+cnt+' moves animated')}
 // hit reactions: the T-pose-on-hit fix needs the real flinch clips in every native boss file
 for(const r of roles.concat(['paladin','arissa','archer','ganfaul','gdn'])){const Ro=X.ROLES[r];ok(Ro&&Ro.hr,r+': uses the real hit-reaction clips');const cl=JSON.parse(fs.readFileSync(R+(Ro.file||X.ROLES.penitent.file),'utf8')),arr=Array.isArray(cl)?cl:cl.clips,nm=new Set(arr.map(x=>x.name));for(const h of['hr_chest','hr_sw','hr_head','hr_kid','hr_side','hr_L','hr_big','hr_up'])ok(nm.has(h),r+': has '+h)}
+// Death's Sentence victim clips on the avatars
+for(const a of['crypto','madea']){const cl=JSON.parse(fs.readFileSync(R+'assets/avatars/'+a+'/warden_mx_player.json','utf8')),arr=Array.isArray(cl)?cl:cl.clips,nm=new Set(arr.map(x=>x.name));for(const h of['ds_victim','ds_side','ds_up'])ok(nm.has(h),a+': has '+h)}
+ok(X.ROLES.player.dsv&&X.ROLES.player_twin.dsv,'player roles play the Death\'s Sentence victim clips')
 console.log(n+' checks')

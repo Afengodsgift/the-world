@@ -214,6 +214,7 @@ const WardenMX=(()=>{
     if(M.bash)M.bash={c:'p_kick',t0:.25,h:[[.46,.68]],e:1.2};
     if(M.flurry)M.flurry={c:'p_combo',t0:0,h:[[.2,.32],[.68,.8],[1.48,1.6]],e:2.3};if(M.dash)M.dash={c:'p_dash',t0:.05,h:[[.28,.42]],e:1.1}}
   // the player's own roles: the same reactions (knock-back, hurt loop, flinches, deaths) plus a kick for the shove and the dash cut for the lunge
+  for(const r of['player','player_gs','player_axe','player_twin'])if(ROLES[r])ROLES[r].dsv=true;
   for(const r of['player','player_gs','player_axe']){const R=ROLES[r];if(!R)continue;R.px='assets/warden_px_player.json';const M=R.moves=Object.assign({},R.moves);
     M.sever={c:'slash',t0:.15,h:[[.46,.68]],e:1.0};M.sever2={c:'slash5',t0:.1,h:[[.5,.82]],e:1.0};M.severF={c:'p_combo',t0:.9,h:[[1.5,1.6]],e:2.6};
     if(M.shove)M.shove={c:'p_kick',t0:.2,h:[[.5,.8]],e:1.3};if(M.lunge)M.lunge={c:'p_dash',t0:.05,h:[[.27,.4]],e:1.1}}
@@ -279,7 +280,7 @@ const WardenMX=(()=>{
       if(R.fxMoves&&s.clips.fx_jab){if(!R.moves0)R.moves0=R.moves;R.moves=Object.assign({},R.moves0,R.fxMoves);R.loco={...R.loco,idle:'fx_idle'};R.guard='fx_guard';if(s.clips.fx2_idle)R.loco={...R.loco,idle:'fx2_idle',walk:'fx2_fwd',run:'fx2_fwd',back:'fx2_bwd',sl:'fx2_stepl',sr:'fx2_stepr'}}   // boxing-stance bounce and steps for idle / walk / back / strafe
       const used=new Set(Object.values(R.loco));if(R.guard)used.add(R.guard);if(R.parry)for(const q of R.parry)used.add(q.c);if(R.dorm)used.add(R.dorm);if(R.wake)used.add(R.wake.c);if(R.death)used.add(R.death);if(R.hit)used.add(R.hit);if(R.dg)for(const k in R.dg)used.add(R.dg[k][0]);if(R.px)for(const n of PXN)used.add(n);
       for(const m of Object.values(R.moves)){for(const g of norm(m))used.add(g.c);if(m.v)for(const x of m.v)used.add(x.c)}
-      if(R.hr)for(const n of HR)used.add(n);
+      if(R.hr)for(const n of HR)used.add(n);if(R.dsv)for(const n of['ds_victim','ds_side','ds_up'])used.add(n);
       if(R.pack){for(const n in PK)used.add(n);for(const c of CASTS)used.add(c[0])}   // the auto-assigned clips (nightmare pack) are not in R.moves, but they need mixer actions too
       if(R.dojo)for(const n of ['fx_hit_hl','fx_hit_hr','fx_hit_hs','fx_hit_b','fx_hit_st','fx_hit_big','fx_ko','fx_blockreact','kk_blockhit','kk_dodge_b','kk_dodge_f','kk_dodge_l','kk_dodge_r','e_roll','fx2_hit_f','fx2_hit_bk','fx2_hit_l','fx2_hit_r','fx2_rocked','fx2_flip','fx2_thrown','fx2_down','fx2_getup','fx2_block_l','fx2_block_r','fx2_block_in'])used.add(n);
       names=[...used].filter(n=>s.clips[n]);I.names=names;I.S=s;
@@ -305,6 +306,8 @@ const WardenMX=(()=>{
           const c=I.hcl||'fx2_hit_f',L=A[c].getClip().duration;put(c,Math.min(.1+I.sT*1.5,L-.05))}
         else{if(I.sT<=dt*1.5&&f.hz){const Z=f.hz==='h'?['fx_hit_hl','fx_hit_hr','fx_hit_hs']:f.hz==='m'?['fx_hit_b','fx_hit_st']:['fx_hit_st','fx_hit_b'];I.hz=Z[(I.hi||0)%Z.length]}else if(I.sT<=dt*1.5)I.hz=null;const c=I.hz&&A[I.hz]?I.hz:HL[I.hi||0];put(c,Math.min(I.sT*1.1,A[c].getClip().duration-.05))}}
       else if(R.dojo&&!A.p_hitc&&f.act==='stun'&&A[R.hit]){const d=A[R.hit].getClip().duration,sg=f.sk==='stagger';if(I.sT<=dt*1.5)I.hv=(I.hv||0)^1;put(R.hit,sg?Math.min(I.sT*.6,d-.05):Math.min(I.sT*(I.hv?1:1.15),d-.05))}   // a flinch plays at once (alternating pace), a stagger is a slower, held wobble
+      else if((I.ds>0||I.dsA>0)&&A.ds_victim&&A.ds_side&&A.ds_up){   // DEATH'S SENTENCE, victim half (library): doubled over and hauled (hell-slammer victim), thrown (being-thrown-to-the-side) onto the floor, then the getting-up clip
+        if(I.ds>0)put('ds_victim',2+Math.min(1,I.ds/1.3)*1.4);else if(I.dsA<.5)put('ds_side',1.35+I.dsA/.5*.95);else put('ds_up',.7+Math.min(1,(I.dsA-.5)/.45)*1.1)}
       else if(R.dg&&f.act==='dodge'&&f.dir&&A.d_roll){const dx=f.dir[0],dz=f.dir[1],fw=dx*Math.sin(f.face)+dz*Math.cos(f.face),sd=dx*Math.cos(f.face)-dz*Math.sin(f.face),cls=fw<-.5?'back':Math.abs(sd)>.6&&!(fw>.75)?(sd>0?'l':'r'):'roll',D=R.dg[cls],u=Math.max(0,Math.min(1,(f.pt+1)/(f.side?16:22)));I.dgCls=cls;const cn=A[D[0]]?D[0]:'d_roll',e=D[0]===cn?D:R.dg.roll;put(cn,e[1]+(e[2]-e[1])*u*u*(3-2*u)*.35+(e[2]-e[1])*u*.65)}
       else if(R.dojo&&f.act==='dodge'&&(A.kk_dodge_b||A.e_roll)){if(!I.dgT){const vf=loco?loco.vf:0,vs=loco?loco.vs:0;I.dgK=Math.hypot(vf,vs)<.4?'kk_dodge_b':Math.abs(vs)>Math.abs(vf)?(vs>0?'kk_dodge_l':'kk_dodge_r'):(vf>0?'kk_dodge_f':'kk_dodge_b')}I.dgT=(I.dgT||0)+dt;if(A[I.dgK])put(I.dgK,I.dgT*1.15);else put('e_roll',.12+I.dgT*2.7)}
       else if(R.native&&f.act==='dead'&&R.px&&A.p_deathA){   // a random one of the three pack deaths (or his own) each time he falls
