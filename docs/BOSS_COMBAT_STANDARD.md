@@ -43,7 +43,7 @@ Arena changes at phase transitions, destructible structures, weapon loss -> new 
 - **Void Runes / Anchors**: every blink leaves a rune where he vanished (max 5, 16 s). Iron Pursuit / Executioner's Advance arms them (0.9 s fuse, ring turns white); standing in one when it blows = 20% HP + stagger (never lethal). Three runes + a blink = the **Convergence**: lines run to you, you are dragged toward the centre for 1.5 s (dodge i-frames break the pull), the runes blow, then Final Sentence. Each client damages only itself; the host tells the guest (`sp` zr/zd/za).
 - **Shadow Piercer**: make an afterimage while he is winding up a heavy move and he cancels into a Void Thrust, pierces the clone and takes 35 posture back.
 - **Crown Fissure** (phase 2): the blade splits the floor; the cracks erupt ~1 s later in three beats. Rolling early is the mistake.
-- **Death's Sentence**: when your posture breaks with him within 4.6 m: dragged to his hand, lifted, slammed (30% max HP, never lethal, once per 20 s). Effects + camera only: no grab animation on the stock rig yet.
+- **Death's Sentence**: when your posture breaks with him within 4.6 m: dragged to his hand, lifted, slammed (30% max HP, never lethal, once per 20 s). His body plays the library choke-lift clip (`dsgrab`, host-driven); YOUR body still just shows the stun pose (the victim half of the library's hell-slammer pair needs adding to the avatar emote sets; not done).
 - **Phantom Barrage runes**: when the barrage ends each phantom leaves a void rune where it stood (fuse ~2.4-3 s, host/solo).
 
 ## Gwyn and Artorias kits (batch 3)
