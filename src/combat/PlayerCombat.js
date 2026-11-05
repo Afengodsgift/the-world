@@ -164,6 +164,10 @@ const PlayerCombat=(()=>{
   // ---------- co-op (see WardenNet.js): host runs the foes, each player is authoritative for themselves, the partner is a puppet fighter 'Q' in the local sim ----------
   const NET=WardenNet.S;let Q=null,spectate=false,netSendT=0,helloAt=0,netStarts=[];
   const netOn=()=>NET.mode!=='solo'&&!!Q;
+  // THREAT-WEIGHTED FRAMING: with several foes awake the look-at leans toward the weighted middle of the awake ones (near foes count far more, the locked one 2.5x), so the one hitting you stays in frame without losing the rest. One foe = exactly the old framing.
+  function threatMid(D0){const L=alive().filter(F=>F.awake&&F.f.act!=='dead'&&!F.ghost);if(L.length<2)return{x:D0.x,z:D0.z};let sx=0,sz=0,sw=0;const T=target();
+    for(const F of L){const d=Math.hypot(F.f.x-S.x,F.f.z-S.z),w=(F===T?2.5:1)/Math.pow(1+d*.35,1.6);sx+=F.f.x*w;sz+=F.f.z*w;sw+=w}
+    const mx=sx/sw,mz=sz/sw;return{x:D0.x*.45+mx*.55,z:D0.z*.45+mz*.55}}
   function netAddQ(){if(!C||Q&&C.F.Q===Q)return;Q=C.add('Q',{x:S.x+1,z:S.z,face:S.rot,hp:100,team:'p'});if(NET.mode==='host')rescaleFoes()}
   function netDropQ(){if(C&&C.F.Q){delete C.F.Q;C.order=C.order.filter(i=>i!=='Q')}Q=null;if(NET.mode==='host')rescaleFoes()}
   function netHost(){helloAt=0;NET.mode='host';NET.site=site.id;NET.t0=Date.now();NET.left=false}
@@ -285,6 +289,7 @@ const PlayerCombat=(()=>{
       case'jump':fightJump();break;
       case'shadow':shadowStep();break;
       case'swap':swapStance();break;
+      case'camd':{CAMS.dist=CAMS.dist<.9?1:CAMS.dist<1.1?1.25:.8;try{localStorage.setItem('wcam',JSON.stringify(CAMS))}catch(e){}msg(CAMS.dist<.9?'CAMERA: CLOSE':CAMS.dist>1.1?'CAMERA: FAR':'CAMERA: NORMAL',1);break}
       default:return false}
     return true}
   function release(name,tms){
@@ -297,7 +302,7 @@ const PlayerCombat=(()=>{
   // ---- COMBAT CAMERA (see docs/COMBAT_CAMERA.md): lock-on orients, it never plays the fight for you ----
   // Lock-on yaw: the camera only turns once the target leaves a comfortable cone, never faster than 3.2 rad/s (so a boss passing behind you swings round smoothly instead of flipping 180 degrees),
   // and any drag on the camera by the player hands it back to them for 1.2 s. Settings (localStorage 'wcam'): assist 0 = no automatic turning, move 0 = no per-move camera responses.
-  const CAMS=(()=>{let o={assist:1,move:1};try{const j=JSON.parse(localStorage.getItem('wcam')||'null');if(j)o=Object.assign(o,j)}catch(e){}return o})();
+  const CAMS=(()=>{let o={assist:1,move:1,dist:1};try{const j=JSON.parse(localStorage.getItem('wcam')||'null');if(j)o=Object.assign(o,j)}catch(e){}return o})();
   let yawSet=null,yawMan=0;
   function lockCam(a,dt){const want=a+Math.PI;if(yawSet!==null&&Math.abs(wrapA(S.yaw-yawSet))>.004)yawMan=1.2;
     if(yawMan>0){yawMan-=dt;yawSet=S.yaw;return}
@@ -318,7 +323,7 @@ const PlayerCombat=(()=>{
     else lock=false;
     lockOff=!lock;   // the player turned it off on purpose: do not auto-lock again until they turn it on
     if(el)el.querySelector('#wLock').classList.toggle('on',lock)}
-  const KEY={Digit1:'ihp',Digit2:'ist',Digit3:'imt',KeyE:'flow',KeyF:'light',KeyG:'heavy',KeyQ:'guard',KeyR:'sup',Space:'dodge',Tab:'lock',KeyZ:'swap'};
+  const KEY={Digit1:'ihp',Digit2:'ist',Digit3:'imt',KeyE:'flow',KeyF:'light',KeyG:'heavy',KeyQ:'guard',KeyR:'sup',Space:'dodge',Tab:'lock',KeyZ:'swap',KeyV:'camd'};
   function onKey(e){
     if(!on||e.target&&e.target.tagName==='INPUT')return;const n=KEY[e.code];
     if(e.type==='keydown'){if(n){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)press(n,stamp(e.timeStamp))}else if(e.code==='KeyB'){e.stopImmediatePropagation()}}
@@ -334,7 +339,7 @@ const PlayerCombat=(()=>{
     el=document.createElement('div');el.id='wroot';
     el.innerHTML='<div id="wh"><div class="wb p"><i class="hp"><b></b></i><i class="st"><b></b></i><i class="fl"><b></b></i></div><div class="wb d"><span>The Duelist</span><i class="hp"><b></b></i><i class="po"><b></b></i></div></div><div id="wmsg"></div><div id="wem"></div><button id="wQuit">Leave arena</button><div id="whd" style="position:fixed;left:50%;top:46%;width:0;height:0;pointer-events:none;z-index:50;opacity:0;transition:opacity .5s"><div style="position:absolute;left:-26px;top:-150px;width:0;height:0;border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:54px solid #ff2a1a;filter:drop-shadow(0 0 8px #ff6a2a)"></div></div><div id="whn" style="position:fixed;left:0;right:0;top:34%;text-align:center;pointer-events:none;z-index:50;color:#ffb27a;font:700 15px sans-serif;letter-spacing:.14em;text-shadow:0 0 6px #000,0 0 3px #000;opacity:0;transition:opacity .5s"></div>'+
       '<div id="wc"><button id="wLight">Light</button><button id="wHeavy">Heavy</button><button id="wGuard">Parry</button><button id="wDodge">Dodge</button><button id="wFlow">Flow</button><button id="wIhp" class="wi"><b>\u2764</b><i>3</i></button><button id="wIst" class="wi"><b>\u26A1</b><i>2</i></button><button id="wImt" class="wi"><b>\u2694</b><i>1</i></button><button id="wLock">Lock</button><button id="wJump">Jump</button><button id="wShadow">Shadow</button><button id="wSwap">Twin</button><button id="wSup">Sever</button></div>'+
-      '<div id="whint">F light (x3, then G = Tempest) · Guard+Light = Shove · dodge then G = Lunge · G heavy (hold) · Q guard · Space dodge · E flow · R Spirit Sever · 1/2/3 flasks · Tab lock · Z swap to Twin Blades</div>';
+      '<div id="whint">F light (x3, then G = Tempest) · Guard+Light = Shove · dodge then G = Lunge · G heavy (hold) · Q guard · Space dodge · E flow · R super · V camera distance · 1/2/3 flasks · Tab lock · Z swap to Twin Blades</div>';
     document.body.appendChild(el);
     {const q=el.querySelector('#wQuit'),go=e=>{e.preventDefault();e.stopPropagation();quitArena()};q.addEventListener('pointerdown',e=>e.stopPropagation());q.addEventListener('click',go)}
     bind(el.querySelector('#wLight'),'light');bind(el.querySelector('#wHeavy'),'heavy');bind(el.querySelector('#wGuard'),'guard');bind(el.querySelector('#wDodge'),'dodge');bind(el.querySelector('#wFlow'),'flow');bind(el.querySelector('#wIhp'),'ihp');bind(el.querySelector('#wIst'),'ist');bind(el.querySelector('#wImt'),'imt');flaskUi();bind(el.querySelector('#wLock'),'lock');bind(el.querySelector('#wJump'),'jump');bind(el.querySelector('#wShadow'),'shadow');bind(el.querySelector('#wSwap'),'swap');bind(el.querySelector('#wSup'),'sup');
@@ -465,7 +470,7 @@ const PlayerCombat=(()=>{
   // Camera framing: with 2+ awake foes and no lock, ease the camera yaw so both stay in view (unless you are dragging the camera yourself).
   function frameFoes(dt){
     if(ult&&ult.kind==='echo'){try{CameraRig.setFocus(null)}catch(e){}return}   // the camera must not lean toward the real one
-    try{const D0=target().f,fd=Math.hypot(D0.x-S.x,D0.z-S.z);CameraRig.setFocus(P.act!=='dead'&&alive().some(F=>F.awake)&&fd>2?{x:D0.x,z:D0.z,k:lock?Math.min(.3,.12+fd*.018):.34,y:Math.min(1.6,Math.max(0,(((target().T||{}).scale)||1)-1.2)*1.8)}:null)}catch(e){}   // look a third of the way toward the foe: you stay low in the frame, the opponent sits in the middle
+    try{const D0=target().f,fd=Math.hypot(D0.x-S.x,D0.z-S.z),W=threatMid(D0);CameraRig.setFocus(P.act!=='dead'&&alive().some(F=>F.awake)&&fd>2?{x:W.x,z:W.z,k:lock?Math.min(.3,.12+fd*.018):.34,y:Math.min(1.6,Math.max(0,(((target().T||{}).scale)||1)-1.2)*1.8)}:null)}catch(e){}   // look a third of the way toward the foe: you stay low in the frame, the opponent sits in the middle
     if(ult)return;if(lock||P.act==='dead')return;const al=alive().filter(F=>F.awake);if(!al.length||performance.now()-(S._lk||0)<1500)return;
     let worst=0,sum=0;for(const F of al){const r=wrapA(Math.atan2(-(F.f.x-S.x),-(F.f.z-S.z))-S.yaw);worst=Math.max(worst,Math.abs(r));sum+=r}
     if(worst<(al.length>1?.9:.45))return;S.yaw+=sum/al.length*Math.min(1,dt*2.2)}
@@ -1238,7 +1243,7 @@ const PlayerCombat=(()=>{
     {const F0=foes[0],ka=(pAnim?pAnim.st:'none')+'/'+(F0&&F0.anim?F0.anim.st:'none');if(ka!==mxSaid&&pAnim&&F0&&F0.anim&&pAnim.st!=='none'&&F0.anim.st!=='none'){mxSaid=ka;msg(pAnim.st==='ready'&&F0.anim.st==='ready'?'Animations '+WardenMX.BUILD+' loaded':'Animation load FAILED ('+(pAnim.err||F0.anim.err||ka)+')',2.2)}}
     try{autoLock();camMoves()}catch(e){}const TF=target();D=TF.f;try{markers(TF,performance.now()/1000);threatArrows();frameFoes(dt);barrageTick(dt);svTick(dt);trickTick(dt);fightMoveTick(dt)}catch(e){}
     // camera: pull back for a big foe, when he is far, and when there are several
-    try{let sc=1;for(const F of foes)if(F.f.act!=='dead'&&F.awake)sc=Math.max(sc,F.T.scale);const fd=Math.hypot(S.x-D.x,S.z-D.z);CameraRig.setBias(-2.8+(sc-1)*3.4+Math.min(3.5,Math.max(0,fd-5))*.45+(alive().length>1?1:0))}catch(e){}
+    try{let sc=1;for(const F of foes)if(F.f.act!=='dead'&&F.awake)sc=Math.max(sc,F.T.scale);const fd=Math.hypot(S.x-D.x,S.z-D.z);CameraRig.setBias(-2.8+(sc-1)*3.4+Math.min(3.5,Math.max(0,fd-5))*.45+Math.min(2.4,(alive().filter(F=>F.awake&&F.f.act!=='dead'&&!F.ghost).length-1)*.9)+(CAMS.dist-1)*5)}catch(e){}
     for(const F of foes)if(F.ai.ph2&&!F.ph2&&state==='fight'){F.ph2=true;try{phaseBeat(F,2)}catch(x){}if(F.T.boss){msg(F.T.ph2,2);sfx('heavy',.7,.6,()=>tone(120,60,.4,'sawtooth',.12));WardenSfx.play('vo_sudden_death',.8,1,{nojit:1})}if(F.body.shield)F.body.shield.visible=false}
     for(const F of foes)if(F.ai.ph3&&!F.ph3&&state==='fight'){F.ph3=true;try{phaseBeat(F,3)}catch(x){}if(F.T.ph3){msg(F.T.ph3,2.4);sfx('heavy',.8,.5,()=>tone(90,45,.5,'sawtooth',.14))}}
     // 1) hand the sim the player's current position, run the due ticks, apply the forced motion back to S

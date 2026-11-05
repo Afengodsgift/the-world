@@ -17,4 +17,5 @@ ok(/function pillarsBuild/.test(P)&&/function pillarShatter/.test(P)&&/pillarSma
  const C=CC.create({arena:{x:0,z:0,R:30},solids:[{x:0,z:3,r:1.15,dp:1}]});const p=C.add('P',{x:0,z:0,face:0,hp:100});
  for(let i=0;i<90;i++)C.step({P:{mx:0,mz:1}});const stopped=p.z<3;
  C.solids.splice(0,1);for(let i=0;i<120;i++)C.step({P:{mx:0,mz:1}});ok(stopped&&p.z>4,'a standing pillar blocks the body, and once shattered (removed from the solids) you walk through ('+p.z.toFixed(1)+')')}
+ok(/function threatMid\(D0\)/.test(P)&&/L\.length<2\)return\{x:D0\.x,z:D0\.z\}/.test(P)&&/KeyV:'camd'/.test(P)&&/CAMS\.dist-1\)\*5/.test(P),'camera: multi-foe weighted framing (single foe unchanged) and a distance switch');
 console.log(n+' checks')

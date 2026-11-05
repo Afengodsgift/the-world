@@ -11,7 +11,7 @@ Golden rule: **the camera never makes a difficult attack harder to read.** It he
 - Settings (localStorage `wcam`): `assist` (0 = no automatic turning), `move` (0 = no per-move responses).
 
 ## Not built yet
-Separate exploration / close-combat (grapple) cameras, wall-obstruction fade of scenery, threat-weighted framing with several enemies, vertical-combat pitch, camera-sensitivity / distance / invert UI, finishers and per-boss phase-transition cinematics (Gwyn kneeling), skippable intro for every boss.
+Separate exploration / close-combat (grapple) cameras, wall-obstruction fade of scenery, vertical-combat pitch, camera-sensitivity / distance / invert UI, finishers and per-boss phase-transition cinematics (Gwyn kneeling), skippable intro for every boss.
 
 ## Dynamic action camera additions
 - Lock-on now also frames a weighted midpoint (look-at leans 12-30% toward the boss, more as he gets further away) so you and the boss stay in frame; tall bosses lift the look-at (pitch bias).
@@ -21,3 +21,8 @@ Separate exploration / close-combat (grapple) cameras, wall-obstruction fade of 
 - Arrival vector random per blink: behind / side / front / above (lands ON the marked spot, then an overhead). Ring lock >= 20 ticks before arrival, as always.
 - Hang time by move id: `blink` instant (26-tick windup), `blinkm` ~2 s, `blinkl` ~4 s (phase 3 / Mastery only, rare). Shadow particles swirl around you during the long hang.
 - On arrival: smoke burst + a crossed pair of rift slashes; the follow-up strike has 8 ticks of its windup already played (never below 18 ticks left).
+
+## Multi-foe framing + distance (this pass)
+- **Threat-weighted framing:** with 2+ foes awake the look-at leans toward the weighted middle of the awake ones (weight = 1/(1+0.35 d)^1.6, the locked foe x2.5; 55% middle / 45% target), and the camera pulls back up to 2.4 m for the crowd. One foe is framed exactly as before.
+- **Camera distance:** `V` cycles Normal / Far / Close (stored in `wcam.dist`, +-5 m of bias at the extremes). There is still no settings screen for sensitivity or invert.
+- Still not built: grapple / exploration cameras, scenery fade, vertical-combat pitch, finishers, phase-transition cinematics, skippable intros.
