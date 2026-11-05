@@ -11,4 +11,10 @@ ok(/wetT=9/.test(P)&&/q\.wet\?1\.7:1/.test(P)&&/R=K\.r\*\(wet\?2:1\)/.test(P),'s
 ok(/U\.dk&&NET\.mode!=='guest'\)zoneAdd\(F\.f\.x,F\.f\.z,true,'rune'/.test(P)&&/dk:B\.T\.id==='dknight'/.test(P),'Dark Knight Phantom Barrage leaves a void rune where each phantom stood');
 ok(/function illusions\(F\)/.test(P)&&/illusions\(F\)\}/.test(P)&&/\[4,-1\.15\]/.test(P),'Gwyndolin splits two illusions on Sun Volley');
 ok(/function houndsAdd/.test(P)&&/houndTick\(dt\)/.test(P)&&/houndsClear\(\)/.test(P)&&/hound:\{r:1\.5/.test(P),'Capra hounds spawn, tick, leap with a marked ring and are cleaned up on leave');
+// shattering pillars
+ok(/function pillarsBuild/.test(P)&&/function pillarShatter/.test(P)&&/pillarSmash\(A,e\.move\)/.test(P)&&/rubble:\{r:1\.7/.test(P)&&/pillarsClear\(\)\}catch/.test(P),'boss rings get shattering pillars; PERILOUS swings shatter them; rubble crushes; cleaned up on leave');
+{const CC=(()=>{const c2={console,Math};vm.createContext(c2);vm.runInContext(['Moves','SwordHit','CombatCore'].map(n=>fs.readFileSync(R+'src/combat/'+n+'.js','utf8')).join('\n')+';this.CC=CombatCore',c2);return c2.CC})();
+ const C=CC.create({arena:{x:0,z:0,R:30},solids:[{x:0,z:3,r:1.15,dp:1}]});const p=C.add('P',{x:0,z:0,face:0,hp:100});
+ for(let i=0;i<90;i++)C.step({P:{mx:0,mz:1}});const stopped=p.z<3;
+ C.solids.splice(0,1);for(let i=0;i<120;i++)C.step({P:{mx:0,mz:1}});ok(stopped&&p.z>4,'a standing pillar blocks the body, and once shattered (removed from the solids) you walk through ('+p.z.toFixed(1)+')')}
 console.log(n+' checks')
