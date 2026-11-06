@@ -15,7 +15,8 @@ const AvatarKit=(()=>{
     f:{id:'f',scale:.56,bulk:.04,name:'Madea',label:'Female',glb:'avatars/madea.glb',mask:'avatars/madea.mask.png',dir:'avatars/madea/',legacySkin:1,ref:.0115,headLabel:'Hair',height:1.70},
     s:{id:'s',hidden:true,scale:.66,bulk:0,fixed:true,name:'Ronin',label:'Samurai',glb:'avatars/samurai.glb',mask:'avatars/samurai.mask.png',dir:'avatars/samurai/',legacySkin:2,ref:.02,headLabel:'Hat',height:2.36},
     j:{id:'j',hidden:true,scale:.54,bulk:0,fixed:true,name:'Gi',label:'BJJ Fighter',glb:'avatars/bjj.glb',mask:'avatars/bjj.mask.png',dir:'avatars/bjj/',legacySkin:2,ref:.02,headLabel:'Hair',height:1.9},
-    b:{id:'b',hidden:true,scale:.555,bulk:0,fixed:true,name:'Bruiser',label:'Boxer',glb:'avatars/boxer.glb',mask:'avatars/boxer.mask.png',dir:'avatars/boxer/',legacySkin:2,ref:.02,headLabel:'Hair',height:1.95}
+    b:{id:'b',hidden:true,scale:.555,bulk:0,fixed:true,name:'Bruiser',label:'Boxer',glb:'avatars/boxer.glb',mask:'avatars/boxer.mask.png',dir:'avatars/boxer/',legacySkin:2,ref:.02,headLabel:'Hair',height:1.95},
+    h:{id:'h',hidden:true,scale:.48,bulk:0,fixed:true,name:'Homunculus',label:'Homunculus',glb:'avatars/homunculus.glb',mask:'avatars/homunculus.mask.png',dir:'avatars/homunculus/',legacySkin:2,ref:.02,headLabel:'Hair',height:1.55}
   };
   const DEFAULT_BASE='m';
   // clothing colours (sRGB hex) - the same palette for every look, filtered per look below

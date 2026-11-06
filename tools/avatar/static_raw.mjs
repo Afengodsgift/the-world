@@ -24,7 +24,7 @@ export async function staticRaw(file, { NM, T, rigGlb, cfg, log = console.log })
   // ---- parts: material name -> {atlas cell, budget, bind rule}
   const PARTS = cfg.parts;           // { materialName: {cell, tris, bind: 'auto'|'Head'|'Hips', allow?: [game bones]} }
   const meshes = [];
-  j.nodes.forEach((n, i) => { if (n.mesh === undefined) return; const M = nodeM(i), NMtx = new T.Matrix3().getNormalMatrix(M);
+  j.nodes.forEach((n, i) => { if (n.mesh === undefined) return; const M = n.skin !== undefined ? new T.Matrix4() : nodeM(i), NMtx = new T.Matrix3().getNormalMatrix(M);
     for (const pr of j.meshes[n.mesh].primitives) { const mat = j.materials[pr.material], cf = PARTS[mat.name]; if (!cf) continue;
       const P = acc(pr.attributes.POSITION), No = acc(pr.attributes.NORMAL), UV = acc(pr.attributes.TEXCOORD_0), I = pr.indices !== undefined ? acc(pr.indices).d : Uint32Array.from({ length: P.count }, (_, k) => k);
       const pos = new Float32Array(P.count * 3), nor = new Float32Array(P.count * 3), v = V();
@@ -122,7 +122,8 @@ export async function staticRaw(file, { NM, T, rigGlb, cfg, log = console.log })
       for (let k = 0; k < n; k++) { let w = 0; for (let g = 0; g < G; g++) if (IN.has(gnames[g])) w += W[k * G + g]; const v = keep[k], d = cfg.inset * s * w; m.pos[v * 3] -= m.nor[v * 3] * d; m.pos[v * 3 + 1] -= m.nor[v * 3 + 1] * d; m.pos[v * 3 + 2] -= m.nor[v * 3 + 2] * d; } }
     // corners
     const cellU = (cf.cell % COLS) / COLS, cellV = Math.floor(cf.cell / COLS) / ROWS, pad = .004;
-    const warn = []; for (let t = 0; t < idx.length; t++) { const v = idx[t], k = used.get(v); let u = m.uv[v * 2], vv = m.uv[v * 2 + 1]; if (u < -.01 || u > 1.01 || vv < -.01 || vv > 1.01) warn.push(1); u = Math.min(1, Math.max(0, u)); vv = Math.min(1, Math.max(0, vv));
+    const warn = []; const wrapOf = t => { const b = t - t % 3; let su = 0, sv = 0; for (let q = 0; q < 3; q++) { su += m.uv[idx[b + q] * 2]; sv += m.uv[idx[b + q] * 2 + 1]; } return [Math.floor(su / 3), Math.floor(sv / 3)]; };   // REPEAT-wrapped UVs (islands in 1..2): shift each triangle back into 0..1 instead of clamping it
+    for (let t = 0; t < idx.length; t++) { const v = idx[t], k = used.get(v); let u = m.uv[v * 2], vv = m.uv[v * 2 + 1]; if (cfg.wrapUV) { const [fu, fv] = wrapOf(t); u -= fu; vv -= fv; } if (u < -.01 || u > 1.01 || vv < -.01 || vv > 1.01) warn.push(1); u = Math.min(1, Math.max(0, u)); vv = Math.min(1, Math.max(0, vv));
       corners.pos.push(m.pos[v * 3], m.pos[v * 3 + 1], m.pos[v * 3 + 2]); corners.nor.push(m.nor[v * 3], m.nor[v * 3 + 1], m.nor[v * 3 + 2]);
       const U = cellU + (pad + u * (1 - 2 * pad)) / COLS, Vg = cellV + (pad + vv * (1 - 2 * pad)) / ROWS; corners.uv.push(U, 1 - Vg);   // build_avatar flips v again (FBX v is up)
       const row = []; for (let g = 0; g < gnames.length; g++) { const w = W[k * gnames.length + g]; if (w > 0) row.push([g, w]); } row.sort((a, b) => b[1] - a[1]); const top = row.slice(0, 4), sm = top.reduce((a, b) => a + b[1], 0) || 1;

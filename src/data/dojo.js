@@ -12,7 +12,7 @@ const DOJO_FOES={
   grappler:{name:'Grappler',hp:120,dm:.9,spd:1,scale:1.12,look:'j',tint:[.42,.95,.42],ai:{range:1.45,reach:1.9,combo:['g','lg','fg','g'],par:.1,dg:.05,cd:[50,90],read:0,grab:1,stag:'h'},tip:'Throws if you turtle up'},
   heavy:{name:'Heavyweight',hp:150,dm:1.0,spd:1.0,scale:1.1,look:'b',tint:[.78,.74,.74],ai:{range:1.75,reach:2.15,combo:['llu','lh','p','ll','sh'],par:.22,dg:.06,cd:[46,86],read:0,fw:.7,ctr:1},tip:'Slow, huge hands. Do not trade punches'},
   staff:{name:'Staff Fighter',hp:70,dm:.95,spd:1.25,scale:1.0,look:'j',tint:[.9,1,.8],weapon:'bo',ai:{range:2.4,reach:2.8,combo:['ll','lll','h','llh'],par:.2,dg:.2,cd:[34,66],read:0},tip:'Long reach. GRAB or PERFECT PARRY to disarm him'},
-  tech:{name:'Technician',hp:74,dm:.9,spd:1.35,scale:1.03,look:'j',tint:[.82,.9,1.15],ai:{range:1.8,reach:2.2,combo:['ll','lh','ls','llh','lk'],par:.35,dg:.3,cd:[30,60],read:1},tip:'Reads repeated attacks'},
+  tech:{name:'Technician',hp:74,dm:.9,spd:1.35,scale:1.03,look:'h',tint:[.82,.9,1.15],ai:{range:1.8,reach:2.2,combo:['ll','lh','ls','llh','lk'],par:.35,dg:.3,cd:[30,60],read:1},tip:'Reads repeated attacks'},
   enforcer:{name:'The Enforcer',hp:330,dm:1.05,spd:1.15,scale:1.22,look:'j',tint:[.34,.34,.4],boss:true,ai:{range:1.8,reach:2.4,combo:['llll','lh','p','lg','sk','llh'],par:.3,dg:.2,cd:[26,54],read:1},tip:'Boss: everything, plus power strikes'}};
 // the trial: each round is a list of opponents. After the last, the trial goes on forever with a random pool and growing strength.
 const DOJO_ROUNDS=[['brawler'],['boxer','brawler'],['kicker','boxer'],['staff'],['grappler','brawler','brawler'],['tech','kicker','staff'],['enforcer']];

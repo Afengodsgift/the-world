@@ -185,7 +185,7 @@ body.dojo-fight #jump,body.dojo-fight .dk-menu,body.dojo-fight .dk-fab,body.dojo
     q('.res').classList.remove('on');el.classList.add('on');document.body.classList.add('dojo-fight');goBtn.style.display='none';stBar.style.display='none';try{Expedition.hold('dojo')}catch(e){}
     paintBelt();say('ROUND 1',1.4,'#ffd070');tone(300,600,.25,'sawtooth',.1);sfx('vo_fight',.8,1)}
   const pLay={};let warmed=false;
-  function warm(){if(warmed)return;warmed=true;try{WardenMX.fetch('player_dojo',me.userData.av).catch(()=>{});for(const l of ['j','b']){AvatarKit.preload(l).catch(()=>{});WardenMX.fetch('player_dojo',l).catch(()=>{});if(l==='j')WardenMX.fetch('dojo_staff',l).catch(()=>{})}if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});if(typeof WardenSfx!=='undefined')WardenSfx.load()}catch(e){}}
+  function warm(){if(warmed)return;warmed=true;try{WardenMX.fetch('player_dojo',me.userData.av).catch(()=>{});for(const l of ['j','b','h']){AvatarKit.preload(l).catch(()=>{});WardenMX.fetch('player_dojo',l).catch(()=>{});if(l==='j')WardenMX.fetch('dojo_staff',l).catch(()=>{})}if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});if(typeof WardenSfx!=='undefined')WardenSfx.load()}catch(e){}}
   const foeReady=F=>!!F.body.u.model&&(F.body.u.av===F.body.look||F.fb);
   function newPlayer(){const st=PS();P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:st.hp,team:'p',fs:1,dm:st.dm});P.fs=1;P.dm=st.dm;P.hpMax=st.hp;P.hp=st.hp;P.sm=.9;const sy=DojoData.styles[SAVE.style]||DojoData.styles.striker;P.mm=sy.mm;P.pm=1.05*sy.pm;P.dfl=sy.dfl;P.dm0=st.dm;if(sy.hp){P.hpMax+=sy.hp;P.hp=P.hpMax}dropStaff(true);
     if(!pAnim&&me.userData.mixer)pAnim=WardenMX.make(me.userData,'player_dojo')}
