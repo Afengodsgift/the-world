@@ -6,7 +6,7 @@
 //   proj = a travelling bolt (blockable/deflectable, dodgeable, stopped by solids), aoe = a ground circle that telegraphs for `delay` ticks and then bursts for `dur` ticks (unblockable, dodgeable by i-frames or by leaving it).
 //   They resolve through the same outcome list as sword hits, so hit-stop freezes them and every event keeps its shape (hit/block/deflect/dodged/dead).
 const CombatCore=(()=>{
-  const SPEED=.05,SUBM=.1,GUARD_ARC=1.2,REARM=14,DEFL=7,BUF=6,PARRY_T=26,PARRY_W=13,PERFECT=4;
+  const SPEED=.05,SUBM=.1,GUARD_ARC=1.2,REARM=7,DEFL=7,BUF=6,PARRY_T=26,PARRY_W=13,PERFECT=4;
   const PHI=42,RISE=336;   // RISE: a boss that 'rises' is felled at its phase line, lies down ~5.6 s (untouchable), then gets up in its second phase
      // ticks of invulnerability while a boss changes phase (0.7 s)
   function mkFighter(id,o){o=o||{};return{id,x:o.x||0,z:o.z||0,y:0,r:.45,face:o.face||0,hp:o.hp||100,hpMax:o.hp||100,st:100,stMax:100,po:0,poMax:100,
@@ -47,6 +47,8 @@ const CombatCore=(()=>{
   const recT=f=>{if(!f.ph||f.act!=='attack')return -1;const p=f.ph[f.pi];return p&&p.k==='recovery'?f.pk:-1};
   const DG=t=>t.side?Moves.sidestep:Moves.dodge,iframe=t=>t.act==='dodge'&&t.pt>=DG(t).iStart&&t.pt<=DG(t).iEnd;
   function canCancel(f,to){const r=recT(f);if(r<0||!f.mv||!f.mv.cancel)return false;const t=f.mv.cancel[to];return t!==undefined&&r>=t}
+  // SNAPPY DEFENCE: a parry / guard tap may cut your own swing 5 ticks into its recovery (was: only where a move listed a guard cancel), so a late whiff never costs a hit you saw coming
+  const defCan=f=>f.act==='attack'&&(canCancel(f,'guard')||recT(f)>=5);
   function tryCmd(C,f,c){
     if(f.act==='dead')return true;
     const free=f.act==='free'||(f.act==='charge'&&c.t!=='heavyUp');
@@ -55,9 +57,9 @@ const CombatCore=(()=>{
         const CB=f.tw&&typeof Twin!=='undefined'?Twin.Combos:f.fs&&typeof Fists!=='undefined'?Fists.Combos:Combos;const id=CB.light({air:(f.y||0)>.7,guard:f.guard,from:f.act==='free'?null:from,adv:!!c.adv,far:!!c.far,chain:C.tick-f.lcT<=CB.CHAIN_GAP?f.lc:0,sinceDodge:C.tick-f.dEnd});startMove(C,f,id);f.lc=Moves[id].chain||0;return true}
       case'atk':if(f.act==='free'){startMove(C,f,c.m,c.hold||0);return true}return false;
       case'dodge':{if((f.act==='free'||f.act==='charge'||canCancel(f,'dodge'))&&f.st>0){const D=c.side?Moves.sidestep:Moves.dodge;f.side=c.side?1:0;let dx=c.dx,dz=c.dz;if(!(Math.hypot(dx||0,dz||0)>.01)){dx=-Math.sin(f.face);dz=-Math.cos(f.face)}const L=Math.hypot(dx,dz);f.dir=[dx/L,dz/L];f.act='dodge';f.pt=0;f.guard=false;f.ph=null;f.mv=null;f.c=0;spend(f,D.stam*(f.tw&&typeof Twin!=='undefined'?Twin.DODGE_STAM:1));emit(C,'dodge',f.id,null);return true}return false}
-      case'guardDown':if(f.act==='free'||canCancel(f,'guard')){if(f.act==='attack'){f.act='free';f.ph=null;f.mv=null}f.guard=true;f.gpt=f.rel>=REARM?0:99;return true}return false;
+      case'guardDown':if(f.act==='free'||defCan(f)){if(f.act==='attack'){f.act='free';f.ph=null;f.mv=null}f.guard=true;f.gpt=f.rel>=REARM?0:99;return true}return false;
       case'guardUp':if(f.guard&&!(f.pry>0)){f.guard=false;f.rel=0}return true;
-      case'parry':if((f.act==='free'||canCancel(f,'guard'))&&f.rel>=REARM&&!(f.pry>0)){if(f.act==='attack'){f.act='free';f.ph=null;f.mv=null}f.guard=true;f.gpt=0;f.pry=PARRY_T;emit(C,'parry',f.id,null);return true}return false;   // a tap: a sweep of the blade; the first PARRY_W ticks DEFLECT, the rest block
+      case'parry':if((f.act==='free'||defCan(f))&&f.rel>=REARM&&!(f.pry>0)){if(f.act==='attack'){f.act='free';f.ph=null;f.mv=null}f.guard=true;f.gpt=0;f.pry=PARRY_T;emit(C,'parry',f.id,null);return true}return false;   // a tap: a sweep of the blade; the first PARRY_W ticks DEFLECT, the rest block
       case'heavyDown':{const from=f.act==='attack'&&f.mv?f.mv.id:null;
         if(f.tw&&typeof Twin!=='undefined'){if(from&&canCancel(f,'heavy')&&f.st>0){const id=Twin.heavy({from});if(id){startMove(C,f,id);f.lc=0;return true}}}
         else if(f.fs&&typeof Fists!=='undefined'){   // BARE HANDS: a takedown on a posture-broken foe beats everything; Guard+Heavy is a throw (a grab)

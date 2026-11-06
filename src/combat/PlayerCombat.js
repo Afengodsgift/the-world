@@ -42,24 +42,24 @@ const PlayerCombat=(()=>{
   let mastery=!1;   // a rematch of a boss you have already felled (sites with mast:true): more health and damage, and he reads and presses harder
   const foeMul=()=>{const c=WardenProg.cycleMul();return{hp:DIFF.hp*(Q?COOP.hp:1)*c.hp*(mastery?1.5:1),dm:DIFF.dm*(Q?COOP.dm:1)*c.dm*(mastery?1.25:1)}};
   function rescaleFoes(){const m=foeMul();for(const F of foes){const f=F.f,base=F.T.hp*m.hp,r=f.hpMax>0?f.hp/f.hpMax:1;if(f.act!=='dead'){f.hpMax=Math.round(base);f.hp=Math.max(1,r*f.hpMax)}f.dm=(F.T.dm||1)*m.dm;F.sc=m.hp}}
-  // ---------- flasks: Health (50 HP over 2.5 s), Stamina Tonic (full stamina), Might Tonic (+30% damage for 30 s). Counts persist in the browser; felled foes drop them ----------
-  const FL={hp:{n:'Health Flask',max:5,ic:'\u2764',use:'heal'},st:{n:'Stamina Tonic',max:4,ic:'\u26A1',use:'stam'},mt:{n:'Might Tonic',max:3,ic:'\u2694',use:'might'}};
-  let flasks={hp:3,st:2,mt:1},healLeft=0,mightT=0,itemLock=0;
-  try{const j=JSON.parse(localStorage.getItem('wflask')||'null');if(j)for(const k in FL)if(Number.isFinite(j[k]))flasks[k]=Math.max(0,Math.min(9,j[k]|0))}catch(e){}
+  // ---------- flasks: Health (60 HP in under half a second), Stamina Tonic (full stamina), Might Tonic (+30% damage for 30 s). Counts persist in the browser; felled foes drop them ----------
+  const FL={hp:{n:'Health Flask',max:15,ic:'\u2764',use:'heal'},st:{n:'Stamina Tonic',max:4,ic:'\u26A1',use:'stam'},mt:{n:'Might Tonic',max:3,ic:'\u2694',use:'might'}};
+  let flasks={hp:12,st:2,mt:1},healLeft=0,mightT=0,itemLock=0;
+  try{const j=JSON.parse(localStorage.getItem('wflask')||'null');if(j)for(const k in FL)if(Number.isFinite(j[k]))flasks[k]=Math.max(0,Math.min(60,j[k]|0))}catch(e){}
   const saveFl=()=>{try{localStorage.setItem('wflask',JSON.stringify(flasks))}catch(e){}};
   function useFlask(k){
     if(!on||!P||P.act==='dead'||itemLock>0||flasks[k]<=0)return;if(site&&site.duel){msg('No flasks in the arena',.8);return}const t=FL[k].use;
     if(t==='heal'&&(P.hp>=P.hpMax||healLeft>0)){msg('Health is full',.8);return}
     if(t==='stam'&&P.st>=P.stMax*.8){msg('Stamina is fine',.8);return}
     if(t==='might'&&mightT>0){msg('Already empowered',.8);return}
-    flasks[k]--;saveFl();itemLock=.9;
-    if(t==='heal'){healLeft=50;flaskHunt();sfx('clash',.3,.7,()=>tone(520,900,.25,'sine',.1))}
+    flasks[k]--;saveFl();itemLock=.5;
+    if(t==='heal'){healLeft=60;flaskHunt();sfx('clash',.3,.7,()=>tone(520,900,.25,'sine',.1))}
     else if(t==='stam'){P.st=P.stMax;sfx('clash',.3,1.2,()=>tone(700,1100,.2,'sine',.1))}
     else{mightT=30;P.dm=baseDm*1.3;msg('MIGHT',1);sfx('heavy',.4,1.4,()=>tone(200,500,.3,'sawtooth',.1))}
     flaskUi()}
   function flaskTick(dt){
     if(itemLock>0)itemLock-=dt;
-    if(healLeft>0){if(P.act==='dead')healLeft=0;else{const g=Math.min(healLeft,20*dt);healLeft-=g;P.hp=Math.min(P.hpMax,P.hp+g);if(P.hp>=P.hpMax)healLeft=0}}
+    if(healLeft>0){if(P.act==='dead')healLeft=0;else{const g=Math.min(healLeft,140*dt);healLeft-=g;P.hp=Math.min(P.hpMax,P.hp+g);if(P.hp>=P.hpMax)healLeft=0}}
     if(mightT>0){mightT-=dt;if(mightT<=0||P.act==='dead'){mightT=0;P.dm=baseDm}}}
   function flaskUi(){if(!el)return;for(const k in FL){const b=el.querySelector('#wI'+k);if(!b)continue;b.querySelector('i').textContent=flasks[k];b.classList.toggle('none',flasks[k]<=0);b.classList.toggle('use',k==='mt'?mightT>0:k==='hp'?healLeft>0:false)}}
   function flaskDrop(T){const rnd=Math.random;let got=null;
@@ -68,7 +68,7 @@ const PlayerCombat=(()=>{
   // ---------- progression (WardenProg.js): Embers from every kill, permanent upgrades at the Ember Shrine, Ashen Cycles (New Game+) ----------
   const PG=WardenProg;PG.setBosses(WARDEN.sites.filter(s=>s.fog&&s.boss!==false).map(s=>s.id));
   let baseDm=1,shrineEl=null,chipEl=null,chipKey='',mark=null,markT=0,toastEl=null,toastT=0;
-  const flaskCap=k=>Math.min(9,FL[k].max+PG.stats().belt);
+  const flaskCap=k=>k==='hp'?Math.min(60,FL.hp.max+15*PG.stats().belt):Math.min(9,FL[k].max+PG.stats().belt);   // Health Flask holds 15 (+15 per belt level = 60); the tonics stay small
   let wst=WardenGear.stats();
   let myStyle=(()=>{try{const v=localStorage.getItem('wstyle');return WardenStyle.valid(v)?v:WardenStyle.DEFAULT}catch(e){return WardenStyle.DEFAULT}})(),pStyle=WardenStyle.DEFAULT,sty=WardenStyle.get(myStyle);
   const styId=()=>site&&site.duel?WardenStyle.DEFAULT:myStyle;   // duels ignore styles
@@ -144,7 +144,7 @@ const PlayerCombat=(()=>{
       shrineEl.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='wshx'){shrineEl.classList.remove('on');return}
         if(b.dataset.a&&shrineAct(b.dataset.a,b.dataset.k)){if(b.dataset.a!=='tab')sfx('clash',.5,1.3,()=>tone(500,1000,.2,'sine',.1));const y=shrineEl.scrollTop;shrineEl.innerHTML=shrineHtml();shrineEl.scrollTop=y;chipKey=''}});
       shrineEl.addEventListener('pointerdown',e=>e.stopPropagation())}
-    for(const k in FL)flasks[k]=Math.max(flasks[k],[3,2,1][['hp','st','mt'].indexOf(k)]+PG.stats().belt);saveFl();flaskUi();
+    for(const k in FL){const i=['hp','st','mt'].indexOf(k);flasks[k]=Math.max(flasks[k],k==='hp'?12+12*PG.stats().belt:[3,2,1][i]+PG.stats().belt)}saveFl();flaskUi();
     shrineEl.innerHTML=shrineHtml();shrineEl.classList.add('on')}
   let siteEl=null,siteKey='';
   function siteLabel(wx,wz,near){   // "you are near ..." pill while walking the isle: so you always know which place is which
