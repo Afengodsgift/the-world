@@ -215,6 +215,8 @@ const WardenMX=(()=>{
     if(M.flurry)M.flurry={c:'p_combo',t0:0,h:[[.2,.32],[.68,.8],[1.48,1.6]],e:2.3};if(M.dash)M.dash={c:'p_dash',t0:.05,h:[[.28,.42]],e:1.1}}
   // the player's own roles: the same reactions (knock-back, hurt loop, flinches, deaths) plus a kick for the shove and the dash cut for the lunge
   for(const r of['player','player_gs','player_axe','player_twin'])if(ROLES[r])ROLES[r].dsv=true;
+  // NINJA LOCOMOTION (library female-ninja set) for the player in every stance: ready stance idle, one fast run for walk+run, curved runs for the sideways steps, a backward run. The old walk/sl/sr clips are no longer used by the player.
+  for(const r of['player','player_gs','player_axe','player_twin'])if(ROLES[r])ROLES[r].loco={idle:'nj_idle',walk:'nj_run',run:'nj_run',back:'nj_back',sl:'nj_runL',sr:'nj_runR'};
   for(const r of['player','player_gs','player_axe']){const R=ROLES[r];if(!R)continue;R.px='assets/warden_px_player.json';const M=R.moves=Object.assign({},R.moves);
     M.sever={c:'slash',t0:.15,h:[[.46,.68]],e:1.0};M.sever2={c:'slash5',t0:.1,h:[[.5,.82]],e:1.0};M.severF={c:'p_combo',t0:.9,h:[[1.5,1.6]],e:2.6};
     if(M.shove)M.shove={c:'p_kick',t0:.2,h:[[.5,.8]],e:1.3};if(M.lunge)M.lunge={c:'p_dash',t0:.05,h:[[.27,.4]],e:1.1}}

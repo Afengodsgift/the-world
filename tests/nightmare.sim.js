@@ -21,4 +21,7 @@ for(const r of roles.concat(['paladin','arissa','archer','ganfaul','gdn'])){cons
 // Death's Sentence victim clips on the avatars
 for(const a of['crypto','madea']){const cl=JSON.parse(fs.readFileSync(R+'assets/avatars/'+a+'/warden_mx_player.json','utf8')),arr=Array.isArray(cl)?cl:cl.clips,nm=new Set(arr.map(x=>x.name));for(const h of['ds_victim','ds_side','ds_up'])ok(nm.has(h),a+': has '+h)}
 ok(X.ROLES.player.dsv&&X.ROLES.player_twin.dsv,'player roles play the Death\'s Sentence victim clips')
+// ninja locomotion for the player (every stance) + files
+for(const r of['player','player_gs','player_axe','player_twin']){const L=X.ROLES[r].loco;ok(L&&L.run==='nj_run'&&L.sl==='nj_runL'&&L.sr==='nj_runR'&&L.back==='nj_back'&&L.idle==='nj_idle',r+': ninja locomotion')}
+for(const f of['assets/warden_mx_player.json','assets/warden_mx_duelist.json'].concat(['crypto','madea','samurai','bjj'].flatMap(a=>['assets/avatars/'+a+'/warden_mx_player.json','assets/avatars/'+a+'/warden_mx_duelist.json']))){const cl=JSON.parse(fs.readFileSync(R+f,'utf8')),arr=Array.isArray(cl)?cl:cl.clips,nm=new Set(arr.map(x=>x.name));for(const h of['nj_idle','nj_run','nj_runL','nj_runR','nj_back'])ok(nm.has(h),f+': has '+h)}
 console.log(n+' checks')
