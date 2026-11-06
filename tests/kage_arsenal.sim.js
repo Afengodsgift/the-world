@@ -11,7 +11,7 @@ for(const m of NEW){const M=Moves[m];ok(M&&M.who==='D','move '+m+' exists');if(!
   const last=M.phases[M.phases.length-1];ok(last.k==='recovery'&&last.n>=20,m+': recovery >= 20')}
 ok(Moves.PERILOUS.indexOf('splitter')>=0&&Moves.PERILOUS.indexOf('crow')>=0,'Heaven-Splitter and Falling Crow are perilous');
 ok(Moves.reversemoon.phases.some(p=>p.move<0),'Reverse Moon moves him backwards');
-const F=fs.readFileSync('src/combat/Foes.js','utf8');ok(/samurai:\{name:'Kage[^}]*hp:1050/.test(F),'Kage has 1050 HP (was 680)');
+const F=fs.readFileSync('src/combat/Foes.js','utf8');ok(/samurai:\{name:'Kage[^}]*hp:1900/.test(F),'Kage has 1900 HP (a long fight)');
 // chains fire in order across many seeds
 const mkD=()=>({id:'D',x:0,z:0,hp:1000,hpMax:1050,act:'free',guard:false,rm:1,face:0}),mkP=z=>({id:'P',x:0,z,act:'free',guard:false,hp:100,ph:null,pi:0});
 function run(seed,dist,ph3){const A=DuelistAI.create(seed,{foe:'samurai',kid:'samurai',intro:0});A.on=true;A.ph2=true;A.ph3=!!ph3;const D=mkD(),P=mkP(dist);if(ph3)D.hp=D.hpMax*.2;const log=[];let until=0;

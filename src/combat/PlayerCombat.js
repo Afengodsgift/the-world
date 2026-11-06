@@ -249,14 +249,23 @@ const PlayerCombat=(()=>{
   // Full: it starts Flow (the meter drains for ~9 s) and the button becomes a finisher (Armada, then Meia Lua), each paid for out of the meter.
   let flow=0,flowOn=false,flowN=0,fq=null,skillCD=0;
   const FLOW_COST=32,FIN=['armada','martelo','meia','rasteira'],FINALL=FIN.concat(typeof Twin!=='undefined'?Twin.FIN:[]);
-  function flowAdd(n){if(!on)return;const was=flow;flow=Math.min(100,flow+n*wst.flow*(stance==='twin'?1.4:1));if(flow>=100&&was<100&&!flowOn){msg('FLOW READY',1.2);tone(660,990,.18,'sine',.1)}}
+  function flowAdd(n){if(!on)return;const was=flow;flow=Math.min(100,flow+n*wst.flow*(stance==='twin'?1.4:1));if(flow>=100&&was<100&&!flowOn){msg('ARCANE STORM READY',1.2);tone(660,990,.18,'sine',.1)}}
+  // ARCANE (replaces Flow): the same meter (fills from hits, dodges, deflects, breaks). Tap = THUNDERFALL (35): three bolts out of a clear sky onto the locked foe. Full meter = ARCANE STORM (100): a rain of lightning on every foe near you, ending in a posture-breaking strike on your target. Instant, no animation lock: you keep running, dodging and parrying while it lands.
+  let magicCd=0;
+  function magicHit(F,hp,po){if(!F||F.ghost||F.f.act==='dead'||NET.mode==='guest')return;F.f.hp=Math.max(1,F.f.hp-hp);F.f.po=Math.max(0,F.f.po-po);if(po>=30&&F.f.po<=0&&F.f.act!=='stun')try{CombatCore.stun(F.f,96,'stagger')}catch(e){}}
+  function magicStrike(F,hp,po,big){
+    if(!on||state!=='fight'||!F||F.f.act==='dead')return;const x=F.f.x,z=F.f.z,y=H(x,z);
+    try{for(let i=0;i<(big?9:6);i++)WardenVfx.spawn(x,y+.6+i*1.15,z,2,3,big?3:2.2,Math.random()*6.28,22);WardenVfx.burst(x,y+1,z,2);if(big)WardenVfx.burst(x,y+.4,z,3);CameraRig.shake(big?.8:.32);flash(big?.5:.22,'rgba(170,215,255,.6)');hsT=Math.max(hsT,big?.14:.05);sfx('heavy',big?.8:.5,1.3,()=>tone(1800,90,.18,'sawtooth',.12))}catch(e){}
+    if(NET.mode==='guest'){try{WardenNet.send({k:'sp',t:'mg',b:F.id,h:hp,p:po})}catch(e){}}else magicHit(F,hp,po)}
   function flowPress(t){
-    if(flowOn){const L=stance==='twin'&&typeof Twin!=='undefined'?Twin.FIN:FIN;fq={m:L[flowN%L.length],t:now()};return}
-    if(flow>=100){flowOn=true;flowN=0;msg('FLOW',1.2);sfx('heavy',.5,1.5,()=>tone(300,800,.3,'sine',.12));return}
-    if(skillCD>0||P.st<24){reject();return}
-    const d=stickDir();
-    if(d){skillCD=3;const c={t:'dodge',e:C.tick,dx:d[0],dz:d[1]};ST.input('P',c,t);ST.input('P',{t:'light',e:C.tick,adv:false},t+330);msg('GINGA',.7)}      // Ginga Step: dodge in the stick direction, then the evasive slash
-    else{skillCD=3;fq={m:stance==='twin'&&typeof Twin!=='undefined'?Twin.SKILL:'cinder',t:now()}}}
+    if(state!=='fight'||ult||sv||P.act==='stun'||P.act==='dead'||magicCd>0)return;
+    if(flow<35){reject();msg('ARCANE: '+Math.floor(flow)+' / 35',.6);return}
+    const tg=lock&&foes[lockI]&&foes[lockI].f.act!=='dead'?foes[lockI]:nearest();if(!tg){reject();return}
+    magicCd=.8;const full=flow>=100;flow=full?0:flow-35;
+    if(!full){msg('THUNDERFALL',.8);for(let k=0;k<3;k++)setTimeout(()=>magicStrike(tg,22+tg.f.hpMax*.011,16,false),k*260)}
+    else{msg('ARCANE STORM',1.4);try{CameraRig.pulse(-4)}catch(e){}
+      const set=foes.filter(F=>F.awake&&!F.ghost&&F.f.act!=='dead'&&Math.hypot(F.f.x-P.x,F.f.z-P.z)<16).sort((a,b)=>(a===tg?-1:b===tg?1:0)).slice(0,4);
+      set.forEach((F,fi)=>{for(let k=0;k<7;k++)setTimeout(()=>magicStrike(F,26+F.f.hpMax*.013,12,false),fi*90+k*210);if(F===tg)setTimeout(()=>magicStrike(F,F.f.hpMax*.035,45,true),1650)})}}
   function flowEv(e,T){
     if(e.t==='hit'&&e.a==='P')flowAdd(e.dmg>=20?9:5);
     else if(e.t==='dodged'&&e.d==='P'){flowAdd(22);msg('ESQUIVA',.6)}
@@ -268,11 +277,11 @@ const PlayerCombat=(()=>{
     else if(e.t==='start'&&e.a==='P'&&FINALL.indexOf(e.move)>=0){setTimeout(()=>{if(on)WardenVfx.burst(P.x,H(P.x,P.z)+1.1,P.z,3)},330);flow=Math.max(0,flow-FLOW_COST);flowN++;if(flow<=0)flowOff()}}
   function flowOff(){if(flowOn){flowOn=false;msg('FLOW ENDS',.8)}}
   function flowTick(dt){
-    if(skillCD>0)skillCD-=dt;if(swapCd>0)swapCd-=dt;
+    if(skillCD>0)skillCD-=dt;if(magicCd>0)magicCd-=dt;bufTick();if(swapCd>0)swapCd-=dt;
     if(flowOn){flow-=dt*11;if(flow<=0){flow=0;flowOff()}}
     if(fq){if(now()-fq.t>320)fq=null;else if(P.act==='free'&&(fq.m==='cinder'||fq.m==='twshade'?P.st>=(fq.m==='cinder'?22:16):flow>=8)){ST.input('P',{t:'atk',m:fq.m},now());assist();fq=null}}
     const f=Math.round(flow/100*60),full=flow>=100&&!flowOn;if(bars.fl!==f||bars.fon!==flowOn||bars.ffull!==full||bars.fn!==flowN){bars.fl=f;bars.fon=flowOn;bars.ffull=full;bars.fn=flowN;
-      const b=el.querySelector('#wFlow');b.style.setProperty('--fl',(flow/100*360)+'deg');b.classList.toggle('full',full);b.classList.toggle('on',flowOn);b.textContent=flowOn?(stance==='twin'?(flowN%2?'Dance':'Moon'):(flowN%2?'Meia':'Armada')):'Flow';
+      const b=el.querySelector('#wFlow');b.style.setProperty('--fl',(flow/100*360)+'deg');b.classList.toggle('full',full);b.classList.toggle('on',flowOn);b.textContent=flowOn?(stance==='twin'?(flowN%2?'Dance':'Moon'):(flowN%2?'Meia':'Armada')):'Magic';
       setBar('.p .fl',flow/100);const fb=el.querySelector('.p .fl');fb.classList.toggle('full',full);fb.classList.toggle('on',flowOn)}}
   function press(name,tms){
     if(pin&&on&&name!=='pause'){pin.n++;return true}
@@ -286,12 +295,15 @@ const PlayerCombat=(()=>{
       case'sup':startSever();break;
       case'ihp':useFlask('hp');break;case'ist':useFlask('st');break;case'imt':useFlask('mt');break;
       case'lock':toggleLock();break;
-      case'jump':fightJump();break;
-      case'shadow':shadowStep();break;
-      case'swap':swapStance();break;
+      case'jump':if(fightJump()===false)bufSet('jump');break;
+      case'shadow':if(shadowStep()===false)bufSet('shadow');break;
+      case'swap':if(swapStance()===false)bufSet('swap');break;
       case'camd':{CAMS.dist=CAMS.dist<.9?1:CAMS.dist<1.1?1.25:.8;try{localStorage.setItem('wcam',JSON.stringify(CAMS))}catch(e){}msg(CAMS.dist<.9?'CAMERA: CLOSE':CAMS.dist>1.1?'CAMERA: FAR':'CAMERA: NORMAL',1);break}
       default:return false}
     return true}
+  // INPUT BUFFER: a Jump / Shadow / Twin tap that lands while the action is briefly refused (mid-swing, a cooldown tick, one frame from the ground) is held for 0.35 s and fires the moment it is allowed - no more tapping ten times
+  let buf=null;const bufSet=n=>{buf={n,u:performance.now()+350}};
+  function bufTick(){if(!buf)return;if(performance.now()>buf.u||!on){buf=null;return}const n=buf.n;let r=true;if(n==='jump')r=fightJump();else if(n==='shadow')r=shadowStep();else if(n==='swap')r=swapStance();if(r!==false)buf=null}
   function release(name,tms){
     if(!on)return;const t=tms===undefined?now():tms;
     if(name==='heavy'&&down.heavy){down.heavy=false;ST.input('P',{t:'heavyUp'},t)}
@@ -330,7 +342,7 @@ const PlayerCombat=(()=>{
     else if(n){if(n==='heavy'||n==='guard')release(n,stamp(e.timeStamp));e.stopImmediatePropagation()}}
   function bind(b,name){
     const holdy=name==='heavy'||name==='guard';
-    b.addEventListener('pointerdown',e=>{if(ptr[name]!==undefined)return;e.preventDefault();e.stopPropagation();ptr[name]=e.pointerId;try{b.setPointerCapture(e.pointerId)}catch(_){}b.classList.add('dn');press(name,stamp(e.timeStamp))});
+    b.addEventListener('pointerdown',e=>{if(ptr[name]!==undefined&&holdy)return;e.preventDefault();e.stopPropagation();ptr[name]=e.pointerId;try{b.setPointerCapture(e.pointerId)}catch(_){}b.classList.add('dn');press(name,stamp(e.timeStamp))});
     const up=e=>{if(ptr[name]!==e.pointerId)return;delete ptr[name];b.classList.remove('dn');if(holdy)release(name,stamp(e.timeStamp));e.stopPropagation()};
     b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('lostpointercapture',up);
     b.addEventListener('contextmenu',e=>e.preventDefault())}
@@ -338,8 +350,8 @@ const PlayerCombat=(()=>{
   function build(){WardenNet.setHandler(netMsg);
     el=document.createElement('div');el.id='wroot';
     el.innerHTML='<div id="wh"><div class="wb p"><i class="hp"><b></b></i><i class="st"><b></b></i><i class="fl"><b></b></i></div><div class="wb d"><span>The Duelist</span><i class="hp"><b></b></i><i class="po"><b></b></i></div></div><div id="wmsg"></div><div id="wem"></div><button id="wQuit">Leave arena</button><div id="whd" style="position:fixed;left:50%;top:46%;width:0;height:0;pointer-events:none;z-index:50;opacity:0;transition:opacity .5s"><div style="position:absolute;left:-26px;top:-150px;width:0;height:0;border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:54px solid #ff2a1a;filter:drop-shadow(0 0 8px #ff6a2a)"></div></div><div id="whn" style="position:fixed;left:0;right:0;top:34%;text-align:center;pointer-events:none;z-index:50;color:#ffb27a;font:700 15px sans-serif;letter-spacing:.14em;text-shadow:0 0 6px #000,0 0 3px #000;opacity:0;transition:opacity .5s"></div>'+
-      '<div id="wc"><button id="wLight">Light</button><button id="wHeavy">Heavy</button><button id="wGuard">Parry</button><button id="wDodge">Dodge</button><button id="wFlow">Flow</button><button id="wIhp" class="wi"><b>\u2764</b><i>3</i></button><button id="wIst" class="wi"><b>\u26A1</b><i>2</i></button><button id="wImt" class="wi"><b>\u2694</b><i>1</i></button><button id="wLock">Lock</button><button id="wJump">Jump</button><button id="wShadow">Shadow</button><button id="wSwap">Twin</button><button id="wSup">Sever</button></div>'+
-      '<div id="whint">F light (x3, then G = Tempest) · Guard+Light = Shove · dodge then G = Lunge · G heavy (hold) · Q guard · Space dodge · E flow · R super · V camera distance · 1/2/3 flasks · Tab lock · Z swap to Twin Blades</div>';
+      '<div id="wc"><button id="wLight">Light</button><button id="wHeavy">Heavy</button><button id="wGuard">Parry</button><button id="wDodge">Dodge</button><button id="wFlow">Magic</button><button id="wIhp" class="wi"><b>\u2764</b><i>3</i></button><button id="wIst" class="wi"><b>\u26A1</b><i>2</i></button><button id="wImt" class="wi"><b>\u2694</b><i>1</i></button><button id="wLock">Lock</button><button id="wJump">Jump</button><button id="wShadow">Shadow</button><button id="wSwap">Twin</button><button id="wSup">Sever</button></div>'+
+      '<div id="whint">F light (x3, then G = Tempest) · Guard+Light = Shove · dodge then G = Lunge · G heavy (hold) · Q guard · Space dodge · E magic (tap = Thunderfall, full meter = Arcane Storm) · R super · V camera distance · 1/2/3 flasks · Tab lock · Z swap to Twin Blades</div>';
     document.body.appendChild(el);
     {const q=el.querySelector('#wQuit'),go=e=>{e.preventDefault();e.stopPropagation();quitArena()};q.addEventListener('pointerdown',e=>e.stopPropagation());q.addEventListener('click',go)}
     bind(el.querySelector('#wLight'),'light');bind(el.querySelector('#wHeavy'),'heavy');bind(el.querySelector('#wGuard'),'guard');bind(el.querySelector('#wDodge'),'dodge');bind(el.querySelector('#wFlow'),'flow');bind(el.querySelector('#wIhp'),'ihp');bind(el.querySelector('#wIst'),'ist');bind(el.querySelector('#wImt'),'imt');flaskUi();bind(el.querySelector('#wLock'),'lock');bind(el.querySelector('#wJump'),'jump');bind(el.querySelector('#wShadow'),'shadow');bind(el.querySelector('#wSwap'),'swap');bind(el.querySelector('#wSup'),'sup');
@@ -796,10 +808,17 @@ const PlayerCombat=(()=>{
   // - move tracking + parry adaptation (DuelistAI.onParry), - three PERFECT parries in a row within 7 s on a boss = the Deathblow opening: his guard breaks, time stalls, you get a free cut,
   // - a mood vignette that darkens the arena in phase 2 and 3 (a plain overlay: no extra lights, cheap on a phone).
   let pcs={n:0,t:0,id:null},moodEl=null,moodT=0,moodK=0;
+  // KAGE'S DEMON ARSENAL, VISUALS: shadowflame cuts at every swing, a burst of embers at every lunge, a floor-ring of sparks when the heel comes down (client-only, a few spawns per move)
+  function kageFx(A,id){const M=Moves[id];if(!M||!M.phases)return;let t=0,k=0;
+    for(const p of M.phases){const n=p.n||0,ms=t*1000/60;
+      if(p.k==='lunge'||p.k==='raise')setTimeout(()=>{if(on&&A.f.act!=='dead'){const x=A.f.x,z=A.f.z;WardenVfx.burst(x,H(x,z)+.9,z,1);WardenVfx.spawn(x,H(x,z)+.5,z,3,3,3,Math.random()*6.28,26)}},ms);
+      if(p.k==='active'){const kk=k++,low=/sweep/.test(id)||/stomp|slam/.test(id);setTimeout(()=>{if(on&&A.f.act!=='dead'){const x=A.f.x,z=A.f.z,y=H(x,z)+(low?.35:1.15);WardenVfx.slash(x,y,z,A.f.face,kk%2===0||/slam|pow|hjump|fflip/.test(id),3);if(low||/slam|hjump|fflip/.test(id)&&kk>0)WardenVfx.burst(x+Math.sin(A.f.face)*1.3,H(x,z)+.3,z+Math.cos(A.f.face)*1.3,2)}},ms+30)}
+      if(p.k==='release'&&id==='kzstomp')setTimeout(()=>{if(on&&A.f.act!=='dead'){const x=A.f.x,z=A.f.z;WardenVfx.burst(x,H(x,z)+.3,z,3)}},ms+500);
+      t+=n}}
   function spEv(e,A){
     if(e.t==='posturebreak'&&e.d==='P'&&!ult&&!sv&&state==='fight'){let b=null,bd=4.6;for(const F of foes)if(F.T.id==='dknight'&&F.awake&&F.f.act!=='dead'){const d=Math.hypot(F.f.x-S.x,F.f.z-S.z);if(d<bd){bd=d;b=F}}if(b)deathSentence(b);return}
     if(!A||!A.ai||ult||sv||state!=='fight')return;
-    if(e.t==='start'&&e.a!==undefined&&e.a!=='P'){A.lm=e.move;try{pillarSmash(A,e.move)}catch(x){}}
+    if(e.t==='start'&&e.a!==undefined&&e.a!=='P'){A.lm=e.move;try{pillarSmash(A,e.move)}catch(x){}try{if(A.T.id==='samurai'&&/^kz/.test(e.move))kageFx(A,e.move)}catch(x){}}
     else if(e.t==='deflect'&&e.d==='P'){DuelistAI.onParry(A.ai,A.lm,e.pf);
       if(e.pf&&A.T.boss){const n=performance.now();if(pcs.id===A.id&&n-pcs.t<7000)pcs.n++;else pcs.n=1;pcs.id=A.id;pcs.t=n;if(pcs.n>=3){pcs.n=0;deathblow(A)}}else if(!e.pf)pcs.n=Math.max(0,pcs.n-1)}
     else if(e.t==='hit'&&e.d==='P'&&!e.fx){pcs.n=0;if(A.T.id==='gwyn'&&A.f.mv&&HEAVYW.indexOf(A.f.mv.id)>=0)zoneChain(true);if(A.T.id==='darkknight'&&A.f.mv&&A.f.mv.id==='impaler')pinStart(A)}}
@@ -947,7 +966,7 @@ const PlayerCombat=(()=>{
   function spMsg(p){
     if(!on||!site||p.s!==site.id)return;
     if(p.t==='zr'||p.t==='zd'||p.t==='za'||p.t==='zc'){zoneNet(p);return}
-    if(p.t==='tp'||p.t==='tx'||p.t==='vh'||p.t==='br'||p.t==='fk'||p.t==='bg'||p.t==='pf'){trickSp(p);return}
+    if(p.t==='tp'||p.t==='tx'||p.t==='vh'||p.t==='br'||p.t==='fk'||p.t==='bg'||p.t==='pf'||p.t==='mg'){trickSp(p);return}
     if(p.t==='bs'&&NET.mode==='guest'&&!ult&&state==='fight'&&P.act!=='dead'&&!CineCam.busy()){const B=byId[p.b];if(B&&B.f.act!=='dead')startBarrage(B,{a0:p.a,co:true})}
     else if(p.t==='es'&&NET.mode==='guest'&&!ult&&state==='fight'&&P.act!=='dead'&&!CineCam.busy()){const B=byId[p.b];if(B&&B.f.act!=='dead')startEcho(B,{co:true,seed:p.seed,st:p.st})}
     else if(p.t==='ef'&&NET.mode==='host'&&ult&&ult.kind==='echo')echoFound(true)
@@ -1035,6 +1054,7 @@ const PlayerCombat=(()=>{
     else if(p.t==='fk'&&NET.mode==='host'){for(const F of foes)if(F.awake&&F.f.act==='free'&&!F.ghost&&!F.script)DuelistAI.hunt(F.ai)}
     else if(p.t==='tx'){const t=traps.find(q=>q.id===p.i);if(t){trapDel(t);try{WardenVfx.spawn(t.x,H(t.x,t.z)+.6,t.z,2,3,2,Math.random()*6.28,24)}catch(e){}}}
     else if(p.t==='vh'&&NET.mode==='host'){const A=byId[p.b];if(A&&A.f.act!=='dead'&&A.T.vamp){const h=Math.min(+p.h||0,A.f.hpMax*.1);A.f.hp=Math.min(A.f.hpMax,A.f.hp+h);A.drunk=(A.drunk||0)+h}}
+    else if(p.t==='mg'&&NET.mode==='host'){magicHit(byId[p.b],Math.min(160,+p.h||0),Math.min(50,+p.p||0))}
     else if(p.t==='pf'&&NET.mode==='host'){const F=byId[p.b];if(F&&F.f.act!=='dead'&&!F.f.sa)CombatCore.stun(F.f,p.q?96:30,p.q?'stagger':'recoil')}
     else if(p.t==='bg'&&NET.mode==='host'){const F=byId[p.b];if(F&&F.f.act==='attack'&&F.f.mv&&F.f.mv.bg)CombatCore.stun(F.f,84,'stagger')}
     else if(p.t==='br'&&NET.mode==='guest'){const F=byId[p.b];if(F&&F.f.act==='attack'&&F.f.mv&&F.f.mv.id==='blink')blinkRing(p.x,p.z,true)}}
