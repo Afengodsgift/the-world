@@ -80,3 +80,9 @@ Library clips `g_*` (two-handed combo, spin, leap, slide, power slash, low slash
 * Not verified: how the auto-assigned clips LOOK in motion at game speed (only the table of peak times was checked), and the Kage / Vael T-pose report was not reproduced: the only T-pose path found in code is a role whose clip file is still loading or failed, so the files were checked for validity but not for load time on a phone (they grew to 1.4-2.4 MB each).
 * Saint: HP 480 -> 980, speed 1.8, damage x1.5, short rests, Last Sovereign, five more signature moves and three chains; her own arena `The Veiled Sanctuary` (x 40, z -190). Gwyn's Cinder Throne and the Sanctuary have taller pillar rings.
 * Twin Blades super: **Hundred Shadows** (11 cuts + a double X finisher) replaces Spirit Sever while the twin blades are drawn.
+
+## Kage, the demon (tests/kage_demon.sim.js)
+19 `kz*` moves from library kick / flip / great-sword clips (`assets/warden_mx_samurai.json` kz_*), in four hp tiers (opening, <75%, <50%, <22%): kicks and the twist pounce first; backflip kicks, aerial wheel, falling crow later; then the perilous sweep, Heaven Descent, Moonbreaker, Demon Slam, Quake Stomp and Demon's Grasp. Chains: Demon Kicks, Demon Rush, Sweep-Break, Abyss Demon. 1900 HP, speed 2.05. Rules unchanged: tell >= 20 before every hit (so rechambers are 20), recovery >= 20.
+
+## Arcane magic (replaces Flow)
+Same meter. Tap (35) = Thunderfall (3 bolts on the locked foe); full meter = Arcane Storm (7 bolts on up to 4 foes + a posture-breaking strike). Host applies the damage; a guest sends `{t:'mg'}`. Jump / Shadow / Twin taps are buffered 0.35 s.

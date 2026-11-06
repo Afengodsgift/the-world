@@ -162,7 +162,17 @@ const WardenMX=(()=>{
     kslide:{c:'k_slide',t0:.45,h:[[1.3,1.6]],e:2.0},crow:{c:'k_jump',t0:.1,e:2.1},
     cyclone:{c:'k_spinrun',t0:0,h:[[.52,.75],[.95,1.2]],e:1.6},splitter:{c:'k_pslash',t0:.15,h:[[.7,.9]],e:1.7},
     tengu:{seq:[{c:'k_skick',t0:.15,h:[.4,.65],e:.9},{c:'k_spkick',t0:.1,h:[.45,.95],e:1.4}]},
-    reversemoon:{c:'k_flipkick',t0:.1,h:[[1.3,1.5]],e:2.0},kindle:{c:'k_charge',t0:.2,e:2.4},thrustslash:{c:'k_thrust',t0:.3,h:[[.65,.85],[1.45,1.65]],e:2.2}});
+    reversemoon:{c:'k_flipkick',t0:.1,h:[[1.3,1.5]],e:2.0},kindle:{c:'k_charge',t0:.2,e:2.4},thrustslash:{c:'k_thrust',t0:.3,h:[[.65,.85],[1.45,1.65]],e:2.2},
+    // the demon arsenal: library kicks / flips / great-sword clips (kz_*), hand-speed windows from tools/clip_windows.mjs
+    kzsweep:{c:'kz_sweep',t0:.1,h:[[.49,.67],[.79,.97]],e:1.9},kzhurr:{c:'kz_hurr',t0:.05,h:[[.35,.53],[.85,1.03],[1.42,1.6]],e:1.83},
+    kzaerial:{c:'kz_aerial',t0:.6,h:[[1.19,1.37],[1.65,1.83]],e:2.2},kzbutter:{c:'kz_butter',t0:.2,h:[[.65,.83],[1.19,1.37],[1.49,1.67]],e:2.2},
+    kzfflip:{c:'kz_fflip',t0:.2,h:[[.99,1.17],[1.32,1.5]],e:2.2},kzbflip:{c:'kz_bflip',t0:.1,h:[[.79,.97],[1.32,1.5]],e:2.0},
+    kzdbl:{c:'kz_dbl',t0:.5,h:[[.79,.97],[1.12,1.3]],e:1.7},kzhjump:{c:'kz_hjump',t0:.05,h:[[.52,.7],[1.02,1.2]],e:2.1},
+    kzhspin:{c:'kz_hspin',t0:0,h:[[.25,.43],[.55,.73],[.92,1.1]],e:1.8},kzpow:{c:'kz_pow',t0:.1,h:[[.42,.6],[1.35,1.53]],e:1.8},
+    kzgcmb:{c:'kz_gcmb',t0:.2,h:[[.55,.73],[.95,1.13],[1.32,1.5],[2.12,2.3]],e:3.2},kzstomp:{c:'kz_stomp',t0:.05,e:1.3},
+    kztflip:{c:'kz_tflip',t0:0,h:[[.52,.7],[.95,1.13],[1.32,1.5]],e:2.1},kzsfl:{c:'kz_sfl',t0:.8,h:[[1.39,1.57],[1.79,1.97]],e:2.4},
+    kzgrab:{c:'kz_grab',t0:1.5,h:[[2.29,2.47],[2.79,2.97]],e:3.2},kzrh:{c:'kz_rh',t0:.2,h:[[.49,.67],[.82,1]],e:1.5},
+    kzcart:{c:'kz_cart',t0:.2,h:[[.79,.97],[1.19,1.37]],e:1.7},kzback:{c:'kz_bk',t0:0,e:1.8},kzgslam:{c:'kz_gslam',t0:.05,h:[[.49,.67]],e:1.27}});
   // The Veiled Saint (uploaded Queen of Swords rig, packed by tools/pack_ue_char.mjs): the Huntress's cast / kick / power-up set retargeted onto her; every area attack is a cast
   ROLES.saint=Object.assign({},ROLES.archer,{file:'assets/warden_mx_saint.json',moves:Object.assign({},ROLES.archer.moves,{
     lance:{c:'spell',t0:0,e:1.1},returning:{c:'spell',t0:0,e:1.1},consecrate:{c:'power',t0:.3,e:2.0},procession:{c:'power',t0:.3,e:2.0},bladestorm:{c:'spell',t0:0,e:1.1},swordring:{c:'power',t0:.3,e:2.0}})});
