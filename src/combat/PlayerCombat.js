@@ -1264,7 +1264,8 @@ const PlayerCombat=(()=>{
     try{autoLock();camMoves()}catch(e){}const TF=target();D=TF.f;try{markers(TF,performance.now()/1000);threatArrows();frameFoes(dt);barrageTick(dt);svTick(dt);trickTick(dt);fightMoveTick(dt)}catch(e){}
     // camera: pull back for a big foe, when he is far, and when there are several
     try{let sc=1;for(const F of foes)if(F.f.act!=='dead'&&F.awake)sc=Math.max(sc,F.T.scale);const fd=Math.hypot(S.x-D.x,S.z-D.z);CameraRig.setBias(-2.8+(sc-1)*3.4+Math.min(3.5,Math.max(0,fd-5))*.45+Math.min(2.4,(alive().filter(F=>F.awake&&F.f.act!=='dead'&&!F.ghost).length-1)*.9)+(CAMS.dist-1)*5)}catch(e){}
-    for(const F of foes)if(F.ai.ph2&&!F.ph2&&state==='fight'){F.ph2=true;try{phaseBeat(F,2)}catch(x){}if(F.T.boss){msg(F.T.ph2,2);sfx('heavy',.7,.6,()=>tone(120,60,.4,'sawtooth',.12));WardenSfx.play('vo_sudden_death',.8,1,{nojit:1})}if(F.body.shield)F.body.shield.visible=false}
+    for(const F of foes)if(F.f.kn>0)F.f.kn=Math.max(0,F.f.kn-dt);
+    for(const F of foes)if(F.ai.ph2&&!F.ph2&&state==='fight'){F.ph2=true;try{phaseBeat(F,2)}catch(x){}if(F.T.id==='gwyn'&&!ult&&!sv&&CineCam.play('kneel',{x:()=>F.f.x,z:()=>F.f.z,h:1.75*F.T.scale,sc:Math.max(1,F.T.scale*.9)},{force:true,done:()=>{F.f.kn=0;try{WardenVfx.burst(F.f.x,H(F.f.x,F.f.z)+1.4,F.f.z,3);CameraRig.shake(.9);flash(.7,'rgba(255,190,90,.6)');sfx('heavy',.9,.5,()=>tone(70,30,.7,'sawtooth',.18))}catch(x){}}}))F.f.kn=4.3;if(F.T.boss){msg(F.T.ph2,2);sfx('heavy',.7,.6,()=>tone(120,60,.4,'sawtooth',.12));WardenSfx.play('vo_sudden_death',.8,1,{nojit:1})}if(F.body.shield)F.body.shield.visible=false}
     for(const F of foes)if(F.ai.ph3&&!F.ph3&&state==='fight'){F.ph3=true;try{phaseBeat(F,3)}catch(x){}if(F.T.ph3){msg(F.T.ph3,2.4);sfx('heavy',.8,.5,()=>tone(90,45,.5,'sawtooth',.14))}}
     // 1) hand the sim the player's current position, run the due ticks, apply the forced motion back to S
     P.x=S.x;P.z=S.z;

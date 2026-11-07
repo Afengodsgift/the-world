@@ -250,7 +250,7 @@ const WardenMX=(()=>{
   const GS={spin:{c:'g_spinrun',t0:0,h:[[.52,.75]],e:1.5},fourfold:{c:'g_gcombo',t0:.15,h:[[.6,.78],[1.33,1.5],[2.1,2.45]],e:3.0},wyrmstrike:{c:'g_jump',t0:.1,h:[[.95,1.2]],e:2.0},undertow:{c:'g_slide',t0:.45,h:[[1.3,1.6]],e:2.0},
     moonfall:{c:'g_pslash',t0:.15,h:[[.7,.92]],e:1.7},pommel:{c:'g_hilt',t0:.1,h:[[.42,.58]],e:1.1},kickwheel:{seq:[{c:'g_skick',t0:.15,h:[.35,.62],e:.9},{c:'g_spkick',t0:.1,h:[.42,.95],e:1.4}]},abyssring:{c:'g_charge',t0:.2,e:2.6},undercut:{c:'g_low',t0:.2,h:[[1.0,1.3]],e:1.8}};
   Object.assign(ROLES.penitent.moves,GS);Object.assign(ROLES.dknight.moves,GS);
-  for(const r of['dknight','penitent','gwyn','capra','samurai','vampire','saint','veil','oath4','paladin','arissa','archer','ganfaul','gdn'])if(ROLES[r])ROLES[r].hr=true;
+  for(const r of['dknight','penitent','gwyn','capra','samurai','vampire','saint','veil','oath4','paladin','arissa','archer','ganfaul','gdn'])if(ROLES[r])ROLES[r].hr=true;ROLES.gwyn.kn=true;
   for(const r of['dknight','penitent','gwyn','capra','samurai','vampire','saint','veil','oath4']){const R=ROLES[r];if(!R)continue;R.pack=true;R.g=r==='dknight'||r==='penitent'||r==='gwyn'||r==='capra'||r==='oath4'}
   const BUILD='mx3';const SH={};      // role -> {st,clips,p}
   // a dropped request is retried (3 times, growing gaps) before the role is declared failed: a role that failed once never recovers within a session
@@ -292,7 +292,7 @@ const WardenMX=(()=>{
       if(R.fxMoves&&s.clips.fx_jab){if(!R.moves0)R.moves0=R.moves;R.moves=Object.assign({},R.moves0,R.fxMoves);R.loco={...R.loco,idle:'fx_idle'};R.guard='fx_guard';if(s.clips.fx2_idle)R.loco={...R.loco,idle:'fx2_idle',walk:'fx2_fwd',run:'fx2_fwd',back:'fx2_bwd',sl:'fx2_stepl',sr:'fx2_stepr'}}   // boxing-stance bounce and steps for idle / walk / back / strafe
       const used=new Set(Object.values(R.loco));if(R.guard)used.add(R.guard);if(R.parry)for(const q of R.parry)used.add(q.c);if(R.dorm)used.add(R.dorm);if(R.wake)used.add(R.wake.c);if(R.death)used.add(R.death);if(R.hit)used.add(R.hit);if(R.dg)for(const k in R.dg)used.add(R.dg[k][0]);if(R.px)for(const n of PXN)used.add(n);
       for(const m of Object.values(R.moves)){for(const g of norm(m))used.add(g.c);if(m.v)for(const x of m.v)used.add(x.c)}
-      if(R.hr)for(const n of HR)used.add(n);if(R.dsv)for(const n of['ds_victim','ds_side','ds_up'])used.add(n);
+      if(R.hr)for(const n of HR)used.add(n);if(R.kn)for(const n of['gw_kneel','gw_pray','power'])used.add(n);if(R.dsv)for(const n of['ds_victim','ds_side','ds_up'])used.add(n);
       if(R.pack){for(const n in PK)used.add(n);for(const c of CASTS)used.add(c[0])}   // the auto-assigned clips (nightmare pack) are not in R.moves, but they need mixer actions too
       if(R.dojo)for(const n of ['fx_hit_hl','fx_hit_hr','fx_hit_hs','fx_hit_b','fx_hit_st','fx_hit_big','fx_ko','fx_blockreact','kk_blockhit','kk_dodge_b','kk_dodge_f','kk_dodge_l','kk_dodge_r','e_roll','fx2_dodge_f','fx2_dodge_b','fx2_hit_f','fx2_hit_bk','fx2_hit_l','fx2_hit_r','fx2_rocked','fx2_flip','fx2_thrown','fx2_down','fx2_getup','fx2_block_l','fx2_block_r','fx2_block_in'])used.add(n);
       names=[...used].filter(n=>s.clips[n]);I.names=names;I.S=s;
@@ -308,8 +308,10 @@ const WardenMX=(()=>{
         if(I.mode==='sleep'&&R.dorm&&A[R.dorm]){I.mt+=dt;put(R.dorm,I.mt%Math.max(.1,A[R.dorm].getClip().duration-.02))}
         else if(I.mode==='wake'&&R.wake&&A[R.wake.c]){I.mt+=dt*R.wake.rate;const W=R.wake;I.wakeP=Math.min(1,(I.mt)/(W.t1-W.t0));put(W.c,W.t0+I.mt);if(W.t0+I.mt>=W.t1){I.mode=null;I.wakeDone=true}}
         else I.mode=null}
-      else if(f.act==='stun')I.sT+=dt;else I.sT=0;if(f.act==='dead')I.dT+=dt;else{I.dT=0;I.dv=-1}if(f.act!=='dodge')I.dgT=0;
+      else if(f.act==='stun')I.sT+=dt;else I.sT=0;if(!(f.kn>0))I.kt=0;if(f.act==='dead')I.dT+=dt;else{I.dT=0;I.dv=-1}if(f.act!=='dodge')I.dgT=0;
       if(I.mode&&f.act!=='dead'){}
+      else if(f.kn>0&&A.gw_kneel&&A.gw_pray&&A.power&&f.act!=='dead'){   // GWYN'S KNEELING (phase 2 cinematic, library): he kneels (standing-to-kneeling-down), holds the prayer, then the power-up clip bursts - f.kn is set while the cinematic plays
+        I.kt=(I.kt||0)+dt;const e=I.kt;if(e<1.6)put('gw_kneel',e*1.73);else if(e<3)put('gw_pray',((e-1.6)*1.38)%(A.gw_pray.getClip().duration-.02));else put('power',.35+(e-3)*2.2)}
       else if(R.dojo&&!A.p_deathA&&f.act==='dead'&&A[R.death])put(R.death,I.dT);
       else if(R.dojo&&A.fx_hit_hl&&f.act==='stun'&&f.sk!=='rise'){const HL=['fx_hit_hl','fx_hit_hr','fx_hit_hs','fx_hit_b','fx_hit_st','fx_hit_big'];if(I.sT<=dt*1.5)I.hi=((I.hi||0)+1+(Math.random()*2|0))%HL.length;   // real boxing hit reactions, varied; a stagger is the knocked-back-and-reeling clip
         if(A.fx2_thrown&&f.lm==='throw'&&f.sk!=='stagger'){const L=A.fx2_thrown.getClip().duration;if(A.fx2_getup&&f.stun<=34){const G=A.fx2_getup.getClip().duration;put('fx2_getup',Math.min((34-f.stun)/60*3.4,G-.05))}else put('fx2_thrown',Math.min(.12+I.sT*Math.min(1.8,(L-.3)/Math.max(.6,I.sT+f.stun/60)),L-.05))}   // thrown: sent flying and left lying until the stun ends
