@@ -1,6 +1,6 @@
 // TWIN BLADES stance: free weapon swap in the sim, the Fang string, heavy branches, context moves, swap bonus, shade strike i-frames, cheaper dodges, and the clip role wiring
 const fs=require('fs'),vm=require('vm'),R=__dirname+'/../';
-const c={console,Math,window:{},document:{}};vm.createContext(c);vm.runInContext(['Moves','SwordHit','Combos','Fists','Twin','CombatCore','WardenMX'].map(n=>fs.readFileSync(R+'src/combat/'+n+'.js','utf8')).join('\n')+';this.M=Moves;this.CC=CombatCore;this.T=Twin;this.X=WardenMX;',c);const{M,CC,T}=c;
+const c={console,Math,window:{},document:{}};vm.createContext(c);vm.runInContext(['Moves','SwordHit','Combos','Twin','CombatCore','WardenMX'].map(n=>fs.readFileSync(R+'src/combat/'+n+'.js','utf8')).join('\n')+';this.M=Moves;this.CC=CombatCore;this.T=Twin;this.X=WardenMX;',c);const{M,CC,T}=c;
 let n=0;const ok=(v,m)=>{if(!v){console.log('FAIL',m);process.exitCode=1}else n++};
 const duel=o=>{o=o||{};const C=CC.create({arena:{x:0,z:0,R:30}});const P=C.add('P',Object.assign({x:0,z:0,face:0,hp:400},o.P));const D=C.add('D',Object.assign({x:0,z:1.8,face:Math.PI,hp:2000},o.D));return{C,P,D}};
 const wait=(C,P,k)=>{let i=0;while(P.act!=='free'&&i++<k)C.step({})};

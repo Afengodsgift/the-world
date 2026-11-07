@@ -10,10 +10,6 @@ ISL.push({n:'Outlaw Isle',x:OUT.x,z:OUT.z,R:OUT.R,pk:0,c:'#e0a040'});
 // Terrain is a blend appended to the end of H() (see index.html), gated by WRD.on (ON by default since the owner approved; ?warden=0 turns it off). reach = R + fall.
 const WRD={x:150,z:-2450,R:300,fall:30,reach:330,on:false};
 try{WRD.on=!/[?&]warden=0(&|$)/.test(location.search)}catch(e){}
-// IRON FIST ISLE: the hand-to-hand island (src/games/Dojo.js). Like the Warden Isles it is NOT in ISL (that would shift the seeded scatter): its terrain is a blend appended to H() in index.html.
-// A flat mesa (y) of radius R that drops into the sea over `fall`; the dojo ring (arenaR) sits in the middle. ?dojo=0 turns it off.
-const DOJO={x:-1700,z:250,R:78,fall:42,reach:130,y:3.4,arenaR:27,on:true};
-try{DOJO.on=!/[?&]dojo=0(&|$)/.test(location.search)}catch(e){}
 const KT={x:760,z:1400,hw:95,hh:65,rc:34};
 // (The Floating Island's x/z below is a spot on its path, so Travel lands you on solid ground.)
 const LOCS=[{n:'Town Square',x:25,z:62,r:16},{n:'Whispering Forest',x:-110,z:40,r:45},{n:'Shell Beach',x:0,z:182,r:26},{n:'Sky Peak',x:0,z:-137,r:22,y:32},{n:'The Cave',x:18,z:-88,r:9}].concat(ISL.map(I=>({n:I.n,x:I.x,z:I.z,r:I.R*.7}))).concat([{n:'The Floating Island',x:SKY.x+50,z:SKY.z+6,r:SKY.R*.8,y:SKY.base+6}]);

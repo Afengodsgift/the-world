@@ -30,7 +30,7 @@ const CombatCore=(()=>{
   function stunF(f,n,kind){f.act='stun';f.sk=kind;f.stun=n;f.guard=false;f.ph=null;f.mv=null;f.buf=null;f.rel2=false;f.c=0}
   // FISTS: a grab (Moves[].gr) turns to its victim and keeps a staggered one down until it lands
   function grabFace(C,f,id){const t=fistTarget(C,f,id==='take',id==='bwwrench'?Moves.bwwrench.reach:0);if(!t)return;f.face=Math.atan2(t.x-f.x,t.z-f.z);if(id==='take'&&t.act==='stun')t.stun=Math.max(t.stun,Moves.take.phases[0].n+Moves.take.phases[1].n+6)}
-  function fistTarget(C,f,staggered,rr){const R=rr||(staggered?Fists.TAKE_RANGE:Fists.THROW_RANGE);let best=null,bd=1e9;
+  function fistTarget(C,f,staggered,rr){const R=rr||(staggered?3.0:2.2);let best=null,bd=1e9;
     for(const id of C.order){const t=C.F[id];if(!enemyOf(f,t))continue;if(staggered&&!(t.act==='stun'&&t.sk==='stagger'))continue;
       const d=Math.hypot(t.x-f.x,t.z-f.z);if(d>R+t.r||d>=bd)continue;if(SwordHit.angd(f.face,Math.atan2(t.x-f.x,t.z-f.z))>1.15)continue;bd=d;best=t}return best}
   function startMove(C,f,id,hold){const m=Moves[id];if(m&&m.gr)grabFace(C,f,id);f.act='attack';f.mv=m;f.ph=Moves.expand(id,hold,f.tm);f.hold=hold|0;f.pi=0;f.pk=0;f.pt=0;f.done={};f.guard=false;if(m.zn){f.zc=(f.zc||0)+1;f.zn=m.zn.charAt((f.zc+f.id.charCodeAt(0))%m.zn.length)}else f.zn=null;if(m.inv)f.inv=Math.max(f.inv||0,m.inv);if(m.stam)spend(f,m.stam);emit(C,'start',f.id,null,{move:id,per:m.per?1:0});
@@ -60,7 +60,7 @@ const CombatCore=(()=>{
     const free=f.act==='free'||(f.act==='charge'&&c.t!=='heavyUp');
     switch(c.t){
       case'light':{const from=f.act==='attack'&&f.mv?f.mv.id:null;if(!(f.act==='free'||canCancel(f,'light'))||f.st<=0)return false;
-        const CB=f.arm===0&&typeof Brawl!=='undefined'?Brawl.Combos:f.tw&&typeof Twin!=='undefined'?Twin.Combos:f.fs&&typeof Fists!=='undefined'?Fists.Combos:Combos;const id=CB.light({air:(f.y||0)>.7,guard:f.guard,from:f.act==='free'?null:from,adv:!!c.adv,far:!!c.far,chain:C.tick-f.lcT<=CB.CHAIN_GAP?f.lc:0,sinceDodge:C.tick-f.dEnd});startMove(C,f,id);f.lc=Moves[id].chain||0;return true}
+        const CB=f.arm===0&&typeof Brawl!=='undefined'?Brawl.Combos:f.tw&&typeof Twin!=='undefined'?Twin.Combos:Combos;const id=CB.light({air:(f.y||0)>.7,guard:f.guard,from:f.act==='free'?null:from,adv:!!c.adv,far:!!c.far,chain:C.tick-f.lcT<=CB.CHAIN_GAP?f.lc:0,sinceDodge:C.tick-f.dEnd});startMove(C,f,id);f.lc=Moves[id].chain||0;return true}
       case'atk':if(f.act==='free'){if(f.arm===0&&!(Moves[c.m]&&(Moves[c.m].bw||Moves[c.m].bwf)))return true;startMove(C,f,c.m,c.hold||0);return true}return false;   // a disarmed fighter ignores the sword-only commands
       case'wrench':if((f.act==='free'||canCancel(f,'wrench'))&&f.st>0&&Moves.bwwrench){startMove(C,f,'bwwrench');f.lc=0;f.guard=false;f.pry=0;return true}return false;
       case'dodge':{if((f.act==='free'||f.act==='charge'||canCancel(f,'dodge'))&&f.st>0){const D=c.side===2?Moves.flashstep:c.side?Moves.sidestep:Moves.dodge;f.side=c.side===2?2:c.side?1:0;let dx=c.dx,dz=c.dz;if(!(Math.hypot(dx||0,dz||0)>.01)){dx=-Math.sin(f.face);dz=-Math.cos(f.face)}const L=Math.hypot(dx,dz);f.dir=[dx/L,dz/L];f.act='dodge';f.pt=0;f.guard=false;f.ph=null;f.mv=null;f.c=0;spend(f,D.stam*(f.tw&&typeof Twin!=='undefined'?Twin.DODGE_STAM:1));emit(C,'dodge',f.id,null);return true}return false}
@@ -70,10 +70,6 @@ const CombatCore=(()=>{
       case'heavyDown':{const from=f.act==='attack'&&f.mv?f.mv.id:null;
         if(f.arm===0&&typeof Brawl!=='undefined'){if(from&&canCancel(f,'heavy')&&f.st>0){const id=Brawl.heavy({from});if(id){startMove(C,f,id);f.lc=0;return true}}}
         else if(f.tw&&typeof Twin!=='undefined'){if(from&&canCancel(f,'heavy')&&f.st>0){const id=Twin.heavy({from});if(id){startMove(C,f,id);f.lc=0;return true}}}
-        else if(f.fs&&typeof Fists!=='undefined'){   // BARE HANDS: a takedown on a posture-broken foe beats everything; Guard+Heavy is a throw (a grab)
-          if((f.act==='free'||(from&&canCancel(f,'heavy')))&&fistTarget(C,f,true)){startMove(C,f,'take');f.lc=0;return true}
-          if(f.act==='free'&&f.guard&&f.st>0&&!c.q&&fistTarget(C,f,false)){f.guard=false;f.pry=0;startMove(C,f,'throw');f.lc=0;return true}
-          if(from&&canCancel(f,'heavy')&&f.st>0){const id=Fists.Combos.heavy({from});if(id){startMove(C,f,id);f.lc=Moves[id].chain||0;return true}}}
         else if(from&&canCancel(f,'heavy')&&f.st>0){const id=Combos.heavy({from});if(id){startMove(C,f,id);f.lc=Moves[id].chain||0;return true}}
         if(!f.fs&&f.act==='free'&&f.st>0&&!f.guard&&C.tick-f.dEnd<=Combos.EVADE_GAP&&!c.q&&f.dEnd>-900){startMove(C,f,f.tw?'twpierce':'lunge');f.lc=0;return true}
         if(f.act==='free'&&f.st>0&&!c.q){f.act='charge';f.c=0;f.rel2=false;f.guard=false;return true}return false}

@@ -5,7 +5,7 @@ const stock=glb(R+'assets/char.glb'),sNames=n=>new Set(n.nodes.map(x=>x.name));
 const stockJoints=new Set(stock.skins[0].joints.map(i=>stock.nodes[i].name));
 const SETS=['anims','emotes','verb_anims','gun_anims','combat_anims','warden_anims','warden_mx_player','warden_mx_duelist'];
 const clipsOf=f=>{const j=JSON.parse(fs.readFileSync(f,'utf8'));return Array.isArray(j)?j:j.clips};
-for(const a of ['crypto','madea','samurai','bjj']){const big=a!=='crypto'&&a!=='madea';   // the Samurai is a heavier, fixed-look character (cloth, cape, hat): wider budgets
+for(const a of ['crypto','madea','samurai']){const big=a!=='crypto'&&a!=='madea';   // the Samurai is a heavier, fixed-look character (cloth, cape, hat): wider budgets
   const f=R+'assets/avatars/'+a+'.glb',J=glb(f),size=fs.statSync(f).size,side=JSON.parse(fs.readFileSync(R+'assets/avatars/'+a+'.json','utf8'));
   const joints=new Set(J.skins[0].joints.map(i=>J.nodes[i].name));
   ok(joints.size===stockJoints.size&&[...stockJoints].every(n=>joints.has(n)),a+': skeleton uses exactly the game rig bone names ('+joints.size+' joints)');

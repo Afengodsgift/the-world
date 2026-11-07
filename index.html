@@ -187,7 +187,6 @@ addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').ca
 <script src="src/combat/Consumables.js"></script>
 <script src="src/data/dungeon.js"></script>
 <script src="src/data/warden.js"></script>
-<script src="src/data/dojo.js"></script>
 <script src="src/combat/EnemyAI.js"></script>
 <script src="src/world/Blocks.js"></script>
 <script src="src/world/WestKit.js"></script>
@@ -203,11 +202,9 @@ addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').ca
 <script src="src/combat/Moves.js"></script>
 <script src="src/combat/SwordHit.js"></script>
 <script src="src/combat/Combos.js"></script>
-<script src="src/combat/Fists.js"></script>
 <script src="src/combat/Twin.js"></script>
 <script src="src/combat/Brawl.js"></script>
 <script src="src/combat/CombatCore.js"></script>
-<script src="src/combat/DojoAI.js"></script>
 <script src="src/combat/WardenAnim.js"></script>
 <script src="src/combat/WardenMX.js"></script>
 <script src="src/combat/DuelistAI.js"></script>
@@ -227,7 +224,6 @@ addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').ca
 <script src="src/combat/PlayerCombat.js"></script>
 <script src="src/games/WardenCatacombs.js"></script>
 <script src="src/games/WardenIsles.js"></script>
-<script src="src/games/Dojo.js"></script>
 <script src="src/world/Farm.js"></script>
 <script src="src/character/FlightPose.js"></script>
 <script src="src/fx/FlightFX.js"></script>
@@ -326,7 +322,7 @@ const SKINLABELS=['Man','Woman','Warrior','Robot'];   // the stock chibi skins: 
 // The player is either a full-human avatar (myApp = a wardrobe appearance) or, as before, one of the stock chibi skins (myApp = null, mySkin = 0..3). Both stay selectable.
 let myApp=AvatarKit.restore()||AvatarKit.defaults(AvatarKit.DEFAULT_BASE),mySkin=AvatarKit.legacySkin(myApp.b);
 try{const cs=localStorage.getItem('tw_chibi_v1');if(cs!==null&&+cs>=0&&+cs<SKINLABELS.length){myApp=null;mySkin=+cs}}catch(e){}
-if(myApp&&AvatarKit.CAT[myApp.b]&&AvatarKit.CAT[myApp.b].hidden){myApp=AvatarKit.defaults(AvatarKit.DEFAULT_BASE);mySkin=AvatarKit.legacySkin(myApp.b)}   // Ronin / Gi / Boxer are NPC-only now (Dojo opponents): an old save falls back to the default body
+if(myApp&&AvatarKit.CAT[myApp.b]&&AvatarKit.CAT[myApp.b].hidden){myApp=AvatarKit.defaults(AvatarKit.DEFAULT_BASE);mySkin=AvatarKit.legacySkin(myApp.b)}   // Ronin is an NPC-only body: an old save falls back to the default body
 const myAp=()=>myApp?AvatarKit.encode(myApp):undefined;
 function lobbyAvatarRow(){const row=$('skinRow');row.innerHTML='';
   const add=(txt,sel,fn)=>{const b=document.createElement('button');b.textContent=txt;if(sel)b.className='sel';b.onclick=fn;row.appendChild(b)};
@@ -645,7 +641,6 @@ function H(x,z){
   {const ox=x-OUT.x,oz=z-OUT.z;if(ox*ox+oz*oz<OUT.R*OUT.R){ // Outlaw Isle relief (src/games/OutlawArena.js builds on it): Lookout Ridge west, Mine Mesa east
     let a=Math.hypot(ox+125,oz-35);h+=11*Math.exp(-a*a/1352);
     a=Math.hypot(ox-125,oz-15);h+=7*(1-sstep(24,36,a))}}
-  {if(DOJO.on){const dx=x-DOJO.x,dz=z-DOJO.z,d2=dx*dx+dz*dz;if(d2<DOJO.reach*DOJO.reach){const d=Math.sqrt(d2),t=1-sstep(DOJO.R,DOJO.R+DOJO.fall,d),n=Math.sin(x*.19)*Math.cos(z*.23)*.18+Math.sin(x*.07+z*.05)*.3;h=h*(1-t)+(DOJO.y+(d>DOJO.arenaR+8?n*sstep(DOJO.arenaR+8,DOJO.R,d):0)-3.2*sstep(DOJO.R*.55,DOJO.R+DOJO.fall,d))*t}}}   // IRON FIST ISLE: a flat mesa (the dojo ring in the middle), sloping into the sea
   // WARDEN: appended after every existing terrain term; never returns early, never edits earlier lines. Skipped entirely unless WRD.on and (x,z) is inside the isle's reach.
   {if(WRD.on){const wx=x-WRD.x,wz=z-WRD.z,w2=wx*wx+wz*wz;if(w2<WRD.reach*WRD.reach){const t=1-sstep(WRD.R,WRD.R+WRD.fall,Math.sqrt(w2));h=h*(1-t)+WardenH(wx,wz)*t}}}
   return h;
@@ -789,7 +784,7 @@ function buildWorld(code){
   while(pts.length<40){const a=rng()*6.283,r=12+rng()*195,x=Math.cos(a)*r,z=Math.sin(a)*r,h=H(x,z);if(h>.5&&h<40&&dist(x,z)>45)pts.push([x,z])}
   for(const I of ISL)for(let i=0;i<8;i++){const a=rng()*6.283,r=rng()*I.R*.6,x=I.x+Math.cos(a)*r,z=I.z+Math.sin(a)*r;if(H(x,z)>.5)pts.push([x,z])}
   for(const [x,z] of pts){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.5),om),y=Math.max(H(x,z),-.8)+1.2;m.position.set(x,y,z);scene.add(m);orbs.push({m,x,z,y,on:true})}
-  buildRace();buildHunt();buildSeaLife();buildKartTrack();Tag.build();Outlaw.build();WardenIsles.build();if(typeof Dojo!=='undefined')Dojo.build();Surf.build();Farm.build();Soccer.build();Ship.build();Fleet.build();LandWar.build();Voyage.build();if(typeof SkyRaid!=='undefined')SkyRaid.build();Fires.build();LockOn.build();Crew.build();Deckhands.build();Monster.build();Leviathan.build();Bowsprit.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
+  buildRace();buildHunt();buildSeaLife();buildKartTrack();Tag.build();Outlaw.build();WardenIsles.build();Surf.build();Farm.build();Soccer.build();Ship.build();Fleet.build();LandWar.build();Voyage.build();if(typeof SkyRaid!=='undefined')SkyRaid.build();Fires.build();LockOn.build();Crew.build();Deckhands.build();Monster.build();Leviathan.build();Bowsprit.build();buildBonkRing();buildSharkRun();buildSlalom();buildDash();
 }
 const S={x:0,y:0,z:0,vy:0,rot:0,yaw:0,pitch:.35,grounded:true,state:'idle',flying:false,kx:0,kz:0,hurt:0,iframe:0};
 
@@ -915,7 +910,7 @@ function explore(dt,t){
     if(Math.hypot(S.x-o.x,S.z-o.z)<1.6&&Math.abs(S.y+1-o.y)<2.2)take(i,true)});
   Interaction.update();
   Expedition.update(typeof PlayerCombat!=='undefined'&&PlayerCombat.on(),t);   // activity-scoped: inside a Warden fight site only the audited systems below are skipped
-  raceTick(t);huntTick(dt,t);partnerTrack();spaceTrack();if(!Expedition.skip('sea'))seaTick(dt,t);kartTick(t);ringTick(t);sharkRunTick(t);slalomTick(t);dashTick(t);Tag.tick(dt,t);if(!(Outlaw.idle()&&Expedition.skip('outlaw')))Outlaw.tick(dt,t);WardenIsles.tick(dt,t);if(typeof Dojo!=='undefined')Dojo.tick(dt,t);Farm.tick(dt,t);WorldMap.tick();
+  raceTick(t);huntTick(dt,t);partnerTrack();spaceTrack();if(!Expedition.skip('sea'))seaTick(dt,t);kartTick(t);ringTick(t);sharkRunTick(t);slalomTick(t);dashTick(t);Tag.tick(dt,t);if(!(Outlaw.idle()&&Expedition.skip('outlaw')))Outlaw.tick(dt,t);WardenIsles.tick(dt,t);Farm.tick(dt,t);WorldMap.tick();
   if(!race.on&&!hunt.on&&!slalom.on&&mk)mk.style.display='none';
   if(pulse>0){pulse=Math.max(0,pulse-dt);pil.material.emissive.setRGB(pulse*.6,pulse*.45,pulse*.1)}
 }
@@ -1340,7 +1335,7 @@ function tickFrame(t){
   const len=Math.hypot(ix,iy);if(len>1){ix/=len;iy/=len}
   const sprint=keys.ShiftLeft||len>.9;
   const fp=S.flying?SpaceFlight.vertical(CameraRig.neutralPitch()-S.pitch,bst()?2.4:1,bst()?70:34):null;   // look up = go up (src/space/SpaceFlight.js); identical inside the old look range
-  const speed=S.flying?(bst()?70:34)*Math.min(1,len)*fp.h*Boost.speedMul():(H(S.x,S.z)<-.5&&S.y<3?(sprint?16:9):(sprint?12:6))*Math.min(1,len)*kartMul()*(typeof PlayerCombat!=='undefined'?PlayerCombat.speedMul(sprint):1)*(typeof Dojo!=='undefined'?Dojo.speedMul(sprint):1)*(typeof Outlaw!=='undefined'?Outlaw.moveMul():1);
+  const speed=S.flying?(bst()?70:34)*Math.min(1,len)*fp.h*Boost.speedMul():(H(S.x,S.z)<-.5&&S.y<3?(sprint?16:9):(sprint?12:6))*Math.min(1,len)*kartMul()*(typeof PlayerCombat!=='undefined'?PlayerCombat.speedMul(sprint):1)*(typeof Outlaw!=='undefined'?Outlaw.moveMul():1);
   const sy=Math.sin(S.yaw),cy=Math.cos(S.yaw),px=S.x,pz=S.z;
   const dx=cy*ix+sy*iy,dz=-sy*ix+cy*iy;
   if(S.flying){ // flight has inertia: takeoff ~0.5 s to full speed, glide-out when you let go
@@ -1384,7 +1379,7 @@ function tickFrame(t){
     RemoteSmooth.target(o,nowT,H);const p=o.group.position;p.x+=(o.tx-p.x)*k;p.y+=(o.ty-p.y)*k;p.z+=(o.tz-p.z)*k;
     o.group.rotation.y=lerpAngle(o.group.rotation.y,o.tr,k);animate(o.group,dt,o.st);
   }
-  vegCull();CameraRig.update(dt);if(typeof CineCam!=='undefined')CineCam.apply(dt);if(typeof Dojo!=='undefined')Dojo.cam(dt);if(typeof Rally!=='undefined')Rally.frame(dt);if(typeof SkyRaid!=='undefined')SkyRaid.frame(dt);
+  vegCull();CameraRig.update(dt);if(typeof CineCam!=='undefined')CineCam.apply(dt);if(typeof Rally!=='undefined')Rally.frame(dt);if(typeof SkyRaid!=='undefined')SkyRaid.frame(dt);
   {const uT=clamp((-.25-camera.position.y)/.5,0,1);S.under=(S.under||0)+(uT-(S.under||0))*Math.min(1,dt*10)}   // 0 above water .. 1 camera fully submerged (drives fog, sound muffle, bubbles)                                                         // orbit / first-person / shoulder + flight FOV, roll, shake (src/camera/CameraRig.js)
   Boost.update(S,dt);me.userData.bc=Boost.view.charge;boostUI(Boost.view);
   Space.update(dt,t);Env.tick(dt,t);SpaceEnv.update(dt,t);Ocean.tick(dt,Env.state.wx);Ocean.updateUniforms(camera.position.x,camera.position.z,Space.f.above);skyTick(t);Fishing.tick(dt,t);
