@@ -317,8 +317,8 @@ const PlayerCombat=(()=>{
   // Lock-on yaw: the camera only turns once the target leaves a comfortable cone, never faster than 3.2 rad/s (so a boss passing behind you swings round smoothly instead of flipping 180 degrees),
   // and any drag on the camera by the player hands it back to them for 1.2 s. Settings (localStorage 'wcam'): assist 0 = no automatic turning, move 0 = no per-move camera responses.
   const CAMS=(()=>{let o={assist:1,move:1,dist:1,lookU:1,invY:0,fade:1};try{const j=JSON.parse(localStorage.getItem('wcam')||'null');if(j)o=Object.assign(o,j)}catch(e){}return o})();
-  S.lookU=CAMS.lookU;S.invY=CAMS.invY;
-  function camSave(){S.lookU=CAMS.lookU;S.invY=CAMS.invY;try{localStorage.setItem('wcam',JSON.stringify(CAMS))}catch(e){}}
+  function camApply(){if(typeof S!=='undefined'){S.lookU=CAMS.lookU;S.invY=CAMS.invY}}   // S (index.html) does not exist yet when this file loads: apply the look settings when a fight starts and when they change
+  function camSave(){camApply();try{localStorage.setItem('wcam',JSON.stringify(CAMS))}catch(e){}}
   // CAMERA SETTINGS PANEL (the gear button): look sensitivity, distance, invert Y, camera assist, per-move camera, scenery fade
   function camPanel(){const p=el&&el.querySelector('#wCamP');if(!p)return;if(p.classList.toggle('on')){p.innerHTML='<b>Camera</b>'+
       '<label>Look speed <input type="range" id="cpS" min="0.4" max="2.2" step="0.1" value="'+CAMS.lookU+'"></label>'+
@@ -455,7 +455,7 @@ const PlayerCombat=(()=>{
       foes.push(F);byId[id]=F});
     rt(site).foes=foes}
   function startFight(){
-    killDecoy(true);jumpCd=shCd=0;oathFirst=null;fightN++;hurt=false;fightVo=false;try{WardenSfx.load()}catch(e){}const R=site.wall?site.R-.5:site.dg?site.R-.3:site.R+10,sol=WardenSolids().filter(s=>Math.hypot(s.x-WRD.x-site.x,s.z-WRD.z-site.z)<site.R+14);
+    camApply();killDecoy(true);jumpCd=shCd=0;oathFirst=null;fightN++;hurt=false;fightVo=false;try{WardenSfx.load()}catch(e){}const R=site.wall?site.R-.5:site.dg?site.R-.3:site.R+10,sol=WardenSolids().filter(s=>Math.hypot(s.x-WRD.x-site.x,s.z-WRD.z-site.z)<site.R+14);
     C=CombatCore.create({arena:{x:WRD.x+site.x,z:WRD.z+site.z,R},solids:sol});try{CameraRig.setArena({x:WRD.x+site.x,z:WRD.z+site.z,R:site.wall||site.dg?R:site.R,sol:sol.filter(q=>!q.wall)})}catch(e){}ST=CombatCore.stepper(C,6);t0=performance.now();vt=0;vl=0;tsc=1;ult=null;
     if(site.duel&&DU.pair){const L=duelSide();S.x=WRD.x+site.x;S.z=WRD.z+site.z+9*L;S.rot=L>0?Math.PI:0;lx=S.x;lz=S.z}
     P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});applyStats();spawnFoes();try{pillarsBuild()}catch(e){}sup=Math.max(sup,20);WardenFx.clear();WardenVfx.clear();for(const F of foes)if(F.T.ai==='saint')try{WardenFx.orbit(F,6)}catch(e){};trapsClear();blinkRing(0,0,false);Q=null;spectate=false;ls=null;ds=null;pin=null;try{zonesClear();mirrorsClear()}catch(e){}netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
