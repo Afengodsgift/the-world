@@ -219,7 +219,7 @@ const DuelistAI=(()=>{
   // ticks between steps (that is the player's window); a step that is out of range ends the chain (a boss cannot chain forever), and a chain has a long cooldown. LAST SOVEREIGN (phase 3, or 2 in a Mastery rematch): ~10 s
   // empowered: shorter rests, signature moves and chains come twice as often, and it ends with a No-Retreat pursuit.
   const CL={heavenfalld:8.5,heavenwave:12,ruin:8.5,ruincollapse:8.5,heavenfall:8.5,spear:20,stormgrid:20,crownfall:12,worldbreaker:8,aftershock:6,marks:12,finalsentence:12,blink:30,pursuit:7.5,sovereign:9};
-  const SEQ={
+  const SEQ={veilreq:{q:['swordring','severance','hundred','thousand'],ph:3,lo:0,hi:4.4,cd:820},veilcrown:{q:['impaler','doubleimp','kingsweep'],ph:1,lo:2.4,hi:4.6,cd:640},veilrain:{q:['bladestorm','crownfall','swordring'],ph:2,lo:3,hi:12,cd:900},
     abyssdance:{q:['undertow','fourfold'],ph:0,lo:4.5,hi:8,cd:760},wyrmfall:{q:['wyrmstrike','pommel','moonfall'],ph:2,lo:3.6,hi:9,cd:900},kickstorm:{q:['kickwheel','fourfold','abyssring'],ph:3,lo:0,hi:4.6,cd:1000},
     shadowrush:{q:['kslide','cyclone'],ph:0,lo:4.5,hi:8,cd:760},crowsong:{q:['crow','thrustslash','splitter'],ph:2,lo:3.6,hi:9,cd:900},tenguwheel:{q:['tengu','reversemoon','iai'],ph:2,lo:1.2,hi:3,cd:840},nightfall:{q:['kindle','cyclone','splitter','silentsev'],ph:3,lo:0,hi:4.6,cd:1000},demonkicks:{q:['kzdbl','kzrh','kzbutter','kzsfl'],ph:1,lo:1.2,hi:3.2,cd:760},demonrush:{q:['kztflip','kzhspin','kzfflip'],ph:2,lo:4,hi:8,cd:900},sweepbreak:{q:['kzsweep','kzgrab','kzgcmb'],ph:2,lo:1.2,hi:3.2,cd:880},abyssdemon:{q:['kzstomp','kzgcmb','kzgslam','kzhjump'],ph:3,lo:0,hi:4.6,cd:1100},
     brokencrown:{q:['ruin','kingsweep'],ph:0,lo:3.6,hi:8,cd:720},stormexec:{q:['spear','heavenfall'],ph:2,lo:4.5,hi:14,cd:780},crimson:{q:['tempest','impaler'],ph:2,lo:1.6,hi:3.2,cd:760},
@@ -227,7 +227,7 @@ const DuelistAI=(()=>{
     gridlock:{q:['stormgrid','storm'],ph:2,lo:5,hi:16,cd:820},dance:{q:['tempest','kingsweep','risingcrown'],ph:0,lo:1.4,hi:3.4,cd:640},echo:{q:['hangfall','impaler'],ph:0,lo:2,hi:3.2,cd:640},
     blinkchain:{q:['blink','tempest','impaler'],ph:0,lo:3.6,hi:10,cd:700}};
   const SEQS={samurai:['abyssdemon','nightfall','sweepbreak','demonrush','demonkicks','crowsong','tenguwheel','shadowrush','crimson','waltz'],dknight:['kickstorm','wyrmfall','abyssdance','phantom','kingdom','waltz'],darkknight:['brokencrown','crimson'],capra:['crimson','brokencrown','dance','waltz'],gwyn:['stormexec','kingdom','brokencrown','crimson','dance','waltz'],oath4:['stormexec','kingdom','waltz'],gdn:['gridlock'],
-    vampire:['blinkchain','crimson'],arissa:['dance'],ganfaul:['echo'],penitent:['kickstorm','wyrmfall','abyssdance','brokencrown'],paladin:['crimson'],saint:['gridlock','crimson','waltz','kingdom'],veil:['crimson']};
+    vampire:['blinkchain','crimson'],arissa:['dance'],ganfaul:['echo'],penitent:['kickstorm','wyrmfall','abyssdance','brokencrown'],paladin:['crimson'],saint:['veilreq','veilrain','veilcrown','gridlock','crimson','waltz','kingdom'],veil:['crimson']};
   const SOV={saint:1,capra:1,gwyn:1,dknight:1,darkknight:1,samurai:1,oath4:1};
   const EXTRA={
     samurai:[{m:'kslide',lo:4,hi:8,ph:0,cd:420,p:.3,f:'cut'},{m:'crow',lo:3.6,hi:9,ph:0,cd:520,p:.28},{m:'cyclone',lo:1.4,hi:3,ph:0,cd:480,p:.28},{m:'tengu',lo:1.2,hi:2.5,ph:0,cd:440,p:.28,f:'iai'},{m:'thrustslash',lo:1.6,hi:3.4,ph:0,cd:480,p:.3},{m:'splitter',lo:2,hi:4,ph:2,cd:600,p:.28},{m:'reversemoon',lo:1.4,hi:2.6,ph:2,cd:520,p:.25,f:'iai'},{m:'kindle',lo:0,hi:4.4,ph:2,cd:800,p:.25},{m:'severance',lo:1.4,hi:3.2,ph:0,cd:520,p:.22},{m:'silentsev',lo:2.6,hi:3.4,ph:2,cd:600,p:.25},{m:'thousand',lo:1.4,hi:3.2,ph:3,cd:700,p:.3},
@@ -245,7 +245,7 @@ const DuelistAI=(()=>{
     ganfaul:[{m:'hangfall',lo:2,hi:3.2,ph:0,cd:460,p:.3},{m:'doubleimp',lo:2.4,hi:4,ph:2,cd:520,p:.25}],
     penitent:[{m:'fourfold',lo:1.4,hi:3,ph:0,cd:480,p:.28},{m:'undertow',lo:4,hi:8,ph:0,cd:420,p:.3,f:'undercut'},{m:'wyrmstrike',lo:3.6,hi:9,ph:0,cd:520,p:.26},{m:'moonfall',lo:2,hi:4,ph:2,cd:600,p:.28},{m:'pommel',lo:1,hi:2.4,ph:0,cd:400,p:.3,f:'fourfold'},{m:'kickwheel',lo:1.2,hi:2.5,ph:2,cd:520,p:.25},{m:'abyssring',lo:0,hi:4.4,ph:2,cd:800,p:.25},{m:'undercut',lo:1.4,hi:3,ph:0,cd:460,p:.26},{m:'ruin',lo:3.6,hi:8,ph:0,cd:520,p:.25},{m:'executioner',lo:1.4,hi:3,ph:2,cd:520,p:.25}],
     veil:[{m:'doubleimp',lo:2.4,hi:4,ph:2,cd:520,p:.25},{m:'silentsev',lo:2.6,hi:3.4,ph:2,cd:600,p:.25}],
-    saint:[{m:'bladestorm',lo:3,hi:12,ph:0,cd:520,p:.3},{m:'swordring',lo:0,hi:4.4,ph:0,cd:440,p:.3},{m:'hundred',lo:1.4,hi:3.2,ph:2,cd:620,p:.3},{m:'severance',lo:1.4,hi:3.2,ph:0,cd:500,p:.26},{m:'impaler',lo:2.4,hi:4.4,ph:0,cd:560,p:.26,f:'doubleimp'},{m:'kingsweep',lo:1.4,hi:3.6,ph:2,cd:500,p:.28},{m:'thousand',lo:1.4,hi:3.2,ph:3,cd:700,p:.32},{m:'crownfall',lo:3,hi:12,ph:3,cd:760,p:.3},{m:'marks',lo:3,hi:12,ph:2,cd:700,p:.3}],
+    saint:[{m:'bladestorm',lo:3,hi:12,ph:0,cd:520,p:.3},{m:'swordring',lo:0,hi:4.4,ph:0,cd:440,p:.3},{m:'hundred',lo:1.4,hi:3.2,ph:1,cd:520,p:.34},{m:'severance',lo:1.4,hi:3.2,ph:0,cd:420,p:.3},{m:'impaler',lo:2.4,hi:4.4,ph:0,cd:460,p:.3,f:'doubleimp'},{m:'kingsweep',lo:1.4,hi:3.6,ph:1,cd:420,p:.32},{m:'thousand',lo:1.4,hi:3.2,ph:2,cd:560,p:.34},{m:'crownfall',lo:3,hi:12,ph:2,cd:620,p:.32},{m:'marks',lo:3,hi:12,ph:1,cd:560,p:.34},{m:'doubleimp',lo:2.4,hi:4.4,ph:3,cd:360,p:.3,f:'kingsweep'},{m:'bladestorm',lo:3,hi:12,ph:3,cd:340,p:.34,f:'swordring'}],
     paladin:[{m:'impaler',lo:3,hi:4.4,ph:0,cd:520,p:.25}]};
   for(const kd in EXTRA)SIG[kd]=(SIG[kd]||[]).concat(EXTRA[kd]);
   function sig(A,P,D,out,tick,dist,k){
@@ -256,7 +256,7 @@ const DuelistAI=(()=>{
     for(const r of L){if(r.ph&&!(r.ph===3?A.ph3:r.ph===1?A.ph1:A.ph2)||(A.kc[r.m]||0)>0||L0===r.m||A.sigLock&&PER.indexOf(r.m)>=0||dist<r.lo||dist>r.hi)continue;
       if(r.f&&A.sigLock&&PER.indexOf(r.f)>=0)continue;if(A.r()<Math.min(.7,r.p*sv)){A.kc[r.m]=Math.floor(r.cd*1.3*(A.sov>0?.5:1)*(A.mast?.75:1));if(r.f)A.follow=r.f;return start(A,out,r.m,0,tick)}}
     return null}
-  const PERS={capra:{rest:.7,breath:.7},penitent:{rest:.85,breath:.8},saint:{rest:.62,breath:.55},vampire:{rest:.8,breath:.6},ganfaul:{rest:.85},paladin:{rest:.9},goblin:{rest:.9},archer:{rest:.85},arissa:{rest:.8,breath:.7},hollow:{rest:.85},parasite:{rest:.85},maw:{rest:.85},bear:{rest:.85},samurai:{rest:.78,breath:.6},dknight:{rest:.85,breath:.7},darkknight:{rest:.7,breath:.45},gwyn:{rest:1,desp:1,breath:.6},oath4:{rest:.8,breath:.6},gdn:{rest:.95}};
+  const PERS={capra:{rest:.7,breath:.7},penitent:{rest:.85,breath:.8},saint:{rest:.5,breath:.42},vampire:{rest:.8,breath:.6},ganfaul:{rest:.85},paladin:{rest:.9},goblin:{rest:.9},archer:{rest:.85},arissa:{rest:.8,breath:.7},hollow:{rest:.85},parasite:{rest:.85},maw:{rest:.85},bear:{rest:.85},samurai:{rest:.78,breath:.6},dknight:{rest:.85,breath:.7},darkknight:{rest:.7,breath:.45},gwyn:{rest:1,desp:1,breath:.6},oath4:{rest:.8,breath:.6},gdn:{rest:.95}};
   const COMBO={
     samurai:{cut:['moon',.25],twin:['fall',.3],triple:['moon',.3],iai:['blink',.25],moon:['iai',.3],kslide:['cut',.5],cyclone:['tengu',.35],tengu:['iai',.3],thrustslash:['moon',.3]},
     dknight:{bladestorm:['blink',.45],swordring:['hundred',.4],hundred:['verdict',.35],cut:['moon',.25],blink:['flurry',.2]},
@@ -375,11 +375,11 @@ const DuelistAI=(()=>{
   // The Veiled Saint (Three Oaths): area denial. She holds a distance, fires the Judgment Lance and the Returning blades, and lays CONSECRATION (five rings around you that erupt after a delay) and the Silent Procession (a line of rings walking out at you).
   // Signature moves wait for the token (A.sigLock); inside 2.6 m she pushes you off with a kick. Phase 2 (or the covenant breaking) shortens her rests and adds the procession.
   function saint(A,P,D,out,tick,dist,k){
-    if(dist<2.6){A.closeP=0;if(A.scd<=0&&A.last[A.last.length-1]!=='swordring'){A.scd=A.ph2?220:320;return start(A,out,'swordring',0,tick)}return start(A,out,'cut',0,tick)}   // too close: her blades spin out round her, or she kicks
+    if(dist<2.6){A.closeP=0;if(A.scd<=0&&A.last[A.last.length-1]!=='swordring'){A.scd=A.ph3?140:A.ph2?200:300;return start(A,out,'swordring',0,tick)}return start(A,out,'cut',0,tick)}   // too close: her blades spin out round her, or she kicks
     if(A.hunt){A.hunt=false;A.hcd=300;if(!A.sigLock&&A.last[A.last.length-1]!=='consecrate')return start(A,out,'consecrate',0,tick);return start(A,out,'lance',0,tick)}   // you drank a flask: the ground answers
     if(A.cov&&!A.ph2)A.ph2=true;
     if(dist<3.4)return out;
-    const w={lance:dist>6?3.2:1.6,returning:dist>5?1.8:.8,bladestorm:dist>4?(A.ph2?2.8:1.6):0,consecrate:A.sigLock?0:1.3,procession:A.ph2&&!A.sigLock?1.2:0};
+    const w={lance:dist>6?3.2:1.6,returning:dist>5?1.8:.8,bladestorm:dist>4?(A.ph3?4.2:A.ph2?2.8:1.6):0,consecrate:A.sigLock?0:1.3,procession:A.ph2&&!A.sigLock?1.2:0};
     if(A.cov)w.consecrate+=A.sigLock?0:1.4;
     if(A.gP>20||k==='stun'&&A.see>=REACT)w.consecrate+=A.sigLock?0:3;                       // a turtling or staggered player is on the ground she controls
     if(A.onDecoy){w.consecrate=0;w.procession=0}                                          // a shadow is a target for her bolts only; the areas stay for you
