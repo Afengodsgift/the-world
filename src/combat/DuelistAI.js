@@ -252,7 +252,7 @@ const DuelistAI=(()=>{
     const L=SIG[A.kid];if(!L||A.follow||A.req||A.hunt)return null;const L0=A.last[A.last.length-1],sv=A.sov>0?2:1;
     if(SOV[A.kid]&&!A.sovDone&&(A.ph3||A.mast&&A.ph2)&&dist<9&&!A.sigLock){A.sovDone=true;A.sov=600;A.banner='LAST SOVEREIGN';return start(A,out,'sovereign',0,tick)}
     const sq=SEQS[A.kid];if(sq&&!A.q)for(const nm of sq){const S=SEQ[nm];if(S.ph&&!(S.ph===3?A.ph3:S.ph===1?A.ph1:A.ph2)||(A.kc['q'+nm]||0)>0||dist<S.lo||dist>S.hi||A.sigLock&&S.q.some(m=>PER.indexOf(m)>=0))continue;
-      if(A.r()<.3*sv){A.kc['q'+nm]=Math.floor(S.cd*(A.sov>0?.35:1)*(A.mast?.75:1));A.q=S.q.slice(1);return start(A,out,S.q[0],0,tick)}}
+      if(A.r()<.3*sv){A.kc['q'+nm]=Math.floor(S.cd*(A.sov>0?.35:1)*(A.mast?.75:1));A.q=S.q.slice(1);A.cn=nm;return start(A,out,S.q[0],0,tick)}}
     for(const r of L){if(r.ph&&!(r.ph===3?A.ph3:r.ph===1?A.ph1:A.ph2)||(A.kc[r.m]||0)>0||L0===r.m||A.sigLock&&PER.indexOf(r.m)>=0||dist<r.lo||dist>r.hi)continue;
       if(r.f&&A.sigLock&&PER.indexOf(r.f)>=0)continue;if(A.r()<Math.min(.7,r.p*sv)){A.kc[r.m]=Math.floor(r.cd*1.3*(A.sov>0?.5:1)*(A.mast?.75:1));if(r.f)A.follow=r.f;return start(A,out,r.m,0,tick)}}
     return null}
