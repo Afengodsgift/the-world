@@ -11,3 +11,6 @@ console.log(n+' checks')
 {const pc=require('fs').readFileSync('src/combat/PlayerCombat.js','utf8');let m=0;const k=(c,t)=>{if(!c){console.log('FAIL '+t);process.exitCode=1}else m++};
 k(/gR:\{rx:0,ry:0,rz:1\.5708/.test(pc)&&/gL:\{rx:0,ry:0,rz:-1\.5708/.test(pc)&&/g=g\|\|st\.gr\|\|GRIP/.test(pc),'twin blades are gripped with a mirrored quarter-turn per hand');
 const v=require('fs').readFileSync('src/combat/WardenVfx.js','utf8');k(/heavy\?2\.4:1\.8/.test(v)&&/heavy\?1\.8:1\.25/.test(v),'slash and hit VFX trimmed');console.log(m+' grip checks')}
+{const pc=require('fs').readFileSync('src/combat/PlayerCombat.js','utf8');let m=0;const k=(c,t)=>{if(!c){console.log('FAIL '+t);process.exitCode=1}else m++};
+k(/function comboHit/.test(pc)&&/comboHit\(\)\}else if\(e\.t==='hit'&&e\.d==='P'\)comboBreak/.test(pc)&&/SHADOW CROSS/.test(pc)&&/id="wCombo"/.test(pc),'hit counter and string name');
+k(/KeyH:'clip'/.test(pc)&&/id="wClipB"/.test(pc)&&/\.wclip #wh/.test(require('fs').readFileSync('src/ui/warden.css','utf8')),'Clip mode');console.log(m+' clip checks')}

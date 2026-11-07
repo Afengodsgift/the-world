@@ -87,3 +87,10 @@ body.warden-duel #wQuit{display:block}
 #wc #wSup.full{border-color:#fff;box-shadow:0 0 16px #7fe0ff;animation:wsu .6s infinite alternate}
 #wc #wSup.on{opacity:.4}
 @keyframes wsu{to{box-shadow:0 0 30px #d8f6ff}}
+
+/* clip-ready combat: hit counter + string name, and Clip mode */
+#wCombo{position:fixed;z-index:6;right:4%;top:30%;text-align:right;pointer-events:none;opacity:0;transition:opacity .2s;font:800 15px system-ui,sans-serif;color:#ffd9a0;text-shadow:0 2px 6px #000}
+#wCombo.on{opacity:1}#wCombo b{display:block;font-size:30px;line-height:1;color:#fff}#wCombo span{display:block;letter-spacing:.14em;font-size:13px;color:#ffb35c}
+#wCombo.pop b,#wCombo.pop span{animation:wpop .22s ease-out}@keyframes wpop{0%{transform:scale(1.35)}100%{transform:scale(1)}}
+#wClipB{position:fixed;z-index:7;right:10px;top:10px;width:34px;height:34px;border-radius:50%;border:1px solid #fff4;background:#0006;color:#fff;font-size:16px;padding:0;opacity:.55}
+.wclip #wh,.wclip #wQuit,.wclip #wmsg{opacity:0!important}.wclip #wc button,.wclip #wClipB{opacity:.18}

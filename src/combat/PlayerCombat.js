@@ -268,10 +268,10 @@ const PlayerCombat=(()=>{
       const set=foes.filter(F=>F.awake&&!F.ghost&&F.f.act!=='dead'&&Math.hypot(F.f.x-P.x,F.f.z-P.z)<16).sort((a,b)=>(a===tg?-1:b===tg?1:0)).slice(0,4);
       set.forEach((F,fi)=>{for(let k=0;k<7;k++)setTimeout(()=>magicStrike(F,26+F.f.hpMax*.013,12,false),fi*90+k*210);if(F===tg)setTimeout(()=>magicStrike(F,F.f.hpMax*.035,45,true),1650)})}}
   function flowEv(e,T){
-    if(e.t==='hit'&&e.a==='P')flowAdd(e.dmg>=20?9:5);
+    if(e.t==='hit'&&e.a==='P'){flowAdd(e.dmg>=20?9:5);comboHit()}else if(e.t==='hit'&&e.d==='P')comboBreak();if(e.t==='start'&&e.a==='P')comboName(e.move);
     else if(e.t==='dodged'&&e.d==='P'){flowAdd(22);msg('ESQUIVA',.6)}
     else if(e.t==='deflect'&&!T)flowAdd(28);
-    else if(e.t==='posturebreak'&&T)flowAdd(30);
+    else if(e.t==='posturebreak'&&T){flowAdd(30);if(e.a==='P'){hsT=Math.max(hsT,.22);try{msg('POSTURE BROKEN',.7);CameraRig.pulse(-2.4)}catch(x){}}}
     else if(e.t==='start'&&e.a==='P'&&e.move==='plunge'){S.vy=-17;S.coy=0;setTimeout(()=>{if(on)WardenVfx.burst(P.x+Math.sin(P.face)*1.6,H(P.x,P.z)+.3,P.z+Math.cos(P.face)*1.6,2)},110);sfx('heavy',.6,.7)}
     else if(e.t==='start'&&e.a==='P'&&e.move==='twshade'){WardenVfx.burst(P.x,H(P.x,P.z)+1,P.z,1);setTimeout(()=>{if(on){WardenVfx.slash(P.x,H(P.x,P.z)+1.2,P.z,P.face,true,1);WardenVfx.burst(P.x,H(P.x,P.z)+1,P.z,1)}},110);sfx('clash',.5,1.4)}
     else if(e.t==='start'&&e.a==='P'&&e.move==='cinder'){WardenVfx.slash(P.x,H(P.x,P.z)+1.2,P.z,P.face,true,3);setTimeout(()=>{if(on)WardenVfx.slash(P.x,H(P.x,P.z)+1.2,P.z,P.face,true,3)},180)}
@@ -299,6 +299,7 @@ const PlayerCombat=(()=>{
       case'jump':if(fightJump()===false)bufSet('jump');break;
       case'shadow':if(shadowStep()===false)bufSet('shadow');break;
       case'swap':if(swapStance()===false)bufSet('swap');break;
+      case'clip':clipToggle();break;
       case'camd':{CAMS.dist=CAMS.dist<.9?1:CAMS.dist<1.1?1.25:.8;try{localStorage.setItem('wcam',JSON.stringify(CAMS))}catch(e){}msg(CAMS.dist<.9?'CAMERA: CLOSE':CAMS.dist>1.1?'CAMERA: FAR':'CAMERA: NORMAL',1);break}
       default:return false}
     return true}
@@ -336,7 +337,7 @@ const PlayerCombat=(()=>{
     else lock=false;
     lockOff=!lock;   // the player turned it off on purpose: do not auto-lock again until they turn it on
     if(el)el.querySelector('#wLock').classList.toggle('on',lock)}
-  const KEY={Digit1:'ihp',Digit2:'ist',Digit3:'imt',KeyE:'flow',KeyF:'light',KeyG:'heavy',KeyQ:'guard',KeyR:'sup',Space:'dodge',Tab:'lock',KeyZ:'swap',KeyV:'camd'};
+  const KEY={Digit1:'ihp',Digit2:'ist',Digit3:'imt',KeyE:'flow',KeyF:'light',KeyG:'heavy',KeyQ:'guard',KeyR:'sup',Space:'dodge',Tab:'lock',KeyZ:'swap',KeyV:'camd',KeyH:'clip'};
   function onKey(e){
     if(!on||e.target&&e.target.tagName==='INPUT')return;const n=KEY[e.code];
     if(e.type==='keydown'){if(n){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)press(n,stamp(e.timeStamp))}else if(e.code==='KeyB'){e.stopImmediatePropagation()}}
@@ -350,12 +351,12 @@ const PlayerCombat=(()=>{
   // ---------- DOM (built once) ----------
   function build(){WardenNet.setHandler(netMsg);
     el=document.createElement('div');el.id='wroot';
-    el.innerHTML='<div id="wh"><div class="wb p"><i class="hp"><b></b></i><i class="st"><b></b></i><i class="fl"><b></b></i></div><div class="wb d"><span>The Duelist</span><i class="hp"><b></b></i><i class="po"><b></b></i></div></div><div id="wmsg"></div><div id="wem"></div><button id="wQuit">Leave arena</button><div id="whd" style="position:fixed;left:50%;top:46%;width:0;height:0;pointer-events:none;z-index:50;opacity:0;transition:opacity .5s"><div style="position:absolute;left:-26px;top:-150px;width:0;height:0;border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:54px solid #ff2a1a;filter:drop-shadow(0 0 8px #ff6a2a)"></div></div><div id="whn" style="position:fixed;left:0;right:0;top:34%;text-align:center;pointer-events:none;z-index:50;color:#ffb27a;font:700 15px sans-serif;letter-spacing:.14em;text-shadow:0 0 6px #000,0 0 3px #000;opacity:0;transition:opacity .5s"></div>'+
+    el.innerHTML='<div id="wh"><div class="wb p"><i class="hp"><b></b></i><i class="st"><b></b></i><i class="fl"><b></b></i></div><div class="wb d"><span>The Duelist</span><i class="hp"><b></b></i><i class="po"><b></b></i></div></div><div id="wmsg"></div><div id="wCombo"><b></b><span></span></div><button id="wClipB" title="Clip mode: hides the bars, fades the buttons">🎬</button><div id="wem"></div><button id="wQuit">Leave arena</button><div id="whd" style="position:fixed;left:50%;top:46%;width:0;height:0;pointer-events:none;z-index:50;opacity:0;transition:opacity .5s"><div style="position:absolute;left:-26px;top:-150px;width:0;height:0;border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:54px solid #ff2a1a;filter:drop-shadow(0 0 8px #ff6a2a)"></div></div><div id="whn" style="position:fixed;left:0;right:0;top:34%;text-align:center;pointer-events:none;z-index:50;color:#ffb27a;font:700 15px sans-serif;letter-spacing:.14em;text-shadow:0 0 6px #000,0 0 3px #000;opacity:0;transition:opacity .5s"></div>'+
       '<div id="wc"><button id="wLight">Light</button><button id="wHeavy">Heavy</button><button id="wGuard">Parry</button><button id="wDodge">Dodge</button><button id="wFlow">Magic</button><button id="wIhp" class="wi"><b>\u2764</b><i>3</i></button><button id="wIst" class="wi"><b>\u26A1</b><i>2</i></button><button id="wImt" class="wi"><b>\u2694</b><i>1</i></button><button id="wLock">Lock</button><button id="wJump">Jump</button><button id="wShadow">Shadow</button><button id="wSwap">Twin</button><button id="wSup">Sever</button></div>'+
       '<div id="whint">F light (x3, then G = Tempest) · Guard+Light = Shove · dodge then G = Lunge · G heavy (hold) · Q guard · Space dodge · E magic (tap = Thunderfall, full meter = Arcane Storm) · R super · V camera distance · 1/2/3 flasks · Tab lock · Z swap to Twin Blades</div>';
     document.body.appendChild(el);
     {const q=el.querySelector('#wQuit'),go=e=>{e.preventDefault();e.stopPropagation();quitArena()};q.addEventListener('pointerdown',e=>e.stopPropagation());q.addEventListener('click',go)}
-    bind(el.querySelector('#wLight'),'light');bind(el.querySelector('#wHeavy'),'heavy');bind(el.querySelector('#wGuard'),'guard');bind(el.querySelector('#wDodge'),'dodge');bind(el.querySelector('#wFlow'),'flow');bind(el.querySelector('#wIhp'),'ihp');bind(el.querySelector('#wIst'),'ist');bind(el.querySelector('#wImt'),'imt');flaskUi();bind(el.querySelector('#wLock'),'lock');bind(el.querySelector('#wJump'),'jump');bind(el.querySelector('#wShadow'),'shadow');bind(el.querySelector('#wSwap'),'swap');bind(el.querySelector('#wSup'),'sup');
+    {const cb=el.querySelector('#wClipB');if(cb)cb.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();clipToggle()})}bind(el.querySelector('#wLight'),'light');bind(el.querySelector('#wHeavy'),'heavy');bind(el.querySelector('#wGuard'),'guard');bind(el.querySelector('#wDodge'),'dodge');bind(el.querySelector('#wFlow'),'flow');bind(el.querySelector('#wIhp'),'ihp');bind(el.querySelector('#wIst'),'ist');bind(el.querySelector('#wImt'),'imt');flaskUi();bind(el.querySelector('#wLock'),'lock');bind(el.querySelector('#wJump'),'jump');bind(el.querySelector('#wShadow'),'shadow');bind(el.querySelector('#wSwap'),'swap');bind(el.querySelector('#wSup'),'sup');
     addEventListener('keydown',onKey,true);addEventListener('keyup',onKey,true);
     addEventListener('blur',releaseAll);document.addEventListener('visibilitychange',releaseAll);addEventListener('orientationchange',releaseAll)}
   const bars={};
@@ -373,6 +374,14 @@ const PlayerCombat=(()=>{
     const dx=A.f.x-S.x,dz=A.f.z-S.z,y=S.yaw,fw=-Math.sin(y)*dx-Math.cos(y)*dz,rt=Math.cos(y)*dx-Math.sin(y)*dz;
     d.style.transition='none';d.style.transform='rotate('+(Math.atan2(rt,fw)*57.3)+'deg)';d.style.opacity=1;void d.offsetWidth;d.style.transition='opacity .7s';d.style.opacity=0;
     n.textContent=(A.T.name+' · '+(A.T.ai==='archer'&&(mv==='bolt'||mv==='orb')?(mv==='orb'?'heavy arrow':'arrow'):(MV[mv]||mv||''))).toUpperCase();n.style.transition='none';n.style.opacity=1;void n.offsetWidth;n.style.transition='opacity 1.2s .5s';n.style.opacity=0}
+  // CLIP-READY COMBAT: a hit counter and the name of the string you're in (so a clip reads on its own), a longer hit-stop on a posture break, and a Clip mode (button / H) that hides the bars and fades the touch buttons for clean captures
+  const MN={light4:'SHADOW CROSS',light5:'PHANTOM REND',wheel:'CRESCENT WHEEL',dropblade:'DROP BLADE',pierce:'PIERCING LUNGE',moonslash:'MOON BREAKER',whirl:'WHIRL',rising:'RISING CUT',twsev:'HUNDRED SHADOWS',twsev2:'HUNDRED SHADOWS',twsevF:'HUNDRED SHADOWS',cinder:'CINDER ARC',plunge:'PLUNGE'};
+  let cN=0,cT=0,cLast='';
+  function comboShow(pop){const c=el&&el.querySelector('#wCombo');if(!c)return;c.classList.toggle('on',cN>=2||(cLast&&cT>0));c.firstChild.textContent=cN>=2?cN+' HITS':'';c.lastChild.textContent=cLast;if(pop){c.classList.remove('pop');void c.offsetWidth;c.classList.add('pop')}}
+  function comboHit(){cN++;cT=2.4;comboShow(cN>=2)}
+  function comboBreak(){cN=0;cT=0;cLast='';comboShow()}
+  function comboName(m){const n=MN[m];if(n){cLast=n;cT=Math.max(cT,2.4);comboShow(true)}}
+  function clipToggle(){document.body.classList.toggle('wclip')}
   function msg(t,sec){const m=el.querySelector('#wmsg');m.textContent=t;m.classList.add('on');msgT=sec||1.4}
   // ---------- bodies (avatars + models) and weapons ----------
   const pool={};     // foe type id -> [body]  (reused between fights; hidden when free)
@@ -1243,7 +1252,7 @@ const PlayerCombat=(()=>{
   // a cleared site keeps its corpses until you are well away, then it re-arms (fight it again whenever you like)
   function rearm(wx,wz){for(const s of SITES()){const r=RT[s.id];if(!r||!r.cleared)continue;if(s.dg&&WardenDungeon.isCleared(s.id))continue;if(Math.hypot(wx-s.x,wz-s.z)>s.R+45){r.cleared=false;for(const F of r.foes)freeBody(F.body);r.foes=[];try{if(s.fog)WardenIsles.fog(s.id,'idle')}catch(e){}}}}
   function tick(dt,t){
-    if(msgT>0&&el){msgT-=dt;if(msgT<=0)el.querySelector('#wmsg').classList.remove('on')}   // the banner times out even after the fight is over (it used to stay up until you left the isle)
+    if(cT>0){cT-=dt;if(cT<=0){cN=0;cLast='';comboShow()}}if(msgT>0&&el){msgT-=dt;if(msgT<=0)el.querySelector('#wmsg').classList.remove('on')}   // the banner times out even after the fight is over (it used to stay up until you left the isle)
     const wx=S.x-WRD.x,wz=S.z-WRD.z;chipTick(wx,wz);lostMark(t,dt);if(toastT>0){toastT-=dt;if(toastT<=0&&toastEl)toastEl.classList.remove('on')}
     if(!on){rearm(wx,wz);
       for(const k in RT)for(const F of RT[k].foes||[])if(F.f.act==='dead'&&Math.hypot(F.f.x-S.x,F.f.z-S.z)<70)foeTick(F,dt,0);   // corpses of cleared sites keep animating until they have finished falling
