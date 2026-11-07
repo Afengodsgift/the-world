@@ -180,6 +180,10 @@ const WardenMX=(()=>{
   ROLES.capra=Object.assign({},ROLES.gwyn,{file:'assets/warden_mx_capra.json'});
   // Dark Sun Gwyndolin (uploaded DS rig, no legs - she floats; tools/pack_gdn_char.mjs): the Saint's cast / kick / power set retargeted onto her
   ROLES.gdn=Object.assign({},ROLES.saint,{file:'assets/warden_mx_gdn.json',moves:Object.assign({},ROLES.saint.moves,{sunvolley:{c:'spell',t0:0,e:1.1},snakelash:{c:'power',t0:.3,e:2.0},eclipse:{c:'power',t0:.3,e:2.0},blink:{c:'power',t0:.3,e:.96}})});
+  // THE VEILED SAINT'S OWN CHOREOGRAPHY (library sword / great-sword / casting clips baked onto her rig: sa_*), set after Gwyndolin copied her table so the floating Dark Sun keeps her own: a great-sword chain for Hundred and Thousand, a leaping stab for Impaler, a thrust-and-slash for the Double Impaler, a low sweep for Kingsweep, a three-cut flurry for Severance, and a different casting pose for each of Bladestorm, the Blade Ring, Crownfall and the Marks
+  Object.assign(ROLES.saint.moves,{hundred:{c:'sa_gcmb',t0:.2,h:[[.52,.7],[.9,1.08],[1.25,1.43],[2.12,2.3]],e:3.2},thousand:{c:'sa_ccmb',t0:.3,h:[[.65,.83],[1.59,1.77],[2.02,2.2],[2.59,2.77]],e:3.3},severance:{c:'sa_ocmb',t0:.3,h:[[.92,1.1],[1.4,1.58],[1.92,2.1]],e:2.9},
+    impaler:{c:'sa_jump',t0:.35,h:[[.99,1.17]],e:2},doubleimp:{c:'sa_thr',t0:.25,h:[[.65,.83],[1.39,1.57]],e:2.2},kingsweep:{c:'sa_low',t0:.1,h:[[.69,.87]],e:1.5},
+    bladestorm:{c:'sa_cbs',t0:.1,e:2.3},swordring:{c:'sa_cwide',t0:.1,e:2},crownfall:{c:'sa_cgr',t0:.2,e:1.6},marks:{c:'sa_cup',t0:.1,e:1.6}});
   // Skrag, the Snare-Trapper (uploaded goblin rig): the Longbow set (arrow cast, kick, power-up) retargeted onto his skeleton; the long power-up clip is his snare-laying
   ROLES.goblin=Object.assign({},ROLES.archer,{file:'assets/warden_mx_goblin.json',moves:Object.assign({},ROLES.archer.moves,{snare:{c:'power',t0:.3,e:1.6}})});
   // BARE HANDS: the player's gait clips only (no sword guard / parry / attack clips): Fists.Pose poses the arms, legs and torso for every strike, guard and throw
