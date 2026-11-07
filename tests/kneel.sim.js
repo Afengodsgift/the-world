@@ -8,3 +8,5 @@ ok(/kneel:\{dur:4\.3,freeze:true/.test(cc),'kneel cine preset freezes the sim');
 ok(/F\.T\.id==='gwyn'&&!ult&&!sv&&CineCam\.play\('kneel'/.test(pc)&&/done:\(\)=>\{F\.f\.kn=0/.test(pc),'phase 2 of Gwyn plays it, and skipping clears the kneel');
 ok(/addEventListener\('pointerdown',skip,true\)/.test(cc)&&/seen\[key\]&&!o\.force/.test(cc),'every cinematic is skippable by tap / key; seen intros are not repeated');
 console.log(n+' checks')
+{const pc=require('fs').readFileSync('src/combat/PlayerCombat.js','utf8'),ai=require('fs').readFileSync('src/combat/DuelistAI.js','utf8');let m=0;const k=(c,t)=>{if(!c){console.log('FAIL '+t);process.exitCode=1}else m++};
+k(/function saintFx/.test(pc)&&/VEIL REQUIEM/.test(pc)&&/A\.T\.ai==='saint'\)saintFx/.test(pc),'Saint moves have light telegraphs, trails and named chains');k(/A\.cn=nm/.test(ai),'a chain start is flagged for the callout');console.log(m+' saint checks')}

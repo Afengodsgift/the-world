@@ -809,16 +809,21 @@ const PlayerCombat=(()=>{
   // - a mood vignette that darkens the arena in phase 2 and 3 (a plain overlay: no extra lights, cheap on a phone).
   let pcs={n:0,t:0,id:null},moodEl=null,moodT=0,moodK=0;
   // KAGE'S DEMON ARSENAL, VISUALS: shadowflame cuts at every swing, a burst of embers at every lunge, a floor-ring of sparks when the heel comes down (client-only, a few spawns per move)
-  function kageFx(A,id){const M=Moves[id];if(!M||!M.phases)return;let t=0,k=0;
+  // THE VEILED SAINT: every heavy move gets a gold-white telegraph (a burst of light round her at the start, rising veil sparks), a slash trail at each swing, and a chain is announced by name so you know a new sequence has started
+  const SAINTCH={veilreq:'VEIL REQUIEM',veilrain:'VEIL RAIN',veilcrown:'VEIL CROWN'},SAINTM=['hundred','severance','impaler','doubleimp','kingsweep','thousand','bladestorm','swordring','crownfall'];
+  function saintFx(A,id){if(A.ai.cn){const n=SAINTCH[A.ai.cn];A.ai.cn=null;if(n){try{msg(n,1.1);sfx('heavy',.5,1.4,()=>tone(900,300,.25,'triangle',.1))}catch(e){}}}
+    if(SAINTM.indexOf(id)<0)return;const f=A.f;WardenVfx.burst(f.x,H(f.x,f.z)+1.2,f.z,2);for(let i=0;i<5;i++)WardenVfx.spawn(f.x,H(f.x,f.z)+.4+i*.5,f.z,2,3,2.4,Math.random()*6.28,24);
+    kageFx(A,id,2)}
+  function kageFx(A,id,sty){sty=sty===undefined?3:sty;const M=Moves[id];if(!M||!M.phases)return;let t=0,k=0;
     for(const p of M.phases){const n=p.n||0,ms=t*1000/60;
       if(p.k==='lunge'||p.k==='raise')setTimeout(()=>{if(on&&A.f.act!=='dead'){const x=A.f.x,z=A.f.z;WardenVfx.burst(x,H(x,z)+.9,z,1);WardenVfx.spawn(x,H(x,z)+.5,z,3,3,3,Math.random()*6.28,26)}},ms);
-      if(p.k==='active'){const kk=k++,low=/sweep/.test(id)||/stomp|slam/.test(id);setTimeout(()=>{if(on&&A.f.act!=='dead'){const x=A.f.x,z=A.f.z,y=H(x,z)+(low?.35:1.15);WardenVfx.slash(x,y,z,A.f.face,kk%2===0||/slam|pow|hjump|fflip/.test(id),3);if(low||/slam|hjump|fflip/.test(id)&&kk>0)WardenVfx.burst(x+Math.sin(A.f.face)*1.3,H(x,z)+.3,z+Math.cos(A.f.face)*1.3,2)}},ms+30)}
+      if(p.k==='active'){const kk=k++,low=/sweep/.test(id)||/stomp|slam/.test(id);setTimeout(()=>{if(on&&A.f.act!=='dead'){const x=A.f.x,z=A.f.z,y=H(x,z)+(low?.35:1.15);WardenVfx.slash(x,y,z,A.f.face,kk%2===0||/slam|pow|hjump|fflip/.test(id),sty);if(low||/slam|hjump|fflip/.test(id)&&kk>0)WardenVfx.burst(x+Math.sin(A.f.face)*1.3,H(x,z)+.3,z+Math.cos(A.f.face)*1.3,2)}},ms+30)}
       if(p.k==='release'&&id==='kzstomp')setTimeout(()=>{if(on&&A.f.act!=='dead'){const x=A.f.x,z=A.f.z;WardenVfx.burst(x,H(x,z)+.3,z,3)}},ms+500);
       t+=n}}
   function spEv(e,A){
     if(e.t==='posturebreak'&&e.d==='P'&&!ult&&!sv&&state==='fight'){let b=null,bd=4.6;for(const F of foes)if(F.T.id==='dknight'&&F.awake&&F.f.act!=='dead'){const d=Math.hypot(F.f.x-S.x,F.f.z-S.z);if(d<bd){bd=d;b=F}}if(b)deathSentence(b);return}
     if(!A||!A.ai||ult||sv||state!=='fight')return;
-    if(e.t==='start'&&e.a!==undefined&&e.a!=='P'){A.lm=e.move;try{pillarSmash(A,e.move)}catch(x){}try{if(A.T.id==='samurai'&&/^kz/.test(e.move))kageFx(A,e.move)}catch(x){}}
+    if(e.t==='start'&&e.a!==undefined&&e.a!=='P'){A.lm=e.move;try{pillarSmash(A,e.move)}catch(x){}try{if(A.T.id==='samurai'&&/^kz/.test(e.move))kageFx(A,e.move)}catch(x){}try{if(A.T.ai==='saint')saintFx(A,e.move)}catch(x){}}
     else if(e.t==='deflect'&&e.d==='P'){DuelistAI.onParry(A.ai,A.lm,e.pf);
       if(e.pf&&A.T.boss){const n=performance.now();if(pcs.id===A.id&&n-pcs.t<7000)pcs.n++;else pcs.n=1;pcs.id=A.id;pcs.t=n;if(pcs.n>=3){pcs.n=0;deathblow(A)}}else if(!e.pf)pcs.n=Math.max(0,pcs.n-1)}
     else if(e.t==='hit'&&e.d==='P'&&!e.fx){pcs.n=0;if(A.T.id==='gwyn'&&A.f.mv&&HEAVYW.indexOf(A.f.mv.id)>=0)zoneChain(true);if(A.T.id==='darkknight'&&A.f.mv&&A.f.mv.id==='impaler')pinStart(A)}}
