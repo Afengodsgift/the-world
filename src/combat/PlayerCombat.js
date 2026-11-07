@@ -76,7 +76,7 @@ const PlayerCombat=(()=>{
   function applyStats(){const duel=site&&site.duel,st=duel?{hp:100,st:100,dm:1,belt:0}:PG.stats();wst=WardenGear.stats();sty=WardenStyle.get(styId());const m=WardenStyle.mix(wst,styId());wst=Object.assign({},wst,{flow:m.flow});const hp=Math.round(st.hp*m.hp);P.hpMax=hp;P.hp=hp;P.stMax=Math.round(st.st*(sty.st||1));P.st=P.stMax;baseDm=st.dm*m.dm;P.dm=baseDm;P.rm=wst.rm;P.sm=m.sm;P.pm=m.pm;P.dfl=m.dfl+(duel&&DU.pair?3:0);P.bk=sty.back||0}
   // ---- TWIN BLADES stance (src/combat/Twin.js): swap mid-fight between your equipped weapon and two short blades. The swap is a free action in the sim ({t:'stance'}), never blocks a dodge or a roll. ----
   let stance='main',swapCd=0,twinR=null,twinL=null;const TWB={f:'warden/w_katana.glb',want:.62,l0:1,   // the hilt is turned a quarter-turn in each fist (mirrored for the off hand) so the blade rises out of the grip instead of passing through it like a skewer; checked on the crypto and madea rigs
-    gR:{rx:0,ry:0,rz:1.5708,ox:0,oy:0,oz:0},gL:{rx:0,ry:0,rz:-1.5708,ox:0,oy:0,oz:0}};
+    gR:{rx:0,ry:0,rz:1.5708,ox:0,oy:0,oz:0,off:.5},gL:{rx:0,ry:0,rz:-1.5708,ox:0,oy:0,oz:0,off:.5}};
   const baseRole=()=>WardenGear.TYPES[WardenGear.equipped().ty].role||'player';
   const pRole=()=>stance==='twin'?'player_twin':baseRole();
   function dropTwin(){for(const w of [twinR,twinL])if(w){w.dead=true;try{if(w.grip&&w.grip.parent)w.grip.parent.remove(w.grip)}catch(e){}}twinR=null;twinL=null}
@@ -252,7 +252,7 @@ const PlayerCombat=(()=>{
   const FLOW_COST=32,FIN=['armada','martelo','meia','rasteira'],FINALL=FIN.concat(typeof Twin!=='undefined'?Twin.FIN:[]);
   function flowAdd(n){if(!on)return;const was=flow;flow=Math.min(100,flow+n*wst.flow*(stance==='twin'?1.4:1));if(flow>=100&&was<100&&!flowOn){msg('ARCANE STORM READY',1.2);tone(660,990,.18,'sine',.1)}}
   // ARCANE (replaces Flow): the same meter (fills from hits, dodges, deflects, breaks). Tap = THUNDERFALL (35): three bolts out of a clear sky onto the locked foe. Full meter = ARCANE STORM (100): a rain of lightning on every foe near you, ending in a posture-breaking strike on your target. Instant, no animation lock: you keep running, dodging and parrying while it lands.
-  let magicCd=0;
+  let magicCd=0,flashTip=0;
   function magicHit(F,hp,po){if(!F||F.ghost||F.f.act==='dead'||NET.mode==='guest')return;F.f.hp=Math.max(1,F.f.hp-hp);F.f.po=Math.max(0,F.f.po-po);if(po>=30&&F.f.po<=0&&F.f.act!=='stun')try{CombatCore.stun(F.f,96,'stagger')}catch(e){}}
   function magicStrike(F,hp,po,big){
     if(!on||state!=='fight'||!F||F.f.act==='dead')return;const x=F.f.x,z=F.f.z,y=H(x,z);
@@ -291,7 +291,7 @@ const PlayerCombat=(()=>{
       case'light':{assist();reject();const c={t:'light',e:C.tick},d=stickDir(),fa=pendFace!==null?pendFace:S.rot;if(d&&d[0]*Math.sin(fa)+d[1]*Math.cos(fa)>.6)c.adv=true;if(D&&D.act!=='dead'&&Math.hypot(D.x-P.x,D.z-P.z)>4.5)c.far=true;ST.input('P',c,t);break}
       case'heavy':if(down.heavy)return true;assist();reject();down.heavy=true;ST.input('P',{t:'heavyDown',e:C.tick},t);break;
       case'guard':if(down.guard)return true;down.guard=true;ST.input('P',{t:'parry',e:C.tick},t);if(!parryTip){parryTip=1;toast('Parry: tap just before a hit lands to DEFLECT it',2.8)}break;
-      case'dodge':{const d=stickDir();const c={t:'dodge',e:C.tick};if(d){c.dx=d[0];c.dz=d[1];if(lock&&D&&D.act!=='dead'&&!ult){const fx=D.x-P.x,fz=D.z-P.z,L=Math.hypot(fx,fz)||1;if(Math.abs((d[0]*fx+d[1]*fz)/L)<.55){c.side=1;if(!sideTip){sideTip=1;toast('Locked on + stick sideways = quick Sidestep',2.6)}}}}ST.input('P',c,t);break}
+      case'dodge':{const d=stickDir();const c={t:'dodge',e:C.tick};if(d){c.dx=d[0];c.dz=d[1];if(lock&&D&&D.act!=='dead'&&!ult){const fx=D.x-P.x,fz=D.z-P.z,L=Math.hypot(fx,fz)||1;const dd=(d[0]*fx+d[1]*fz)/L;if(Math.abs(dd)<.55){c.side=1;if(!sideTip){sideTip=1;toast('Locked on + stick sideways = quick Sidestep',2.6)}}else if(dd>.7){c.side=2;if(!flashTip){flashTip=1;toast('Stick toward them + Dodge = Flash Step',2.6)}}}else if(Math.hypot(d[0]-Math.sin(P.face),d[1]-Math.cos(P.face))<.5){c.side=2}}ST.input('P',c,t);break}
       case'flow':flowPress(t);break;
       case'sup':startSever();break;
       case'ihp':useFlask('hp');break;case'ist':useFlask('st');break;case'imt':useFlask('mt');break;
@@ -395,7 +395,7 @@ const PlayerCombat=(()=>{
     if(st.fixed){const f=st.fixed;st.grip.quaternion.setFromEuler(new THREE.Euler(f[0],f[1],f[2]));st.grip.position.set(f[3]||0,f[4]||0,f[5]||0).divideScalar(ws.x);return}
     const kid=hand.children.find(c=>c!==st.grip&&c.position.lengthSq()>0);const v=kid?kid.position.clone().normalize():new THREE.Vector3(0,1,0);
     const q=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),v);q.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(g.rx,g.ry,g.rz)));st.grip.quaternion.copy(q);
-    st.grip.position.set(g.ox,g.oy,g.oz).divideScalar(ws.x)}
+    st.grip.position.set(g.ox,g.oy,g.oz).divideScalar(ws.x);if(g.off&&kid)st.grip.position.addScaledVector(v,g.off*kid.position.length())}   // g.off: seat the hilt that fraction of the way along the hand toward the fingers (local units), so it sits in the palm instead of at the wrist
   function makeShield(){   // a plain kite shield (extruded outline, ~0.55 x 0.8 m) - the Knight drops it at half health
     const sh=new THREE.Shape();sh.moveTo(0,.4);sh.lineTo(.28,.32);sh.lineTo(.28,-.05);sh.quadraticCurveTo(.2,-.32,0,-.44);sh.quadraticCurveTo(-.2,-.32,-.28,-.05);sh.lineTo(-.28,.32);sh.closePath();
     const g=new THREE.Group(),m=new THREE.Mesh(new THREE.ExtrudeGeometry(sh,{depth:.05,bevelEnabled:true,bevelSize:.015,bevelThickness:.015,bevelSegments:1}),new THREE.MeshStandardMaterial({color:'#6a6f7d',metalness:.4,roughness:.55}));
@@ -818,6 +818,8 @@ const PlayerCombat=(()=>{
   // - move tracking + parry adaptation (DuelistAI.onParry), - three PERFECT parries in a row within 7 s on a boss = the Deathblow opening: his guard breaks, time stalls, you get a free cut,
   // - a mood vignette that darkens the arena in phase 2 and 3 (a plain overlay: no extra lights, cheap on a phone).
   let pcs={n:0,t:0,id:null},moodEl=null,moodT=0,moodK=0;
+  // FLASH STEP: a white burst where you leave, a trail of sparks along the dash and a streak, a short camera pull
+  function flashFx(){try{WardenVfx.burst(P.x,H(P.x,P.z)+1,P.z,1);for(let i=0;i<5;i++)setTimeout(()=>{if(on&&P)WardenVfx.spawn(P.x,H(P.x,P.z)+.9,P.z,2,3,1.5,Math.random()*6.28,16)},i*28);setTimeout(()=>{if(on&&P)WardenVfx.slash(P.x,H(P.x,P.z)+.9,P.z,P.face,false,1)},60);CameraRig.pulse(-2.2);sfx('clash',.35,1.9)}catch(e){}}
   // KAGE'S DEMON ARSENAL, VISUALS: shadowflame cuts at every swing, a burst of embers at every lunge, a floor-ring of sparks when the heel comes down (client-only, a few spawns per move)
   // THE VEILED SAINT: every heavy move gets a gold-white telegraph (a burst of light round her at the start, rising veil sparks), a slash trail at each swing, and a chain is announced by name so you know a new sequence has started
   const SAINTCH={veilreq:'VEIL REQUIEM',veilrain:'VEIL RAIN',veilcrown:'VEIL CROWN'},SAINTM=['hundred','severance','impaler','doubleimp','kingsweep','thousand','bladestorm','swordring','crownfall'];
@@ -1202,6 +1204,7 @@ const PlayerCombat=(()=>{
     else if(e.t==='deflect'&&e.d==='P'){flash(.4,'rgba(190,225,255,.85)');try{CameraRig.shake(.42)}catch(x){}parryFx(e);
       if(e.pf&&!ult){try{CameraRig.pulse(-3.2);CameraRig.shake(.1)}catch(x){}hsT=Math.max(hsT,e.sq?.6:.22);flash(.45,'rgba(255,215,120,.8)');msg(e.sq?'PERFECT SEQUENCE':'PERFECT',e.sq?1.6:.7);try{sfx('clash',.6,1.7,()=>tone(1900,1100,.22,'sine',.1));if(e.sq)CameraRig.shake(.7)}catch(x){}
         if(NET.mode==='guest'){try{WardenNet.send({k:'sp',t:'pf',b:e.a,q:e.sq?1:0})}catch(x){}}}}
+    else if(e.t==='dodge'&&e.a==='P'&&P.side===2)flashFx();
     else if(e.t==='dodge'&&e.a==='P'){try{if(CAMS.move&&!ult&&!sv)CameraRig.pulse(1.6)}catch(x){}WardenVfx.spawn(P.x,H(P.x,P.z)+1,P.z,2,4,2.8,-P.face+Math.PI/2,30)}}
   // PARRY: a real sweep of the sword (pAnim.flick, alternating sides), a short hit-stop so you SEE the clash, a double burst of sparks between you and him, a bright ring and a rising ring tone
   let parryAlt=0,hsT=0;

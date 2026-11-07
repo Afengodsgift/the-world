@@ -45,7 +45,7 @@ const CombatCore=(()=>{
     C.fx.push(fx);emit(C,'fx',a.id,null,{fid:id,k:fx.k,x:fx.x,z:fx.z,dx:fx.dx,dz:fx.dz,r:fx.r,delay:fx.delay,dur:fx.dur,spd:fx.spd,life:fx.life,move:mv.id,sty:d.sty});return fx}
   function skipEmpty(f){while(f.act==='attack'&&f.ph[f.pi]&&f.pk>=f.ph[f.pi].n){f.pi++;f.pk=0}if(f.act==='attack'&&f.pi>=f.ph.length)f.act='free'}
   const recT=f=>{if(!f.ph||f.act!=='attack')return -1;const p=f.ph[f.pi];return p&&p.k==='recovery'?f.pk:-1};
-  const DG=t=>t.side?Moves.sidestep:Moves.dodge,iframe=t=>t.act==='dodge'&&t.pt>=DG(t).iStart&&t.pt<=DG(t).iEnd;
+  const DG=t=>t.side===2?Moves.flashstep:t.side?Moves.sidestep:Moves.dodge,iframe=t=>t.act==='dodge'&&t.pt>=DG(t).iStart&&t.pt<=DG(t).iEnd;
   function canCancel(f,to){const r=recT(f);if(r<0||!f.mv||!f.mv.cancel)return false;const t=f.mv.cancel[to];return t!==undefined&&r>=t}
   // SNAPPY DEFENCE: a parry / guard tap may cut your own swing 5 ticks into its recovery (was: only where a move listed a guard cancel), so a late whiff never costs a hit you saw coming
   const defCan=f=>f.act==='attack'&&(canCancel(f,'guard')||recT(f)>=5);
@@ -56,7 +56,7 @@ const CombatCore=(()=>{
       case'light':{const from=f.act==='attack'&&f.mv?f.mv.id:null;if(!(f.act==='free'||canCancel(f,'light'))||f.st<=0)return false;
         const CB=f.tw&&typeof Twin!=='undefined'?Twin.Combos:f.fs&&typeof Fists!=='undefined'?Fists.Combos:Combos;const id=CB.light({air:(f.y||0)>.7,guard:f.guard,from:f.act==='free'?null:from,adv:!!c.adv,far:!!c.far,chain:C.tick-f.lcT<=CB.CHAIN_GAP?f.lc:0,sinceDodge:C.tick-f.dEnd});startMove(C,f,id);f.lc=Moves[id].chain||0;return true}
       case'atk':if(f.act==='free'){startMove(C,f,c.m,c.hold||0);return true}return false;
-      case'dodge':{if((f.act==='free'||f.act==='charge'||canCancel(f,'dodge'))&&f.st>0){const D=c.side?Moves.sidestep:Moves.dodge;f.side=c.side?1:0;let dx=c.dx,dz=c.dz;if(!(Math.hypot(dx||0,dz||0)>.01)){dx=-Math.sin(f.face);dz=-Math.cos(f.face)}const L=Math.hypot(dx,dz);f.dir=[dx/L,dz/L];f.act='dodge';f.pt=0;f.guard=false;f.ph=null;f.mv=null;f.c=0;spend(f,D.stam*(f.tw&&typeof Twin!=='undefined'?Twin.DODGE_STAM:1));emit(C,'dodge',f.id,null);return true}return false}
+      case'dodge':{if((f.act==='free'||f.act==='charge'||canCancel(f,'dodge'))&&f.st>0){const D=c.side===2?Moves.flashstep:c.side?Moves.sidestep:Moves.dodge;f.side=c.side===2?2:c.side?1:0;let dx=c.dx,dz=c.dz;if(!(Math.hypot(dx||0,dz||0)>.01)){dx=-Math.sin(f.face);dz=-Math.cos(f.face)}const L=Math.hypot(dx,dz);f.dir=[dx/L,dz/L];f.act='dodge';f.pt=0;f.guard=false;f.ph=null;f.mv=null;f.c=0;spend(f,D.stam*(f.tw&&typeof Twin!=='undefined'?Twin.DODGE_STAM:1));emit(C,'dodge',f.id,null);return true}return false}
       case'guardDown':if(f.act==='free'||defCan(f)){if(f.act==='attack'){f.act='free';f.ph=null;f.mv=null}f.guard=true;f.gpt=f.rel>=REARM?0:99;return true}return false;
       case'guardUp':if(f.guard&&!(f.pry>0)){f.guard=false;f.rel=0}return true;
       case'parry':if((f.act==='free'||defCan(f))&&f.rel>=REARM&&!(f.pry>0)){if(f.act==='attack'){f.act='free';f.ph=null;f.mv=null}f.guard=true;f.gpt=0;f.pry=PARRY_T;emit(C,'parry',f.id,null);return true}return false;   // a tap: a sweep of the blade; the first PARRY_W ticks DEFLECT, the rest block
@@ -87,7 +87,7 @@ const CombatCore=(()=>{
       if(f.limp>0)f.limp--;if(f.act==='stun'&&f.lm==='throw'&&f.sk!=='stagger'&&f.stun>0){if(!f.r0){f.r0=f.r;f.r=Math.max(f.r,.95)}}else if(f.r0){f.r=f.r0;f.r0=0}   // a thrown body lies on the floor: it takes real space until it gets up
       if(f.act==='free'||f.act==='charge'){const k=(f.act==='charge'?.4:f.guard?.5:1)*(f.limp>0?.72:1)*(f.spd||1),L=Math.hypot(f.ex,f.ez),s=L>1?1/L:1;moveBy(C,f,f.ex*s*SPEED*k,f.ez*s*SPEED*k)}
       else if(f.act==='attack'){const p=f.ph[f.pi];if(p&&p.move){const d=p.move/p.n,[fx,fz]=faceV(f);moveBy(C,f,fx*d,fz*d)}}
-      else if(f.act==='dodge'){const D=f.side?Moves.sidestep:Moves.dodge,R=f.side?Moves.sideRoot:Moves.dodgeRoot,i=f.pt-D.rootT0;if(i>=0&&i<R.length)moveBy(C,f,f.dir[0]*R[i],f.dir[1]*R[i])}
+      else if(f.act==='dodge'){const D=DG(f),R=f.side===2?Moves.flashRoot:f.side?Moves.sideRoot:Moves.dodgeRoot,i=f.pt-D.rootT0;if(i>=0&&i<R.length)moveBy(C,f,f.dir[0]*R[i],f.dir[1]*R[i])}
       if(f.kr>0){const s=Math.min(f.kr,.12);f.kr-=s;moveBy(C,f,f.kx*s,f.kz*s)}}
     // (3b) effects: `release` phases fire their effects on the first tick; live effects move / burst and add to the same outcome list as the sword
     for(const aid of C.order){const a=C.F[aid];if(a.act!=='attack'||!a.mv||!a.mv.fx)continue;const p=a.ph[a.pi];if(p&&a.pk===0&&/^release\d?$/.test(p.k))for(const d of a.mv.fx)if(d.on===p.k)spawnFx(C,a,d)}
@@ -152,7 +152,7 @@ const CombatCore=(()=>{
       if(f.sr>=30&&f.st<f.stMax)f.st=Math.min(f.stMax,f.st+(f.guard?.15:.4));
       if(f.pr>=90&&f.po>0)f.po=Math.max(0,f.po-.35);
       if(f.act==='attack'){f.lcT=C.tick;f.pt++;f.pk++;skipEmpty(f);if(f.act==='free'){f.ph=null;f.mv=null}}
-      else if(f.act==='dodge'){f.pt++;if(f.pt>=(f.side?Moves.sidestep:Moves.dodge).total){f.act='free';f.pt=0;f.dEnd=C.tick}}
+      else if(f.act==='dodge'){f.pt++;if(f.pt>=DG(f).total){f.act='free';f.pt=0;f.dEnd=C.tick}}
       else if(f.act==='charge')f.c++;
       else if(f.act==='stun'){f.stun--;if(f.stun<=0){f.act='free';f.sk=null}}}
     return C.ev}

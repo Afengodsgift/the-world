@@ -93,3 +93,6 @@ Saint choreography (assets/warden_mx_saint.json sa_*): Hundred = great-sword com
 
 ## Phantom String (player main stance)
 Light x5: Shadow Cross (light4, 2 cuts) then Phantom Rend (light5, cut + wide sweep). Heavy branches by what you were doing: after light4 = Crescent Wheel (3 spinning cuts), after light5 = Drop Blade (overhead), after the advancing cut = Piercing Lunge (thrust), after an evasive cut = Moon Breaker (rising cut + overhead); light3 > heavy is still the Whirl. Clips pz_* (great-sword library) baked onto the stock rig and crypto / madea / samurai / bjj. Slash and hit VFX trimmed about 30%. Twin blades use a mirrored quarter-turn grip per hand.
+
+## Movement: Flash Step and Sidestep (ninja run removed)
+Stick toward the foe (or forward, unlocked) + Dodge = Flash Step: 14 ticks, 5.2 m, 12 stamina, i-frames 1-9, white burst and spark trail. Locked on + stick sideways = Sidestep (unchanged). Neutral / back = the roll. Locomotion is back to the standard idle / walk / run; the nj_run clip is only used for the flash dash. Twin hilts are seated half-way along the hand (palm) with a mirrored quarter-turn.
