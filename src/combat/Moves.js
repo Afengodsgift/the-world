@@ -38,6 +38,7 @@ const Moves={
   martelo:{id:'martelo',who:'P',stam:0,dmg:42,pdmg:50,hs:9,stun:30,kb:1.0,reach:2.8,w:.14,phases:[ph('startup',20),ph('active',5,{seg:0,a0:.3,a1:-.3}),ph('recovery',32)],cancel:{dodge:14}},
   rasteira:{id:'rasteira',who:'P',stam:0,dmg:22,pdmg:38,hs:6,stun:44,kb:1.6,reach:3.2,w:.15,phases:[ph('startup',18),ph('active',6,{seg:0,a0:1.3,a1:-1.3}),ph('recovery',30)],cancel:{dodge:14}},
   sidestep:{id:'sidestep',who:'*',stam:10,total:16,iStart:2,iEnd:9,dist:2.3,rootT0:1,rootT1:10},   // a short, cheap lateral step (locked on, stick sideways): fewer i-frames and a shorter hop than the roll, but you recover fast and keep facing them
+  flashstep:{id:'flashstep',who:'*',stam:12,total:14,iStart:1,iEnd:9,dist:5.2,rootT0:1,rootT1:7},   // FLASH STEP (stick forward + Dodge): a near-instant dash through the gap - long, fast, a hair of recovery, cheap; the roll stays for backing off
   dodge:{id:'dodge',who:'*',stam:18,total:22,iStart:3,iEnd:11,dist:3.2,rootT0:1,rootT1:14},   // invulnerable pt 3..11 inclusive (9 ticks); vulnerable 12..21; can act at 22
   // ---- Duelist ----
   cut:{id:'cut',who:'D',dmg:14,pdmg:12,hs:4,stun:18,kb:.5,reach:2.3,w:.12,phases:[ph('startup',20),ph('active',4,{seg:0,a0:.7,a1:-.7}),ph('recovery',20)]},
@@ -195,4 +196,5 @@ Moves.tells=(id,hold)=>{const o=[];let t=0;for(const p of Moves.expand(id,hold))
 Moves.endRecovery=id=>{const L=Moves[id].phases;return L[L.length-1].k==='recovery'?L[L.length-1].n:0};
 // dodge root motion: ease-out over ticks rootT0..rootT1, per-tick metres, sums to dist
 Moves.sideRoot=(()=>{const d=Moves.sidestep,n=d.rootT1-d.rootT0+1,w=[];let s=0;for(let i=0;i<n;i++){const v=1-i/n;w.push(v);s+=v}return w.map(v=>v/s*d.dist)})();
+Moves.flashRoot=(()=>{const d=Moves.flashstep,n=d.rootT1-d.rootT0+1,w=[];let s=0;for(let i=0;i<n;i++){const v=1-i/(n*1.6);w.push(v);s+=v}return w.map(v=>v/s*d.dist)})();
 Moves.dodgeRoot=(()=>{const d=Moves.dodge,n=d.rootT1-d.rootT0+1,w=[];let s=0;for(let i=0;i<n;i++){const v=1-i/n;w.push(v);s+=v}return w.map(v=>v/s*d.dist)})();
