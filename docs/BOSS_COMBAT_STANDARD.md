@@ -86,3 +86,6 @@ Library clips `g_*` (two-handed combo, spin, leap, slide, power slash, low slash
 
 ## Arcane magic (replaces Flow)
 Same meter. Tap (35) = Thunderfall (3 bolts on the locked foe); full meter = Arcane Storm (7 bolts on up to 4 foes + a posture-breaking strike). Host applies the damage; a guest sends `{t:'mg'}`. Jump / Shadow / Twin taps are buffered 0.35 s.
+
+## Veiled Saint, nastier
+1300 HP, speed 1.95, dm 1.6; rest 0.5 / breath 0.42; her heavy kit unlocks a tier earlier (Hundred, Kingsweep, Marks at <75%; Thousand, Crownfall at <50%); new chains Veil Crown (<75%), Veil Rain (<50%), Veil Requiem (<22%); ring cooldown 140 ticks and 4.2 bladestorm weight in the last phase.

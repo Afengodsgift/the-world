@@ -25,4 +25,4 @@ Separate exploration / close-combat (grapple) cameras, wall-obstruction fade of 
 ## Multi-foe framing + distance (this pass)
 - **Threat-weighted framing:** with 2+ foes awake the look-at leans toward the weighted middle of the awake ones (weight = 1/(1+0.35 d)^1.6, the locked foe x2.5; 55% middle / 45% target), and the camera pulls back up to 2.4 m for the crowd. One foe is framed exactly as before.
 - **Camera distance:** `V` cycles Normal / Far / Close (stored in `wcam.dist`, +-5 m of bias at the extremes). There is still no settings screen for sensitivity or invert.
-- Still not built: grapple / exploration cameras, scenery fade, vertical-combat pitch, finishers, phase-transition cinematics, skippable intros.
+- Built: skippable intros (any tap / key; seen ones not repeated) and Gwyn's kneeling phase-2 cinematic (`kneel` preset, clips gw_kneel / gw_pray / power). Still not built: grapple / exploration cameras, scenery fade, vertical-combat pitch, finishers, other bosses' phase cinematics.

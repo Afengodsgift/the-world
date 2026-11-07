@@ -12,6 +12,10 @@ const CineCam=(()=>{
     intro:{dur:2.9,freeze:true,shots:[
       {t0:0,t1:1.6,a0:1.15,a1:.55,d0:8,d1:5.6,h0:.2,h1:.45,f0:58,f1:50,l0:.55,l1:.7},
       {t0:1.6,t1:2.9,a0:.18,a1:-.1,d0:3.4,d1:2.7,h0:.85,h1:.92,f0:42,f1:36,l0:.9,l1:.92}]},
+    kneel:{dur:4.3,freeze:true,shots:[   // a boss kneels between phases: wide and slow, then in close on the bowed head, then the pull-back as the power breaks out
+      {t0:0,t1:1.7,a0:.9,a1:.45,d0:9.5,d1:6.6,h0:.3,h1:.5,f0:56,f1:50,l0:.5,l1:.55},
+      {t0:1.7,t1:3,a0:.25,a1:-.2,d0:3.8,d1:3.2,h0:.5,h1:.62,f0:40,f1:36,l0:.5,l1:.6},
+      {t0:3,t1:4.3,a0:-.2,a1:.1,d0:3.2,d1:9,h0:.62,h1:.2,f0:36,f1:68,l0:.6,l1:.7}]},
     death:{dur:2.6,freeze:false,shots:[
       {t0:0,t1:2.6,a0:-.4,a1:.9,d0:6,d1:8,h0:.35,h1:.8,f0:48,f1:56,l0:.35,l1:.25}]}};
   function dom(){
