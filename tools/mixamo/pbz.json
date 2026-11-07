@@ -1,0 +1,31 @@
+{
+ "root": "/home/claude/seedexr/fbx-animations-curated/animations",
+ "fps": 18,
+ "dg": 3,
+ "clips": [
+  {
+   "name": "pz_wheel",
+   "file": "combat-armed/great-sword/great-sword-high-spin-attack-from-run.fbx",
+   "from": 0,
+   "to": 1.9
+  },
+  {
+   "name": "pz_fall",
+   "file": "combat-armed/great-sword/great-sword-downward-slash.fbx",
+   "from": 0,
+   "to": 1.4
+  },
+  {
+   "name": "pz_pow",
+   "file": "combat-armed/great-sword/great-sword-power-slash.fbx",
+   "from": 0,
+   "to": 1.9
+  },
+  {
+   "name": "pz_gcmb",
+   "file": "combat-armed/great-sword/two-handed-sword-combo-attack.fbx",
+   "from": 0,
+   "to": 3.3
+  }
+ ]
+}

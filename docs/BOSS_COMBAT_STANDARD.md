@@ -90,3 +90,6 @@ Same meter. Tap (35) = Thunderfall (3 bolts on the locked foe); full meter = Arc
 ## Veiled Saint, nastier
 1300 HP, speed 1.95, dm 1.6; rest 0.5 / breath 0.42; her heavy kit unlocks a tier earlier (Hundred, Kingsweep, Marks at <75%; Thousand, Crownfall at <50%); new chains Veil Crown (<75%), Veil Rain (<50%), Veil Requiem (<22%); ring cooldown 140 ticks and 4.2 bladestorm weight in the last phase.
 Saint choreography (assets/warden_mx_saint.json sa_*): Hundred = great-sword combo, Thousand = great-sword slash chain, Severance = one-hand sword flurry, Impaler = leaping stab, Double Impaler = thrust-and-slash, Kingsweep = low sweep; Bladestorm / Blade Ring / Crownfall / Marks each have their own casting pose. Windows are hand-speed peaks, so their timing is unverified in play.
+
+## Phantom String (player main stance)
+Light x5: Shadow Cross (light4, 2 cuts) then Phantom Rend (light5, cut + wide sweep). Heavy branches by what you were doing: after light4 = Crescent Wheel (3 spinning cuts), after light5 = Drop Blade (overhead), after the advancing cut = Piercing Lunge (thrust), after an evasive cut = Moon Breaker (rising cut + overhead); light3 > heavy is still the Whirl. Clips pz_* (great-sword library) baked onto the stock rig and crypto / madea / samurai / bjj. Slash and hit VFX trimmed about 30%. Twin blades use a mirrored quarter-turn grip per hand.

@@ -21,8 +21,8 @@ const WardenVfx=(()=>{
   function clear(){for(const p of pool)p.sp.visible=false}
   // named effects used by PlayerCombat.events()
   const R=Math.random;
-  function hit(x,y,z,crit,heavy){spawn(x,y,z,crit?0:3,3,heavy?2.2:1.5,R()*6.28,26);if(heavy||crit)spawn(x,y,z,crit?0:3,R()<.5?0:1,heavy?2.6:2,R()*6.28,24)}
-  function slash(x,y,z,face,heavy,set){const a=R()<.5;spawn(x+Math.sin(face)*.9,y,z+Math.cos(face)*.9,set==null?(heavy?3:0):set,a?0:1,heavy?3.4:2.6,(R()-.5)*.8,24)}
+  function hit(x,y,z,crit,heavy){spawn(x,y,z,crit?0:3,3,heavy?1.8:1.25,R()*6.28,24);if(heavy||crit)spawn(x,y,z,crit?0:3,R()<.5?0:1,heavy?2.1:1.6,R()*6.28,22)}
+  function slash(x,y,z,face,heavy,set){const a=R()<.5;spawn(x+Math.sin(face)*.9,y,z+Math.cos(face)*.9,set==null?(heavy?3:0):set,a?0:1,heavy?2.4:1.8,(R()-.5)*.8,22)}   // trimmed ~30%: the swing trail reads as a light streak, not a screen-filling flash
   function clash(x,y,z,big){spawn(x,y,z,2,3,big?2.4:1.7,R()*6.28,28);spawn(x,y,z,2,4,big?3:2,R()*3.14,28)}
   function burst(x,y,z,set){spawn(x,y,z,set==null?1:set,0,4.5,0,18);spawn(x,y,z,set==null?1:set,3,3.5,R()*6.28,18)}
   return{build,spawn,update,clear,hit,slash,clash,burst,_t:()=>({pool,G})}})();

@@ -213,6 +213,7 @@ const WardenMX=(()=>{
   // ---- the player's heavier weapons: the Great Sword pack (already baked onto the game rig for the Duelist) drives the Claymore and the Hand Axe ----
   ROLES.player_gs={file:'assets/warden_mx_duelist.json',guard:'guard',parry:[{c:'slash',a:.05,b:.6},{c:'slash5',a:.15,b:.62}],loco:{idle:'idle',walk:'walk',run:'run',back:'back',sl:'sl',sr:'sr'},
     moves:{
+      light4:{c:'pz_gcmb',t0:.3,h:[[.55,.73],[.95,1.13]],e:1.5},light5:{c:'pz_gcmb',t0:1.1,h:[[1.32,1.5],[2.12,2.3]],e:2.5},wheel:{c:'pz_wheel',t0:0,h:[[.25,.43],[.55,.73],[.92,1.1]],e:1.8},dropblade:{c:'pz_fall',t0:.05,h:[[.49,.67]],e:1.27},pierce:{c:'t_stabR',t0:.6,h:[[.98,1.18]],e:1.4},moonslash:{c:'pz_pow',t0:.1,h:[[.42,.6],[1.35,1.53]],e:1.8},
       light:{c:'slash',t0:.05,h:[[.45,.8]],e:1.2},light2:{c:'slash5',t0:.15,h:[[.5,.82]],e:1.3},light3:{c:'slash3',t0:.3,h:[[.6,1.0]],e:1.6},
       advance:{c:'slash4',t0:.3,h:[[.6,.85]],e:1.6},rush:{c:'slash4',t0:.3,h:[[.6,.85]],e:1.6},evade:{c:'slash',t0:.1,h:[[.45,.8]],e:1.2},rising:{c:'slash2',t0:.35,h:[[.62,.92]],e:1.5},
       heavy:{c:'slash3',t0:0,ch:[.35,.55],h:[[.6,1.18]],e:1.8},plunge:{c:'slash3',t0:.1,h:[[.6,1.18]],e:1.8},
