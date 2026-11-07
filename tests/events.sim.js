@@ -3,7 +3,7 @@
 const {client}=require('./harness');
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));let fails=0;
 const ok=(c,m)=>{if(!c){fails++;console.log('FAIL',m)}else console.log('ok  ',m)};
-const T={v:Date.now()+(Number(process.env.SIM_OFFSET_DAYS)||0)*864e5}; // SIM_OFFSET_DAYS lets you replay the sim against different parts of the schedule
+const T={v:(Number(process.env.SIM_NOW)||1790000000000)+(Number(process.env.SIM_OFFSET_DAYS)||0)*864e5}; // SIM_OFFSET_DAYS lets you replay the sim against different parts of the schedule
 async function pair(room){
   const A=client('a','Alex',room),B=client('b','Bee',room);
   A.others.get('b').group.position=B.S;B.others.get('a').group.position=A.S;

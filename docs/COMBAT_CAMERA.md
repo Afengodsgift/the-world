@@ -11,7 +11,7 @@ Golden rule: **the camera never makes a difficult attack harder to read.** It he
 - Settings (localStorage `wcam`): `assist` (0 = no automatic turning), `move` (0 = no per-move responses).
 
 ## Not built yet
-Separate exploration / close-combat (grapple) cameras, wall-obstruction fade of scenery, vertical-combat pitch, camera-sensitivity / distance / invert UI, finishers and per-boss phase-transition cinematics (Gwyn kneeling), skippable intro for every boss.
+Separate exploration / close-combat (grapple) cameras. (Built since: settings panel (gear: look speed, distance, invert, auto-turn, per-move camera, scenery fade), pillar fade, vertical-combat pitch.)
 
 ## Dynamic action camera additions
 - Lock-on now also frames a weighted midpoint (look-at leans 12-30% toward the boss, more as he gets further away) so you and the boss stay in frame; tall bosses lift the look-at (pitch bias).
