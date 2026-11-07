@@ -6,3 +6,4 @@ ok(/lookU:1,invY:0,fade:1/.test(pc)&&/function camSave/.test(pc),'settings persi
 ok(/scenery fade/.test(pc)&&/CAMS\.fade&&d<1\.9/.test(pc),'pillars between camera and you fade');
 ok(/vertical-combat pitch/.test(pc)&&/S\.lookT/.test(pc),'camera pitch follows a foe on different ground, never while you drag');
 console.log(n+' checks')
+ok(!/^  S\./m.test(pc),'PlayerCombat touches S only inside functions (S does not exist yet when the file loads)');

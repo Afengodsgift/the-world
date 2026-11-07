@@ -1,0 +1,119 @@
+{
+ "root": "/home/claude/seedexr/fbx-animations-curated/animations/combat-unarmed",
+ "fps": 18,
+ "dg": 3,
+ "clips": [
+  {
+   "name": "bw_idle",
+   "file": "boxing/bouncing-boxing-idle.fbx"
+  },
+  {
+   "name": "bw_guard",
+   "file": "defence/bouncing-fight-idle-with-guard-up.fbx"
+  },
+  {
+   "name": "bw_blk1",
+   "file": "defence/blocking-outward.fbx"
+  },
+  {
+   "name": "bw_blk2",
+   "file": "defence/inward-block.fbx"
+  },
+  {
+   "name": "bw_jab",
+   "file": "strike-hand/jab-punch.fbx",
+   "from": 0.15,
+   "to": 1.0
+  },
+  {
+   "name": "bw_cross",
+   "file": "strike-hand/cross-punch.fbx",
+   "from": 0,
+   "to": 0.87
+  },
+  {
+   "name": "bw_hook",
+   "file": "strike-hand/hook-punch-with-the-rear-hand.fbx",
+   "from": 0,
+   "to": 1.0
+  },
+  {
+   "name": "bw_knee",
+   "file": "martial-arts/muay-thai-illegal-knee.fbx",
+   "from": 0.1,
+   "to": 1.5
+  },
+  {
+   "name": "bw_round",
+   "file": "strike-leg/roundhouse-kick-with-the-rear-foot.fbx",
+   "from": 0.05,
+   "to": 1.35
+  },
+  {
+   "name": "bw_elbow",
+   "file": "strike-hand/illegal-elbow-rear-arm-with-forward-step.fbx",
+   "from": 0.05,
+   "to": 1.4
+  },
+  {
+   "name": "bw_upper",
+   "file": "boxing/boxing-back-hand-uppercut.fbx",
+   "from": 0.15,
+   "to": 1.5
+  },
+  {
+   "name": "bw_spin",
+   "file": "strike-leg/spinning-back-kick-advancing.fbx",
+   "from": 0.6,
+   "to": 2.3
+  },
+  {
+   "name": "bw_sweep",
+   "file": "strike-leg/front-leg-sweep.fbx",
+   "from": 0.1,
+   "to": 1.6
+  },
+  {
+   "name": "bw_power",
+   "file": "strike-hand/illegal-elbow-uppercut.fbx",
+   "from": 0,
+   "to": 1.5
+  },
+  {
+   "name": "bw_step",
+   "file": "strike-hand/short-jab-cross.fbx",
+   "from": 0.1,
+   "to": 1.4
+  },
+  {
+   "name": "bw_lunge",
+   "file": "strike-leg/male-front-snap-kick-with-the-rear-foot-advancing.fbx",
+   "from": 0.4,
+   "to": 2.0
+  },
+  {
+   "name": "bw_slip",
+   "file": "strike-hand/quick-left-handed-punch.fbx",
+   "from": 0,
+   "to": 1.0
+  },
+  {
+   "name": "bw_push",
+   "file": "strike-leg/male-front-snap-kick-with-the-lead-foot.fbx",
+   "from": 0.05,
+   "to": 1.3
+  },
+  {
+   "name": "bw_drop",
+   "file": "strike-leg/hard-floor-stomp.fbx",
+   "from": 0.1,
+   "to": 1.5
+  },
+  {
+   "name": "bw_wrench",
+   "file": "strike-leg/grab-attacker-then-twist-arm-and-kick-head.fbx",
+   "from": 0.9,
+   "to": 3.2
+  }
+ ]
+}
