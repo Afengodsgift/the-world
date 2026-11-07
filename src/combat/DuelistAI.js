@@ -14,6 +14,25 @@ const DuelistAI=(()=>{
     bcd:240,scd:100,hcd:0,hcd2:0,hunt:false,follow:null,adaptCd:0,adapt:null,ph3:false,att:0,ccd:300,rcd:0,chain:0,moves:0,nextBreath:3+Math.floor(r()*3),breath:0,ph2:false,closeP:0,pw:{},mut:{},still:0,stl:300,spMsg:null}}
   const key=P=>P.act==='attack'&&P.ph&&P.ph[P.pi]?'a'+P.ph[P.pi].k:P.act==='stun'?'stun':P.act==='dodge'?'dodge':P.act==='charge'?'charge':P.guard?'guard':'free';
   const rest=(A,lo,span)=>Math.max(20,Math.floor((lo+Math.floor(A.r()*span))*(A.ph3?.58:A.ph2?.75:1)*(A.rmul||1)*(1-.05*(A.rh||0))));
+  // DISARMED BOSS / THE FLOOR GAME (see Brawl.js). A boss that can lose its weapon (D.wd) and has lost it fights bare-handed and goes for the blade (D.wx/D.wz); a boss facing a DISARMED player stands over the player's weapon on the player's side
+  // and punts it away every time the player closes in. Both rest and tell rules still apply: every strike keeps its >= 20 tick tell, and the rest after each move is set by the caller.
+  function bare(A,P,D,out,tick,dist,ux,uz){
+    const mine=D.wx!==undefined,pw=P.arm===0&&P.wx!==undefined;if(A.pcd>0)A.pcd--;
+    if(D.arm!==0&&!pw)return null;
+    let tx=null,tz=null,mode='fight';
+    if(mine){tx=D.wx;tz=D.wz;mode='mine'}
+    else if(pw){const vx=P.x-P.wx,vz=P.z-P.wz,L=Math.hypot(vx,vz)||1;tx=P.wx+vx/L*1.25;tz=P.wz+vz/L*1.25;mode='guard'}
+    if(tx!==null){const gx=tx-D.x,gz=tz-D.z,gd=Math.hypot(gx,gz);
+      // the PUNT: standing at the weapon with the player closing in -> kick it clear (aimed along the line from the boss to the weapon, i.e. away from the player)
+      if(mode==='guard'&&!(A.pcd>0)&&D.act==='free'&&Math.hypot(P.wx-D.x,P.wz-D.z)<2.3&&Math.hypot(P.wx-P.x,P.wz-P.z)<5&&A.t>A.intro){A.pcd=90;out.face=Math.atan2(P.wx-D.x,P.wz-D.z);out.mx=out.mz=0;return start(A,out,'bwfpunt',0,tick)}
+      if(D.arm!==0&&dist<2.8)return null;   // armed and the player is on top of him: fight normally (the punt above still comes first)
+      if(gd>.45&&!(mode==='mine'&&dist<2.2&&A.cool<=0&&A.r()<.035)){const f=gd>6?1:.95;out.mx=gx/gd*f;out.mz=gz/gd*f;if(mode==='guard'&&gd<1.2){out.mx=out.mz=0}
+        if(mode==='guard'&&gd<=2.4&&dist>2.6)out.face=Math.atan2(P.wx-D.x,P.wz-D.z);return out}}
+    if(D.arm!==0)return null;   // an armed boss only plays the guard game; its own attacks stay the normal ones
+    if(A.t<=A.intro||A.breath>0||A.cool>0||A.noAtk)return out;
+    if(dist<=2.6){const q=A.r();const m=q<.46?'bwfjab':q<.8||!A.ph2?'bwfkick':'bwfspin';return start(A,out,m,0,tick)}
+    if(dist>=3.4&&dist<=7&&A.last[A.last.length-1]!=='bwfdash'&&A.r()<.04)return start(A,out,'bwfdash',0,tick);
+    return out}
   // A = ai state, P/D = sim fighters, evs = events of the previous tick. Returns {face,mx,mz,list}
   function think(A,P,D,evs,tick){
     const out={face:Math.atan2(P.x-D.x,P.z-D.z),mx:0,mz:0,list:[]};A.t++;
@@ -38,6 +57,7 @@ const DuelistAI=(()=>{
       if(--A.guardT<=0){out.list.push({t:'guardUp',e:tick});A.gcool=70+Math.floor(A.r()*60)}
       else{if(KN){out.mx=dist>1.9?ux*.9:-uz*A.strafe*.4;out.mz=dist>1.9?uz*.9:ux*A.strafe*.4}else{out.mx=0;out.mz=0}return out}}
     if(--A.strafeT<=0){A.strafe=A.r()<.5?-1:1;A.strafeT=70+Math.floor(A.r()*90)}
+    if(D.wd&&(D.arm===0||P.arm===0)){const o2=bare(A,P,D,out,tick,dist,ux,uz);if(o2)return o2}   // the blade is gone: bare hands; or the player's is: guard it (the floor game, see Brawl.js)
     // ---- movement: breathing = back off; otherwise close to the fighting distance (full speed when far), then circle ----
     const want=GD?(A.ph2?6.2:5.4):SN?(A.ph2?5.6:6.6):PN?(A.ph2?1.5:1.8):SM?(A.ph2?1.9:2.3):AR?(A.ph2?9:10.5):TR?(A.ph2?6:7.2):SK?(A.ph2?1.5:1.8):H?2.3:DA?4.2:SO?1.9:KN?(A.ph2?1.8:2.1):A.mood==='aggro'?1.6:A.mood==='evasive'?3.0:2.1;let mx=0,mz=0;
     if(A.breath>0&&A.t>A.intro){if(dist<4){mx=-ux*.8;mz=-uz*.8}else{mx=-uz*A.strafe*.4;mz=ux*A.strafe*.4}}
