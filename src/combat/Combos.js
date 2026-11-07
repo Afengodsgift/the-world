@@ -10,13 +10,13 @@ const Combos=(()=>{
     if(ctx.air&&!f)return 'plunge';
     if(ctx.guard&&!f)return 'shove';
     if(f==='light'||f==='advance'||f==='evade'||f==='rush')return 'light2';
-    if(f==='light2')return 'light3';
+    if(f==='light2')return 'light3';if(f==='light3')return 'light4';if(f==='light4')return 'light5';
     if(f)return 'light';
     if(ctx.far)return 'rush';
     if(ctx.adv)return 'advance';
     if(ctx.sinceDodge<=EVADE_GAP)return 'evade';
-    if(ctx.chain===1)return 'light2';if(ctx.chain===2)return 'light3';
+    if(ctx.chain===1)return 'light2';if(ctx.chain===2)return 'light3';if(ctx.chain===3)return 'light4';if(ctx.chain===4)return 'light5';
     return 'light'}
-  function heavy(ctx){const f=ctx.from;return f==='light3'?'whirl':f==='light'||f==='light2'||f==='advance'||f==='evade'||f==='rush'?'rising':null}
-  return{light,heavy,CHAIN_GAP,EVADE_GAP,IDS:['plunge','light','light2','light3','advance','rush','evade','rising','shove','whirl']}})();
+  function heavy(ctx){const f=ctx.from;return f==='light3'?'whirl':f==='light4'?'wheel':f==='light5'?'dropblade':f==='advance'?'pierce':f==='evade'?'moonslash':f==='light'||f==='light2'||f==='rush'?'rising':null}
+  return{light,heavy,CHAIN_GAP,EVADE_GAP,IDS:['plunge','light','light2','light3','light4','light5','advance','rush','evade','rising','shove','whirl','wheel','dropblade','pierce','moonslash']}})();
 if(typeof module!=='undefined')module.exports=Combos;

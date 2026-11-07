@@ -7,7 +7,7 @@ const {M,CC,CB}=c;let bad=0;const ok=(v,m)=>{if(!v){console.log('FAIL',m);bad++}
 ok(CB.IDS.every(id=>M[id]&&M[id].who==='P'),'every combo id exists as a player move');
 ok(CB.light({from:null,adv:false,chain:0,sinceDodge:99})==='light','free tap = Quick Cut 1');
 ok(CB.light({from:'light',chain:1,sinceDodge:99})==='light2'&&CB.light({from:'light2',chain:2,sinceDodge:99})==='light3','cancel chain light > light2 > light3');
-ok(CB.light({from:null,chain:3,sinceDodge:99})==='light','a finished chain restarts');
+ok(CB.light({from:null,chain:5,sinceDodge:99})==='light','a finished chain restarts');
 ok(CB.light({from:null,adv:true,chain:2,sinceDodge:99})==='advance','forward + Light = Advancing Cut');
 ok(CB.light({from:null,chain:0,sinceDodge:10})==='evade'&&CB.light({from:null,chain:0,sinceDodge:40})==='light','Light right after a dodge = Evasive Punish, later = normal');
 ok(CB.heavy({from:'light'})==='rising'&&CB.heavy({from:null})===null&&CB.heavy({from:'light3'})==='whirl','Heavy after Light = Rising Slash, after the 3rd = Tempest, otherwise a normal charge');
@@ -25,7 +25,11 @@ const starts=ev=>ev.filter(e=>e.t==='start'&&e.a==='P').map(e=>e.move);
   ok(seq.join('>')==='light>light2','second tap inside the cancel window = light2 ('+seq.join('>')+')');
   for(let i=0;i<40&&P.mv&&P.mv.id==='light2';i++){const s=starts(step(C,1,L()));if(s.length)seq.push(...s)}
   ok(seq.join('>')==='light>light2>light3','third tap = light3 ('+seq.join('>')+')');
-  for(let i=0;i<60&&P.act==='attack';i++){const s=starts(step(C,1,L()));ok(s.length===0||i>30,'light3 cannot be cancelled into another light (tap '+i+')');if(i>30)break}
+  for(let i=0;i<60&&P.mv&&P.mv.id==='light3';i++){const s=starts(step(C,1,L()));if(s.length)seq.push(...s)}
+  ok(seq.join('>')==='light>light2>light3>light4','fourth tap = light4, Shadow Cross ('+seq.join('>')+')');
+  for(let i=0;i<60&&P.mv&&P.mv.id==='light4';i++){const s=starts(step(C,1,L()));if(s.length)seq.push(...s)}
+  ok(seq.join('>')==='light>light2>light3>light4>light5','fifth tap = light5, Phantom Rend ('+seq.join('>')+')');
+  for(let i=0;i<60&&P.act==='attack';i++){const s=starts(step(C,1,L()));ok(s.length===0||i>30,'light5 cannot be cancelled into another light (tap '+i+')');if(i>30)break}
 }
 // chain gap: tap again 12 ticks after the move ends continues the chain; 45 ticks later starts fresh
 for(const [gap,want] of [[12,'light2'],[45,'light']]){const {C,P}=mk();step(C,1,L());while(P.act==='attack')step(C,1);step(C,gap);const s=starts(step(C,1,L()));ok(s[0]===want,'tap '+gap+' ticks after the move ends = '+want+' (got '+s[0]+')')}

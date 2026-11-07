@@ -75,12 +75,13 @@ const PlayerCombat=(()=>{
   function setStyle(id){if(!WardenStyle.valid(id))return false;myStyle=id;if(id!=='twin'&&sword2){sword2.dead=true;try{sword2.grip&&sword2.grip.parent&&sword2.grip.parent.remove(sword2.grip)}catch(e){}sword2=null}sty=WardenStyle.get(id);try{localStorage.setItem('wstyle',id)}catch(e){}if(on&&P)applyStats();try{if(NET.mode!=='solo')WardenNet.send({k:'sty',s:NET.site,y:id})}catch(e){}return true}
   function applyStats(){const duel=site&&site.duel,st=duel?{hp:100,st:100,dm:1,belt:0}:PG.stats();wst=WardenGear.stats();sty=WardenStyle.get(styId());const m=WardenStyle.mix(wst,styId());wst=Object.assign({},wst,{flow:m.flow});const hp=Math.round(st.hp*m.hp);P.hpMax=hp;P.hp=hp;P.stMax=Math.round(st.st*(sty.st||1));P.st=P.stMax;baseDm=st.dm*m.dm;P.dm=baseDm;P.rm=wst.rm;P.sm=m.sm;P.pm=m.pm;P.dfl=m.dfl+(duel&&DU.pair?3:0);P.bk=sty.back||0}
   // ---- TWIN BLADES stance (src/combat/Twin.js): swap mid-fight between your equipped weapon and two short blades. The swap is a free action in the sim ({t:'stance'}), never blocks a dodge or a roll. ----
-  let stance='main',swapCd=0,twinR=null,twinL=null;const TWB={f:'warden/w_katana.glb',want:.62,l0:1};
+  let stance='main',swapCd=0,twinR=null,twinL=null;const TWB={f:'warden/w_katana.glb',want:.62,l0:1,   // the hilt is turned a quarter-turn in each fist (mirrored for the off hand) so the blade rises out of the grip instead of passing through it like a skewer; checked on the crypto and madea rigs
+    gR:{rx:0,ry:0,rz:1.5708,ox:0,oy:0,oz:0},gL:{rx:0,ry:0,rz:-1.5708,ox:0,oy:0,oz:0}};
   const baseRole=()=>WardenGear.TYPES[WardenGear.equipped().ty].role||'player';
   const pRole=()=>stance==='twin'?'player_twin':baseRole();
   function dropTwin(){for(const w of [twinR,twinL])if(w){w.dead=true;try{if(w.grip&&w.grip.parent)w.grip.parent.remove(w.grip)}catch(e){}}twinR=null;twinL=null}
   function syncWeapons(){const tw=stance==='twin';if(sword&&sword.grip)sword.grip.visible=on&&!tw;if(sword2&&sword2.grip)sword2.grip.visible=on&&!tw;
-    if(tw&&me&&me.userData.bones){if(!twinR)twinR=attachSword(me,TWB.f,TWB.want,{len:TWB.l0});if(!twinL&&me.userData.bones.LeftHand)twinL=attachSword(me,TWB.f,TWB.want,{len:TWB.l0},null,'LeftHand')}
+    if(tw&&me&&me.userData.bones){if(!twinR){twinR=attachSword(me,TWB.f,TWB.want,{len:TWB.l0});if(twinR)twinR.gr=TWB.gR}if(!twinL&&me.userData.bones.LeftHand){twinL=attachSword(me,TWB.f,TWB.want,{len:TWB.l0},null,'LeftHand');if(twinL)twinL.gr=TWB.gL}}
     for(const w of [twinR,twinL])if(w&&w.grip)w.grip.visible=on&&tw}
   function swapStance(force){
     if(!on||!P||P.act==='dead'||ult||sv||site&&site.duel&&!force)return false;if(swapCd>0)return false;
@@ -381,7 +382,7 @@ const PlayerCombat=(()=>{
     const go=n=>new THREE.GLTFLoader().load('assets/'+(file.indexOf('/')>=0?file:'warden/'+file),g=>{if(st.dead)return;const grip=new THREE.Group(),m=g.scene;m.traverse(o=>{if(o.isMesh){o.castShadow=false;o.frustumCulled=false}});grip.add(m);st.hand.add(grip);st.grip=grip;st.ready=true;setGrip(st);grip.visible=on},()=>{},()=>{netWarn();if(!st.dead)setTimeout(()=>go(n+1),Math.min(8000,1500*(n+1)))});go(0);
     return st}
   function setGrip(st,g){
-    if(!st||!st.grip)return;g=g||GRIP;const hand=st.hand,ws=new THREE.Vector3();st.av.updateMatrixWorld(true);hand.getWorldScale(ws);st.grip.scale.setScalar(st.want/(st.len*ws.x));
+    if(!st||!st.grip)return;g=g||st.gr||GRIP;const hand=st.hand,ws=new THREE.Vector3();st.av.updateMatrixWorld(true);hand.getWorldScale(ws);st.grip.scale.setScalar(st.want/(st.len*ws.x));
     if(st.fixed){const f=st.fixed;st.grip.quaternion.setFromEuler(new THREE.Euler(f[0],f[1],f[2]));st.grip.position.set(f[3]||0,f[4]||0,f[5]||0).divideScalar(ws.x);return}
     const kid=hand.children.find(c=>c!==st.grip&&c.position.lengthSq()>0);const v=kid?kid.position.clone().normalize():new THREE.Vector3(0,1,0);
     const q=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),v);q.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(g.rx,g.ry,g.rz)));st.grip.quaternion.copy(q);
