@@ -94,3 +94,8 @@ body.warden-duel #wQuit{display:block}
 #wCombo.pop b,#wCombo.pop span{animation:wpop .22s ease-out}@keyframes wpop{0%{transform:scale(1.35)}100%{transform:scale(1)}}
 #wClipB{position:fixed;z-index:7;right:10px;top:10px;width:34px;height:34px;border-radius:50%;border:1px solid #fff4;background:#0006;color:#fff;font-size:16px;padding:0;opacity:.55}
 .wclip #wh,.wclip #wQuit,.wclip #wmsg{opacity:0!important}.wclip #wc button,.wclip #wClipB{opacity:.18}
+
+#wCamB{position:fixed;z-index:7;right:52px;top:10px;width:34px;height:34px;border-radius:50%;border:1px solid #fff4;background:#0006;color:#fff;font-size:17px;padding:0;opacity:.55}
+#wCamP{position:fixed;z-index:8;right:10px;top:50px;width:230px;padding:10px 12px;border-radius:10px;background:#000b;color:#fff;font:600 13px system-ui,sans-serif;display:none}
+#wCamP.on{display:block}#wCamP b{display:block;margin-bottom:6px;color:#ffd9a0}#wCamP label{display:block;margin:6px 0}#wCamP input[type=range]{width:100%}
+.wclip #wCamB,.wclip #wCamP{opacity:0!important;pointer-events:none}
