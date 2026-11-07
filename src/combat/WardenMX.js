@@ -254,7 +254,7 @@ const WardenMX=(()=>{
   const GS={spin:{c:'g_spinrun',t0:0,h:[[.52,.75]],e:1.5},fourfold:{c:'g_gcombo',t0:.15,h:[[.6,.78],[1.33,1.5],[2.1,2.45]],e:3.0},wyrmstrike:{c:'g_jump',t0:.1,h:[[.95,1.2]],e:2.0},undertow:{c:'g_slide',t0:.45,h:[[1.3,1.6]],e:2.0},
     moonfall:{c:'g_pslash',t0:.15,h:[[.7,.92]],e:1.7},pommel:{c:'g_hilt',t0:.1,h:[[.42,.58]],e:1.1},kickwheel:{seq:[{c:'g_skick',t0:.15,h:[.35,.62],e:.9},{c:'g_spkick',t0:.1,h:[.42,.95],e:1.4}]},abyssring:{c:'g_charge',t0:.2,e:2.6},undercut:{c:'g_low',t0:.2,h:[[1.0,1.3]],e:1.8}};
   Object.assign(ROLES.penitent.moves,GS);Object.assign(ROLES.dknight.moves,GS);
-  for(const r of['dknight','penitent','gwyn','capra','samurai','vampire','saint','veil','oath4','paladin','arissa','archer','ganfaul','gdn'])if(ROLES[r])ROLES[r].hr=true;ROLES.gwyn.kn=true;
+  for(const r of['dknight','penitent','gwyn','capra','samurai','vampire','saint','veil','oath4','paladin','arissa','archer','ganfaul','gdn'])if(ROLES[r])ROLES[r].hr=true;for(const q of['gwyn','samurai','saint'])if(ROLES[q])ROLES[q].kn=true;
   for(const r of['dknight','penitent','gwyn','capra','samurai','vampire','saint','veil','oath4']){const R=ROLES[r];if(!R)continue;R.pack=true;R.g=r==='dknight'||r==='penitent'||r==='gwyn'||r==='capra'||r==='oath4'}
   const BUILD='mx3';const SH={};      // role -> {st,clips,p}
   // a dropped request is retried (3 times, growing gaps) before the role is declared failed: a role that failed once never recovers within a session
