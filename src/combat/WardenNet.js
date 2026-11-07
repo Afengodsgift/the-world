@@ -8,11 +8,12 @@
 const WardenNet=(()=>{
   const FIELDS=['x','z','face','hp','st','po','act','sk','pt','pi','pk','hold','stun','guard','pry','c','kr','kx','kz','gpt','rel','chg','dm','hpMax'];
   const r3=v=>typeof v==='number'?Math.round(v*1000)/1000:v;
-  function pack(f){const o={};for(const k of FIELDS)o[k]=r3(f[k]);o.mv=f.mv?f.mv.id:null;o.dir=f.dir?[r3(f.dir[0]),r3(f.dir[1])]:null;o.done=Object.keys(f.done||{}).filter(k=>f.done[k]);return o}
+  function pack(f){const o={};for(const k of FIELDS)o[k]=r3(f[k]);o.arm=f.arm===0?0:1;o.wx=f.wx==null?null:r3(f.wx);o.wz=f.wz==null?null:r3(f.wz);o.mv=f.mv?f.mv.id:null;o.dir=f.dir?[r3(f.dir[0]),r3(f.dir[1])]:null;o.done=Object.keys(f.done||{}).filter(k=>f.done[k]);return o}
   // write a received state into a local fighter. pos: 1 = snap x/z, 0..1 = blend (foes, smooths 15 Hz updates), 0 = keep local x/z.
   function apply(f,o,M,pos){
     const px=f.x,pz=f.z;for(const k of FIELDS)if(o[k]!==undefined&&k!=='x'&&k!=='z')f[k]=o[k];
     const d=Math.hypot(o.x-px,o.z-pz),b=pos===undefined?1:pos;if(b>=1||d>2.5){f.x=o.x;f.z=o.z}else if(b>0){f.x=px+(o.x-px)*b;f.z=pz+(o.z-pz)*b}
+    if(o.arm!==undefined){f.arm=o.arm===0?0:1;f.wx=o.wx==null?undefined:o.wx;f.wz=o.wz==null?undefined:o.wz}   // DISARM: weapon on the floor (see Brawl.js)
     f.dir=o.dir||null;f.done={};for(const k of o.done||[])f.done[k]=true;
     if(o.act==='attack'&&o.mv&&M[o.mv]){f.mv=M[o.mv];f.ph=M.expand(o.mv,o.hold|0,f.tm)}else{f.mv=o.mv&&M[o.mv]?M[o.mv]:null;f.ph=null;if(o.act==='attack'){f.act='free'}}
     return f}

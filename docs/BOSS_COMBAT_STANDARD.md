@@ -96,3 +96,16 @@ Light x5: Shadow Cross (light4, 2 cuts) then Phantom Rend (light5, cut + wide sw
 
 ## Movement: Flash Step and Sidestep (ninja run removed)
 Stick toward the foe (or forward, unlocked) + Dodge = Flash Step: 14 ticks, 5.2 m, 12 stamina, i-frames 1-9, white burst and spark trail. Locked on + stick sideways = Sidestep (unchanged). Neutral / back = the roll. Locomotion is back to the standard idle / walk / run; the nj_run clip is only used for the flash dash. Twin hilts are seated half-way along the hand (palm) with a mirrored quarter-turn.
+
+## Disarm and hand-to-hand (Brawl.js)
+
+Built fresh for the Warden Isles; it shares nothing with the Iron Fist Isle trials (Fists.js / DojoAI.js).
+
+- **Losing the blade.** Every PERILOUS boss strike that hurts (not the floor bursts) has `dis`: on a hit it knocks the weapon out of the victim's hand. A fighter can be disarmed only if `wd` is set (the player always; a boss only if its type has `bare:true`, today Kage, the only boss with a detached sword) and not again for `DIS_CD` (40 s) after the weapon is back in hand, with a 10 s grace at the start of a fight (`dcd`).
+- **On the floor.** `C.wp[ownerId] = {x,z,t}`, mirrored on the owner as `wx/wz` (net snapshot fields `arm/wx/wz`). A pulsing ring marks it. Walking over your own takes it back; after `RETURN_T` (25 s) it slides back by itself (no soft-lock).
+- **Kicks punt weapons.** Moves with `wk` (kicks) send any weapon lying just in front of the kicker 6 m the way he faces. Both fighters can keep each other from theirs.
+- **The boss guards it.** A boss holding a bare-handed fight (or guarding the player's weapon while armed) stands over the weapon on the player's side and punts it away (`bwfpunt`, 20-tick tell like every foe move) whenever the player closes in. A disarmed boss runs for his own blade and fights with `bwfjab / bwfkick / bwfspin / bwfdash`.
+- **WRENCH** (`{t:'wrench'}`, X / the Wrench button): a grab that ignores guard and parry (a dodge beats it). On an armed foe with `wd` it is a disarm; on anyone else it is a hip throw (x3 damage).
+- **Hand-to-hand** (while `arm===0`): Light = jab > cross > hook > knee > roundhouse (4-5 tick start-ups), Heavy branches (elbow break, uppercut, spinning back kick, leg sweep), power strike, step jab, flying knee-kick, slip counter after a dodge, push kick (Guard+Light), drop kick. Sword-only commands are ignored until the weapon is back.
+- **Animation.** The 20 `bw_*` player clips (and 6 `bwf_*` Kage clips) are separate files fetched lazily the first time a fight starts (`WardenMX.extra`): `assets/warden_mx_bw.json`, `assets/avatars/<av>/warden_mx_bw.json` (crypto, madea, samurai, bjj), `assets/warden_mx_bwf_samurai.json`. Re-bake: `tools/mixamo/bw.json` (stock rig, `retarget_mixamo.js bake`; avatars `bake_human.mjs ... --twin=tools/mixamo/bw.json --set=warden_mx_bw`), `tools/mixamo/bwf.json` (native bake on the Kage rig).
+- Not done: Saint / Gwyn / the other bosses cannot be disarmed (their weapons are part of the model, so it would not show); Boxer and Homunculus avatars have no bare-hand clips (same as the other new combat sets).

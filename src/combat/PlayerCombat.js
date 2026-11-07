@@ -78,11 +78,11 @@ const PlayerCombat=(()=>{
   let stance='main',swapCd=0,twinR=null,twinL=null;const TWB={f:'warden/w_katana.glb',want:.62,l0:1,   // the hilt is turned a quarter-turn in each fist (mirrored for the off hand) so the blade rises out of the grip instead of passing through it like a skewer; checked on the crypto and madea rigs
     gR:{rx:0,ry:0,rz:1.5708,ox:0,oy:0,oz:0,off:.5},gL:{rx:0,ry:0,rz:-1.5708,ox:0,oy:0,oz:0,off:.5}};
   const baseRole=()=>WardenGear.TYPES[WardenGear.equipped().ty].role||'player';
-  const pRole=()=>stance==='twin'?'player_twin':baseRole();
+  const pRole=()=>P&&P.arm===0?'player_bw':stance==='twin'?'player_twin':baseRole();
   function dropTwin(){for(const w of [twinR,twinL])if(w){w.dead=true;try{if(w.grip&&w.grip.parent)w.grip.parent.remove(w.grip)}catch(e){}}twinR=null;twinL=null}
-  function syncWeapons(){const tw=stance==='twin';if(sword&&sword.grip)sword.grip.visible=on&&!tw;if(sword2&&sword2.grip)sword2.grip.visible=on&&!tw;
+  function syncWeapons(){const tw=stance==='twin',am=!P||P.arm!==0;if(sword&&sword.grip)sword.grip.visible=on&&!tw&&am;if(sword2&&sword2.grip)sword2.grip.visible=on&&!tw&&am;
     if(tw&&me&&me.userData.bones){if(!twinR){twinR=attachSword(me,TWB.f,TWB.want,{len:TWB.l0});if(twinR)twinR.gr=TWB.gR}if(!twinL&&me.userData.bones.LeftHand){twinL=attachSword(me,TWB.f,TWB.want,{len:TWB.l0},null,'LeftHand');if(twinL)twinL.gr=TWB.gL}}
-    for(const w of [twinR,twinL])if(w&&w.grip)w.grip.visible=on&&tw}
+    for(const w of [twinR,twinL])if(w&&w.grip)w.grip.visible=on&&tw&&am}
   function swapStance(force){
     if(!on||!P||P.act==='dead'||ult||sv||site&&site.duel&&!force)return false;if(swapCd>0)return false;
     stance=stance==='twin'?'main':'twin';swapCd=.32;
@@ -299,6 +299,7 @@ const PlayerCombat=(()=>{
       case'jump':if(fightJump()===false)bufSet('jump');break;
       case'shadow':if(shadowStep()===false)bufSet('shadow');break;
       case'swap':if(swapStance()===false)bufSet('swap');break;
+      case'wrench':{assist();reject();ST.input('P',{t:'wrench',e:C.tick},t);if(!wrTip){wrTip=1;toast('WRENCH: a grab that ignores guard. On an armed foe it rips the weapon from his hand',3.2)}break}
       case'clip':clipToggle();break;
       case'camd':{CAMS.dist=CAMS.dist<.9?1:CAMS.dist<1.1?1.25:.8;try{localStorage.setItem('wcam',JSON.stringify(CAMS))}catch(e){}msg(CAMS.dist<.9?'CAMERA: CLOSE':CAMS.dist>1.1?'CAMERA: FAR':'CAMERA: NORMAL',1);break}
       default:return false}
@@ -351,7 +352,7 @@ const PlayerCombat=(()=>{
     else lock=false;
     lockOff=!lock;   // the player turned it off on purpose: do not auto-lock again until they turn it on
     if(el)el.querySelector('#wLock').classList.toggle('on',lock)}
-  const KEY={Digit1:'ihp',Digit2:'ist',Digit3:'imt',KeyE:'flow',KeyF:'light',KeyG:'heavy',KeyQ:'guard',KeyR:'sup',Space:'dodge',Tab:'lock',KeyZ:'swap',KeyV:'camd',KeyH:'clip'};
+  const KEY={Digit1:'ihp',Digit2:'ist',Digit3:'imt',KeyE:'flow',KeyF:'light',KeyG:'heavy',KeyQ:'guard',KeyR:'sup',Space:'dodge',Tab:'lock',KeyZ:'swap',KeyV:'camd',KeyH:'clip',KeyX:'wrench'};
   function onKey(e){
     if(!on||e.target&&e.target.tagName==='INPUT')return;const n=KEY[e.code];
     if(e.type==='keydown'){if(n){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)press(n,stamp(e.timeStamp))}else if(e.code==='KeyB'){e.stopImmediatePropagation()}}
@@ -366,11 +367,11 @@ const PlayerCombat=(()=>{
   function build(){WardenNet.setHandler(netMsg);
     el=document.createElement('div');el.id='wroot';
     el.innerHTML='<div id="wh"><div class="wb p"><i class="hp"><b></b></i><i class="st"><b></b></i><i class="fl"><b></b></i></div><div class="wb d"><span>The Duelist</span><i class="hp"><b></b></i><i class="po"><b></b></i></div></div><div id="wmsg"></div><div id="wCombo"><b></b><span></span></div><button id="wClipB" title="Clip mode: hides the bars, fades the buttons">🎬</button><button id="wCamB" title="Camera settings">⚙</button><div id="wCamP"></div><div id="wem"></div><button id="wQuit">Leave arena</button><div id="whd" style="position:fixed;left:50%;top:46%;width:0;height:0;pointer-events:none;z-index:50;opacity:0;transition:opacity .5s"><div style="position:absolute;left:-26px;top:-150px;width:0;height:0;border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:54px solid #ff2a1a;filter:drop-shadow(0 0 8px #ff6a2a)"></div></div><div id="whn" style="position:fixed;left:0;right:0;top:34%;text-align:center;pointer-events:none;z-index:50;color:#ffb27a;font:700 15px sans-serif;letter-spacing:.14em;text-shadow:0 0 6px #000,0 0 3px #000;opacity:0;transition:opacity .5s"></div>'+
-      '<div id="wc"><button id="wLight">Light</button><button id="wHeavy">Heavy</button><button id="wGuard">Parry</button><button id="wDodge">Dodge</button><button id="wFlow">Magic</button><button id="wIhp" class="wi"><b>\u2764</b><i>3</i></button><button id="wIst" class="wi"><b>\u26A1</b><i>2</i></button><button id="wImt" class="wi"><b>\u2694</b><i>1</i></button><button id="wLock">Lock</button><button id="wJump">Jump</button><button id="wShadow">Shadow</button><button id="wSwap">Twin</button><button id="wSup">Sever</button></div>'+
-      '<div id="whint">F light (x3, then G = Tempest) · Guard+Light = Shove · dodge then G = Lunge · G heavy (hold) · Q guard · Space dodge · E magic (tap = Thunderfall, full meter = Arcane Storm) · R super · V camera distance · 1/2/3 flasks · Tab lock · Z swap to Twin Blades</div>';
+      '<div id="wc"><button id="wLight">Light</button><button id="wHeavy">Heavy</button><button id="wGuard">Parry</button><button id="wDodge">Dodge</button><button id="wFlow">Magic</button><button id="wIhp" class="wi"><b>\u2764</b><i>3</i></button><button id="wIst" class="wi"><b>\u26A1</b><i>2</i></button><button id="wImt" class="wi"><b>\u2694</b><i>1</i></button><button id="wLock">Lock</button><button id="wJump">Jump</button><button id="wShadow">Shadow</button><button id="wSwap">Twin</button><button id="wWr">Wrench</button><button id="wSup">Sever</button></div>'+
+      '<div id="whint">F light (x3, then G = Tempest) · Guard+Light = Shove · dodge then G = Lunge · G heavy (hold) · Q guard · Space dodge · E magic (tap = Thunderfall, full meter = Arcane Storm) · R super · V camera distance · 1/2/3 flasks · Tab lock · Z swap to Twin Blades · X wrench (grab / disarm)</div>';
     document.body.appendChild(el);
     {const q=el.querySelector('#wQuit'),go=e=>{e.preventDefault();e.stopPropagation();quitArena()};q.addEventListener('pointerdown',e=>e.stopPropagation());q.addEventListener('click',go)}
-    {const gb=el.querySelector('#wCamB');if(gb)gb.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();camPanel()})}{const cb=el.querySelector('#wClipB');if(cb)cb.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();clipToggle()})}bind(el.querySelector('#wLight'),'light');bind(el.querySelector('#wHeavy'),'heavy');bind(el.querySelector('#wGuard'),'guard');bind(el.querySelector('#wDodge'),'dodge');bind(el.querySelector('#wFlow'),'flow');bind(el.querySelector('#wIhp'),'ihp');bind(el.querySelector('#wIst'),'ist');bind(el.querySelector('#wImt'),'imt');flaskUi();bind(el.querySelector('#wLock'),'lock');bind(el.querySelector('#wJump'),'jump');bind(el.querySelector('#wShadow'),'shadow');bind(el.querySelector('#wSwap'),'swap');bind(el.querySelector('#wSup'),'sup');
+    {const gb=el.querySelector('#wCamB');if(gb)gb.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();camPanel()})}{const cb=el.querySelector('#wClipB');if(cb)cb.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();clipToggle()})}bind(el.querySelector('#wLight'),'light');bind(el.querySelector('#wHeavy'),'heavy');bind(el.querySelector('#wGuard'),'guard');bind(el.querySelector('#wDodge'),'dodge');bind(el.querySelector('#wFlow'),'flow');bind(el.querySelector('#wIhp'),'ihp');bind(el.querySelector('#wIst'),'ist');bind(el.querySelector('#wImt'),'imt');flaskUi();bind(el.querySelector('#wLock'),'lock');bind(el.querySelector('#wJump'),'jump');bind(el.querySelector('#wShadow'),'shadow');bind(el.querySelector('#wSwap'),'swap');bind(el.querySelector('#wWr'),'wrench');bind(el.querySelector('#wSup'),'sup');
     addEventListener('keydown',onKey,true);addEventListener('keyup',onKey,true);
     addEventListener('blur',releaseAll);document.addEventListener('visibilitychange',releaseAll);addEventListener('orientationchange',releaseAll)}
   const bars={};
@@ -446,7 +447,7 @@ const PlayerCombat=(()=>{
     for(const F of foes)freeBody(F.body);foes=[];byId={};
     const ids=Foes.ids(site.foes.length);
     site.foes.forEach((def,i)=>{
-      const T=site.duel&&DU.pair?duelT():Foes.TYPES[def.t],id=ids[i],hum=!!T.human,Ld=hum?duelSide():0,f=C.F[id]=CombatCore.mkFighter(id,{x:WRD.x+site.x+(hum?0:def.dx),z:WRD.z+site.z+(hum?-9*Ld:def.dz),face:hum&&Ld<0?0:Math.PI,hp:hum?100:Math.round(T.hp*foeMul().hp),team:'e',sa:!hum&&(T.sa||WardenProg.cycleMul().sa)?1:0,dm:hum?1:(T.dm||1)*foeMul().dm,rm:T.rm||1,pg:!hum&&T.boss?.5:0,rise:!hum&&T.boss&&T.rise?1:0,tm:hum?1:(T.tm||1)});
+      const T=site.duel&&DU.pair?duelT():Foes.TYPES[def.t],id=ids[i],hum=!!T.human,Ld=hum?duelSide():0,f=C.F[id]=CombatCore.mkFighter(id,{x:WRD.x+site.x+(hum?0:def.dx),z:WRD.z+site.z+(hum?-9*Ld:def.dz),face:hum&&Ld<0?0:Math.PI,hp:hum?100:Math.round(T.hp*foeMul().hp),team:'e',sa:!hum&&(T.sa||WardenProg.cycleMul().sa)?1:0,dm:hum?1:(T.dm||1)*foeMul().dm,rm:T.rm||1,pg:!hum&&T.boss?.5:0,rise:!hum&&T.boss&&T.rise?1:0,tm:hum?1:(T.tm||1),wd:!hum&&T.bare?1:0,dcd:600});
       if(!C.order.includes(id))C.order.push(id);f.r=T.r;f.spd=(T.spd||1.3)*WardenProg.cycleMul().spd;
       const b=body(T,i);b.g.scale.setScalar(T.scale);b.g.position.set(f.x,H(f.x,f.z),f.z);b.g.rotation.y=f.face;
       if(b.u.mixer&&typeof emoStop==='function'&&T.body==='avatar')emoStop(b.u);
@@ -458,7 +459,7 @@ const PlayerCombat=(()=>{
     camApply();killDecoy(true);jumpCd=shCd=0;oathFirst=null;fightN++;hurt=false;fightVo=false;try{WardenSfx.load()}catch(e){}const R=site.wall?site.R-.5:site.dg?site.R-.3:site.R+10,sol=WardenSolids().filter(s=>Math.hypot(s.x-WRD.x-site.x,s.z-WRD.z-site.z)<site.R+14);
     C=CombatCore.create({arena:{x:WRD.x+site.x,z:WRD.z+site.z,R},solids:sol});try{CameraRig.setArena({x:WRD.x+site.x,z:WRD.z+site.z,R:site.wall||site.dg?R:site.R,sol:sol.filter(q=>!q.wall)})}catch(e){}ST=CombatCore.stepper(C,6);t0=performance.now();vt=0;vl=0;tsc=1;ult=null;
     if(site.duel&&DU.pair){const L=duelSide();S.x=WRD.x+site.x;S.z=WRD.z+site.z+9*L;S.rot=L>0?Math.PI:0;lx=S.x;lz=S.z}
-    P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p'});applyStats();spawnFoes();try{pillarsBuild()}catch(e){}sup=Math.max(sup,20);WardenFx.clear();WardenVfx.clear();for(const F of foes)if(F.T.ai==='saint')try{WardenFx.orbit(F,6)}catch(e){};trapsClear();blinkRing(0,0,false);Q=null;spectate=false;ls=null;ds=null;pin=null;try{zonesClear();mirrorsClear()}catch(e){}netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
+    P=C.add('P',{x:S.x,z:S.z,face:S.rot,hp:100,team:'p',wd:1});applyStats();spawnFoes();try{pillarsBuild()}catch(e){}sup=Math.max(sup,20);WardenFx.clear();WardenVfx.clear();for(const F of foes)if(F.T.ai==='saint')try{WardenFx.orbit(F,6)}catch(e){};trapsClear();blinkRing(0,0,false);Q=null;spectate=false;ls=null;ds=null;pin=null;try{zonesClear();mirrorsClear()}catch(e){}netStarts=[];if(NET.mode==='guest'||NET.mode==='host'&&NET.joined)netAddQ();
     flow=0;flowOn=false;flowN=0;fq=null;skillCD=0;bars.fl=-1;healLeft=0;mightT=0;itemLock=0;state='fight';stateT=0;lockOff=false;lock=(site.fog||site.duel||foes.some(F=>F.T.boss))&&!(site.duel&&!DU.pair);lockI=0;{const b=foes.find(F=>F.T.boss&&F.awake)||foes.find(F=>F.awake);if(b)lockI=b.i}lastEv=[];pv.init=false;down.guard=down.heavy=false;stW=0;gT=0;
     if(el)el.querySelector('#wLock').classList.toggle('on',lock);D=target().f}
   // Inside a walled arena the screen is the cost on a low-end phone: render at 1.25x (not 2x) while you fight, restore on leaving. Skipped when ?dpr= was given.
@@ -475,7 +476,7 @@ const PlayerCombat=(()=>{
     for(const F of foes){const b=F.body;if(!b.u.mixer)continue;styleBody(b);if(!b.anims[F.T.role])b.anims[F.T.role]=WardenMX.make(b.u,F.T.role);F.anim=b.anims[F.T.role]}}
   function engage(s){stance='main';swapCd=0;
     try{if(typeof loadEmotes==='function')loadEmotes().catch(()=>{})}catch(e){}   // the 'playdead' fall clip lives in the emote library: without it corpses (and you) just stand there
-    if(on)return;if(!el)build();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenFx.build();WardenVfx.build();WardenMX.fetch(pRole(),me.userData.av).catch(()=>{});WardenMX.fetch('player_twin',me.userData.av).catch(()=>{});
+    if(on)return;if(!el)build();if(typeof loadEmotes==='function')loadEmotes().catch(()=>{});WardenFx.build();WardenVfx.build();WardenMX.fetch(pRole(),me.userData.av).catch(()=>{});WardenMX.fetch('player_twin',me.userData.av).catch(()=>{});try{bwLoad()}catch(e){}
     site=s;fightN=0;mastery=!!(s.mast&&PG.S.mast&&PG.S.mast[s.id]);const hh=WardenNet.hostFor(s.id);NET.joined=false;startFight();if(s.duel){}else if(hh)netJoin();else netHost();for(const F of foes)WardenMX.fetch(F.T.role).catch(()=>{});
     lx=S.x;lz=S.z;on=true;if(mastery)setTimeout(()=>{if(on)msg('MASTERY REMATCH',2.4)},500);document.body.classList.add('warden-fight');document.body.classList.toggle('warden-duel',!!s.duel);ensureAvatars();if(sword&&sword.grip)sword.grip.visible=true;if(sword2&&sword2.grip)sword2.grip.visible=true;
     for(const F of foes)for(const k of['sword','sword2','shield'])if(F.body[k]){const o=F.body[k].grip||F.body[k];if(o)o.visible=true}
@@ -785,6 +786,41 @@ const PlayerCombat=(()=>{
   // SHATTERING PILLARS: three stone pillars stand inside every boss ring (cover: they stop bolts and block the body). A PERILOUS boss move that swings through one shatters it when its wind-up ends - the cover is gone, and the falling stone crushes whatever stands at its foot (a ring marks it 0.6 s). Host / solo only (a guest would not share the solid).
   let dpil=[];const PERIL=()=>new Set(Moves.PERILOUS||[]);
   function pillarsClear(){for(const p of dpil){if(p.m.parent)p.m.parent.remove(p.m);p.m.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose()});const i=C&&C.solids?C.solids.indexOf(p.sol):-1;if(i>=0)C.solids.splice(i,1)}dpil=[]}
+
+  // ---------------------------------------------------------------- DISARM (see Brawl.js) ----------------------------------------------------------------
+  // A knocked-away weapon lies on the floor (a pulsing ring so it can be found on a phone) until its owner walks over it; kicks send it flying again. The meshes are driven by fighter STATE (arm / wx / wz are in the net snapshot), the sim events only add the sparks and the words.
+  let wrTip=0,dsTip=0,wpm={},bareLast=false,bwReq=0;
+  function wpMake(col){const g=new THREE.Group(),o=new THREE.Group(),M=(c)=>new THREE.MeshBasicMaterial({color:c});
+    const bl=new THREE.Mesh(new THREE.BoxGeometry(.07,.025,1.15),M(0xe8eef5));bl.position.z=.12;const hl=new THREE.Mesh(new THREE.BoxGeometry(.055,.055,.32),M(0x3a2a1a));hl.position.z=-.62;const gd=new THREE.Mesh(new THREE.BoxGeometry(.34,.045,.06),M(0xb08a3a));gd.position.z=-.45;o.add(bl,hl,gd);
+    const ring=new THREE.Mesh(new THREE.RingGeometry(.8,.98,28),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.75,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=.03;
+    g.add(o,ring);g.userData={o,ring};scene.add(g);return g}
+  function wpDrop(id){const m=wpm[id];if(!m)return;scene.remove(m.g);m.g.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose()});delete wpm[id]}
+  function wpClear(){for(const id of Object.keys(wpm))wpDrop(id)}
+  function wpSync(dt){
+    if(!on||!C){if(Object.keys(wpm).length)wpClear();return}
+    const list=[['P',P,1]];if(Q)list.push(['Q',Q,1]);for(const F of foes)if(F.f.wd)list.push([F.id,F.f,0,F]);
+    for(const [id,f,mine,F] of list){const want=f&&f.arm===0&&f.wx!=null&&f.wz!=null&&f.act!=='dead',m=wpm[id];
+      if(want&&!m){const g=wpMake(mine?0xffd36a:0xff5a4a);const y=H(f.wx,f.wz);g.position.set(f.wx,y+.09,f.wz);wpm[id]={g,x:f.wx,z:f.wz,ft:2,fx:f.wx,fz:f.wz,spin:0,yaw:(id==='P'?.7:id==='Q'?-.6:2.2)}}
+      else if(!want&&m)wpDrop(id);
+      const w=wpm[id];if(w){
+        if(Math.hypot(f.wx-w.x,f.wz-w.z)>.05){w.fx=w.cx!==undefined?w.cx:w.x;w.fz=w.cz!==undefined?w.cz:w.z;w.x=f.wx;w.z=f.wz;w.ft=0;w.spin=(Math.random()<.5?-1:1)*(9+Math.random()*5)}
+        let px=w.x,pz=w.z,lift=0;if(w.ft<1){w.ft=Math.min(1,w.ft+dt/.5);const k=w.ft;px=w.fx+(w.x-w.fx)*k;pz=w.fz+(w.z-w.fz)*k;lift=Math.sin(Math.PI*k)*(Math.hypot(w.x-w.fx,w.z-w.fz)>3?2.2:1.3);w.yaw+=w.spin*dt*(1-k);if(w.ft>=1){sfx('clash',.22,.7);try{WardenVfx.burst(w.x,H(w.x,w.z)+.15,w.z,1)}catch(e){}}}
+        w.cx=px;w.cz=pz;const u=w.g.userData;w.g.position.set(px,H(px,pz)+.09+lift,pz);u.o.rotation.y=w.yaw;u.o.rotation.x=w.ft<1?w.ft*Math.PI*4:0;
+        const pu=.5+.5*Math.sin(performance.now()/180);u.ring.material.opacity=.45+.4*pu;u.ring.scale.setScalar(.9+.18*pu)}
+      if(F&&F.body&&F.body.sword&&F.body.sword.grip)F.body.sword.grip.visible=f.arm!==0}
+    const bare=!!(P&&P.arm===0);if(bare!==bareLast){bareLast=bare;if(pAnim){try{pAnim.off()}catch(e){}pAnim=null}syncWeapons();if(!bare){try{WardenFx.build()}catch(e){}}}}
+  function wpEv(e){
+    if(e.t==='disarm'){const V=e.d==='P'||e.d==='Q'?'you':'foe';try{WardenVfx.burst(e.fx,H(e.fx,e.fz)+1.3,e.fz,3);CameraRig.shake(.7)}catch(x){}sfx('clash',.8,.8);
+      if(e.d==='P'){msg('DISARMED',1.3);flash(.35,'rgba(255,255,255,.5)');if(!dsTip){dsTip=1;toast('Blade lost! Walk over it to take it back. He will kick it away. WRENCH him to take his',3.2)}}
+      else if(byId[e.d]){msg('HE LOST HIS BLADE',1.4);flash(.3,'rgba(255,200,120,.5)')}}
+    else if(e.t==='regrab'){const m=wpm[e.d];if(e.d==='P'){msg(e.ret?'YOUR BLADE RETURNS':'BLADE BACK',1)}sfx('clash',.4,1.5);try{WardenVfx.burst(e.x,H(e.x,e.z)+.5,e.z,1)}catch(x){}}
+    else if(e.t==='wkick'){sfx('clash',.45,1.2)}}
+  // the disarm clips (hand-to-hand moves, bare-handed Kage) are fetched lazily the first time a fight starts, then merged into the role sets that are already loaded
+  function bwLoad(){if(bwReq)return;bwReq=1;const av=me&&me.userData.av||null,go=()=>{
+      WardenMX.extra('player_bw',av,'assets/warden_mx_bw.json').then(()=>{if(pAnim&&pAnim.refresh)pAnim.refresh()}).catch(()=>{bwReq=0});
+      if(foes.some(F=>F.T.bare))WardenMX.fetch('samurai').then(()=>WardenMX.extra('samurai',null,'assets/warden_mx_bwf_samurai.json')).then(()=>{for(const F of foes)if(F.T.bare&&F.anim&&F.anim.refresh)F.anim.refresh()}).catch(()=>{})};
+    // the role sets must be ready before clips can be merged into them
+    WardenMX.fetch('player_bw',av).then(()=>go()).catch(()=>{bwReq=0})}
   function pillarsBuild(){pillarsClear();if(!site||!site.fog||site.wall||site.dg||site.duel||NET.mode==='guest')return;
     const cx=WRD.x+site.x,cz=WRD.z+site.z;let h=7;for(const c of site.id)h=(h*31+c.charCodeAt(0))>>>0;const a0=(h%628)/100;
     for(let i=0;i<3;i++){const an=a0+i*2.094,d=site.R*.55,x=cx+Math.sin(an)*d,z=cz+Math.cos(an)*d;
@@ -1200,7 +1236,7 @@ for(const p of dpil){if(!p.fall)continue;p.fall+=dt;const u=Math.min(1,p.fall/.7
     const b=el&&el.querySelector('#wShadow');if(b){const t=shCd>0?Math.ceil(shCd):0;if(b._c!==t){b._c=t;b.textContent=t?'Shadow '+t:'Shadow';b.classList.toggle('cd',t>0)}}}
   function leave(hold){wetT=0;try{pillarsClear()}catch(e){}try{houndsClear()}catch(e){}pun=null;pcs.n=0;ls=null;ds=null;pin=null;try{mirrorsClear()}catch(e){}try{zonesClear()}catch(e){}try{if(moodEl)moodEl.style.opacity='0'}catch(e){}svEnd();try{WardenFx.clear()}catch(e){}   // hold: keep the corpses of a cleared site in the world
     if(!on)return;endSet();trapsClear();try{blinkRing(0,0,false)}catch(e){}killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');document.body.classList.remove('warden-duel');if(sword&&sword.grip)sword.grip.visible=false;if(sword2&&sword2.grip)sword2.grip.visible=false;pendFace=null;for(const w of [twinR,twinL])if(w&&w.grip)w.grip.visible=false;if(stance==='twin'){stance='main';if(pAnim){try{pAnim.off()}catch(e){}pAnim=null}try{const b=el&&el.querySelector('#wSwap');if(b){b.classList.remove('on');b.textContent='Twin'}}catch(e){}}
-    if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.combat(0,0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
+    wpClear();if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.combat(0,0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
     try{if(site&&site.fog)WardenIsles.fog(site.id,rt(site).cleared?'gone':'idle')}catch(e){}}
   // ---------- per frame ----------
@@ -1240,7 +1276,7 @@ for(const p of dpil){if(!p.fall)continue;p.fall+=dt;const u=Math.min(1,p.fall/.7
     for(const e of evs){
       const A=byId[e.a],T=byId[e.d];
       if(e.t==='dead'&&T&&T.human&&!e._rep){T.f.act='free';T.f.hp=Math.max(1,T.f.hp);T.f.mv=null;T.f.ph=null;continue}
-      flowEv(e,T);supEv(e);svHit(e);try{spEv(e,A)}catch(x){}try{setEv2(e)}catch(x){}
+      flowEv(e,T);supEv(e);svHit(e);try{spEv(e,A)}catch(x){}try{setEv2(e)}catch(x){}try{wpEv(e)}catch(x){}
       if(e.t==='fx'||e.t==='fxburst'||e.t==='fxend'){if(e.t==='fx'&&A&&A.T)e.fk=A.T.id;WardenFx.event(e);
         if(e.t==='fxburst'&&!ult){const st=WardenFx.styleOf(e.fid);if(st==='lightning'||st==='sun'||st==='eclipse'){const dd=Math.hypot(P.x-e.x,P.z-e.z);if(dd<(e.r||3)+9){flash(st==='lightning'?.22:.16,st==='lightning'?'rgba(200,228,255,.5)':'rgba(255,220,150,.35)');try{CameraRig.shake(dd<(e.r||3)+1?.28:.12)}catch(x){}}}}}
       {const fp=e.t==='hit'||e.t==='block'||e.t==='deflect'||e.t==='posturebreak'||e.t==='guardbreak'?(T?T.f:(e.d==='P'?P:null)):null;if(fp){vfxAt(e,fp);punch(e,fp)}else if(e.t==='dodge')punch(e,P)}
@@ -1274,6 +1310,7 @@ for(const p of dpil){if(!p.fall)continue;p.fall+=dt;const u=Math.min(1,p.fall/.7
   function rearm(wx,wz){for(const s of SITES()){const r=RT[s.id];if(!r||!r.cleared)continue;if(s.dg&&WardenDungeon.isCleared(s.id))continue;if(Math.hypot(wx-s.x,wz-s.z)>s.R+45){r.cleared=false;for(const F of r.foes)freeBody(F.body);r.foes=[];try{if(s.fog)WardenIsles.fog(s.id,'idle')}catch(e){}}}}
   function tick(dt,t){
     if(cT>0){cT-=dt;if(cT<=0){cN=0;cLast='';comboShow()}}if(msgT>0&&el){msgT-=dt;if(msgT<=0)el.querySelector('#wmsg').classList.remove('on')}   // the banner times out even after the fight is over (it used to stay up until you left the isle)
+    try{wpSync(dt)}catch(x){}
     const wx=S.x-WRD.x,wz=S.z-WRD.z;chipTick(wx,wz);lostMark(t,dt);if(toastT>0){toastT-=dt;if(toastT<=0&&toastEl)toastEl.classList.remove('on')}
     if(!on){rearm(wx,wz);
       for(const k in RT)for(const F of RT[k].foes||[])if(F.f.act==='dead'&&Math.hypot(F.f.x-S.x,F.f.z-S.z)<70)foeTick(F,dt,0);   // corpses of cleared sites keep animating until they have finished falling
@@ -1366,4 +1403,4 @@ for(const p of dpil){if(!p.fall)continue;p.fall+=dt;const u=Math.min(1,p.fall/.7
       if(WardenGear.full()){const v=WardenGear.sellValue(it);PG.earn(v);line+=' · pack full, sold a '+WardenGear.name(it)+' for '+v}else{WardenGear.add(it);line+=' · '+WardenGear.RAR[it.rar]+' '+WardenGear.name(it)}
       toast((label||'Chest')+': '+line,4.2);return it},toast:(t,s)=>toast(t,s),setSeq:v=>{if(pAnim)pAnim.variant=v},tick,speedMul,press,release,enter:()=>{},engage:id=>{const s=SITES().find(q=>q.id===id);if(s&&!on)engage(s)},leave:()=>leave(false),on:()=>on,site:()=>site,GRIP,setGrip:()=>{setGrip(sword);for(const F of foes)setGrip(F.body.sword)},newFight:()=>{if(on)startFight()},
     _flow:v=>{if(v!==undefined)flow=v;return[flow,flowOn,flowN]},
-    _lanes:()=>lanes&&lanes.map(l=>({v:l.visible,o:+l.material.opacity.toFixed(2),x:+l.position.x.toFixed(1),y:+l.position.y.toFixed(1),z:+l.position.z.toFixed(1),sy:+l.scale.y.toFixed(1),ry:+l.rotation.y.toFixed(2),inScene:!!l.parent})),_style:()=>({my:myStyle,partner:pStyle,hpMax:P&&P.hpMax,dfl:P&&P.dfl,bk:P&&P.bk}),setStyle,_foes:()=>foes,_trick:()=>({ring:!!(blinkRing.m&&blinkRing.m.visible),rx:blinkRing.m?+blinkRing.m.position.x.toFixed(1):0,rz:blinkRing.m?+blinkRing.m.position.z.toFixed(1):0,traps:traps.map(t=>({id:t.id,x:+t.x.toFixed(1),z:+t.z.toFixed(1),age:+t.age.toFixed(1),armed:t.armed}))}),_rdecoy:()=>rdecoy?{t:rdecoy.t,hits:rdecoy.hits}:null,_netMsg:p=>netMsg(p),_decoy:()=>decoy?{t:+decoy.t.toFixed(1),hits:decoy.hits,vis:decoy.g.visible,par:!!decoy.g.parent,x:decoy.g.position.x,z:decoy.g.position.z,zf:C.F.Z?1:0,sc:decoy.g.scale.x,kids:decoy.g.children.length,meshes:(()=>{let n=0;decoy.g.traverse(o=>{if(o.isMesh)n++});return n})(),y:decoy.g.position.y}:null,_ult:()=>ult?{tk:C.tick-ult.T0,ph:ult.ph,t:+ult.t.toFixed(2),hits:ult.hits,dodged:ult.dodged,res:ult.res,tsc}:null,_t:()=>({DU,on,C,P,D,lock,sword,foes,site,AI:foes[0]&&foes[0].ai,state,cur,stW,down,pAnim,dAnim:foes[0]&&foes[0].anim,duel:foes[0]&&foes[0].body.g,dSword:foes[0]&&foes[0].body.sword,RT})})})();
+    _sim:()=>({C,P,Q,wpm}),_lanes:()=>lanes&&lanes.map(l=>({v:l.visible,o:+l.material.opacity.toFixed(2),x:+l.position.x.toFixed(1),y:+l.position.y.toFixed(1),z:+l.position.z.toFixed(1),sy:+l.scale.y.toFixed(1),ry:+l.rotation.y.toFixed(2),inScene:!!l.parent})),_style:()=>({my:myStyle,partner:pStyle,hpMax:P&&P.hpMax,dfl:P&&P.dfl,bk:P&&P.bk}),setStyle,_foes:()=>foes,_trick:()=>({ring:!!(blinkRing.m&&blinkRing.m.visible),rx:blinkRing.m?+blinkRing.m.position.x.toFixed(1):0,rz:blinkRing.m?+blinkRing.m.position.z.toFixed(1):0,traps:traps.map(t=>({id:t.id,x:+t.x.toFixed(1),z:+t.z.toFixed(1),age:+t.age.toFixed(1),armed:t.armed}))}),_rdecoy:()=>rdecoy?{t:rdecoy.t,hits:rdecoy.hits}:null,_netMsg:p=>netMsg(p),_decoy:()=>decoy?{t:+decoy.t.toFixed(1),hits:decoy.hits,vis:decoy.g.visible,par:!!decoy.g.parent,x:decoy.g.position.x,z:decoy.g.position.z,zf:C.F.Z?1:0,sc:decoy.g.scale.x,kids:decoy.g.children.length,meshes:(()=>{let n=0;decoy.g.traverse(o=>{if(o.isMesh)n++});return n})(),y:decoy.g.position.y}:null,_ult:()=>ult?{tk:C.tick-ult.T0,ph:ult.ph,t:+ult.t.toFixed(2),hits:ult.hits,dodged:ult.dodged,res:ult.res,tsc}:null,_t:()=>({DU,on,C,P,D,lock,sword,foes,site,AI:foes[0]&&foes[0].ai,state,cur,stW,down,pAnim,dAnim:foes[0]&&foes[0].anim,duel:foes[0]&&foes[0].body.g,dSword:foes[0]&&foes[0].body.sword,RT})})})();

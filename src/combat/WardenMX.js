@@ -219,8 +219,11 @@ const WardenMX=(()=>{
     twsev:{c:'t_stabL',t0:0,h:[[.13,.38]],e:.6},twsev2:{c:'t_stabR',t0:.1,h:[[.23,.45]],e:.7},twsevF:{c:'t_combo',t0:.2,h:[[.47,.8],[1.47,1.85]],e:2.2},
     twdance:{seq:[{c:'t_stabL',t0:0,h:[.13,.38],e:.45},{c:'t_stabL',t0:.4,h:[.48,.72],e:.8},{c:'t_dag',t0:.8,h:[.93,1.1],e:1.2},{c:'t_combo',t0:2.2,h:[2.43,2.7],e:2.9}]}})});
   // dodge clips (a window of each clip is scrubbed over the sim's dodge ticks): [clip, from, to] by direction relative to where you face. Missing clips fall back to the game's roll emote.
+  // DISARM (see Brawl.js): bare-handed player role (shares the player's clip set; the bw_* clips arrive through extra()) and the bare-handed Kage
+  const BWP={"bwjab":{"c":"bw_jab","t0":0.07,"h":[[0.25,0.37]],"e":0.7},"bwcross":{"c":"bw_cross","t0":0.02,"h":[[0.2,0.32]],"e":0.62},"bwhook":{"c":"bw_hook","t0":0.1,"h":[[0.3,0.42]],"e":0.78},"bwknee":{"c":"bw_knee","t0":0.12,"h":[[0.4,0.56]],"e":1.1},"bwroundk":{"c":"bw_round","t0":0.15,"h":[[0.45,0.59]],"e":1.1},"bwelbow":{"c":"bw_elbow","t0":0.15,"h":[[0.37,0.51]],"e":1.05},"bwupper":{"c":"bw_upper","t0":0.15,"h":[[0.4,0.53]],"e":1.05},"bwspin":{"c":"bw_spin","t0":0.25,"h":[[0.68,0.86]],"e":1.4},"bwsweep":{"c":"bw_sweep","t0":0.2,"h":[[0.58,0.74]],"e":1.3},"bwpower":{"c":"bw_power","t0":0.15,"h":[[0.45,0.6]],"e":1.2,"ch":[0.15,0.4]},"bwstep":{"c":"bw_step","t0":0.2,"h":[[0.4,0.56]],"e":1.0},"bwlunge":{"c":"bw_lunge","t0":0.2,"h":[[0.5,0.68]],"e":1.3},"bwslip":{"c":"bw_slip","t0":0.05,"h":[[0.2,0.36]],"e":0.8},"bwpush":{"c":"bw_push","t0":0.15,"h":[[0.35,0.53]],"e":0.95},"bwdrop":{"c":"bw_drop","t0":0.15,"h":[[0.33,0.5]],"e":1.1},"bwwrench":{"c":"bw_wrench","t0":0.1,"h":[[1.0,1.35]],"e":2.1}};
+  ROLES.player_bw=Object.assign({},ROLES.player,{alias:'player',guard:'bw_guard',bare:'bw_idle',parry:[{c:'bw_blk1',a:.18,b:.75},{c:'bw_blk2',a:.18,b:.7}],loco:Object.assign({},ROLES.player.loco,{idle:'bw_idle'}),moves:Object.assign({},ROLES.player.moves,BWP)});
   const DG={roll:['d_roll',0,.75],back:['d_back',0,.62],fwd:['d_fwd',0,.55],l:['d_l',0,.6],r:['d_r',0,.6]};
-  ROLES.player.dg=DG;ROLES.player_gs.dg=DG;ROLES.player_axe.dg=DG;ROLES.player_twin.dg=Object.assign({},DG,{back:['d_flip',0,1.0]});
+  ROLES.player.dg=DG;ROLES.player_gs.dg=DG;ROLES.player_axe.dg=DG;ROLES.player_twin.dg=Object.assign({},DG,{back:['d_flip',0,1.0]});ROLES.player_bw.dg=DG;
   // The Unbroken Oath (Three Oaths stage 4): the Penitent's body and clips with Gwyn's waves + the Saint's blades + the Dancer's chain
   ROLES.oath4=Object.assign({},ROLES.penitent,{px:'assets/warden_px_penitent.json',moves:Object.assign({},ROLES.gwyn.moves,{bladestorm:{c:'power',t0:.3,e:2.0},swordring:{c:'power',t0:.3,e:2.0},
     hundred:{seq:[{c:'slash3',t0:.2,h:[.55,.85],e:1.0},{c:'slash5',t0:.1,h:[.5,.82],e:.95},{c:'slash3',t0:.2,h:[.55,.85],e:1.0},{c:'slash4',t0:.4,h:[.9,1.4],e:1.6}]}})});
@@ -232,6 +235,7 @@ const WardenMX=(()=>{
   Object.assign(ROLES.penitent.moves,GS);Object.assign(ROLES.dknight.moves,GS);
   for(const r of['dknight','penitent','gwyn','capra','samurai','vampire','saint','veil','oath4','paladin','arissa','archer','ganfaul','gdn'])if(ROLES[r])ROLES[r].hr=true;for(const q of['gwyn','samurai','saint'])if(ROLES[q])ROLES[q].kn=true;
   for(const r of['dknight','penitent','gwyn','capra','samurai','vampire','saint','veil','oath4']){const R=ROLES[r];if(!R)continue;R.pack=true;R.g=r==='dknight'||r==='penitent'||r==='gwyn'||r==='capra'||r==='oath4'}
+  if(ROLES.samurai){ROLES.samurai.moves=Object.assign({},ROLES.samurai.moves,{"bwfjab":{"c":"bwf_jab","t0":0.1,"h":[[0.22,0.35],[0.55,0.7]],"e":1.1},"bwfkick":{"c":"bwf_kick","t0":0.15,"h":[[0.39,0.57]],"e":1.05},"bwfspin":{"c":"bwf_spin","t0":0.2,"h":[[0.59,0.77]],"e":1.4},"bwfdash":{"c":"bwf_dash","t0":0.2,"h":[[0.52,0.7]],"e":1.3},"bwfpunt":{"c":"bwf_punt","t0":0.15,"h":[[0.45,0.7]],"e":1.15}});ROLES.samurai.bare='bwf_idle'}
   const BUILD='mx3';const SH={};      // role -> {st,clips,p}
   // a dropped request is retried (3 times, growing gaps) before the role is declared failed: a role that failed once never recovers within a session
   const tryFetch=(u,n)=>fetch(u,n<6?{cache:'reload'}:undefined).then(r=>{if(!r.ok)throw new Error('http '+r.status);return r}).catch(e=>n>0?new Promise(r=>setTimeout(r,1500*(7-n))).then(()=>tryFetch(u,n-1)):Promise.reject(e));
@@ -239,6 +243,10 @@ const WardenMX=(()=>{
   function fetchRole(role,av){role=ROLES[role]&&ROLES[role].alias||role;const key=av?role+'@'+av:role,s=SH[key]||(SH[key]={st:'none',clips:null,meta:null,p:null}),file=av&&typeof AvatarKit!=='undefined'&&AvatarKit.CAT[av]&&!ROLES[role].native?AURL+AvatarKit.CAT[av].dir+ROLES[role].file.replace(/^.*\//,'')+AvatarKit.ASSET_V:ROLES[role].file,tag=(av?av+'/':'')+role;
     if(!s.p)s.p=Promise.all([tryFetch(file,6).then(r=>r.json()),ROLES[role].px&&(!av||ROLES[role].pxAv)?tryFetch(av?AURL+AvatarKit.CAT[av].dir+'warden_px_player.json'+AvatarKit.ASSET_V:ROLES[role].px,6).then(r=>r.json()).catch(()=>[]):[],ROLES[role].kk&&av?tryFetch(AURL+AvatarKit.CAT[av].dir+'dojo_kk.json'+AvatarKit.ASSET_V,6).then(r=>r.json()).catch(()=>[]):[],ROLES[role].kk&&av?tryFetch(AURL+AvatarKit.CAT[av].dir+'dojo_fx.json'+AvatarKit.ASSET_V,6).then(r=>r.json()).catch(()=>[]):[],ROLES[role].kk&&av?tryFetch(AURL+AvatarKit.CAT[av].dir+'dojo_fx2.json'+AvatarKit.ASSET_V,6).then(r=>r.json()).catch(()=>[]):[]]).then(([a,x,k,f,f2])=>a.concat(x,k,f,f2)).then(j=>{s.clips={};s.meta={};for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=tag+':'+c.name;ac.uuid=tag+':'+c.name;s.clips[c.name]=ac;   // unique uuid per role: three.js caches actions by clip uuid, and the game's own clips are also called idle/walk/jump (sharing one action stole the game's base layer -> T-pose on hit)
       s.meta[c.name]={dur:c.duration,v:(av&&AvatarKit.set(av)?AvatarKit.set(av).mxK||1:1)*Math.hypot(c.trav?c.trav[0]:0,c.trav?c.trav[1]:0)/Math.max(.1,c.duration)}}s.st='ready';return s}).catch(e=>{s.st='failed';s.err=String(e&&e.message||e);s.p=null;throw e});return s.p}
+  // DISARM clips are loaded lazily, the first time a fight can disarm (they add ~0.5 MB per avatar): merged into the already-loaded set of a role so every instance of it can start using them after .refresh()
+  function extra(role,av,file){role=ROLES[role]&&ROLES[role].alias||role;const key=av?role+'@'+av:role,s=SH[key];if(!s||s.st!=='ready')return Promise.reject(new Error('role not ready'));
+    s.xp=s.xp||{};const url=av&&typeof AvatarKit!=='undefined'&&AvatarKit.CAT[av]?AURL+AvatarKit.CAT[av].dir+file.replace(/^.*\//,'')+AvatarKit.ASSET_V:file,tag=(av?av+'/':'')+role;
+    return s.xp[file]||(s.xp[file]=tryFetch(url,6).then(r=>r.json()).then(j=>{for(const c of j){const ac=THREE.AnimationClip.parse(c);ac.name=tag+':'+c.name;ac.uuid=tag+':'+c.name;s.clips[c.name]=ac;s.meta[c.name]={dur:c.duration,v:0}}return s}).catch(e=>{s.xp[file]=null;throw e}))}
   // a signature variant (Moves[id].as) animates with the first base move this role has
   function specOf(R,id,vi,have){let s=R.moves[id];if(s&&s.v&&vi!==undefined){const L=have?s.v.filter(x=>have[x.c]):s.v;if(L.length)s=L[vi%L.length]}if(s)return s;const as=(typeof Moves!=='undefined'&&Moves[id]&&Moves[id].as)||[];for(const b of as)if(R.moves[b])return R.moves[b];return R.pack?auto(R,id):null}
   // ---- NIGHTMARE PACK: library clips (sword-and-shield, axe, club, magic, great sword) baked on every humanoid boss rig (tools/mixamo/pack.json, tools/clip_windows.mjs). A move with no hand-made spec gets a real clip chosen by what it IS (kick / spin / overhead / cast / N-hit chain), with windows taken from the clip's hand-speed peaks - so no boss move is ever left without an animation. ----
@@ -270,13 +278,14 @@ const WardenMX=(()=>{
     let names=[];
     const init=s=>{if(R.emo&&typeof EMO!=='undefined'){const T=(q.av&&typeof AvatarKit!=='undefined'&&AvatarKit.emoTable&&AvatarKit.emoTable(q))||EMO.clips;for(const n of R.emo){const c=T[n]||EMO.clips[n];if(c&&!s.clips['e_'+n]){const ac=c.clone();ac.name=(q.av?q.av+'/':'')+role+':e_'+n;ac.uuid=ac.name;s.clips['e_'+n]=ac;s.meta['e_'+n]={dur:c.duration,v:0}}}}   // the emote library's clips join this role's set (e_jab, e_cross ...)
       if(R.fxMoves&&s.clips.fx_jab){if(!R.moves0)R.moves0=R.moves;R.moves=Object.assign({},R.moves0,R.fxMoves);R.loco={...R.loco,idle:'fx_idle'};R.guard='fx_guard';if(s.clips.fx2_idle)R.loco={...R.loco,idle:'fx2_idle',walk:'fx2_fwd',run:'fx2_fwd',back:'fx2_bwd',sl:'fx2_stepl',sr:'fx2_stepr'}}   // boxing-stance bounce and steps for idle / walk / back / strafe
-      const used=new Set(Object.values(R.loco));if(R.dg)used.add('nj_run');if(R.guard)used.add(R.guard);if(R.parry)for(const q of R.parry)used.add(q.c);if(R.dorm)used.add(R.dorm);if(R.wake)used.add(R.wake.c);if(R.death)used.add(R.death);if(R.hit)used.add(R.hit);if(R.dg)for(const k in R.dg)used.add(R.dg[k][0]);if(R.px)for(const n of PXN)used.add(n);
+      const used=new Set(Object.values(R.loco));if(R.dg)used.add('nj_run');if(R.guard)used.add(R.guard);if(R.bare)used.add(R.bare);if(R.parry)for(const q of R.parry)used.add(q.c);if(R.dorm)used.add(R.dorm);if(R.wake)used.add(R.wake.c);if(R.death)used.add(R.death);if(R.hit)used.add(R.hit);if(R.dg)for(const k in R.dg)used.add(R.dg[k][0]);if(R.px)for(const n of PXN)used.add(n);
       for(const m of Object.values(R.moves)){for(const g of norm(m))used.add(g.c);if(m.v)for(const x of m.v)used.add(x.c)}
       if(R.hr)for(const n of HR)used.add(n);if(R.kn)for(const n of['gw_kneel','gw_pray','power'])used.add(n);if(R.dsv)for(const n of['ds_victim','ds_side','ds_up'])used.add(n);
       if(R.pack){for(const n in PK)used.add(n);for(const c of CASTS)used.add(c[0])}   // the auto-assigned clips (nightmare pack) are not in R.moves, but they need mixer actions too
       if(R.dojo)for(const n of ['fx_hit_hl','fx_hit_hr','fx_hit_hs','fx_hit_b','fx_hit_st','fx_hit_big','fx_ko','fx_blockreact','kk_blockhit','kk_dodge_b','kk_dodge_f','kk_dodge_l','kk_dodge_r','e_roll','fx2_dodge_f','fx2_dodge_b','fx2_hit_f','fx2_hit_bk','fx2_hit_l','fx2_hit_r','fx2_rocked','fx2_flip','fx2_thrown','fx2_down','fx2_getup','fx2_block_l','fx2_block_r','fx2_block_in'])used.add(n);
       names=[...used].filter(n=>s.clips[n]);I.names=names;I.S=s;
-      for(const n of names){const a=q.mixer.clipAction(s.clips[n]);a.enabled=false;a.setEffectiveWeight(.0001);I.A[n]=a;I.ws[n]=0}I.st='ready'};
+      for(const n of names){if(I.A[n])continue;const a=q.mixer.clipAction(s.clips[n]);a.enabled=false;a.setEffectiveWeight(.0001);I.A[n]=a;I.ws[n]=0}I.st='ready'};
+    I.refresh=()=>{if(I.S)init(I.S)};   // more clips were merged into this role's set (DISARM set, see extra()): give the new ones mixer actions
     const load=()=>fetchRole(role,q.av).then(s=>R.emo&&typeof loadEmotes==='function'?loadEmotes().catch(()=>0).then(()=>s):s).then(init).catch(e=>{I.st='failed';I.err=String(e&&e.message||e);setTimeout(()=>{if(I.st!=='ready')load()},6000)});load();
     const planOf=mv=>{const k=mv.id+'#'+(I.vn||0)%12,sp=specOf(R,mv.id,I.vn||0,I.S.clips);return I.plans[k]||(I.plans[k]=sp?plan(mv.phases,sp,c=>I.S.clips[c]?I.S.clips[c].duration:9):null)};
     I.update=(f,fr,loco,dt,on)=>{
@@ -339,7 +348,7 @@ const WardenMX=(()=>{
             for(const [c,s] of shares){if(!A[c]||s<=0)continue;tgt[c]=Math.min(1,(tgt[c]||0)+s);const ref=I.S.meta[c].v||1.4;tsc[c]=Math.max(.55,Math.min(1.6,sp/(ref*(c===L.run?1:1.15))))*(R.rev&&R.rev.back&&c===L.back&&bk>.5?-1:1)}
             // never stand still while the share bookkeeping rounds to < 1: top up with the closest gait
             let t=0;for(const c in tgt)t+=tgt[c];if(t<.05)tgt[L.walk]=1}
-          else if(A[L.idle])tgt[L.idle]=1}}
+          else{const id=f.arm===0&&R.bare&&A[R.bare]?R.bare:L.idle;if(A[id])tgt[id]=1}}}
       if(R.native&&!names.some(n=>tgt[n]>0)&&A[R.loco.idle])tgt[R.loco.idle]=1;   // stunned / dodging / no clip for this state: never fall back to the bind (T) pose
       // smooth the shares, then convert to three.js weights relative to the game's own base layer (see Blend.js); loops free-run, attacks are scrubbed
       const k=1-Math.exp(-dt*(f.act==='attack'?(R.dojo?24:30):(R.dojo?20:16)));let sum=0;
@@ -354,5 +363,5 @@ const WardenMX=(()=>{
       return any};
     I.off=()=>{for(const n of names){const a=I.A[n];if(a&&a.enabled){a.enabled=false;a.setEffectiveWeight(.0001)}I.ws[n]=0}I.gT=0};
     return I}
-  return{BUILD,ROLES,plan,norm,specOf,make,fetch:fetchRole,shared:SH}})();
+  return{extra,BUILD,ROLES,plan,norm,specOf,make,fetch:fetchRole,shared:SH}})();
 if(typeof module!=='undefined')module.exports=WardenMX;
