@@ -158,6 +158,7 @@ const Env=(()=>{
     sun.intensity*=1-.5*un;hemi.intensity*=1-.25*un;                                                    // less light under the surface
     sky.visible=un<.5;                                                                                   // the sky is not visible from under the sea
     seaMesh.material.emissive.set('#2aa3b4').multiplyScalar(un*(.12+.5*dayF));                           // sea surface seen from below glows (it is lit by the sun above)
+    {const dp=typeof Deep!=='undefined'&&Deep.fog?Deep.fog():null;if(dp){fogC.setRGB(dp.r,dp.g,dp.b);near=dp.near;far=dp.far;sun.intensity*=dp.sun;hemi.intensity=dp.hemi;amb.intensity=dp.amb}}   // The Deep: the trench's own water, darker with depth
     scene.fog.color.copy(fogC);scene.fog.near=near;scene.fog.far=far;scene.background.copy(fogC);
     seaMesh.material.color.copy(P.seaNight).lerp(P.seaDay,dayF);
     // rain
