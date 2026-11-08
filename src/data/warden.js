@@ -44,6 +44,7 @@ function WardenKind(s){
   if(s.duel)return{icon:'⚔️',tag:'PvP duel arena'};
   if(s.dg)return{icon:'💀',tag:'Catacomb room'};
   if(s.wall)return{icon:'🏛️',tag:'Training court'};
+  if(s.id==='tidal')return{icon:'🔱',tag:'Boss fight · tide-bound'};
   if(s.fog)return{icon:'👑',tag:'Boss fight'};
   return{icon:'⛺',tag:'Camp ('+s.foes.length+' soldiers)'}}
 // terrain height of the isle (blended into H() by the WARDEN block in index.html)
