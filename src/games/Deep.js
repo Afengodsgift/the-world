@@ -102,7 +102,7 @@ body.deepdive .dp-fab{display:none!important}
     const seed=todaySeed(),lay=C.layout(seed);
     sheet.innerHTML=`<h2>🤿 The Deep</h2>
       <p class="rl-sub">Take the sub down into today's trench. Loot the wrecks and the sunken temple, watch your air, and if you dare, kill the Kraken for the Abyssal Pearl. Surface alive and you keep it all; black out and you keep 40%.</p>
-      <div class="rl-row"><b>${coinsNow()} 🪙</b><span class="rl-help" style="margin:0 8px">Trench #${seed} · crush depth ${300-50+UP.rating*42} m</span></div>
+      <div class="rl-row"><b>${coinsNow()} 🪙</b><span class="rl-help" style="margin:0 8px">Trench #${seed} · crush depth ${Math.round(C.depthOf(-(C.SUB.rating+UP.rating*C.SUB.ratingStep)))} m</span></div>
       <p class="rl-help">Best: ${BEST.coins} 🪙 · ${Math.round(BEST.depth)} m deep · ${BEST.dives} dives · ${BEST.krakens} Krakens${partnerDiving()?' · <b>your friend is already down there</b>':' · A friend who dives today sees the same trench.'}</p>
       <div class="rl-row"><button class="btn rl-go">DIVE</button><button class="btn rl-hg">🔧 Sub shop</button><button class="btn rl-x">Close</button></div>
       <p class="rl-help">${touch?'Stick: steer and thrust. ▲▼ rise and sink, 🔱 harpoon, ⚡ boost, 📡 sonar finds loot, 💡 lamp (anglerfish see it).':'WASD steer · Space up · C down · F harpoon · Shift boost · G sonar · L lamp.'} Anglerfish below 110 m, jellyfish sting and stun, vents burn, and the Kraken hunts you in the pit.</p>`;

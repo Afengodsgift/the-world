@@ -14,6 +14,7 @@ const DeepWorld=(()=>{
     return{r:rg(A[0],B[0],k),g:rg(A[1],B[1],k),b:rg(A[2],B[2],k),near:1,far:rg(120,52,Math.min(1,d*1.4))+(lamp?10:0)}}
   function build(scene){
     const root=new THREE.Group();root.visible=false;scene.add(root);
+    const dot=(()=>{const c=document.createElement('canvas');c.width=c.height=32;const x=c.getContext('2d'),g=x.createRadialGradient(16,16,0,16,16,16);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(.5,'rgba(255,255,255,.55)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,32,32);return new THREE.CanvasTexture(c)})();
     const M={
       wood:new THREE.MeshLambertMaterial({color:'#4b3a2a'}),rope:new THREE.MeshLambertMaterial({color:'#6a5a44'}),stone:new THREE.MeshLambertMaterial({color:'#6d7a78'}),
       iron:new THREE.MeshLambertMaterial({color:'#3a4448'}),rock:new THREE.MeshLambertMaterial({color:'#2d3438'}),
@@ -25,8 +26,8 @@ const DeepWorld=(()=>{
       kr:new THREE.MeshLambertMaterial({color:'#5b1f3a'}),krEye:new THREE.MeshBasicMaterial({color:'#ffd24a'}),
       sub:new THREE.MeshLambertMaterial({color:'#f2c230'}),subD:new THREE.MeshLambertMaterial({color:'#37424a'}),glass:new THREE.MeshPhongMaterial({color:'#9fdcff',transparent:true,opacity:.34,shininess:80}),
       lens:new THREE.MeshBasicMaterial({color:'#fff6b0'}),harp:new THREE.MeshBasicMaterial({color:'#ffe9a0'}),ring:new THREE.MeshBasicMaterial({color:'#aef3ff',transparent:true,opacity:.7,depthWrite:false,side:THREE.DoubleSide}),
-      ink:new THREE.PointsMaterial({color:'#080810',size:7,transparent:true,opacity:.8,depthWrite:false}),snow:new THREE.PointsMaterial({color:'#bfeaf0',size:.22,transparent:true,opacity:.7,depthWrite:false}),
-      plume:new THREE.PointsMaterial({color:'#ffb27a',size:.9,transparent:true,opacity:.55,depthWrite:false})
+      ink:new THREE.PointsMaterial({color:'#080810',map:dot,alphaTest:.02,size:7,transparent:true,opacity:.8,depthWrite:false}),snow:new THREE.PointsMaterial({color:'#bfeaf0',map:dot,size:.3,transparent:true,opacity:.7,depthWrite:false}),
+      plume:new THREE.PointsMaterial({color:'#ffb27a',map:dot,size:1.6,transparent:true,opacity:.5,depthWrite:false})
     };
     const add=(p,g,m,x,y,z)=>{const o=new THREE.Mesh(g,m);o.position.set(x||0,y||0,z||0);p.add(o);return o};
     // ---- seabed
@@ -46,7 +47,7 @@ const DeepWorld=(()=>{
     {const q=D.rng(777),m=new THREE.Matrix4(),qq=new THREE.Quaternion(),sc=new THREE.Vector3(),ps=new THREE.Vector3();let a=0,b=0;
       for(let i=0;i<900&&(a<160||b<150);i++){const ang=q()*6.28,r=6+q()*(D.R-6),x=Math.cos(ang)*r,z=Math.sin(ang)*r,y=D.floorY(x,z);
         if(y>-190&&a<160){const h=5+q()*9;sc.set(1+q(),h,1+q());ps.set(x,y-.4,z);qq.setFromAxisAngle(new THREE.Vector3(1,0,0),(q()-.5)*.3);m.compose(ps,qq,sc);kelp.setMatrixAt(a++,m)}
-        else if(y<=-190&&b<150){const h=1.2+q()*2.6;sc.set(1,h,1);ps.set(x,y-.2,z);qq.identity();m.compose(ps,qq,sc);worms.setMatrixAt(b++,m)}}
+        else if(y<=-190&&b<150){const h=.6+q()*1.4;sc.set(.7,h,.7);ps.set(x,y-.2,z);qq.identity();m.compose(ps,qq,sc);worms.setMatrixAt(b++,m)}}
       kelp.count=a;worms.count=b;kelp.instanceMatrix.needsUpdate=worms.instanceMatrix.needsUpdate=true}
     root.add(kelp,worms);
     // ---- seed-specific parts (wrecks, temple, vents, bones, loot beacons): rebuilt when the seed changes
