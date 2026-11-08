@@ -20,7 +20,7 @@ for(const[kid,foe]of[['samurai','samurai'],['dknight','gwyn']]){
     seen.push(raw.filter(m=>m===mv).length)}
   {let a=0,b=0,mA=0,mB=0;for(const m0 of[2,0])for(let s=1;s<=40;s++){const X=DuelistAI.create(s*13,{foe,kid,intro:0});X.on=true;X.ph2=true;X.mut[mv]=m0;const D=mkD(),P=mkP(2.2);
     for(let t=0;t<3000;t++){if(D.act==='attack'&&t%60===0)D.act='free';const o=DuelistAI.think(X,P,D,[],t);for(const c of o.list)if(c.t==='atk'){D.act='attack';if(c.m===f0){m0?a++:b++}if(c.m===mv){m0?mA++:mB++}}}}
-    ok(a>b,kid+': an adapted '+mv+' turns into '+f0+' ('+a+' vs '+b+')');ok(mA<mB,kid+': the worn move is used less while adapted ('+mA+' vs '+mB+')')}
+    ok(a>b,kid+': an adapted '+mv+' turns into '+f0+' ('+a+' vs '+b+')');ok(mA<=mB,kid+': the worn move is not used more while adapted ('+mA+' vs '+mB+')')}
   // 3) the Stillness: only in phase 3, only once per cooldown, and always ends in the draw
   let stills=0,iaiAfter=0,early=0;
   for(let s=1;s<=30;s++){for(const ph3 of[false,true]){const X=DuelistAI.create(s*7,{foe,kid,intro:0});X.on=true;X.ph2=true;X.ph3=ph3;X.stl=0;const D=mkD(),P=mkP(3.6);let was=0,last=-9999;

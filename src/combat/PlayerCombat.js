@@ -881,6 +881,21 @@ for(const p of dpil){if(!p.fall)continue;p.fall+=dt;const u=Math.min(1,p.fall/.7
   function saintFx(A,id){if(A.ai.cn){const n=SAINTCH[A.ai.cn];A.ai.cn=null;if(n){try{msg(n,1.1);sfx('heavy',.5,1.4,()=>tone(900,300,.25,'triangle',.1))}catch(e){}}}
     if(SAINTM.indexOf(id)<0)return;const f=A.f;WardenVfx.burst(f.x,H(f.x,f.z)+1.2,f.z,2);for(let i=0;i<5;i++)WardenVfx.spawn(f.x,H(f.x,f.z)+.4+i*.5,f.z,2,3,2.4,Math.random()*6.28,24);
     kageFx(A,id,2)}
+
+  // ---- KAGE PEAK presentation: every chain is named on screen, his big strikes punch the camera in (never a cutscene: the controls stay yours), and a demon aura grows with his phase ----
+  const KAGECH={shadowrush:'SHADOW RUSH',crowsong:'CROW SONG',tenguwheel:'TENGU WHEEL',nightfall:'NIGHTFALL',demonkicks:'DEMON KICKS',demonrush:'DEMON RUSH',sweepbreak:'SWEEP BREAK',abyssdemon:'ABYSS DEMON',kagefury:'KAGE FURY',demonwheel:'DEMON WHEEL'};
+  let kauras={};
+  function kageCall(A,mv){const cn=A.ai.cn;if(cn){A.ai.cn=null;const n=KAGECH[cn];if(n){msg(n,1.2);CameraRig.pulse(-3);sfx('heavy',.5,1.5,()=>tone(700,220,.3,'triangle',.1))}}
+    if(Moves.PERILOUS&&Moves.PERILOUS.indexOf(mv)>=0)CameraRig.pulse(-3.5)}
+  function kageAura(dt){
+    if(!dt||!on||state!=='fight'){for(const id of Object.keys(kauras)){scene.remove(kauras[id].g);kauras[id].g.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose()});delete kauras[id]}return}
+    for(const F of foes){if(F.T.id!=='samurai')continue;const f=F.f,ph=F.ph3?3:F.ph2?2:F.ai.ph1?1:0;let a=kauras[F.id];
+      if(f.act==='dead'||!F.awake){if(a)a.g.visible=false;continue}
+      if(!a){const g=new THREE.Group();const m=(c,r0,r1)=>{const x=new THREE.Mesh(new THREE.RingGeometry(r0,r1,32),new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:.5,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));x.rotation.x=-Math.PI/2;return x};const r1=m(0xff7a28,1.0,1.18),r2=m(0xff2a2a,1.5,1.62);g.add(r1,r2);scene.add(g);a=kauras[F.id]={g,r1,r2,t:0,sp:0}}
+      a.g.visible=true;a.t+=dt;a.sp-=dt;const k=.5+.5*Math.sin(a.t*(2.5+ph*1.6));
+      a.g.position.set(f.x,H(f.x,f.z)+.06,f.z);a.r1.scale.setScalar(.95+k*.14*(1+ph*.3));a.r2.scale.setScalar(1+(1-k)*.18*(1+ph*.3));
+      a.r1.material.opacity=ph?.25+.15*ph*k:.12;a.r2.material.opacity=ph>=2?.18+.1*ph*(1-k):0;a.r2.visible=ph>=2;
+      if(ph>=2&&a.sp<=0){a.sp=ph===3?.11:.2;try{WardenVfx.spawn(f.x+(Math.random()-.5)*1.2,H(f.x,f.z)+.2,f.z+(Math.random()-.5)*1.2,3,3,1.8,Math.random()*6.28,22)}catch(e){}}}}
   function kageFx(A,id,sty){sty=sty===undefined?3:sty;const M=Moves[id];if(!M||!M.phases)return;let t=0,k=0;
     for(const p of M.phases){const n=p.n||0,ms=t*1000/60;
       if(p.k==='lunge'||p.k==='raise')setTimeout(()=>{if(on&&A.f.act!=='dead'){const x=A.f.x,z=A.f.z;WardenVfx.burst(x,H(x,z)+.9,z,1);WardenVfx.spawn(x,H(x,z)+.5,z,3,3,3,Math.random()*6.28,26)}},ms);
@@ -890,7 +905,7 @@ for(const p of dpil){if(!p.fall)continue;p.fall+=dt;const u=Math.min(1,p.fall/.7
   function spEv(e,A){
     if(e.t==='posturebreak'&&e.d==='P'&&!ult&&!sv&&state==='fight'){let b=null,bd=4.6;for(const F of foes)if(F.T.id==='dknight'&&F.awake&&F.f.act!=='dead'){const d=Math.hypot(F.f.x-S.x,F.f.z-S.z);if(d<bd){bd=d;b=F}}if(b)deathSentence(b);return}
     if(!A||!A.ai||ult||sv||state!=='fight')return;
-    if(e.t==='start'&&e.a!==undefined&&e.a!=='P'){A.lm=e.move;try{pillarSmash(A,e.move)}catch(x){}try{if(A.T.id==='samurai'&&/^kz/.test(e.move))kageFx(A,e.move)}catch(x){}try{if(A.T.ai==='saint')saintFx(A,e.move)}catch(x){}}
+    if(e.t==='start'&&e.a!==undefined&&e.a!=='P'){A.lm=e.move;try{pillarSmash(A,e.move)}catch(x){}try{if(A.T.id==='samurai'){kageCall(A,e.move);if(/^kz/.test(e.move))kageFx(A,e.move)}}catch(x){}try{if(A.T.ai==='saint')saintFx(A,e.move)}catch(x){}}
     else if(e.t==='deflect'&&e.d==='P'){DuelistAI.onParry(A.ai,A.lm,e.pf);
       if(e.pf&&A.T.boss){const n=performance.now();if(pcs.id===A.id&&n-pcs.t<7000)pcs.n++;else pcs.n=1;pcs.id=A.id;pcs.t=n;if(pcs.n>=3){pcs.n=0;deathblow(A)}}else if(!e.pf)pcs.n=Math.max(0,pcs.n-1)}
     else if(e.t==='hit'&&e.d==='P'&&!e.fx){pcs.n=0;if(A.T.id==='gwyn'&&A.f.mv&&HEAVYW.indexOf(A.f.mv.id)>=0)zoneChain(true);if(A.T.id==='darkknight'&&A.f.mv&&A.f.mv.id==='impaler')pinStart(A)}}
@@ -1237,7 +1252,7 @@ for(const p of dpil){if(!p.fall)continue;p.fall+=dt;const u=Math.min(1,p.fall/.7
     const b=el&&el.querySelector('#wShadow');if(b){const t=shCd>0?Math.ceil(shCd):0;if(b._c!==t){b._c=t;b.textContent=t?'Shadow '+t:'Shadow';b.classList.toggle('cd',t>0)}}}
   function leave(hold){wetT=0;try{pillarsClear()}catch(e){}try{houndsClear()}catch(e){}pun=null;pcs.n=0;ls=null;ds=null;pin=null;try{mirrorsClear()}catch(e){}try{zonesClear()}catch(e){}try{if(moodEl)moodEl.style.opacity='0'}catch(e){}svEnd();try{WardenFx.clear()}catch(e){}   // hold: keep the corpses of a cleared site in the world
     if(!on)return;endSet();trapsClear();try{blinkRing(0,0,false)}catch(e){}killDecoy(true);netLeave();if(site&&site.duel)duelLeave();releaseAll();on=false;lock=false;document.body.classList.remove('warden-fight');document.body.classList.remove('warden-duel');if(sword&&sword.grip)sword.grip.visible=false;if(sword2&&sword2.grip)sword2.grip.visible=false;pendFace=null;for(const w of [twinR,twinL])if(w&&w.grip)w.grip.visible=false;if(stance==='twin'){stance='main';if(pAnim){try{pAnim.off()}catch(e){}pAnim=null}try{const b=el&&el.querySelector('#wSwap');if(b){b.classList.remove('on');b.textContent='Twin'}}catch(e){}}
-    wpClear();if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.combat(0,0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
+    wpClear();try{kageAura(0)}catch(x){}if(pAnim)pAnim.off();for(const F of foes)if(F.anim)F.anim.off();arenaRes(false);try{CameraRig.setBias(0);CameraRig.combat(0,0);CameraRig.setArena(null);CameraRig.setFocus(null)}catch(e){}if(tmk)tmk.visible=false;for(const g of thr)g.visible=false;for(const a of thA)a.style.display='none';WardenFx.clear();WardenVfx.clear();
     if(!hold){for(const F of foes)freeBody(F.body);foes=[];if(site)rt(site).foes=[]}
     try{if(site&&site.fog)WardenIsles.fog(site.id,rt(site).cleared?'gone':'idle')}catch(e){}}
   // ---------- per frame ----------
@@ -1311,7 +1326,7 @@ for(const p of dpil){if(!p.fall)continue;p.fall+=dt;const u=Math.min(1,p.fall/.7
   function rearm(wx,wz){for(const s of SITES()){const r=RT[s.id];if(!r||!r.cleared)continue;if(s.dg&&WardenDungeon.isCleared(s.id))continue;if(Math.hypot(wx-s.x,wz-s.z)>s.R+45){r.cleared=false;for(const F of r.foes)freeBody(F.body);r.foes=[];try{if(s.fog)WardenIsles.fog(s.id,'idle')}catch(e){}}}}
   function tick(dt,t){
     if(cT>0){cT-=dt;if(cT<=0){cN=0;cLast='';comboShow()}}if(msgT>0&&el){msgT-=dt;if(msgT<=0)el.querySelector('#wmsg').classList.remove('on')}   // the banner times out even after the fight is over (it used to stay up until you left the isle)
-    try{wpSync(dt)}catch(x){}
+    try{wpSync(dt)}catch(x){}try{kageAura(dt)}catch(x){}
     const wx=S.x-WRD.x,wz=S.z-WRD.z;chipTick(wx,wz);lostMark(t,dt);if(toastT>0){toastT-=dt;if(toastT<=0&&toastEl)toastEl.classList.remove('on')}
     if(!on){rearm(wx,wz);
       for(const k in RT)for(const F of RT[k].foes||[])if(F.f.act==='dead'&&Math.hypot(F.f.x-S.x,F.f.z-S.z)<70)foeTick(F,dt,0);   // corpses of cleared sites keep animating until they have finished falling
