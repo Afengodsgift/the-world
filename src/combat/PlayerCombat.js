@@ -722,6 +722,7 @@ const PlayerCombat=(()=>{
   function deathSentence(F){
     if(ds||dsCd>0||ult||sv||!P||P.act==='dead')return;ds={t:0,F,phase:0,x0:S.x,z0:S.z};dsCd=20;if(NET.mode!=='guest'&&F.ai){F.ai.follow='dsgrab';F.ai.cool=0}   // his body does the choke-lift clip while the game drags / lifts / slams you
     
+    try{if(!ult&&!sv)CineCam.play('grab',{x:()=>F.f.x,z:()=>F.f.z,h:1.6*F.T.scale,sc:Math.max(1,F.T.scale*.9)},{})}catch(e){}
     try{msg('DEATH\u2019S SENTENCE',1.8);CameraRig.pulse(-6);flash(.5,'rgba(255,40,40,.6)');hsT=Math.max(hsT,.5);tone(90,40,.7,'sawtooth',.16)}catch(e){}}
   let dsAfter=0;
   function dsTick(dt){
@@ -1339,7 +1340,7 @@ for(const p of dpil){if(!p.fall)continue;p.fall+=dt;const u=Math.min(1,p.fall/.7
     try{let sc=1;for(const F of foes)if(F.f.act!=='dead'&&F.awake)sc=Math.max(sc,F.T.scale);const fd=Math.hypot(S.x-D.x,S.z-D.z);CameraRig.setBias(-2.8+(sc-1)*3.4+Math.min(3.5,Math.max(0,fd-5))*.45+Math.min(2.4,(alive().filter(F=>F.awake&&F.f.act!=='dead'&&!F.ghost).length-1)*.9)+(CAMS.dist-1)*5)}catch(e){}
     for(const F of foes)if(F.f.kn>0)F.f.kn=Math.max(0,F.f.kn-dt);
     for(const F of foes)if(F.ai.ph2&&!F.ph2&&state==='fight'){F.ph2=true;try{phaseBeat(F,2)}catch(x){}if(F.T.id==='gwyn')kneelCine(F);if(F.T.boss){msg(F.T.ph2,2);sfx('heavy',.7,.6,()=>tone(120,60,.4,'sawtooth',.12));WardenSfx.play('vo_sudden_death',.8,1,{nojit:1})}if(F.body.shield)F.body.shield.visible=false}
-    for(const F of foes)if(F.ai.ph3&&!F.ph3&&state==='fight'){F.ph3=true;try{phaseBeat(F,3)}catch(x){}if(F.T.id==='samurai'||F.T.id==='saint')kneelCine(F);if(F.T.ph3){msg(F.T.ph3,2.4);sfx('heavy',.8,.5,()=>tone(90,45,.5,'sawtooth',.14))}}
+    for(const F of foes)if(F.ai.ph3&&!F.ph3&&state==='fight'){F.ph3=true;try{phaseBeat(F,3)}catch(x){}if(F.T.id==='samurai'||F.T.id==='saint'||F.T.id==='dknight')kneelCine(F);if(F.T.ph3){msg(F.T.ph3,2.4);sfx('heavy',.8,.5,()=>tone(90,45,.5,'sawtooth',.14))}}
     // 1) hand the sim the player's current position, run the due ticks, apply the forced motion back to S
     P.x=S.x;P.z=S.z;
     // bodies are solid: free walking used to pass through foes (only sim-driven moves collided). A foe that is attacking / stunned / asleep holds its ground, otherwise you share the push.
