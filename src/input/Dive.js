@@ -8,6 +8,7 @@ const Dive=(()=>{
   // o: {wat: over sea, seabed: terrain height under the player (negative = underwater), down: dive held, kick: jump pressed this frame}
   // returns true while submerged
   function step(S,dt,o){
+    if(S.pocket){S.dv=true;return true}   // The Deep (src/games/Deep.js) flies the sub itself: no gravity, no seabed clamp, no surfacing
     if(!S.dv){
       if(o.wat&&S.grounded&&!S.flying&&o.down&&o.seabed<MINSEABED){S.dv=true;S.vy=-1.2}
       else return false;
