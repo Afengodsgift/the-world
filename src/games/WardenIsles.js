@@ -62,7 +62,7 @@ const WardenIsles=(()=>{
   function build(){
     if(!WRD.on||built)return;built=true;
     G=new THREE.Group();G.name='WardenIsles';scene.add(G);
-    terrainMesh();dress();fogBuild();campMarks();if(typeof WardenCatacombs!=='undefined')WardenCatacombs.build();
+    terrainMesh();dress();fogBuild();campMarks();try{TidalRuins.build()}catch(e){}if(typeof WardenCatacombs!=='undefined')WardenCatacombs.build();
     const sol=WardenSolids();wall(sol.filter(s=>s.wall));pillars();
     for(const s of sol){solids.push(s);added.push(s)}
     T.arena={x:WRD.x,z:WRD.z,R:WARDEN.arenaR};
@@ -94,7 +94,7 @@ const WardenIsles=(()=>{
     const d=Math.hypot(S.x-WRD.x,S.z-WRD.z);
     if(d>WRD.reach+200){PlayerCombat.leave();if(typeof WardenCatacombs!=='undefined')WardenCatacombs.away();if(farOn)farCull(false,t);fishVis(true);return}
     if(t-fc>300||!farOn){fc=t;farCull(true,t)}
-    inside=d<WARDEN.arenaR;fishVis(!inside);PlayerCombat.tick(dt,t);if(typeof WardenCatacombs!=='undefined')WardenCatacombs.tick(dt,t);
+    inside=d<WARDEN.arenaR;fishVis(!inside);PlayerCombat.tick(dt,t);try{TidalRuins.tick(dt,Date.now())}catch(e){}if(typeof WardenCatacombs!=='undefined')WardenCatacombs.tick(dt,t);
     const k=.75+.25*Math.sin(t/110)+.1*Math.sin(t/37);for(let i=0;i<fire.length;i++)fire[i].scale.setScalar(.9+.18*Math.sin(t/130+i*1.7)*k);
   }
   return{build,tick,fog,inArena:()=>inside,hidden:()=>hiddenN,arena:()=>T.arena,props:()=>({meshes:propsMesh.length,tris:propTris}),_t:()=>({built,added,fire,G})}})();
