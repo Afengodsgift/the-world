@@ -16,6 +16,9 @@ const CineCam=(()=>{
       {t0:0,t1:1.7,a0:.9,a1:.45,d0:9.5,d1:6.6,h0:.3,h1:.5,f0:56,f1:50,l0:.5,l1:.55},
       {t0:1.7,t1:3,a0:.25,a1:-.2,d0:3.8,d1:3.2,h0:.5,h1:.62,f0:40,f1:36,l0:.5,l1:.6},
       {t0:3,t1:4.3,a0:-.2,a1:.1,d0:3.2,d1:9,h0:.62,h1:.2,f0:36,f1:68,l0:.6,l1:.7}]},
+    grab:{dur:1.9,freeze:false,shots:[   // a boss grab (Death's Sentence): in close over the shoulder while he drags and lifts you, then low and pulling back for the slam. The sim keeps running, the player just watches
+      {t0:0,t1:1.05,a0:.55,a1:.2,d0:4.6,d1:3.1,h0:.55,h1:.7,f0:46,f1:38,l0:.6,l1:.72},
+      {t0:1.05,t1:1.9,a0:.2,a1:-.35,d0:3.1,d1:6.2,h0:.7,h1:.18,f0:38,f1:62,l0:.72,l1:.4}]},
     death:{dur:2.6,freeze:false,shots:[
       {t0:0,t1:2.6,a0:-.4,a1:.9,d0:6,d1:8,h0:.35,h1:.8,f0:48,f1:56,l0:.35,l1:.25}]}};
   function dom(){
