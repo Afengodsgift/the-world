@@ -426,7 +426,7 @@ const PlayerCombat=(()=>{
   function glbLoad(b,T,n){n=n||0;if(n===0)setTimeout(()=>{if(!b.ready)placeholder(b,T)},2500);   // a failed download is retried until it works (gaps grow to 8 s; retries bypass the HTTP cache so a bad cached copy cannot stick): a flaky connection must never leave a boss or guard invisible for the rest of the session
     fetch('assets/warden/'+(b.file||T.file)+'.glb',n>0?{cache:'reload'}:undefined).then(r=>{if(!r.ok)throw new Error('http '+r.status);return r.arrayBuffer()}).then(buf=>{if(buf.byteLength<64||new Uint32Array(buf,0,1)[0]!==0x46546C67)throw new Error('not a glb ('+buf.byteLength+' B)');return new Promise((res,rej)=>new THREE.GLTFLoader().parse(buf,'assets/warden/',res,rej))}).then(gl=>{
       const m=new THREE.Group();m.scale.setScalar(.01);m.add(gl.scene);b.g.add(m);const bones={},seen=new Set();
-      gl.scene.traverse(o=>{if(o.isBone)bones[o.name.replace('mixamorig','')]=o;if(o.isSkinnedMesh){o.frustumCulled=false;o.castShadow=true;for(const mt of [].concat(o.material))if(!seen.has(mt)){seen.add(mt);if(T.bright)mt.color.multiplyScalar(T.bright)}}});
+      gl.scene.traverse(o=>{if(o.isBone)bones[o.name.replace('mixamorig','')]=o;if(o.isSkinnedMesh){o.frustumCulled=false;o.castShadow=true;for(const mt of [].concat(o.material))if(!seen.has(mt)){seen.add(mt);if(T.bright)mt.color.multiplyScalar(T.bright);if(T.gtint&&mt.color)mt.color.multiply(new THREE.Color(T.gtint))}}});
       b.u.mixer=new THREE.AnimationMixer(gl.scene);b.u.bones=bones;b.u.model=gl.scene;b.ready=true;if(b.fb)b.fb.visible=false}).catch(e=>{b.err=String(e&&e.message||e);netWarn(b.err);placeholder(b,T);setTimeout(()=>{if(!b.ready){b.err=null;glbLoad(b,T,n+1)}},Math.min(8000,1500*(n+1)))})}
   // while a model is still downloading (or keeps failing) the foe is a plain capsule figure, so you can always see what you are fighting
   function placeholder(b,T){if(b.fb||b.ready||typeof makeAvatar!=='function')return;try{const a=makeAvatar(T.name,T.boss?'#5a1c1c':'#6a3a2a');for(const c of a.children.slice())if(c.isSprite)a.remove(c);a.scale.setScalar(T.scale||1);b.fb=a;b.g.add(a)}catch(e){}}
@@ -451,7 +451,7 @@ const PlayerCombat=(()=>{
       if(!C.order.includes(id))C.order.push(id);f.r=T.r;f.spd=(T.spd||1.3)*WardenProg.cycleMul().spd;
       const b=body(T,i);b.g.scale.setScalar(T.scale);b.g.position.set(f.x,H(f.x,f.z),f.z);b.g.rotation.y=f.face;
       if(b.u.mixer&&typeof emoStop==='function'&&T.body==='avatar')emoStop(b.u);
-      const F={i,id,T,f,body:b,human:hum,ai:DuelistAI.create(fightN*7919+i*131+1,{foe:T.ai,kid:T.id,mast:mastery&&!hum,intro:T.pack?25:75}),loco:{x:0,z:0,vf:0,vs:0,sp:0,init:false},flash:0,awake:!T.aggro&&!def.late,woke:(!T.aggro&&!def.late)?(wokeN=wokeN+1):0,late:!!def.late,dorm:T.aggro||def.late?'sleep':null,dormSync:null,wakeT:0,ph2:false,home:{x:f.x,z:f.z}};
+      const F={i,id,T,f,body:b,human:hum,ai:DuelistAI.create(fightN*7919+i*131+1,{foe:T.ai,kid:T.kid||T.id,mast:mastery&&!hum,intro:T.pack?25:75}),loco:{x:0,z:0,vf:0,vs:0,sp:0,init:false},flash:0,awake:!T.aggro&&!def.late,woke:(!T.aggro&&!def.late)?(wokeN=wokeN+1):0,late:!!def.late,dorm:T.aggro||def.late?'sleep':null,dormSync:null,wakeT:0,ph2:false,home:{x:f.x,z:f.z}};
       if(site.duel&&!DU.pair){F.wait=true;f.act='dead';f.hp=0;b.g.visible=false}   // no bot in the duel arena: until an opponent walks in there is only an empty ring
       foes.push(F);byId[id]=F});
     rt(site).foes=foes}
@@ -686,6 +686,7 @@ const PlayerCombat=(()=>{
   function voltSpawn(tx,tz,mine,n,delayMs){setTimeout(()=>{if(!on||state!=='fight')return;const a0=Math.random()*6.28;for(let i=0;i<n;i++){const a=a0+i*6.28/n,r=2.6+Math.random()*1.6;let x=tx+Math.cos(a)*r,z=tz+Math.sin(a)*r;const A=C&&C.arena;if(A){const ax=x-A.x,az=z-A.z,ad=Math.hypot(ax,az),lim=A.R-1;if(ad>lim){x=A.x+ax/ad*lim;z=A.z+az/ad*lim}}zoneAdd(x,z,mine,'volt')}},delayMs)}
   function zoneTick(dt){
     if(wetT>0)wetT-=dt;
+    if(on&&state==='fight'&&site&&site.id==='tidal'&&typeof TidalRuins!=='undefined'){const nw=Date.now(),ev=tideT?TidalRuins.event(tideT,nw):null;tideT=nw;if(ev){try{msg(TidalRuins.MSG[ev],1.8);CameraRig.pulse(ev==='rise'||ev==='fall'?2:1)}catch(x){}}}else tideT=0;
     if(!zones.length)return;
     let cx=0,cz=0,pull=false;
     for(const q of zones.slice()){q.age+=dt;
@@ -750,7 +751,7 @@ const PlayerCombat=(()=>{
       try{WardenVfx.burst(f.x,H(f.x,f.z)+1.1,f.z,3);CombatCore.moveBy(C,f,-dz/d*2.8*sg+dx/d*.8,dx/d*2.8*sg+dz/d*.8);f.face=Math.atan2(P.x-f.x,P.z-f.z);WardenVfx.slash(f.x,H(f.x,f.z)+1.2,f.z,f.face,true,1);msg('ABYSSAL ROLL',.9);tone(240,90,.25,'sawtooth',.1)}catch(e){}
       F.ai.follow=Math.random()<.5?'cut':'twin';F.ai.cool=0;F.ai.busy=false;rollT=7;break}}
   // GWYNDOLIN'S MIRRORS (phase 2): three lunar mirrors stand round the arena. When she fires a Sun Volley each mirror throws its own shot at where you will BE (your velocity x 0.7 s): a ring marks it for 0.9 s, then it lands. Run in a straight line and you run into it.
-  let wetT=0,mirrors=[],pvx=0,pvz=0,pvl=null;
+  let tideT=0,wetT=0,mirrors=[],pvx=0,pvz=0,pvl=null;
   let mirTex=null;
   function mirTexture(){if(mirTex)return mirTex;const c=document.createElement('canvas');c.width=64;c.height=128;const g=c.getContext('2d'),gr=g.createLinearGradient(0,0,0,128);gr.addColorStop(0,'rgba(210,240,255,.55)');gr.addColorStop(.5,'rgba(120,190,255,.22)');gr.addColorStop(1,'rgba(210,240,255,.55)');g.fillStyle=gr;g.fillRect(0,0,64,128);
     g.strokeStyle='rgba(235,250,255,.95)';g.lineWidth=5;g.strokeRect(3,3,58,122);g.strokeStyle='rgba(255,255,255,.35)';g.lineWidth=7;g.beginPath();g.moveTo(8,118);g.lineTo(56,10);g.stroke();mirTex=new THREE.CanvasTexture(c);return mirTex}
@@ -1259,7 +1260,7 @@ for(const p of dpil){if(!p.fall)continue;p.fall+=dt;const u=Math.min(1,p.fall/.7
   function speedMul(sprint){
     if(!on||!P)return 1;const base=sprint?12:6;if(P.act==='dead')return 0;
     if(state==='fight'&&!foes.some(F=>F.awake&&F.f.act!=='dead'))return 1;      // nobody is after you: explore at normal speed
-    if(P.act==='free')return(P.guard?GSPD:SPD)/base;if(P.act==='charge')return CSPD/base;return 0}
+    if(P.act==='free')return(P.guard?GSPD:SPD)/base*(site&&site.id==='tidal'&&typeof TidalRuins!=='undefined'?TidalRuins.wade(Date.now()):1);if(P.act==='charge')return CSPD/base;return 0}
   const sfx=(n,v,r,fb)=>{if(!WardenSfx.play(n,v,r)&&fb)fb()};let hurt=false,fightVo=false;
   // ---- impact juice (Sekiro-style): a white-orange flash, extra sparks and a camera punch when YOUR sword lands; a streak when you dodge ----
   let flEl=null,flT=0;
@@ -1375,7 +1376,7 @@ for(const p of dpil){if(!p.fall)continue;p.fall+=dt;const u=Math.min(1,p.fall/.7
         if(F.human){h[F.id]={face:q.face,mx:0,mz:0,list:[]};continue}
         if(NET.mode==='guest'){const n=F.nin||{mx:0,mz:0};h[F.id]={face:q.face,mx:n.mx,mz:n.mz,list:[]};continue}
         if(F.awake&&PC.ai&&state==='fight'){if(F.T.oath){const sg=Foes_sig(q,F);F.ai.sigLock=sg;const tg=aiTarget(q);F.ai.onDecoy=tg===C.F.Z||tg===C.F.Y}F.ai.noAtk=!!F.T.pack&&atk>=Foes.PACK_ATK&&q.act!=='attack';const a=DuelistAI.think(F.ai,aiTarget(q),q,lastEv,nt);F.nin={mx:a.mx,mz:a.mz};h[F.id]={face:a.face,mx:a.mx,mz:a.mz,list:a.list};if(F.ai.banner){const bn=F.ai.banner;F.ai.banner=null;if(!ult){msg(bn,2.2);flash(.4,'rgba(255,60,40,.5)');try{CameraRig.shake(.4);sfx('heavy',.8,.6,()=>tone(80,40,.6,'sawtooth',.16))}catch(x){}}}
-        {const f=F.f,em=F.ai.sov>0;if(f.dm0===undefined){f.dm0=f.dm||1;f.tm0=f.tm||1}const dm=f.dm0*(em?1.2:1),tm=f.tm0*(em?1.2:1);if(f.dm!==dm)f.dm=dm;if(f.tm!==tm)f.tm=tm}
+        {const f=F.f,em=F.ai.sov>0;if(f.dm0===undefined){f.dm0=f.dm||1;f.tm0=f.tm||1}const td=F.T.id==='drownedking'&&typeof TidalRuins!=='undefined'?TidalRuins.bossMul(Date.now()):1,dm=f.dm0*(em?1.2:1)*td,tm=f.tm0*(em?1.2:1)*td;if(f.dm!==dm)f.dm=dm;if(f.tm!==tm)f.tm=tm}
         if(F.ai.spMsg){const sm=F.ai.spMsg;F.ai.spMsg=null;if(!ult){msg(sm,1.9);try{tone(180,90,.4,'sawtooth',.1);CameraRig.pulse(2);flash(.25,'rgba(255,120,40,.35)')}catch(x){}}}
         if(F.ai.readMsg){const hn=DuelistAI.HN[F.ai.readMsg];F.ai.readMsg=null;if(hn&&!ult){msg(F.T.name.split(',')[0].replace(/^The /,'').toUpperCase()+' READS YOUR '+hn.toUpperCase(),1.5);try{tone(260,200,.2,'square',.08)}catch(x){}}}}
         else h[F.id]={face:F.awake||F.dorm==='wake'?Math.atan2(S.x-q.x,S.z-q.z):q.face,mx:0,mz:0}}
