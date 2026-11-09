@@ -300,6 +300,8 @@ addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').ca
 <script src="src/games/DeepCore.js"></script>
 <script src="src/games/DeepWorld.js"></script>
 <script src="src/games/Deep.js"></script>
+<script src="src/race/ChaseCore.js"></script>
+<script src="src/race/Chase.js"></script>
 <script>
 const SUPABASE_URL='https://lzqnxawxehmqgswuzpyn.supabase.co';
 const SUPABASE_KEY='sb_publishable_bAm2KsLV8__Y4nWSFesZeQ_38-Ly6DE';
@@ -1259,7 +1261,7 @@ let smk=null,edgeHinted=false,climbHinted=false;const _sv=new THREE.Vector3();
 function edgeHint(){if(edgeHinted)return;edgeHinted=true;banner('The sea goes on, but the way out is up. Climb, and the world opens.','⬆ THE WAY OUT')}
 function spaceTrack(){
   if(!smk)smk=document.getElementById('smk');if(!smk)return;
-  const busy=(typeof Ship!=='undefined'&&Ship.locked())||(typeof Rally!=='undefined'&&Rally.locked())||(typeof SkyRaid!=='undefined'&&SkyRaid.locked())||(typeof Deep!=='undefined'&&Deep.locked());
+  const busy=(typeof Ship!=='undefined'&&Ship.locked())||(typeof Rally!=='undefined'&&Rally.locked())||(typeof SkyRaid!=='undefined'&&SkyRaid.locked())||(typeof Deep!=='undefined'&&Deep.locked())||(typeof Chase!=='undefined'&&Chase.locked());
   const nx=(Space.f.stars>.45||(S.flying&&S.y>250&&!busy))&&typeof SpaceObjects!=='undefined'&&SpaceObjects.next?SpaceObjects.next():null;
   if(nx&&!climbHinted&&S.flying&&S.y>5000&&nx.id==='satellite'){climbHinted=true;banner('Keep climbing. Past 60 km the world opens, and something is up there.','⬆ KEEP GOING')}
   if(!nx||nx.dist<400){smk.style.display='none';return}
@@ -1340,7 +1342,8 @@ function tickFrame(t){
   if(keys.KeyA||keys.ArrowLeft)ix-=1;if(keys.KeyD||keys.ArrowRight)ix+=1;
   if(keys.KeyW||keys.ArrowUp)iy-=1;if(keys.KeyS||keys.ArrowDown)iy+=1;
   if(typeof Ship!=='undefined'&&Ship.locked()){Ship.setInput(ix,iy);ix=0;iy=0}              // seated at the helm: the stick steers the ship
-  if(typeof Rally!=='undefined'&&Rally.locked()){Rally.setInput(ix,iy);ix=0;iy=0;jumpQ=false}   // Skybreak Rally: the stick drives / flies the race car
+  if(typeof Rally!=='undefined'&&Rally.locked()){Rally.setInput(ix,iy);ix=0;iy=0;jumpQ=false}
+  if(typeof Chase!=='undefined'&&Chase.locked()){Chase.setInput(ix,iy);ix=0;iy=0;jumpQ=false}   // Cops & Robbers: the stick steers the hover-car   // Skybreak Rally: the stick drives / flies the race car
   if(typeof SkyRaid!=='undefined'&&SkyRaid.locked()){SkyRaid.setInput(ix,iy);ix=0;iy=0;jumpQ=false}   // Sky Raid: the stick flies the airship (pilot) or aims the turret (gunner)
   if(typeof Deep!=='undefined'&&Deep.locked()){Deep.setInput(ix,iy);ix=0;iy=0;jumpQ=false}   // The Deep: the stick steers the submersible
   if(typeof Surf!=='undefined'&&Surf.on()){Surf.setInput(ix,iy,jumpQ);ix=0;iy=0;jumpQ=false}
@@ -1394,7 +1397,7 @@ function tickFrame(t){
     RemoteSmooth.target(o,nowT,H);const p=o.group.position;p.x+=(o.tx-p.x)*k;p.y+=(o.ty-p.y)*k;p.z+=(o.tz-p.z)*k;
     o.group.rotation.y=lerpAngle(o.group.rotation.y,o.tr,k);animate(o.group,dt,o.st);
   }
-  vegCull();CameraRig.update(dt);if(typeof CineCam!=='undefined')CineCam.apply(dt);if(typeof Rally!=='undefined')Rally.frame(dt);if(typeof SkyRaid!=='undefined')SkyRaid.frame(dt);if(typeof Deep!=='undefined')Deep.frame(dt);
+  vegCull();CameraRig.update(dt);if(typeof CineCam!=='undefined')CineCam.apply(dt);if(typeof Rally!=='undefined')Rally.frame(dt);if(typeof SkyRaid!=='undefined')SkyRaid.frame(dt);if(typeof Deep!=='undefined')Deep.frame(dt);if(typeof Chase!=='undefined')Chase.frame(dt);
   {const uT=clamp((-.25-camera.position.y)/.5,0,1);S.under=(S.under||0)+(uT-(S.under||0))*Math.min(1,dt*10)}   // 0 above water .. 1 camera fully submerged (drives fog, sound muffle, bubbles)                                                         // orbit / first-person / shoulder + flight FOV, roll, shake (src/camera/CameraRig.js)
   Boost.update(S,dt);me.userData.bc=Boost.view.charge;boostUI(Boost.view);
   Space.update(dt,t);Env.tick(dt,t);SpaceEnv.update(dt,t);Ocean.tick(dt,Env.state.wx);Ocean.updateUniforms(camera.position.x,camera.position.z,Space.f.above);skyTick(t);Fishing.tick(dt,t);

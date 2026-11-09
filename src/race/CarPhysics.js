@@ -62,7 +62,7 @@ const CarPhysics=(()=>{
     c.steer+=(st-c.steer)*Math.min(1,dt*(more?P.steerUp:P.steerDn));
     const boosting=boostTick(c,inp,dt,ev);
     const sf=env.surf?env.surf(c.x,c.z):null,rough=!!(sf&&sf.rough);
-    const vmax=P.vmax*(boosting?P.boostMul:1)*(rough?P.offroad.vmax:1)*(c.hitT>0?c.hitSlow:1);   // a hit slows you for a moment (never a stop)
+    const vmax=P.vmax*(boosting?P.boostMul:1)*(rough?P.offroad.vmax:1)*(c.hitT>0?c.hitSlow:1)*(c.pace||1);   // (c.pace: a standing multiplier set by game modes, e.g. Cops & Robbers' catch-up) a hit slows you for a moment (never a stop)
     if(c.grounded)driveGround(c,inp,dt,env,ev,P,g,sf,rough,vmax,boosting);
     else driveAir(c,dt,env,ev,P,g);
     c.s=Math.hypot(c.vx,c.vz,c.vy);
