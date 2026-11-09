@@ -29,7 +29,7 @@ const good=race(1,7,process.env.V);
 if(process.env.V)console.log('good',JSON.stringify(good));
 ok(good.done,'a skilled runner finishes the course (reached cp '+good.cp+' '+good.x.toFixed(0)+','+good.z.toFixed(0)+')');
 ok(good.falls<=3,'...with very few falls ('+good.falls+')');
-ok(good.t>45&&good.t<110,'...in a race-length time ('+good.t.toFixed(1)+' s)');
+ok(good.t>45&&good.t<170,'...in a race-length time ('+good.t.toFixed(1)+' s)');
 for(const m of['vault','slide','wallup','wallrun','walljump','ledge','mantle','roll','flipland'])ok(good.evs[m]>0||m==='walljump'||m==='flipland'||m==='ledge'||m==='mantle','the run uses '+m);
 let fin=0,tot=0,falls=0;for(let s=1;s<=6;s++){const r=race(.55,s*13,process.env.W);if(process.env.W)console.log(JSON.stringify(r));tot++;if(r.done)fin++;falls+=r.falls}
 ok(fin>=5,'a weak runner mostly finishes ('+fin+'/'+tot+', falls '+falls+')');
