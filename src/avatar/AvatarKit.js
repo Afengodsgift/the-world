@@ -72,7 +72,8 @@ const AvatarKit=(()=>{
   function more(id,what){
     const S=SETS[id];if(!S)return Promise.resolve(null);if(S._p[what])return S._p[what];
     const d=AURL+CAT[id].dir;
-    S._p[what]=what==='gun'?getJson(d+'gun_anims.json').then(j=>{S.gunMeta={};for(const n in j.meta)S.gunMeta[n]=Object.assign({},j.meta[n],{spd:j.meta[n].spd*S.gunRatio});S.gun=clipsOf(j.clips);return S}).catch(e=>{S._p.gun=null;throw e})
+    S._p[what]=what==='parkour'?getJson(d+'parkour.json').then(j=>{S.parkour=clipsOf(j);return S}).catch(e=>{S._p.parkour=null;throw e})   // PARKOUR set (src/parkour/ParkourAnim.js)
+      :what==='gun'?getJson(d+'gun_anims.json').then(j=>{S.gunMeta={};for(const n in j.meta)S.gunMeta[n]=Object.assign({},j.meta[n],{spd:j.meta[n].spd*S.gunRatio});S.gun=clipsOf(j.clips);return S}).catch(e=>{S._p.gun=null;throw e})
       :getJson(d+'warden_anims.json').then(j=>{S.warden=clipsOf(j);return S}).catch(e=>{S._p.warden=null;throw e});
     return S._p[what]}
   function loadAsset(id){
