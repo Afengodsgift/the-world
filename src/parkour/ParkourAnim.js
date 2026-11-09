@@ -14,7 +14,7 @@ const ParkourAnim=(()=>{
     switch(B.mode){
       case'vault':return{name:B.vk==='low'?'pk_vaultL':'pk_vaultH',ts:cl(DUR[B.vk==='low'?'pk_vaultL':'pk_vaultH']/B.vdur,.8,2.6),f:.06};
       case'wallup':return{name:'pk_wallup',ts:cl(DUR.pk_wallup/B.wdur,.8,2.4),f:.08};
-      case'wallrun':return{name:'pk_wallrun',ts:.75,f:.1};
+      case'wallrun':return{name:B.wside<0?'pk_wallrunR':'pk_wallrun',ts:.75,f:.1};
       case'slide':return{name:'pk_slide',ts:1.5,f:.08};
       case'ledge':return{name:'pk_hang',ts:1,f:.1};
       case'mantle':return{name:'pk_mantle',ts:DUR.pk_mantle/.62,f:.08};
@@ -28,6 +28,7 @@ const ParkourAnim=(()=>{
   const tab=q=>{const S=AV(q);if(!S)return clips;if(!S.parkour)AvatarKit.more(S.id,'parkour').catch(()=>{});return S.parkour};
   const ready=q=>{const S=AV(q);if(S){if(!S.parkour)AvatarKit.more(S.id,'parkour').catch(()=>{});return !!S.parkour}if(!clips)load();return !!clips};
   function act(q,name){
+    if(name==='pk_wallrunR')return act(q,'pk_wallrun');
     const T=q&&tab(q);if(!T||!T[name]||!q.mixer)return null;const A=q.nact;if(!A)return null;
     if(!A[name]){const a=q.mixer.clipAction(T[name]);if(!LOOP[name]){a.setLoop(THREE.LoopOnce,1);a.clampWhenFinished=true}A[name]=a}
     return A[name]}

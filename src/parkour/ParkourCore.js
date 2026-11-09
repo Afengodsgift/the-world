@@ -46,7 +46,9 @@ const ParkourCore=(()=>{
   const heading=B=>Math.atan2(B.vx,B.vz);
   const setV=(B,h,s)=>{B.spd=s;B.vx=Math.sin(h)*s;B.vz=Math.cos(h)*s;B.yaw=h};
   // a wall takes the velocity component that points into it (running into a wall stops you; running along it keeps your speed)
-  const bounce=(B,h)=>{if(!h)return;const vn=B.vx*h.nx+B.vz*h.nz;if(vn<0){B.vx-=vn*h.nx;B.vz-=vn*h.nz;B.spd=Math.hypot(B.vx,B.vz)}};
+  const bounce=(B,h)=>{if(!h)return;const vn=B.vx*h.nx+B.vz*h.nz;if(vn<0){const sp=Math.hypot(B.vx,B.vz)||1;B.vx-=vn*h.nx;B.vz-=vn*h.nz;
+    // a real hit (not a graze) also kills the sideways drift: running into a wall at an angle used to carry you along it
+    const k=vn<-2.2?cl(1+(vn/sp)*2.2,0,1):1;B.vx*=k;B.vz*=k;B.spd=Math.hypot(B.vx,B.vz)}};
   // push the body out of every box it overlaps (horizontal). head = standing / sliding height.
   function collide(W,B){
     const head=B.y+(B.mode==='slide'||B.mode==='roll'?SLH:HT);let hit=null;
@@ -123,7 +125,7 @@ const ParkourCore=(()=>{
     const fx=-B.wn.x,fz=-B.wn.z;B.y=B.vy0+(B.wtop-B.vy0)*e;
     const into=Math.min(1,u/.4),over=Math.max(0,(u-.55)/.45);
     const ap=Math.min(1,u/.3);B.x=B.wx0+fx*(B.wa*ap+.3*into+.9*over);B.z=B.wz0+fz*(B.wa*ap+.3*into+.9*over);B.vx=B.vz=0;
-    if(u>=1){B.y=B.wtop;B.mode='ground';B.grounded=true;B.vy=0;setV(B,B.wh,Math.max(5.5,B.spd*.8));B.wbox=null}}
+    if(u>=1){B.y=B.wtop;B.mode='ground';B.grounded=true;B.vy=0;setV(B,B.wh,Math.max(9,B.spd*.95));B.wbox=null}}
   function air(W,B,inp,dt,m,dx,dz,ev){
     if(B.buf>0&&B.coy>0&&!B.jumped&&B.airT<.2&&B.vy<=0){B.buf=0;doJump(B,ev,false);return}
     B.airT+=dt;B.vy=Math.max(TERM,B.vy-G*dt);
@@ -146,7 +148,7 @@ const ParkourCore=(()=>{
       if(r&&tall(r.b)&&r.nx*fx+r.nz*fz<-.6){B.buf=0;B.vy=JUMP*.98;const n=r;setV(B,Math.atan2(n.nx,n.nz),Math.max(6.5,sp*.8));B.wrCd=.4;B.jumped=true;B.cut=false;B.flip=false;ev.push('wallkick');gain(B,.15);return}}
     if(B.ledgeCd<=0&&B.vy<=2.8&&sp>-1){const r=ray(W,B.x,B.z,fx,fz,R+.6,B.y+1.0),r2=r&&ray(W,B.x,B.z,fx,fz,R+.6,B.y+1.75);
       if(r&&Math.abs(r.nx*fx+r.nz*fz)>.5){const rel=r.top-B.y;
-        if(rel>=1.35&&rel<=2.3&&!r2||(r&&rel>=1.35&&rel<=2.05&&r2&&r2.b===r.b&&false)){B.mode='ledge';B.mt=0;B.ln={x:r.nx,z:r.nz};B.lbox=r.b;B.ltop=r.top;B.vx=B.vz=B.vy=0;B.spd=0;B.x=B.x+fx*(r.t-R+.02);B.z=B.z+fz*(r.t-R+.02);B.y=r.top-1.75;B.flip=false;B.yaw=Math.atan2(-r.nx,-r.nz);ev.push('ledge');gain(B,.06);return}}}
+        if(rel>=1.35&&rel<=2.3&&!r2||(r&&rel>=1.35&&rel<=2.05&&r2&&r2.b===r.b&&false)){B.mode='ledge';B.mt=0;B.ln={x:r.nx,z:r.nz};B.lbox=r.b;B.ltop=r.top;B.vx=B.vz=B.vy=0;B.spd=0;B.x=B.x+fx*(r.t-R+.02);B.z=B.z+fz*(r.t-R+.02);B.y=r.top-2.05;B.flip=false;B.yaw=Math.atan2(-r.nx,-r.nz);ev.push('ledge');gain(B,.06);return}}}
     // air skills: JUMP again = air-dash (once per flight, boosts + flows); SLIDE = dive (fast drop, rolls out on landing)
     {const f0=floorAt(W,B.x,B.z,B.y-STEP*.3);
     if(B.buf>0&&!B.dashed&&B.airT>.18&&B.y-f0>1.3&&B.stumble<=0){B.buf=0;B.dashed=true;B.spinT=.45;B.vy=Math.max(B.vy,6.2);setV(B,B.spd>.4?heading(B):B.yaw,Math.min(maxRun(B)+4,Math.max(B.spd,8)+4.5));ev.push('airdash');gain(B,.14)}

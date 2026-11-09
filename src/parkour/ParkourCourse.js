@@ -44,6 +44,14 @@ const ParkourCourse=(()=>{
     gaps([[6,4.4],[6,5],[8,5.4]]);platform(8);drop();turn();
     // ---- side 4 (north): the run-in with a flip, then the line
     cp('final');straight(14);flipRun();straight(36);
+    // ---- INNER LAP (the course doubles back through the middle of the island): hurdles, slalom, rails of arches, a tower + wall-run, long gaps
+    const slalom=n=>{for(let i=0;i<n;i++){const u=8+i*9,sd=i&1?-1:1;box(u,u+1.8,sd>0?.5:-LANE,sd>0?LANE:-.5,c.y-3,c.y+9,'wall');way(u-1,-sd*2.3);way(u+.9,-sd*2.3)}adv(8+n*9+4);way(0,0)};
+    const hurdles=(n,sp)=>{for(let i=0;i<n;i++)vault([1,1.2,.9,1.35,1,1.5,1.1][i%7],sp+i*7);adv(sp+n*7+4)};
+    turn();cp('inner');straight(8);hurdles(5,8);cp('slalom');slalom(5);
+    arch(6);vault(1.4,22);adv(36);
+    turn();straight(4);turn();
+    cp('wallrun3');straight(4);pitOn();tower(2,2.6,6);platform(8);wallrun(13);platform(6);gaps([[6,4.6,1.6],[7,4.8,0]]);platform(8);drop();
+    cp('sprint');straight(12);vault(1.3,10);arch(22);adv(20);
     const fin=P(14,0);way(12,0);
     const inPit=(x,z)=>pits.some(r=>x>=r.x0&&x<=r.x1&&z>=r.z0&&z<=r.z1);
     return{boxes,wps,cps,pits,inPit,start:{x:-100+0,z:-100,yaw:Math.PI/2},finish:{x:fin.x,z:fin.z,r:5,y:GY},length:len,GY,PLAT,

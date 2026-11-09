@@ -1,6 +1,6 @@
 # Parkour Isle
 
-A separate island (`PKI`, x 1900 / z -2050, appended to `H()` like the Warden Isles, gated by `PKI.on`; `?parkour=0` turns it off) with a 620 m point-to-point parkour course and a race against 3 AI runners.
+A separate island (`PKI`, x 1900 / z -2050, appended to `H()` like the Warden Isles, gated by `PKI.on`; `?parkour=0` turns it off) with a 960 m point-to-point parkour course and a race against 3 AI runners.
 
 **Where:** world map -> 🏁 *Parkour Race*, or Travel -> *Parkour Isle* (lands on the start line). Two pads by the start line: pink = race, cyan = free run.
 

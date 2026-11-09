@@ -534,6 +534,7 @@ function animateClips(g,dt,st){
   else if(armed)CombatPose.plan(q,dt,mdx,mdz,v,g.rotation.y,st==='walk'||st==='run');else{q.cpT=0;q.cpRev=false}
   if(q.gdn&&typeof GunLoco!=='undefined'){const da=GunLoco.act(q,q.gdn);if(da){want=q.gdn;ts=1;fade=.12;A[want]=da}}   // downed / dying: hold the fall (set by Outlaw)
   if(q.pk&&typeof ParkourAnim!=='undefined'){const pa=ParkourAnim.act(q,q.pk);if(pa){want=q.pk;ts=q.pkts||1;fade=q.pkf||.1;A[want]=pa}}   // Parkour Isle move clip (set by Parkour / the partner's packet)
+  if(q.model){const ms=Math.abs(q.model.scale.x);q.model.scale.x=q.pk==='pk_wallrunR'?-ms:ms}   // wall on the right: the wall-run clip is authored for the left, so mirror the model
   if(q.cpRev&&LOCO[want])ts=-ts;
   if(st==='crouch'&&!q.gdn){const cr=CombatAnims.act(q,'crouch');if(cr){A.crouch=cr;want='crouch'}}   // raiders ducking behind cover
   if(want==='idle'&&armed){const ca=CombatAnims.act(q,'cidle');if(ca){A.cidle=ca;want='cidle'}}
