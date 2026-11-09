@@ -35,7 +35,7 @@ const Parkour=(()=>{
         else{const z=f[2]>0?Z[1]:Z[0];v.push([X[0],Y[0],z],[X[1],Y[0],z],[X[1],Y[1],z],[X[0],Y[1],z])}
         const n=pos.length/3,cc=f[1]>0?top:f[1]<0?bot:c0;
         for(const p of v){pos.push(p[0],p[1],p[2]);nor.push(f[0],f[1],f[2]);col.push(cc.r,cc.g,cc.b)}
-        idx.push(n,n+1,n+2,n,n+2,n+3)}}
+        {const q=v.map(a=>new THREE.Vector3(a[0],a[1],a[2])),nn=q[1].clone().sub(q[0]).cross(q[2].clone().sub(q[0])),ok=nn.x*f[0]+nn.y*f[1]+nn.z*f[2]>0;if(ok)idx.push(n,n+1,n+2,n,n+2,n+3);else idx.push(n,n+2,n+1,n,n+3,n+2)}}}
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));g.setIndex(idx);
     const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.85,metalness:0}));m.frustumCulled=false;return m}
   const KCOL={plat:'#6f86c9',wall:'#e0546e',vault:'#ffcf3f',arch:'#3fd0e8',side:'#3a4875',solid:'#6f86c9'};

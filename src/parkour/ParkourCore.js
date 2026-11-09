@@ -6,7 +6,7 @@
 // Events: jump bhop vault slide wallrun walljump wallkick wallup ledge mantle roll hardland flip flipland stumble fall
 const ParkourCore=(()=>{
   const G=28,JUMP=9.4,TERM=-32,R=.35,HT=1.8,SLH=.85,STEP=.5,CELL=6;
-  const RUN0=9.5,RUNX=4.5,WALK=5.5,ACC=30,DEC=40,COY=.12,BUF=.16,WR_MAX=1.6;
+  const RUN0=15,RUNX=7,WALK=7,ACC=55,DEC=60,COY=.12,BUF=.16,WR_MAX=1.6;
   const cl=(v,a,b)=>v<a?a:v>b?b:v;
   // ---------- world ----------
   function makeWorld(boxes,base){
@@ -85,7 +85,7 @@ const ParkourCore=(()=>{
     let s=B.spd;const tgt=m>.1?top*Math.min(1,m):0;
     s=tgt>s?Math.min(tgt,s+(air?9:ACC)*dt):Math.max(tgt,s-(air?.6:DEC)*dt);
     if(m>.1){const h=s>.4?heading(B):Math.atan2(dx,dz),want=Math.atan2(dx,dz);let d=Math.atan2(Math.sin(want-h),Math.cos(want-h));
-      const rate=(air?3.2:(15-9*cl(s/14,0,1)))*dt;d=cl(d,-rate,rate);setV(B,h+d,s)}else setV(B,s>.4?heading(B):B.yaw,s);}
+      const rate=(air?3.2:(15-9*cl(s/22,0,1)))*dt;d=cl(d,-rate,rate);setV(B,h+d,s)}else setV(B,s>.4?heading(B):B.yaw,s);}
   function ground(W,B,inp,dt,m,dx,dz,ev){
     const top=B.stumble>0?4:(inp.walk?WALK:maxRun(B));
     steer(B,dx,dz,m,dt,top,false);
