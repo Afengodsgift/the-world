@@ -64,7 +64,8 @@ const DuelistAI=(()=>{
     else if(dist>want+.5){const f=dist>7?1:.85;mx=ux*f;mz=uz*f}else if(dist<want-.6){mx=-ux*(GD?1:.7);mz=-uz*(GD?1:.7)}else{const sf=GD?.95:.55;mx=-uz*A.strafe*sf;mz=ux*A.strafe*sf}
     out.mx=mx;out.mz=mz;
     if(A.t<=A.intro)return out;                       // the fight has not started yet: just square up
-    if(A.breath>0)return out;                         // catching his breath: no attacks, the player may heal stamina / reposition
+    if(A.foe==='samurai'){const du=kageDuel(A,P,D,out,tick,dist,k,evs);if(du)return du}   // KAGE DUEL: he reads your swings, parries, answers a clash with another cut
+    if(A.breath>0&&!(A.foe==='samurai'&&A.exch>0))return out;                         // catching his breath: no attacks, the player may heal stamina / reposition
     // riposte after a block/deflect (Duelist)
     if(!H&&!KN&&!SO&&A.rip===1&&dist<REACH.riposte+.3){A.rip=0;return start(A,out,'riposte',0,tick)}
     // defence (Duelist): after reacting to a visible heavy charge / wind-up at close range, sometimes guard it
@@ -320,6 +321,25 @@ const DuelistAI=(()=>{
     return null}
   // Kage, the Shadowflame Samurai: a duelist in three phases. I: deliberate (cut chains, the draw, a wide crescent, a delayed overhead on your guard). II (below half): the feint, the blink chain, the counter draw. III (below 22%): shorter rests, the final technique, everything chained.
   // Fair by the same rules as every foe: each strike keeps its tell; the counter draw only answers someone who has been swinging at him for over a second; the feint costs you stamina, not health.
+  // KAGE DUEL LAYER. Pure; only commands that exist for every fighter (parry / guardDown / atk), so every move he plays keeps its tell and recovery.
+  //   - TAKEN: hits you land make him warier (A.tk, decays); the wearier, the more often he tries to parry. Phase 2/3 are sharper.
+  //   - PARRY: once per visible swing he decides (at the first tick he sees it) whether to parry, and picks WHEN inside the swing, so some parries land (you get deflected, he counters) and some come early/late and miss.
+  //   - BLOCK: against a charged heavy he plants the guard instead.
+  //   - EXCHANGE: after a clash or a deflect he does not rest: he answers at once with a fast cut/twin/moon, so the fight is a run of blows being traded, not a swing and a pause.
+  function kageDuel(A,P,D,out,tick,dist,k,evs){
+    for(const e of evs||[]){if(e.t==='hit'&&e.d===D.id&&e.a!==D.id){A.tk=Math.min(6,(A.tk||0)+1);A.tkT=330}
+      else if(e.t==='clash'&&(e.a===D.id||e.d===D.id)){A.exch=70;A.xc=(A.xc||0)+1}
+      else if(e.t==='deflect'&&e.d===D.id){A.exch=70}}
+    if(A.tkT>0&&--A.tkT===0)A.tk=0;if(A.pcd>0)A.pcd--;if(A.exch>0&&D.act!=='free'&&D.act!=='stun'&&D.act!=='attack')A.exch=0;
+    if(D.act!=='free'||D.guard)return null;
+    // EXCHANGE: free again right after the bind: keep trading
+    if(A.exch>0){A.exch--;if(dist<REACH.moon+.4&&A.r()<.09+(A.ph2?.03:0)){const m=A.xc%4===3?'moon':A.r()<.5?'cut':'twin';A.exch=0;A.cool=0;return start(A,out,m,0,tick)}}
+    if(dist>3.3)return null;
+    if(A.see===0){A.pdo=A.r()<Math.min(.7,.2+.1*(A.tk||0)+(A.ph2?.08:0)+(A.ph3?.1:0));A.pwait=k==='acharge'?4+Math.floor(A.r()*10):2+Math.floor(A.r()*13)}
+    if(A.pcd>0||!A.pdo)return null;
+    if(k==='astartup'&&A.see>=A.pwait){A.pdo=false;A.pcd=A.ph3?30:A.ph2?42:56;out.mx=out.mz=0;out.list.push({t:'parry',e:tick});return out}
+    if(k==='acharge'&&A.see>=A.pwait){A.pdo=false;A.pcd=70;A.guardT=34+Math.floor(A.r()*20);out.mx=out.mz=0;out.list.push({t:'guardDown',e:tick});return out}
+    return null}
   function samurai(A,P,D,out,tick,dist,k){
     if(A.follow){const m=A.follow;A.follow=null;if(A.sigLock&&PER.indexOf(m)>=0)return out;if(dist<REACH[m]+.8)return start(A,out,m,m==='fall'?12:0,tick)}
     const L0=A.last[A.last.length-1];
