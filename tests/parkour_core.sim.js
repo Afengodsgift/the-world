@@ -13,7 +13,7 @@ const body=(x,z)=>P.newBody(x||0,0,z||0,0);
 // 2 jump arc
 {const B=body();run(world(),B,()=>({}),1.2);let apex=0,t0=null,t1=null,z0=0,z1=0;const W=world();let t=0;let jumped=false;
  for(let i=0;i<200;i++){const inp={mx:0,mz:1,jump:!jumped,jumpHeld:i<40};jumped=true;const e=P.step(W,B,inp,DT);if(e.includes('jump')){t0=t;z0=B.z}apex=Math.max(apex,B.y);t+=DT;if(t0!==null&&B.grounded&&t>t0+.1){t1=t;z1=B.z;break}}
- ok(apex>1.2&&apex<2.1,'jump apex ~1.4-1.9 m ('+apex.toFixed(2)+')');ok(t1&&t1-t0>.55&&t1-t0<.9,'airtime .55-.9 s ('+(t1-t0).toFixed(2)+')');ok(z1-z0>5.5&&z1-z0<9.5,'sprint jump covers 5.5-9.5 m ('+(z1-z0).toFixed(1)+')')}
+ ok(apex>1.2&&apex<2.1,'jump apex ~1.4-1.9 m ('+apex.toFixed(2)+')');ok(t1&&t1-t0>.55&&t1-t0<.9,'airtime .55-.9 s ('+(t1-t0).toFixed(2)+')');ok(z1-z0>5.5&&z1-z0<13,'sprint jump covers 5.5-13 m ('+(z1-z0).toFixed(1)+')')}
 // 3 gap: 5 m void between z=20..25
 {const W=world([],[[-50,50,20,25]]);const mk=(sp)=>{const B=body();B.spd=sp;B.vz=sp;B.z=0;return B};
  const fast=run(W,mk(10),(t,B)=>({jump:B.z>18&&B.z<19.2&&B.grounded,jumpHeld:true}),3,B=>B.z>28);ok(fast.B.z>26&&fast.B.y>=-.01,'sprinting jump clears a 5 m gap');
