@@ -10,6 +10,11 @@ ISL.push({n:'Outlaw Isle',x:OUT.x,z:OUT.z,R:OUT.R,pk:0,c:'#e0a040'});
 // Terrain is a blend appended to the end of H() (see index.html), gated by WRD.on (ON by default since the owner approved; ?warden=0 turns it off). reach = R + fall.
 const WRD={x:150,z:-2450,R:300,fall:30,reach:330,on:false};
 try{WRD.on=!/[?&]warden=0(&|$)/.test(location.search)}catch(e){}
+// PARKOUR ISLE (see src/parkour/): a flat-topped island for the parkour race. Like the Warden Isles it is NOT in ISL (that would shift the seeded world-gen rng); terrain is a blend appended to H() gated by PKI.on.
+// y = the flat plateau height (ParkourCourse.GY), flat out to `flat`, then a beach down to the sea at R. reach = R + fall.
+const PKI={x:1900,z:-2050,R:262,fall:30,reach:292,flat:178,y:3.2,on:true};
+try{PKI.on=!/[?&]parkour=0(&|$)/.test(location.search)}catch(e){}
+function PKH(wx,wz){const d=Math.sqrt(wx*wx+wz*wz),t=Math.max(0,Math.min(1,(d-PKI.flat)/(PKI.R-PKI.flat)));return PKI.y+(-4.2-PKI.y)*t*t*(3-2*t)}
 const KT={x:760,z:1400,hw:95,hh:65,rc:34};
 // (The Floating Island's x/z below is a spot on its path, so Travel lands you on solid ground.)
 const LOCS=[{n:'Town Square',x:25,z:62,r:16},{n:'Whispering Forest',x:-110,z:40,r:45},{n:'Shell Beach',x:0,z:182,r:26},{n:'Sky Peak',x:0,z:-137,r:22,y:32},{n:'The Cave',x:18,z:-88,r:9}].concat(ISL.map(I=>({n:I.n,x:I.x,z:I.z,r:I.R*.7}))).concat([{n:'The Floating Island',x:SKY.x+50,z:SKY.z+6,r:SKY.R*.8,y:SKY.base+6}]);

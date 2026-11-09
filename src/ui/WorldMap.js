@@ -7,9 +7,10 @@ const WorldMap=(()=>{
   const PORTAL={x:TOWN.x+Math.cos(5.7)*19,z:TOWN.z+Math.sin(5.7)*19};
 
   const places=()=>{
-    const isl=new Set(ISL.map(i=>i.n).concat(['The Floating Island']));if(WRD.on)isl.add('The Warden Isles');   // WARDEN:
+    const isl=new Set(ISL.map(i=>i.n).concat(['The Floating Island']));if(WRD.on)isl.add('The Warden Isles');if(PKI.on)isl.add('Parkour Isle');   // WARDEN: / PARKOUR:
     const l=LOCS.map(L=>({n:L.n,x:L.x,z:L.z,y:L.y,r:L.r,big:isl.has(L.n)}));
     l.push({n:'Tag Arena',x:Tag.pos.x,z:Tag.pos.z,r:5,icon:'🏃'},{n:'Gunsmith',x:OUT.x+12,z:OUT.z+23,r:5,icon:'🔫'},{n:'Outlaw Portal',x:PORTAL.x,z:PORTAL.z,r:5,icon:'🌀'},{n:'Bonk Ring',x:RING.x,z:RING.z,r:RING.R,icon:'🍳'},{n:'Treasure Hunt',x:BOARD.x,z:BOARD.z,r:5,icon:'🧰'},{n:'Sky Race',x:WP[0][0],z:WP[0][1],r:7,icon:'✈️'},{n:'Sky Slalom',x:slalom.start.x,z:slalom.start.z,y:slalom.start.y,r:5,icon:'🎯'});
+    if(PKI.on)l.push({n:'Parkour Race',x:PKI.x-108,z:PKI.z-100,r:5,icon:'🏁',tag:'Race 3 runners · wall-runs, vaults, slides, flips',dyn:true});   // PARKOUR:
     if(WRD.on&&typeof WARDEN!=='undefined'&&typeof WardenKind==='function')try{   // every Warden fight site, labelled by what it is (the catacomb rooms are one entry)
       for(const q of WARDEN.sites){if(q.dg)continue;const k=WardenKind(q);l.push({n:q.n,x:WRD.x+q.x,z:WRD.z+q.z,y:q.y,r:5,icon:k.icon,tag:k.tag,dyn:true})}
       if(typeof DUNGEON!=='undefined')l.push({n:DUNGEON.D.n,x:WRD.x+DUNGEON.D.ox,z:WRD.z+DUNGEON.D.oz,y:DUNGEON.D.y,r:5,icon:'💀',tag:'Dungeon · rooms of foes, then a boss',dyn:true})}catch(e){}
@@ -45,6 +46,7 @@ const WorldMap=(()=>{
     disc2(0,0,R0(),'#f0dca0',1);disc2(0,0,R0(),'#79b86a');                       // main island
     for(const I of ISL){disc2(I.x,I.z,I.R*.82,'#f0dca0',1);disc2(I.x,I.z,I.R*.82,I.n==='Outlaw Isle'?'#d9a24a':I.c+'cc')}
     if(WRD.on){disc2(WRD.x,WRD.z,WRD.R*.82,'#f0dca0',1);disc2(WRD.x,WRD.z,WRD.R*.82,'#3b3a43')}   // WARDEN: Warden Isles disc
+    if(PKI.on){disc2(PKI.x,PKI.z,PKI.R*.82,'#f0dca0',1);disc2(PKI.x,PKI.z,PKI.R*.82,'#5a6fb8')}   // PARKOUR: Parkour Isle disc
     ctx.save();ctx.globalAlpha=.9;disc2(SKY.x,SKY.z,SKY.R,'#ffffffcc');ctx.restore();   // floating island
     ctx.strokeStyle='#ffe066';ctx.lineWidth=2;ctx.strokeRect(sx(KT.x-KT.hw),sy(KT.z-KT.hh),KT.hw*2*view.s,KT.hh*2*view.s); // race track
     if(typeof hunt!=='undefined'&&hunt.on){ctx.font='16px sans-serif';ctx.textAlign='center';ctx.fillText('🧰',sx(hunt.x),sy(hunt.z))}

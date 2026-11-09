@@ -1,0 +1,97 @@
+{
+ "root": "/home/claude/seedexr/fbx-animations-curated/animations/traversal",
+ "fps": 18,
+ "dg": 3,
+ "clips": [
+  {
+   "name": "pk_vaultL",
+   "file": "vault-parkour/male-jumping-over-an-obstacle-with-1-hand-planted.fbx",
+   "from": 0.05,
+   "to": 1.1
+  },
+  {
+   "name": "pk_vaultH",
+   "file": "vault-parkour/male-jumping-over-an-obstacle-with-2-hands-planted.fbx",
+   "from": 0.05,
+   "to": 1.15
+  },
+  {
+   "name": "pk_wallup",
+   "file": "vault-parkour/male-runs-up-a-wall-onto-a-platform.fbx",
+   "from": 0.1,
+   "to": 1.8
+  },
+  {
+   "name": "pk_wallrun",
+   "file": "vault-parkour/wall-run-to-jump-pose.fbx",
+   "from": 0.0,
+   "to": 0.9
+  },
+  {
+   "name": "pk_wallkick",
+   "file": "vault-parkour/running-to-flip-off-wall.fbx",
+   "from": 0.2,
+   "to": 1.6
+  },
+  {
+   "name": "pk_slide",
+   "file": "slide/running-to-slide-and-back-to-running.fbx",
+   "from": 0.0,
+   "to": 1.45
+  },
+  {
+   "name": "pk_hang",
+   "file": "hang-ledge/hanging-from-a-ledge-idle.fbx",
+   "from": 0.3,
+   "to": 3.3
+  },
+  {
+   "name": "pk_mantle",
+   "file": "climb/climb-wall-from-braced-hang-to-crouch.fbx",
+   "from": 0.0,
+   "to": 1.1
+  },
+  {
+   "name": "pk_roll",
+   "file": "acrobatics/sprint-to-forward-roll-to-sprinting.fbx",
+   "from": 0.0,
+   "to": 1.1
+  },
+  {
+   "name": "pk_flipF",
+   "file": "acrobatics/doing-a-forward-flip-while-running.fbx",
+   "from": 0.05,
+   "to": 1.05
+  },
+  {
+   "name": "pk_flipT",
+   "file": "acrobatics/run-to-twist-flip-to-run.fbx",
+   "from": 0.2,
+   "to": 1.5
+  },
+  {
+   "name": "pk_flipB",
+   "file": "acrobatics/standing-backflip.fbx",
+   "from": 0.2,
+   "to": 1.7
+  },
+  {
+   "name": "pk_jump",
+   "file": "jump/jumping-from-a-sprint.fbx",
+   "from": 0.0,
+   "to": 0.85
+  },
+  {
+   "name": "pk_fall",
+   "file": "fall-land/falling-in-the-air-idle.fbx",
+   "from": 0.3,
+   "to": 2.3
+  },
+  {
+   "name": "pk_stumble",
+   "file": "fall-land/mid-air-falling-to-a-hard-landing.fbx",
+   "from": 0.9,
+   "to": 2.1
+  }
+ ]
+}
