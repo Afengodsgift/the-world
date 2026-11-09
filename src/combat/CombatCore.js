@@ -7,6 +7,7 @@
 //   They resolve through the same outcome list as sword hits, so hit-stop freezes them and every event keeps its shape (hit/block/deflect/dodged/dead).
 const CombatCore=(()=>{
   const PICK_R=1.0,RETURN_T=1500,DIS_CD=2400,KICK_REACH=2.1,KICK_DIST=6;   // DISARM (see Brawl.js): pick-up radius, ticks before a lost weapon slides back, the victim's no-disarm window, how far a kick reaches / punts a weapon on the floor
+  const CLASH_LEAD=6,CLASH_WIN=1.5,CLASH_REC=18,CLASH_LOSE=30,CLASH_WIN_REC=9,CLASH_HS=9;   // CLASH: blade-on-blade rules (see (5a)): ticks a blade counts as live before its active window, power ratio that wins the bind, recoil ticks, hit-stop
   const SPEED=.05,SUBM=.1,GUARD_ARC=1.2,REARM=7,DEFL=7,BUF=6,PARRY_T=26,PARRY_W=13,PERFECT=4;
   const PHI=42,RISE=336;   // RISE: a boss that 'rises' is felled at its phase line, lies down ~5.6 s (untouchable), then gets up in its second phase
      // ticks of invulnerability while a boss changes phase (0.7 s)
@@ -126,6 +127,24 @@ const CombatCore=(()=>{
         else out.push({k:'hit',a,t,seg:p.seg,mv:a.mv,br})}}
     // (5) resolve (all outcomes were decided from the pre-resolution state, so simultaneous hits both land)
     let hs=0;const stag0={};for(const id of C.order)stag0[id]=C.F[id].act==='stun'&&C.F[id].sk==='stagger';
+    // (5a) CLASH: a sword that strikes a fighter whose own blade is live (active, or its last CLASH_LEAD startup ticks) and pointed back at it is caught on that blade instead of landing:
+    //      both swings are spent, a spark of steel, a hit-stop, both are shoved apart. The heavier swing wins the bind (the lighter fighter recoils longer); super-armour, perilous moves and magic never clash.
+    {const seen={},rm=new Set();
+      for(const o of out){if(o.k!=='hit'||o.fx||!o.mv||o.mv.gr||o.mv.per||!(o.mv.w>0))continue;const a=o.a,t=o.t;
+        if(t.act!=='attack'||!t.mv||t.sa||a.sa||t.mv.gr||t.mv.per||t.mv.fx||!(t.mv.w>0)||a.act!=='attack')continue;
+        const p=t.ph&&t.ph[t.pi],nx=t.ph&&t.ph[t.pi+1];
+        const live=p&&(p.k==='active'||(nx&&nx.k==='active'&&t.pk>=p.n-CLASH_LEAD));if(!live)continue;
+        const d=Math.hypot(t.x-a.x,t.z-a.z);if(d>t.mv.reach*(t.rm||1)+.9)continue;
+        if(SwordHit.angd(t.face,Math.atan2(a.x-t.x,a.z-t.z))>1.35)continue;
+        const key=a.id<t.id?a.id+'|'+t.id:t.id+'|'+a.id;if(seen[key])continue;seen[key]=1;
+        for(const q of out)if(q.k==='hit'&&!q.fx&&((q.a===a&&q.t===t)||(q.a===t&&q.t===a)))rm.add(q);
+        const pa=a.mv.dmg*(a.dm||1)*(a.chg?1+.5*a.chg:1),pt=t.mv.dmg*(t.dm||1)*(t.chg?1+.5*t.chg:1),win=pa>=pt*CLASH_WIN?a:pt>=pa*CLASH_WIN?t:null;
+        const mx=(a.x+t.x)/2,mz=(a.z+t.z)/2,fa=a.mv.id,ft=t.mv.id;
+        for(const[f,o2]of[[a,t],[t,a]]){const ph0=f.ph&&f.ph[f.pi];if(ph0&&ph0.k==='active')f.done[ph0.seg]=true;
+          const lose=win&&win!==f,dx=f.x-o2.x,dz=f.z-o2.z,L=Math.hypot(dx,dz)||1;
+          addPo(C,f,(f.mv?f.mv.pdmg:10)*(lose?.7:.35));stunF(f,win?(lose?CLASH_LOSE:CLASH_WIN_REC):CLASH_REC,'recoil');f.kx=dx/L;f.kz=dz/L;f.kr=lose?1.5:win?.5:.9;f.lc=0}
+        emit(C,'clash',a.id,t.id,{x:mx,z:mz,win:win?win.id:null,fa,ft});hs=Math.max(hs,CLASH_HS)}
+      if(rm.size)for(let i=out.length-1;i>=0;i--)if(rm.has(out[i]))out.splice(i,1)}
     for(const o of out){const{a,t,mv}=o;
       if(o.k==='dodged'){emit(C,'dodged',a.id,t.id,{seg:o.seg});if(!o.fx&&mv&&mv.per&&a.act==='attack'&&!a.sa){stunF(a,46,'recoil');emit(C,'perdodge',a.id,t.id)}continue}
       if(!o.fx)a.done[o.seg]=true;const sc=!o.fx&&a.mv&&(a.mv.id==='heavy'||a.mv.id==='power'||a.mv.id==='twpierce'||a.mv.id==='bwpower')?1+.5*(a.chg||0):1;
@@ -174,4 +193,4 @@ const CombatCore=(()=>{
       for(let i=0;i<n;i++){const nt=C.tick+1,cm={},held=getHeld?getHeld(nt):{};for(const id in held)cm[id]=Object.assign({list:[]},held[id]);
         for(const p of S.pend)if(p.tick<=nt){(cm[p.id]=cm[p.id]||{list:[]}).list.push(p.cmd)}S.pend=S.pend.filter(p=>p.tick>nt);
         for(const e of C.step(cm))evs.push(e);if(post)post(nt)}return evs};return S}
-  return{create,stepper,mkFighter,moveBy,stun:stunF,CONST:{SPEED,SUBM,GUARD_ARC,REARM,DEFL,BUF,PARRY_T,PARRY_W,PERFECT}}})();
+  return{create,stepper,mkFighter,moveBy,stun:stunF,CONST:{CLASH_LEAD,CLASH_WIN,CLASH_REC,CLASH_LOSE,SPEED,SUBM,GUARD_ARC,REARM,DEFL,BUF,PARRY_T,PARRY_W,PERFECT}}})();

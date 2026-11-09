@@ -341,7 +341,13 @@ const PlayerCombat=(()=>{
   const CAMM={charge:[2.4,6,['ruin','ruincollapse','charge','heavenfall','hangfall','leap','pursuit','dash','march','rend','impaler','doubleimp']],flurry:[1.6,3,['flurry','tempest','severance','hundred','thousand','twineclipse','eclipsecollapse','triple','executioner','brokenadv','maul','twin','risingcrown']],
     barrage:[1.9,3.5,['bladestorm','stormgrid','sunvolley','crownfall','marks','finalsentence','storm','spear','arrows','swordring','crossflame','returning','ashwave','lance','orb','bolt','consecrate','procession']],area:[2.2,4,['worldbreaker','aftershock','sunder','quake','eclipse','requiem','kingsfall','groundbreaker','tidal','spores']]};
   function camMoves(){let d=0,f=0;if(CAMS.move&&state==='fight'&&!ult&&!sv)for(const F of foes){if(F.f.act!=='attack'||!F.f.mv||!F.awake)continue;const id=F.f.mv.id;for(const k in CAMM){const c=CAMM[k];if(c[2].indexOf(id)>=0){const near=Math.hypot(F.f.x-S.x,F.f.z-S.z)<14;if(near){d=Math.max(d,c[0]);f=Math.max(f,c[1])}}}}
+    // DUEL FRAMING: a boss within sword range: pull back a little and widen so BOTH fighters stay in the frame as they trade blows; eases in and out
+    try{const T0=target(),fd=T0&&T0.f?Math.hypot(T0.f.x-S.x,T0.f.z-S.z):99,duel=CAMS.move&&state==='fight'&&!ult&&!sv&&T0&&T0.T&&T0.T.boss&&T0.f.act!=='dead'&&P.act!=='dead'&&fd<7.5;
+      const now=performance.now(),dt0=Math.min(.1,(now-(dcT||now))/1000);dcT=now;duelK+=((duel?1:0)-duelK)*Math.min(1,dt0*2.4);
+      if(duelK>.01){d=Math.max(d,duelK*(.8+Math.max(0,fd-2)*.2));f=Math.max(f,duelK*2.2)}}catch(e){}
     try{CameraRig.combat(d,f)}catch(e){}}
+  let duelK=0,dcT=0,yawKick=0;
+  function duelKick(e){yawKick=(Math.random()<.5?-1:1)*(e&&e.win&&e.win!=='P'?.2:.13)}
   // AUTO LOCK: the first boss that is awake and alive is locked as soon as you fight it (and the next one when it falls); turning lock off yourself stays off
   function autoLock(){if(lock||lockOff||state!=='fight'||ult||sv||site&&site.duel)return;let b=null,bd=1e9;for(const F of foes){if(F.f.act==='dead'||F.ghost||!F.awake||!F.T.boss)continue;const d=(F.woke||1e6)*1000+Math.hypot(F.f.x-S.x,F.f.z-S.z);if(d<bd){bd=d;b=F}}if(b){lock=true;lockI=b.i;if(el)el.querySelector('#wLock').classList.add('on')}}
   function toggleLock(){
@@ -506,8 +512,9 @@ const PlayerCombat=(()=>{
     for(let i=n;i<thA.length;i++)thA[i].style.display='none'}
   // Camera framing: with 2+ awake foes and no lock, ease the camera yaw so both stay in view (unless you are dragging the camera yourself).
   function frameFoes(dt){
+    if(Math.abs(yawKick)>.002){const ys=yawKick*Math.min(1,dt*6);S.yaw+=ys;yawKick-=ys}   // a clash swings the camera a few degrees round the bind
     if(ult&&ult.kind==='echo'){try{CameraRig.setFocus(null)}catch(e){}return}   // the camera must not lean toward the real one
-    try{const D0=target().f,fd=Math.hypot(D0.x-S.x,D0.z-S.z),W=threatMid(D0);CameraRig.setFocus(P.act!=='dead'&&alive().some(F=>F.awake)&&fd>2?{x:W.x,z:W.z,k:lock?Math.min(.3,.12+fd*.018):.34,y:Math.min(1.6,Math.max(0,(((target().T||{}).scale)||1)-1.2)*1.8)}:null)}catch(e){}   // look a third of the way toward the foe: you stay low in the frame, the opponent sits in the middle
+    try{const D0=target().f,fd=Math.hypot(D0.x-S.x,D0.z-S.z),W=threatMid(D0);CameraRig.setFocus(P.act!=='dead'&&alive().some(F=>F.awake)&&fd>2?{x:W.x,z:W.z,k:(lock?Math.min(.3,.12+fd*.018):.34)+duelK*.14,y:Math.min(1.6,Math.max(0,(((target().T||{}).scale)||1)-1.2)*1.8)}:null)}catch(e){}   // look a third of the way toward the foe: you stay low in the frame, the opponent sits in the middle
     if(ult)return;if(lock||P.act==='dead')return;const al=alive().filter(F=>F.awake);if(!al.length||performance.now()-(S._lk||0)<1500)return;
     let worst=0,sum=0;for(const F of al){const r=wrapA(Math.atan2(-(F.f.x-S.x),-(F.f.z-S.z))-S.yaw);worst=Math.max(worst,Math.abs(r));sum+=r}
     if(worst<(al.length>1?.9:.45))return;S.yaw+=sum/al.length*Math.min(1,dt*2.2)}
@@ -924,7 +931,7 @@ for(const p of dpil){if(!p.fall)continue;p.fall+=dt;const u=Math.min(1,p.fall/.7
     mood(m[n-2][1],m[n-2][0]);try{CameraRig.pulse(-3);CameraRig.shake(.5);flash(.5,n===3?'rgba(255,60,20,.55)':'rgba(255,180,90,.4)')}catch(x){}}
   function supEv(e){if(sv||ult||state!=='fight')return;let g=0;
     if(e.t==='hit'){if(e.a==='P'&&!e.fx)g=e.dmg>=20?5:3;else if(e.d==='P')g=2}
-    else if(e.t==='deflect'&&e.d==='P')g=e.pf?12:7;else if(e.t==='dodged'&&e.d==='P')g=5;else if(e.t==='perdodge'&&e.d==='P')g=9;
+    else if(e.t==='deflect'&&e.d==='P')g=e.pf?12:7;else if(e.t==='clash'&&(e.a==='P'||e.d==='P'))g=e.win==='P'?9:5;else if(e.t==='dodged'&&e.d==='P')g=5;else if(e.t==='perdodge'&&e.d==='P')g=9;
     if(g){const was=sup;sup=Math.min(100,sup+g);if(was<100&&sup>=100){msg(stance==='twin'?'HUNDRED SHADOWS READY':'SPIRIT SEVER READY',1.4);try{tone(600,1500,.3,'triangle',.12)}catch(x){}}}}
   function supHud(){const b=el&&el.querySelector('#wSup');if(!b)return;const f=Math.round(sup/100*60),full=sup>=100&&!sv;if(bars.sp!==f||bars.spf!==full||bars.spv!==!!sv){bars.sp=f;bars.spf=full;bars.spv=!!sv;b.style.setProperty('--sp',(sup/100*360)+'deg');b.classList.toggle('full',full);b.classList.toggle('on',!!sv)}}
   function startSever(){
@@ -1284,6 +1291,16 @@ for(const p of dpil){if(!p.fall)continue;p.fall+=dt;const u=Math.min(1,p.fall/.7
     if(pAnim)pAnim.flick=parryAlt?{t:0,c:'slash',a:.28,b:.7,d:.3}:{t:0,c:'atk4',a:.12,b:.56,d:.3};
     try{const A=byId[e.a],ax=A?A.f.x:P.x+Math.sin(P.face),az=A?A.f.z:P.z+Math.cos(P.face),mx=(P.x*2+ax)/3,mz=(P.z*2+az)/3,y=H(mx,mz)+1.35;WardenVfx.clash(mx,y,mz,true);WardenVfx.clash(mx,y+.12,mz,true);WardenVfx.burst(mx,y,mz,3);tone(1900,2600,.12,'triangle',.1)}catch(x){}
     msg('PARRY',.45)}
+  // CLASH: blade meets blade. Three bursts of sparks on the point of contact, a bright ring, a hit-stop, a camera punch-in + shudder, the player's blade sweeps into the bind, and the verdict of the bind is called out.
+  function clashFx(e){
+    if(ult)return;const mine=e.a==='P'||e.d==='P';const y=H(e.x,e.z)+1.4;
+    try{WardenVfx.clash(e.x,y,e.z,true);WardenVfx.clash(e.x,y+.1,e.z,true);WardenVfx.clash(e.x,y-.1,e.z,false);WardenVfx.burst(e.x,y,e.z,3)}catch(x){}
+    if(!mine)return;
+    parryAlt^=1;hsT=Math.max(hsT,.12);flash(.42,'rgba(255,236,190,.85)');
+    try{CameraRig.shake(e.win&&e.win!=='P'?.62:.45);CameraRig.pulse(e.win==='P'?-3.6:-2.6);duelKick(e)}catch(x){}
+    if(pAnim&&(!e.win||e.win==='P'))pAnim.flick=parryAlt?{t:0,c:'slash',a:.2,b:.62,d:.26}:{t:0,c:'atk4',a:.1,b:.5,d:.26};
+    try{sfx('clash',.7,1.15+Math.random()*.3,()=>tone(1100+Math.random()*500,700,.16,'sawtooth',.1));tone(2300,3100,.07,'triangle',.07)}catch(x){}
+    msg(e.win==='P'?'CLASH — YOU HOLD':e.win?'OVERPOWERED':'CLASH',e.win&&e.win!=='P'?.8:.5)}
   function vfxAt(e,f){const y=H(f.x,f.z)+1.3;if(e.t==='hit')WardenVfx.hit(f.x,y,f.z,e.crit,e.dmg>=20);else if(e.t==='block')WardenVfx.clash(f.x,y,f.z);else if(e.t==='deflect')WardenVfx.clash(f.x,y,f.z,true);else WardenVfx.burst(f.x,y,f.z,e.t==='posturebreak'?0:3)}
   function events(evs){
     echoEvents(evs);
@@ -1296,6 +1313,8 @@ for(const p of dpil){if(!p.fall)continue;p.fall+=dt;const u=Math.min(1,p.fall/.7
       flowEv(e,T);supEv(e);svHit(e);try{spEv(e,A)}catch(x){}try{setEv2(e)}catch(x){}try{wpEv(e)}catch(x){}
       if(e.t==='fx'||e.t==='fxburst'||e.t==='fxend'){if(e.t==='fx'&&A&&A.T)e.fk=A.T.id;WardenFx.event(e);
         if(e.t==='fxburst'&&!ult){const st=WardenFx.styleOf(e.fid);if(st==='lightning'||st==='sun'||st==='eclipse'){const dd=Math.hypot(P.x-e.x,P.z-e.z);if(dd<(e.r||3)+9){flash(st==='lightning'?.22:.16,st==='lightning'?'rgba(200,228,255,.5)':'rgba(255,220,150,.35)');try{CameraRig.shake(dd<(e.r||3)+1?.28:.12)}catch(x){}}}}}
+      if(e.t==='clash')try{clashFx(e)}catch(x){}
+      else if(e.t==='deflect'&&e.a==='P'&&T&&!ult){try{CameraRig.shake(.35);CameraRig.pulse(1.6)}catch(x){}flash(.3,'rgba(255,170,120,.7)');msg('PARRIED',.55)}   // the boss turned your swing aside: you are open for his answer
       {const fp=e.t==='hit'||e.t==='block'||e.t==='deflect'||e.t==='posturebreak'||e.t==='guardbreak'?(T?T.f:(e.d==='P'?P:null)):null;if(fp){vfxAt(e,fp);punch(e,fp)}else if(e.t==='dodge')punch(e,P)}
       if(e.t==='start'&&e.per&&e.a!=='P'&&!ult){try{CameraRig.pulse(-2.2)}catch(x){}hsT=Math.max(hsT,.3);flash(.5,'rgba(255,40,40,.55)');msg('危  PERILOUS',.9);try{sfx('heavy',.7,.7,()=>tone(520,260,.35,'square',.1));CameraRig.shake(.25)}catch(x){}}
       else if(e.t==='perdodge'&&!ult){try{CameraRig.pulse(-4);CameraRig.shake(.25)}catch(x){}hsT=Math.max(hsT,.2);msg('OPENING!',.9);flash(.35,'rgba(255,230,160,.6)')}
