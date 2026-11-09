@@ -57,4 +57,10 @@ const body=(x,z)=>P.newBody(x||0,0,z||0,0);
 {const W=world([{x0:-3,x1:3,z0:10,z1:12,y0:0,y1:9}]);const B=body();B.flow=1;const r=run(W,B,()=>({jump:false}),3);ok(!(B.z>12&&B.y<8),'no tunnelling through a tall wall')}
 // 14 walking off a ledge gives coyote time
 {const W=world([{x0:-3,x1:3,z0:-3,z1:6,y0:-1,y1:3}]);const B=P.newBody(0,3,0,0);B.spd=6;B.vz=6;let j=false;const r=run(W,B,(t,B)=>{const jump=!j&&B.z>6.0&&B.mode==='air'&&B.airT<.1;if(jump)j=true;return{jump}},1.2);ok(has(r,'jump')||B.mode!=='ground','coyote jump just after leaving a ledge ('+r.evs.map(x=>x.e).join(',')+')')}
+// 12 auto wall-up (no jump press), air auto-climb, air-dash, dive
+{const W=world([{x0:-3,x1:3,z0:20,z1:21,y0:0,y1:2.8,k:'wall'},{x0:-3,x1:3,z0:21,z1:90,y0:0,y1:2.8,k:'plat'}]);const B=body();const r=run(W,B,()=>({}),3.1);
+ ok(has(r,'wallup'),'running into a 2.8 m wall climbs it with no button press');ok(B.y>2.7&&B.z>20.5,'ends on top of the wall ('+B.y.toFixed(1)+','+B.z.toFixed(1)+')')}
+{const B=body();B.mode='air';B.y=4;B.vy=2;B.spd=10;B.vz=10;B.airT=.3;const W=world();let n=0;const r=run(W,B,(t)=>({jump:t>.05&&t<.12}),.5);ok(has(r,'airdash'),'second jump press in the air = air dash');
+ const B2=body();B2.mode='air';B2.y=4;B2.vy=2;B2.spd=10;B2.vz=10;B2.airT=.3;const r2=run(W,B2,(t)=>({jump:(t>.05&&t<.1)||(t>.3&&t<.35)}),.6);ok(r2.evs.filter(x=>x.e==='airdash').length===1,'air dash only once per flight')}
+{const B=body();B.mode='air';B.y=8;B.vy=0;B.spd=10;B.vz=10;B.airT=.3;const r=run(world(),B,(t)=>({slide:t>.05&&t<.12}),1.2);ok(has(r,'dive')&&has(r,'diveroll'),'slide in the air dives and rolls out');ok(B.spd>5,'dive keeps speed ('+B.spd.toFixed(1)+')')}
 process.exit(bad?1:0);

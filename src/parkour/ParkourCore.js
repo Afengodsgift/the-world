@@ -92,11 +92,11 @@ const ParkourCore=(()=>{
     B.x+=B.vx*dt;B.z+=B.vz*dt;
     let hit=collide(W,B);
     // vault / wall-up: running straight into an obstacle
-    if(B.spd>4.5&&B.stumble<=0){const h=heading(B),fx=Math.sin(h),fz=Math.cos(h),r=ray(W,B.x,B.z,fx,fz,R+.75+(B.buf>0?B.spd*.26:0),B.y+.6);
+    if(B.spd>4.5&&B.stumble<=0){const h=heading(B),fx=Math.sin(h),fz=Math.cos(h),r=ray(W,B.x,B.z,fx,fz,R+.75+B.spd*.26,B.y+.6);
       if(r&&r.b!==B.vbox){const hgt=r.top-B.y;
-        if(hgt>.55&&hgt<=1.62&&Math.abs(r.nx*fx+r.nz*fz)>.5){const depth=Math.abs(fx)*(r.b.x1-r.b.x0)+Math.abs(fz)*(r.b.z1-r.b.z0);
+        if(hgt>.55&&hgt<=1.62&&r.t<=R+.75+(B.buf>0?B.spd*.26:0)&&Math.abs(r.nx*fx+r.nz*fz)>.5){const depth=Math.abs(fx)*(r.b.x1-r.b.x0)+Math.abs(fz)*(r.b.z1-r.b.z0);
           if(depth<=3.2&&ceilAt(W,r.b.x0+(r.b.x1-r.b.x0)/2,r.b.z0+(r.b.z1-r.b.z0)/2,r.top)>r.top+1.8){startVault(B,r.b,h,depth,hgt,ev);return}}
-        else if(B.buf>0&&hgt>1.62&&hgt<=3.7&&Math.abs(r.nx*fx+r.nz*fz)>.6&&r.b.x1-r.b.x0>.8&&r.b.z1-r.b.z0>.8){B.buf=0;startWallUp(B,r,h,ev);return}}}
+        else if(hgt>1.62&&hgt<=3.7&&Math.abs(r.nx*fx+r.nz*fz)>.6&&r.b.x1-r.b.x0>.8&&r.b.z1-r.b.z0>.8){B.buf=0;startWallUp(B,r,h,ev);return}}}
     bounce(B,hit);
     const f=floorAt(W,B.x,B.z,B.y);
     if(B.y>f+.06||f===-Infinity){B.mode='air';B.coy=COY;B.grounded=false;B.jumped=false;B.cut=false;B.airT=0;B.air=B.y;return}
@@ -114,7 +114,7 @@ const ParkourCore=(()=>{
     const arc=Math.sin(Math.min(1,u*1.35)*Math.PI*.5);B.y=B.vy0+(B.vh+.12-B.vy0)*arc*(u<.7?1:1-(u-.7)/.3*.9)-0;if(u>.7)B.y=Math.max(B.y,B.vh+.12-(B.vh+.12-B.vy0)*0);
     collide(W,B);
     if(u>=1){B.mode='air';B.vy=0;B.grounded=false;B.airT=.1;B.air=B.y;B.coy=0;B.jumped=false;B.vbox=null;B.cut=true}}
-  function startWallUp(B,r,h,ev){
+  function startWallUp(B,r,h,ev){B.dashed=false;
     B.mode='wallup';B.mt=0;B.wbox=r.b;B.wtop=r.top;B.vy0=B.y;B.wdur=.95;B.wn={x:r.nx,z:r.nz};B.wx0=B.x;B.wz0=B.z;B.wh=h;B.wa=Math.max(0,r.t-R-.02);B.spd=Math.max(B.spd,6);
     ev.push('wallup');gain(B,.2)}
   function wallup(W,B,dt,ev){
@@ -140,18 +140,25 @@ const ParkourCore=(()=>{
       for(const sd of[-1,1]){const px=fz*sd,pz=-fx*sd,r=ray(W,B.x,B.z,px,pz,R+.3,B.y+1.0);
         if(r&&tall(r.b)&&r.top>B.y+2.2&&Math.abs(r.nx*fx+r.nz*fz)<.55){B.mode='wallrun';B.mt=0;B.wn={x:r.nx,z:r.nz};B.wbox=r.b;B.wside=sd;B.vy=Math.max(B.vy,1.2);B.jumped=false;B.flip=false;
           const tx=-r.nz*(r.nx*fx+r.nz*fz>=0?0:0)+(fx*r.nz*0),tdir=(-r.nz)*fx+(r.nx)*fz>=0?1:-1;B.wt={x:-r.nz*tdir,z:r.nx*tdir};setV(B,Math.atan2(B.wt.x,B.wt.z),Math.max(sp,6.5));ev.push('wallrun');gain(B,.1);return}}}
+    if(B.wrCd<=0&&B.ledgeCd<=0&&sp>3){const r=ray(W,B.x,B.z,fx,fz,R+.6,B.y+1.0);
+      if(r&&tall(r.b)&&r.nx*fx+r.nz*fz<-.6&&r.b.x1-r.b.x0>.8&&r.b.z1-r.b.z0>.8){const rel=r.top-B.y;if(rel>2.3&&rel<=3.5&&B.vy<=5){B.mode='air';startWallUp(B,r,h,ev);B.dashed=false;return}}}
     if(B.buf>0&&B.wrCd<=0){const r=ray(W,B.x,B.z,fx,fz,R+.55,B.y+1.0);
       if(r&&tall(r.b)&&r.nx*fx+r.nz*fz<-.6){B.buf=0;B.vy=JUMP*.98;const n=r;setV(B,Math.atan2(n.nx,n.nz),Math.max(6.5,sp*.8));B.wrCd=.4;B.jumped=true;B.cut=false;B.flip=false;ev.push('wallkick');gain(B,.15);return}}
     if(B.ledgeCd<=0&&B.vy<=2.8&&sp>-1){const r=ray(W,B.x,B.z,fx,fz,R+.6,B.y+1.0),r2=r&&ray(W,B.x,B.z,fx,fz,R+.6,B.y+1.75);
       if(r&&Math.abs(r.nx*fx+r.nz*fz)>.5){const rel=r.top-B.y;
         if(rel>=1.35&&rel<=2.3&&!r2||(r&&rel>=1.35&&rel<=2.05&&r2&&r2.b===r.b&&false)){B.mode='ledge';B.mt=0;B.ln={x:r.nx,z:r.nz};B.lbox=r.b;B.ltop=r.top;B.vx=B.vz=B.vy=0;B.spd=0;B.x=B.x+fx*(r.t-R+.02);B.z=B.z+fz*(r.t-R+.02);B.y=r.top-1.75;B.flip=false;B.yaw=Math.atan2(-r.nx,-r.nz);ev.push('ledge');gain(B,.06);return}}}
+    // air skills: JUMP again = air-dash (once per flight, boosts + flows); SLIDE = dive (fast drop, rolls out on landing)
+    {const f0=floorAt(W,B.x,B.z,B.y-STEP*.3);
+    if(B.buf>0&&!B.dashed&&B.airT>.18&&B.y-f0>1.3&&B.stumble<=0){B.buf=0;B.dashed=true;B.spinT=.45;B.vy=Math.max(B.vy,6.2);setV(B,B.spd>.4?heading(B):B.yaw,Math.min(maxRun(B)+4,Math.max(B.spd,8)+4.5));ev.push('airdash');gain(B,.14)}
+    else if(inp.slide&&!B.diving&&B.airT>.1&&B.y-f0>2.2&&B.vy>-14){B.diving=true;B.vy=-17;ev.push('dive');gain(B,.06)}}
+    if(B.spinT>0)B.spinT-=dt;
     // landing
     const f=floorAt(W,B.x,B.z,B.y-STEP*.3);
     if(B.vy<=0&&B.y<=f){const impact=-B.vy;B.y=f;B.vy=0;B.grounded=true;B.mode='ground';B.mt=0;
-      const clean=B.flip&&B.flipT>=.52;
+      const clean=B.flip&&B.flipT>=.52;B.dashed=false;B.spinT=0;const dove=B.diving;B.diving=false;if(dove){gain(B,.12);ev.push('diveroll')}
       if(B.flip&&!clean){B.stumble=.45;B.flow=Math.max(0,B.flow-.2);ev.push('stumble');B.spd*=.5;setV(B,heading(B),B.spd)}
       else if(clean){gain(B,.3);setV(B,heading(B),Math.min(maxRun(B)+1.5,B.spd+1.4));ev.push('flipland')}
-      else if(impact>11.5&&B.spd>3.2||B.buf>0&&impact>11.5){B.mode='roll';B.mt=0;setV(B,heading(B),Math.max(B.spd*.92,4));ev.push('roll');gain(B,.1)}
+      else if(dove||impact>11.5&&B.spd>3.2||B.buf>0&&impact>11.5){B.mode='roll';B.mt=0;setV(B,heading(B),Math.max(B.spd*.92,4));ev.push('roll');gain(B,.1)}
       else if(impact>19){B.stumble=.5;B.flow=Math.max(0,B.flow-.25);B.spd*=.35;setV(B,heading(B),B.spd);ev.push('hardland')}
       else if(B.buf>0&&m>.1){B.buf=0;ev.push('bhop');gain(B,.04);doJump(B,ev,false);return}
       B.flip=false;if(B.mode==='ground'&&!ev.includes('flipland'))B.spd*=.97;return}
@@ -166,7 +173,7 @@ const ParkourCore=(()=>{
     if(B.y>f+.08){B.mode='air';B.grounded=false;B.coy=COY;B.jumped=false;B.airT=0;B.air=B.y;return}B.y=f;
     if(B.buf>0&&!low){B.buf=0;doJump(B,ev,true);return}
     if(!low&&(B.mt>.85||s<4.2)){B.mode='ground'}}
-  function wallrun(W,B,inp,dt,ev){
+  function wallrun(W,B,inp,dt,ev){B.dashed=false;
     const sp=Math.min(maxRun(B)+1,B.spd+3*dt);setV(B,Math.atan2(B.wt.x,B.wt.z),sp);
     B.vy=B.vy*(1-2.2*dt)-G*.13*dt;B.x+=B.vx*dt;B.z+=B.vz*dt;B.y+=B.vy*dt;
     // stay glued to the wall; leaving its end ends the run
@@ -195,7 +202,7 @@ const ParkourCore=(()=>{
   function animOf(B){
     const M=B.mode;let a='idle',ts=1;
     if(M==='ground'){const s=B.spd;if(B.stumble>0)a='stumble';else if(s<.6)a='idle';else if(s<4.2){a='jog';ts=cl(s/3.4,.7,1.5)}else if(s<8.2){a='run';ts=cl(s/6.5,.8,1.5)}else{a='sprint';ts=cl(s/10.5,.8,1.7)}}
-    else if(M==='air'){a=B.flip?(B.flipK==='front'?'flipF':'flipB'):B.vy>1?'jump':'fall'}
+    else if(M==='air'){a=B.flip||B.spinT>0?(B.flip&&B.flipK==='back'?'flipB':'flipF'):B.diving?'fall':B.vy>1?'jump':'fall'}
     else if(M==='slide')a='slide';else if(M==='vault')a=B.vk==='low'?'vaultL':'vaultH';
     else if(M==='wallrun')a='wallrun';else if(M==='wallup')a='wallup';else if(M==='ledge')a='hang';else if(M==='mantle')a='mantle';else if(M==='roll')a='roll';
     B.anim=a;B.ts=ts;return a}

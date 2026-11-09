@@ -136,13 +136,13 @@ const Parkour=(()=>{
     if(len>.12){const m=Math.min(1,len);dx=dx/len*m;dz=dz/len*m;inp.mx=dx;inp.mz=dz}else{inp.mx=0;inp.mz=0}
     if(jumpQ)edge.jump=true;inp.jumpHeld=held||!!keys.Space}
   // ---------- per-frame ----------
-  const EVT={vault:['VAULT',40],slide:['SLIDE',30],wallrun:['WALL RUN',120],walljump:['WALL JUMP',80],wallkick:['WALL KICK',90],wallup:['WALL CLIMB',100],ledge:['LEDGE GRAB',50],mantle:['MANTLE',30],roll:['ROLL',60],flip:['FLIP',0],flipland:['CLEAN FLIP',200],stumble:['SLOPPY',0],hardland:['HARD LANDING',0],bhop:['BUNNY HOP',25]};
+  const EVT={vault:['VAULT',40],slide:['SLIDE',30],wallrun:['WALL RUN',120],walljump:['WALL JUMP',80],wallkick:['WALL KICK',90],wallup:['WALL CLIMB',100],ledge:['LEDGE GRAB',50],mantle:['MANTLE',30],roll:['ROLL',60],flip:['FLIP',0],flipland:['CLEAN FLIP',200],stumble:['SLOPPY',0],hardland:['HARD LANDING',0],bhop:['BUNNY HOP',25],airdash:['AIR DASH',110],dive:['DIVE',40],diveroll:['DIVE ROLL',150]};
   function onEvents(ev){
     for(const e of ev){const d=EVT[e];if(!d)continue;let pts=0;if(d[1]){pts=Math.round(d[1]*(1+B.flow*2));score+=pts}
       if(e!=='slide'&&e!=='flip'&&e!=='bhop'&&e!=='mantle'&&e!=='ledge'||e==='ledge')callout(d[0],pts);
       if(e==='vault'||e==='wallup'||e==='wallkick'||e==='walljump'||e==='flipland')try{CameraRig.pulse(.7)}catch(x){}
       if(e==='roll'||e==='hardland'||e==='flipland')try{CameraRig.land(e==='hardland'?24:14)}catch(x){}
-      if(e==='flipland'||e==='wallrun'||e==='wallkick'||e==='wallup')sfx(520,1100,.18,'triangle',.09);else if(e==='stumble'||e==='hardland')sfx(160,70,.2,'sawtooth',.08);else if(e==='vault'||e==='roll')sfx(380,620,.1,'triangle',.06)}}
+      if(e==='flipland'||e==='wallrun'||e==='wallkick'||e==='wallup'||e==='airdash')sfx(520,1100,.18,'triangle',.09);else if(e==='stumble'||e==='hardland')sfx(160,70,.2,'sawtooth',.08);else if(e==='vault'||e==='roll')sfx(380,620,.1,'triangle',.06)}}
   function stepPlayer(){
     const i=Object.assign({},inp,{jump:edge.jump,slide:edge.slide,trick:edge.trick});edge.jump=edge.slide=edge.trick=false;
     const ev=P.step(W,B,i,DT);ParkourAnim.note(B,ev);if(ev.length)onEvents(ev);

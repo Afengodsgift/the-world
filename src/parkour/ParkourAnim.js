@@ -8,7 +8,7 @@ const ParkourAnim=(()=>{
   const cl=(v,a,b)=>v<a?a:v>b?b:v,DUR={pk_vaultL:1.05,pk_vaultH:1.1,pk_wallup:1.7,pk_wallrun:.9,pk_wallkick:1.4,pk_slide:1.45,pk_hang:3,pk_mantle:1.1,pk_roll:1.1,pk_flipF:1,pk_flipT:1.3,pk_flipB:1.5,pk_jump:.85,pk_fall:2,pk_stumble:1.2};
   const LOOP={pk_hang:1,pk_fall:1};
   // short timed moves that outlast the state they start in (a kick off a wall, a wall-jump): B.pkT / B.pkN set by note()
-  function note(B,ev){for(const e of ev){if(e==='wallkick'){B.pkN='pk_wallkick';B.pkT=.8}else if(e==='walljump'){B.pkN='pk_jump';B.pkT=.5}else if(e==='jump'&&B.spd>7.5){B.pkN='pk_jump';B.pkT=.55}else if(e==='flip'){B.flipV=B.flipK==='front'?(Math.random()<.4?'pk_flipT':'pk_flipF'):'pk_flipB'}}}
+  function note(B,ev){for(const e of ev){if(e==='wallkick'){B.pkN='pk_wallkick';B.pkT=.8}else if(e==='walljump'){B.pkN='pk_jump';B.pkT=.5}else if(e==='jump'&&B.spd>7.5){B.pkN='pk_jump';B.pkT=.55}else if(e==='airdash'){B.pkN='pk_flipF';B.pkT=.5}else if(e==='flip'){B.flipV=B.flipK==='front'?(Math.random()<.4?'pk_flipT':'pk_flipF'):'pk_flipB'}}}
   function plan(B,dt){
     if(B.pkT>0){B.pkT-=dt||0;if(B.pkT>0&&B.mode==='air'&&!B.flip)return{name:B.pkN,ts:cl(DUR[B.pkN]/.7,.8,1.6),f:.06}}
     switch(B.mode){

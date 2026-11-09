@@ -10,6 +10,8 @@ A separate island (`PKI`, x 1900 / z -2050, appended to `H()` like the Warden Is
 | Stick | run. Momentum: wide arcs at speed, instant turns when slow |
 | JUMP (Space) | jump / long jump (sprint) / vault (auto when running into a low block) / wall-up (tap early before a tall block) / wall-kick / wall-jump / ledge climb |
 | SLIDE (C / Shift) | slide under low arches; also drops from a ledge and releases a wall-run |
+| JUMP in the air (no wall) | AIR DASH: once per flight, forward boost + flow |
+| SLIDE in the air | DIVE: fast drop, rolls out on landing (keeps speed) |
 | FLIP (V) | trick in the air. Clean landing = speed + flow; landing early = stumble |
 | RESPAWN (R) / EXIT | back to the last checkpoint / leave the run |
 
@@ -25,3 +27,5 @@ A separate island (`PKI`, x 1900 / z -2050, appended to `H()` like the Warden Is
 
 ## Not verified on a real phone
 Feel and difficulty with a thumb; wall-run clip orientation (one authored side, used for both walls); Redmi A3x frame rate; co-op (partner sees you, but the race is per player).
+
+Running into a wall 1.6-3.7 m tall climbs it automatically; jumping at a wall in the air grabs and climbs it too.
