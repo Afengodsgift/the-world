@@ -158,20 +158,21 @@ const Chase=(()=>{
 
   // ---------------------------------------------------------------- the round
   function newCarAt(p,h,cls){const c=CP.newCar(p.x,p.z,h,cls,env,null);c.y=Math.max(env.ground(p.x,p.z),SEA);c.pace=1;return c}
-  function begin(cfg){
+  function begin(cfg,net){
     if(ST.mode!=='off'||busy())return;if(typeof entered==='undefined'||!entered)return;
     sfxInit();buildHud();buildWorld();syncSolids();
     const sp=buildSpots();if(sp.length<3){banner('Not enough land to stage a heist here','COPS & ROBBERS');return}
     const seed=cfg.seed||((Math.random()*1e6)|0)+1,r=C.newRound({seed,spots:sp,role:cfg.role}),L=r.L,rob=cfg.role==='rob';
-    ST.cfg=cfg;ST.role=cfg.role;ST.r=r;
-    const aiCls=['ace','comet','bruiser'][seed%3];
+    ST.cfg=cfg;ST.role=cfg.role;ST.auto=false;ST.r=r;
+    const aiCls=net?(RALLY.cls[net.cls]?net.cls:'ace'):['ace','comet','bruiser'][seed%3];
     const meC=newCarAt(rob?L.A:L.C,rob?L.hRob:L.hCop,cfg.cls),aiC=newCarAt(rob?L.C:L.A,rob?L.hCop:L.hRob,aiCls);
     ST.me={c:meC,o:makeCar(cfg.cls,rob?'#ffb02e':'#4f86ff',!rob),rt:{rt:0}};
-    ST.ai={c:aiC,o:makeCar(aiCls,rob?'#4f86ff':'#ffb02e',rob),rt:{rt:0},bot:C.newBot(cfg.diff==='easy'?'rookie':cfg.diff==='hard'?'expert':'steady',seed)};
+    ST.ai={c:aiC,o:makeCar(aiCls,rob?'#4f86ff':'#ffb02e',rob),rt:{rt:0},bot:net?null:C.newBot(cfg.diff==='easy'?'rookie':cfg.diff==='hard'?'expert':'steady',seed)};
+    ST.net=net?{pcls:net.cls,id:net.id,host:!!net.host,rid:cfg.rid,name:net.name||'Friend',pk:null,v:{x:aiC.x,y:aiC.y,z:aiC.z,h:aiC.h,pitch:0,roll:0},seen:0,lastC:0,lastS:0,act:{slick:false},snapT:0}:null;
     ST.ret={x:S.x,y:S.y,z:S.z,rot:S.rot};ST.mode='play';ST.acc=0;ST.err=0;camS.init=false;baseFov=camera.fov;
     ST.camKids=camera.children.map(k=>[k,k.visible]);for(const [k] of ST.camKids)k.visible=false;
     document.body.classList.add('rally','chase');if(me)me.visible=false;world.root.visible=true;hud.classList.add('on');hud.querySelector('#chCount').dataset.s='';
-    toast(rob?'GRAB THE LOOT. DON\'T GET BUSTED.':'THE ROBBER IS AFTER THE LOOT. BUST HIM.',2200);
+    toast((net?(rob?'YOU ARE THE ROBBER. ':'YOU ARE THE COP. '):'')+(rob?'GRAB THE LOOT. DON\'T GET BUSTED.':'THE ROBBER IS AFTER THE LOOT. BUST HIM.'),2200);
     BTN.boost=BTN.oil=false;pin();
   }
   function pin(){const c=ST.me.c;S.x=c.x;S.y=c.y;S.z=c.z;S.vy=0;S.grounded=true;S.flying=false;S.rot=c.h;if(me){me.position.set(c.x,c.y,c.z);me.visible=false}}
@@ -183,23 +184,33 @@ const Chase=(()=>{
     inp.hand=hand&&c.s>6;inp.brake=false;inp.thr=D?-1:(U||touch)?1:0;if(keys.KeyB){inp.brake=true;inp.thr=0}
     inp.pitch=0;
   }
+  const RANK={count:0,grab:1,run:2,over:3};
   function simStep(){
-    const r=ST.r,m=ST.me,a=ST.ai,rob=ST.role==='rob',robC=rob?m.c:a.c,copC=rob?a.c:m.c,inp={};
+    const r=ST.r,m=ST.me,a=ST.ai,rob=ST.role==='rob',N=ST.net,guest=!!N&&!N.host,robC=rob?m.c:a.c,copC=rob?a.c:m.c,inp={};
     if(ST.auto){Object.assign(inp,C.drive(ST.pbot||(ST.pbot=C.newBot('expert',7)),m.c,rob?'rob':'cop',r,a.c,env,DT))}else playerInput(m.c,inp,rob);
-    const ai=C.drive(a.bot,a.c,rob?'cop':'rob',r,m.c,env,DT);
-    const oil=rob?(ST.auto?C.dropOil(ST.pbot,m.c,r,a.c):BTN.oil||keys.KeyE===true&&!simStep.ke):C.dropOil(a.bot,a.c,r,m.c);simStep.ke=keys.KeyE===true;BTN.oil=false;
+    let ai=null;if(N)netVisual(DT);else ai=C.drive(a.bot,a.c,rob?'cop':'rob',r,m.c,env,DT);
+    let myOil=false;if(rob){myOil=ST.auto?C.dropOil(ST.pbot,m.c,r,a.c):(BTN.oil||keys.KeyE===true&&!simStep.ke);simStep.ke=keys.KeyE===true;BTN.oil=false}
+    let slick=false;
+    if(rob)slick=myOil;else if(!N)slick=C.dropOil(a.bot,a.c,r,m.c);else if(N.act.slick){slick=true;N.act.slick=false}
+    if(rob&&N&&!N.host&&myOil){send('ch:a',{k:'slick'});slick=false}      // a guest robber asks the host to drop oil (the host owns the rules)
+    if(!rob&&N&&N.host&&N.act.slick){slick=true;N.act.slick=false}
     robC.hitT=r.robT;robC.hitSlow=r.robMul;robC.pace=r.robPace;copC.hitT=r.copT;copC.hitSlow=r.copMul;copC.pace=r.copPace;
     if(r.phase!=='count'){
       const pi=rob?inp:ai,ci=rob?ai:inp;
-      CP.step(robC,pi,DT,env);CP.step(copC,ci,DT,env);
-      const imp=CP.collide(robC,copC);if(imp>6){ST.shake=Math.min(1,imp/25);ST.punch=Math.min(1,imp/30);tone(120,.18,'sawtooth',.16,.5)}
-      for(const c of [robC,copC]){if(c.ev.boost){tone(440,.25,'sawtooth',.1,2.2)}if(c.ev.bump>8){ST.shake=Math.max(ST.shake,.5);tone(90,.12,'square',.1)}}
+      CP.step(m.c,inp,DT,env);if(!N)CP.step(a.c,rob?ci:pi,DT,env);
+      const imp=N?CP.collide(robC,copC,{moveA:rob,moveB:!rob}):CP.collide(robC,copC);if(imp>6){ST.shake=Math.min(1,imp/25);ST.punch=Math.min(1,imp/30);tone(120,.18,'sawtooth',.16,.5)}
+      for(const c of [m.c]){if(c.ev.boost){tone(440,.25,'sawtooth',.1,2.2)}if(c.ev.bump>8){ST.shake=Math.max(ST.shake,.5);tone(90,.12,'square',.1)}}
     }
-    C.regen(m.c,m.rt,DT);C.regen(a.c,a.rt,DT);
-    C.step(r,DT,robC,copC,{slick:!!oil,dash:copC.boostT>0});
-    for(const e of r.ev)onEvent(e,rob);
+    C.regen(m.c,m.rt,DT);if(!N)C.regen(a.c,a.rt,DT);
+    if(guest&&r.phase!=='count'){   // the host owns the rules: the guest only ticks the clock between snapshots
+      r.t+=DT;r.left=Math.max(0,CH.T-r.t);for(const s of r.slicks)s.life-=DT;r.slicks=r.slicks.filter(s=>s.life>0);r.ev.length=0;
+    }else{
+      C.step(r,DT,robC,copC,{slick,dash:copC.boostT>0});
+      for(const e of r.ev){if(N&&N.host&&e.k!=='tick'&&e.k!=='go')send('ch:e',{k:e.k,x:e.x,z:e.z,res:r.result,pts:r.pts,left:r.left,t:r.t});onEvent(e,rob)}
+    }
   }
   function onEvent(e,rob){
+    if(ST.mode!=='play'&&e.k!=='tick')return;
     switch(e.k){
       case 'tick':tone(e.n===1?700:520,.18,'square',.1);break;
       case 'go':toast('GO!',900);tone(880,.5,'square',.14);ST.punch=.8;break;
@@ -227,23 +238,25 @@ const Chase=(()=>{
     sheet=el('div','sheet rl-sheet');
     sheet.innerHTML=`<h2>${title}</h2><p class="rl-sub">${R.winMe?'You win this round':R.kind==='time'?'Nobody won — draw':'You lose this round'} · ${R.t.toFixed(1)} s · +${R.coins} 🪙</p>
       <div class="ch-sheet-score"><div><b>${ST.match.me}</b>You (match)</div><div><b>${ST.match.ai}</b>Them (match)</div></div>
-      <div class="rl-row"><button class="btn rl-go">⇄ NEXT ROUND (swap roles)</button><button class="btn rl-again">Same role</button><button class="btn rl-x">Leave</button></div>`;
+      <div class="rl-row">${!ST.net?'<button class="btn rl-go">⇄ NEXT ROUND (swap roles)</button><button class="btn rl-again">Same role</button>':ST.net.host?'<button class="btn rl-go">⇄ NEXT ROUND (swap roles)</button>':'<small>Waiting for the host to start the next round…</small>'}<button class="btn rl-x">Leave</button></div>`;
     document.body.appendChild(sheet);
     sheet.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;sfxInit();const cfg=Object.assign({},ST.cfg);
       if(b.classList.contains('rl-x')){exit();return}
       if(b.classList.contains('rl-go'))cfg.role=cfg.role==='rob'?'cop':'rob';
-      cfg.seed=0;const mt=ST.match,ret=ST.ret;cleanup();ST.match=mt;begin(cfg);ST.ret=ret});
+      cfg.seed=0;const mt=ST.match,ret=ST.ret,N=ST.net;
+      if(N&&N.host){const seed=((Math.random()*1e6)|0)+1;send('ch:go',{rid:N.rid,seed,hostRole:cfg.role,hostCls:cfg.cls,hostName:typeof myName==='string'?myName:'Host'});cfg.seed=seed;cfg.rid=N.rid;cleanup();ST.match=mt;begin(cfg,{id:N.id,host:true,cls:N.pcls,name:N.name});ST.ret=ret;return}
+      cleanup();ST.match=mt;begin(cfg);ST.ret=ret});
   }
   function closeSheet(){if(sheet){sheet.remove();sheet=null}}
   function cleanup(){
-    clearTimeout(ST.resT);closeSheet();if(ST.me)destroyCar(ST.me.o);if(ST.ai)destroyCar(ST.ai.o);ST.me=ST.ai=ST.r=ST.res=null;
+    clearTimeout(ST.resT);closeSheet();if(ST.me)destroyCar(ST.me.o);if(ST.ai)destroyCar(ST.ai.o);if(ST.net){const o=typeof others!=='undefined'&&others.get(ST.net.id);if(o&&o.group)o.group.visible=true}ST.me=ST.ai=ST.r=ST.res=null;ST.net=null;
     if(world)world.root.visible=false;if(hud)hud.classList.remove('on');document.body.classList.remove('rally','chase');
     if(ST.camKids){for(const [k,v] of ST.camKids)k.visible=v;ST.camKids=null}
     if(me)me.visible=true;camera.fov=baseFov;camera.updateProjectionMatrix();
     BTN.boost=BTN.oil=BTN.hand=BTN.l=BTN.r=BTN.u=BTN.d=BTN.brake=false;ST.mode='off';
   }
   function exit(){
-    if(ST.mode==='off')return;const ret=ST.ret;cleanup();ST.match={me:0,ai:0,n:0};
+    if(ST.mode==='off')return;if(ST.net)send('ch:l',{});const ret=ST.ret;cleanup();ST.match={me:0,ai:0,n:0};
     if(ret){S.x=ret.x;S.z=ret.z;S.y=Math.max(ret.y,H(ret.x,ret.z)+.2);S.vy=0;S.rot=ret.rot||S.rot;S.flying=false;S.grounded=true}
   }
 
@@ -273,7 +286,8 @@ const Chase=(()=>{
       if(ST.mode==='play'||ST.mode==='over'){ST.acc+=dt;let n=0;while(ST.acc>=DT&&n<4){if(ST.mode==='play')simStep();else idleStep();ST.acc-=DT;n++}if(n===4)ST.acc=0}
       if(!ST.me)return;
       pin();placeCar(ST.me.o,ST.me.c,dt,wall);placeCar(ST.ai.o,ST.ai.c,dt,wall);
-      const far=Math.hypot(ST.ai.c.x-ST.me.c.x,ST.ai.c.z-ST.me.c.z)>700;ST.ai.o.group.visible=!far;ST.ai.o.blob.visible=!far;
+      const far=Math.hypot(ST.ai.c.x-ST.me.c.x,ST.ai.c.z-ST.me.c.z)>700;ST.ai.o.group.visible=!far;ST.ai.o.blob.visible=!far&&(!ST.net||ST.net.seen>0);
+      if(ST.net){netTick(now);const o=others.get(ST.net.id);if(o&&o.group)o.group.visible=false;ST.ai.o.group.visible=ST.net.seen>0&&!far}
       chaseCamera(dt);worldUpdate(wall);hudUpdate(now);
       // the cop's siren is audible when he is on the robber's tail
       const r=ST.r;if(r&&ST.mode==='play'&&r.phase!=='count'&&Math.hypot(ST.ai.c.x-ST.me.c.x,ST.ai.c.z-ST.me.c.z)<110&&wall-(ST.sirT||0)>.42){ST.sirT=wall;ST.sirK=!ST.sirK;tone(ST.sirK?760:980,.2,'square',.035)}
@@ -287,10 +301,10 @@ const Chase=(()=>{
   }
 
   // ---------------------------------------------------------------- lobby + launcher
-  const cfgDef=()=>{try{return Object.assign({role:'rob',cls:'comet',diff:'normal'},JSON.parse(localStorage.getItem('chasecfg')||'{}'))}catch(e){return{role:'rob',cls:'comet',diff:'normal'}}};
+  const cfgDef=()=>{try{return Object.assign({role:'rob',cls:'comet',diff:'normal',mode:'ai'},JSON.parse(localStorage.getItem('chasecfg')||'{}'))}catch(e){return{role:'rob',cls:'comet',diff:'normal'}}};
   function openLobby(){
     if(ST.mode!=='off'||busy())return;closeSheet();sfxInit();
-    const cfg=openLobby.cfg||(openLobby.cfg=cfgDef()),s=stat();
+    const cfg=openLobby.cfg||(openLobby.cfg=cfgDef()),s=stat(),partner=partnerId(),po=partner&&others.get(partner),pname=(po&&(po.name||(po.group&&po.group.userData&&po.group.userData.nm)))||'friend';if(cfg.mode==='star'&&!partner)cfg.mode='ai';
     const bar=(k,v)=>`<div class="rl-st"><span>${k}</span><div><i style="width:${Math.round(clamp(v,0,1)*100)}%"></i></div></div>`;
     const cars=Object.entries(RALLY.cls).map(([k,v])=>`<button class="chip rl-car ${cfg.cls===k?'on':''}" data-cls="${k}"><b>${v.n}</b>${bar('Speed',(v.vmax-38)/26)}${bar('Handling',(v.turn*v.grip/11-.6)/.7)}${bar('Boost',(v.charges*v.boostT*v.boostMul-7)/6)}</button>`).join('');
     const chip=(a,k,l)=>`<button class="chip ${cfg[a]===k?'on':''}" data-${a}="${k}">${l}</button>`;
@@ -299,16 +313,18 @@ const Chase=(()=>{
       <p class="rl-sub">One of you steals the loot and runs for the getaway across the whole world, the other hunts him down. Hover-cars skim land and sea. Rounds last about a minute; swap roles each round.</p>
       <div class="rl-row">${chip('role','rob','🕵️ Robber')}${chip('role','cop','🚔 Cop')}</div>
       <div class="rl-row">${cars}</div>
-      <div class="rl-row"><small>AI opponent:</small>${chip('diff','easy','Easy')}${chip('diff','normal','Normal')}${chip('diff','hard','Hard')}</div>
+      <div class="rl-row">${chip('mode','ai','🤖 vs AI')}<button class="chip ${cfg.mode==='star'?'on':''}" data-mode="star" ${partner?'':'disabled'}>👥 vs ${partner?pname:'a friend'}</button></div>
+      <div class="rl-row" style="display:${cfg.mode==='star'?'none':'flex'}"><small>AI opponent:</small>${chip('diff','easy','Easy')}${chip('diff','normal','Normal')}${chip('diff','hard','Hard')}</div>
       <div class="rl-row"><button class="btn rl-go">START</button><button class="btn rl-x">Close</button></div>
       <p class="rl-help">${touch?'◀ ▶ steer, ▲ gas, BOOST, DRIFT. Robber: OIL drops a slick behind you. Cop: boost into the robber to RAM him. Stay within about 25 m of him to fill the BUST meter.':'Arrows/WASD steer · Space drift · Shift boost · E oil (robber) · boost into him to ram (cop). Stay within about 25 m to fill the BUST meter.'}</p>
       <p class="rl-best">${s.rounds} rounds · ${s.wins} won · ${s.esc} escapes · ${s.bust} busts · ${coinsNow()} 🪙</p>`;
     document.body.appendChild(sheet);
     sheet.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;sfxInit();
       const set=a=>{cfg[a]=b.dataset[a];try{localStorage.setItem('chasecfg',JSON.stringify(cfg))}catch(_){}closeSheet();openLobby()};
-      if(b.dataset.role)set('role');else if(b.dataset.cls)set('cls');else if(b.dataset.diff)set('diff');
+      if(b.dataset.mode&&b.disabled)return;
+      if(b.dataset.role)set('role');else if(b.dataset.mode)set('mode');else if(b.dataset.cls)set('cls');else if(b.dataset.diff)set('diff');
       else if(b.classList.contains('rl-x'))closeSheet();
-      else if(b.classList.contains('rl-go')){closeSheet();ST.match={me:0,ai:0,n:0};begin(Object.assign({},cfg))}});
+      else if(b.classList.contains('rl-go')){closeSheet();ST.match={me:0,ai:0,n:0};if(cfg.mode==='star'&&partner)invite(Object.assign({},cfg));else begin(Object.assign({},cfg))}});
   }
   let fabMade=false;
   function ensureFab(){
@@ -316,6 +332,75 @@ const Chase=(()=>{
     fab=el('button','dk ch-fab','🚔');fab.title='Cops & Robbers';fab.setAttribute('aria-label','Cops & Robbers');
     fab.addEventListener('click',()=>{sfxInit();if(ST.mode==='off')openLobby()});document.body.appendChild(fab);buildHud();
   }
+
+  // ---------------------------------------------------------------- multiplayer
+  // The HOST owns the rules (loot, getaway, bust, oil, ram) and broadcasts snapshots + events; each phone drives its own car and sends it at 10 Hz;
+  // the partner's car is dead-reckoned. The layout is a pure function of the seed, so both phones build the same heist with no extra data.
+  const partnerId=()=>{try{return typeof others!=='undefined'&&others.size?[...others.keys()][0]:null}catch(e){return null}};
+  function send(t,d){try{if(typeof Net!=='undefined'&&ST.net)Net.emit(t,Object.assign({rid:ST.net.rid},d))}catch(e){}}
+  function netVisual(dt){
+    const N=ST.net,p=N.pk,c=ST.ai.c;if(!p)return;
+    const age=Math.min(.4,(performance.now()-p.at)/1000),v=N.v,k=1-Math.exp(-dt*12);
+    const px=p.x+p.vx*age,py=p.y+p.vy*age,pz=p.z+p.vz*age;
+    v.x+=(px-v.x)*k;v.y+=(py-v.y)*k;v.z+=(pz-v.z)*k;v.h+=wrap(p.h-v.h)*k;v.pitch+=(p.pitch-v.pitch)*k;v.roll+=(p.roll-v.roll)*k;
+    c.x=v.x;c.y=v.y;c.z=v.z;c.h=v.h;c.pitch=v.pitch;c.roll=v.roll;c.vx=p.vx;c.vz=p.vz;c.vy=p.vy;c.s=Math.hypot(p.vx,p.vy,p.vz);c.boostT=p.boosting?1:0;c.padT=0;c.hitT=p.hit?.5:0;c.mode='car';c.steer=0;
+    if(performance.now()-p.at>6000)N.seen=0;
+  }
+  function netTick(now){
+    const N=ST.net;if(!N||!ST.r)return;
+    if(now-N.lastC>=100){N.lastC=now;send('ch:c',{p:CP.pack(ST.me.c)})}
+    if(N.host&&ST.mode==='play'&&now-N.lastS>=120){N.lastS=now;const r=ST.r;
+      send('ch:s',{ph:r.phase,t:+r.t.toFixed(2),cy:r.carry?1:0,b:+r.bust.toFixed(3),sl:r.slicks.map(s=>[s.id,Math.round(s.x),Math.round(s.z),+s.life.toFixed(1)]),sn:r.slicksLeft,rt:+r.robT.toFixed(2),rm:r.robMul,ct:+r.copT.toFixed(2),cm:r.copMul,rp:+r.robPace.toFixed(3),cp:+r.copPace.toFixed(3),h:r.hint?[Math.round(r.hint.x),Math.round(r.hint.z)]:0})}
+  }
+  function applySnap(d){
+    const r=ST.r;if(!r||ST.net.host||d.rid!==ST.net.rid)return;
+    if(RANK[d.ph]>RANK[r.phase]&&d.ph!=='over'){r.phase=d.ph;r.cd=0}
+    if(r.phase==='count')return;
+    r.t=d.t;r.left=Math.max(0,CH.T-d.t);r.carry=!!d.cy;r.bust=d.b;r.slicks=d.sl.map(a=>({id:a[0],x:a[1],z:a[2],life:a[3]}));r.slicksLeft=d.sn;
+    r.robT=d.rt;r.robMul=d.rm;r.copT=d.ct;r.copMul=d.cm;r.robPace=d.rp;r.copPace=d.cp;r.hint=d.h?{x:d.h[0],z:d.h[1]}:null;
+  }
+  let inv=null,pending=null;
+  function invite(cfg){
+    const rid=Math.random().toString(36).slice(2,8);pending={rid,cfg};
+    Net.emit('ch:inv',{rid,role:cfg.role,cls:cfg.cls,name:typeof myName==='string'?myName:'Friend'});
+    try{banner('Invite sent. Waiting for your friend…','COPS & ROBBERS')}catch(e){}
+    clearTimeout(pending.t);pending.t=setTimeout(()=>{if(pending&&ST.mode==='off'){pending=null;try{banner('No answer. Try again or play the AI.','COPS & ROBBERS')}catch(e){}}},25000);
+  }
+  function showInvite(d,from){
+    buildHud();inv&&inv.remove();const role=d.role==='rob'?'COP':'ROBBER';
+    inv=el('div','rl-inv',`<b>🚔 ${d.name||'A friend'} invites you to Cops & Robbers — you would be the ${role}</b><div><button class="btn rl-y">Join</button><button class="btn rl-n">No</button></div>`);document.body.appendChild(inv);
+    const done=()=>{inv&&inv.remove();inv=null};
+    inv.querySelector('.rl-n').onclick=done;
+    inv.querySelector('.rl-y').onclick=()=>{done();sfxInit();const cfg=openLobby.cfg||(openLobby.cfg=cfgDef());ST.join={rid:d.rid,from};
+      Net.emit('ch:acc',{rid:d.rid,cls:cfg.cls,name:typeof myName==='string'?myName:'Friend'});try{banner('Joined! Waiting for the start…','COPS & ROBBERS')}catch(e){}};
+    setTimeout(done,30000);
+  }
+  function netInit(){
+    if(netInit.done||typeof Net==='undefined')return;netInit.done=true;
+    Net.on('ch:inv',(d,from)=>{if(ST.mode!=='off'||busy()||!d)return;showInvite(d,from)});
+    Net.on('ch:acc',(d,from)=>{
+      if(!d||!pending||d.rid!==pending.rid||ST.mode!=='off')return;const cfg=pending.cfg,rid=pending.rid;clearTimeout(pending.t);pending=null;
+      const seed=((Math.random()*1e6)|0)+1;
+      Net.emit('ch:go',{rid,seed,hostRole:cfg.role,hostCls:cfg.cls,hostName:typeof myName==='string'?myName:'Host'});
+      ST.match={me:0,ai:0,n:0};begin(Object.assign({},cfg,{seed,rid}),{id:from,host:true,cls:d.cls,name:d.name});
+    });
+    Net.on('ch:go',(d,from)=>{
+      if(!d)return;const rejoin=ST.net&&ST.net.rid===d.rid&&ST.mode==='over';
+      if(!rejoin&&(!ST.join||d.rid!==ST.join.rid||ST.mode!=='off'))return;
+      const cfg=openLobby.cfg||(openLobby.cfg=cfgDef()),mt=rejoin?ST.match:{me:0,ai:0,n:0},ret=rejoin?ST.ret:null,cls=rejoin?ST.cfg.cls:cfg.cls;
+      if(rejoin)cleanup();else ST.join=null;ST.match=mt;
+      begin({role:d.hostRole==='rob'?'cop':'rob',cls,seed:d.seed,rid:d.rid},{id:from,host:false,cls:d.hostCls,name:d.hostName});if(ret)ST.ret=ret;
+    });
+    Net.on('ch:c',(d)=>{const N=ST.net;if(!N||!d||d.rid!==N.rid)return;const p=CP.unpack(d.p,{});p.at=performance.now();N.pk=p;if(!N.seen){N.seen=1;N.v.x=p.x;N.v.y=p.y;N.v.z=p.z;N.v.h=p.h}});
+    Net.on('ch:s',d=>{if(ST.net&&d)applySnap(d)});
+    Net.on('ch:a',d=>{const N=ST.net;if(N&&N.host&&d&&d.rid===N.rid&&d.k==='slick')N.act.slick=true});
+    Net.on('ch:e',d=>{const N=ST.net,r=ST.r;if(!N||N.host||!r||!d||d.rid!==N.rid)return;
+      if(d.k==='escape'||d.k==='bust'||d.k==='time'){r.phase='over';r.result=d.k==='time'?'time':d.k;r.pts=d.pts;r.left=d.left;r.t=d.t}
+      if(d.k==='loot'){r.carry=true;if(RANK[r.phase]<2)r.phase='run'}
+      onEvent(d,ST.role==='rob')});
+    Net.on('ch:l',d=>{const N=ST.net;if(!N||!d||d.rid!==N.rid)return;N.seen=0;toast('Your friend left',2200);if(ST.mode==='play')setTimeout(()=>{if(ST.net===N)exit()},1800)});
+  }
+  setTimeout(function wait(){if(typeof Net==='undefined'||typeof others==='undefined'){setTimeout(wait,500);return}netInit()},1200);
 
   return {
     open:openLobby,start:begin,exit,

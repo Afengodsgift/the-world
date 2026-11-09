@@ -10,3 +10,10 @@ Round: grab the LOOT (gold beam), then reach the GETAWAY (green beam) within 90 
 
 Tests: `node tests/chase.sim.js` (rules, layout, AI-vs-AI on the real physics), `tests/chase_browser.mjs` (real game, needs Chromium).
 Standing multiplier `c.pace` was added to CarPhysics (default 1, no effect on Rally).
+
+## Co-op (vs a friend in the world)
+Lobby: pick a role, then "👥 vs <friend>". The friend gets an invite and plays the other role. The HOST owns the rules: it steps ChaseCore with its own car and the
+friend's dead-reckoned car, and broadcasts snapshots (`ch:s`, ~8 Hz) and events (`ch:e`). Each phone drives its own car and sends it as `ch:c` (10 Hz, CarPhysics.pack).
+A guest robber asks for oil with `ch:a`. The layout is a pure function of the seed (`ch:go`), so both phones build the same heist. Next round: the host's button
+re-sends `ch:go` with swapped roles. Leaving sends `ch:l`.
+Test: `tests/chase_net_browser.mjs` (two pages on the harness hub).
